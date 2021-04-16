@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:guachinches/profile.dart';
 import 'package:guachinches/reviews.dart';
-import 'home.dart';
+import 'home/home.dart';
 
 class Menu extends StatefulWidget {
   @override
