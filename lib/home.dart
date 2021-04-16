@@ -1,5 +1,8 @@
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:flutter/material.dart';
+import 'package:guachinches/globalMethods.dart';
+
+import 'details.dart';
 
 class Home extends StatefulWidget {
   @override
@@ -242,83 +245,86 @@ class _HomeState extends State<Home> {
               child: Column(
                 children: guachinches
                     .map((e) => new Container(margin: EdgeInsets.symmetric(horizontal: 10.0),
-                      child: Column(
-                            children: [
-                              Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Container(
-                                    width: 80.0,
-                                    height: 80.0,
-                                    decoration: BoxDecoration(
-                                        borderRadius: BorderRadius.circular(12.0),
-                                        image: DecorationImage(
-                                          image: AssetImage(e['imagen']),
-                                        )),
-                                  ),
-                                  Expanded(
-                                    child: Container(
-                                      margin: EdgeInsets.only(left: 20.0),
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            e['nombre'],
-                                            style: TextStyle(
-                                              color: Colors.black,
-                                              fontSize: 18.0,
-                                              fontWeight: FontWeight.bold,
+                      child: GestureDetector(
+                        onTap: ()=>gotoDetail(),
+                        child: Column(
+                              children: [
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Container(
+                                      width: 80.0,
+                                      height: 80.0,
+                                      decoration: BoxDecoration(
+                                          borderRadius: BorderRadius.circular(12.0),
+                                          image: DecorationImage(
+                                            image: AssetImage(e['imagen']),
+                                          )),
+                                    ),
+                                    Expanded(
+                                      child: Container(
+                                        margin: EdgeInsets.only(left: 20.0),
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              e['nombre'],
+                                              style: TextStyle(
+                                                color: Colors.black,
+                                                fontSize: 18.0,
+                                                fontWeight: FontWeight.bold,
+                                              ),
                                             ),
-                                          ),
-                                          Text(
-                                            e['tipo'],
-                                            style: TextStyle(
-                                              color: Colors.black,
-                                              fontSize: 12.0,
+                                            Text(
+                                              e['tipo'],
+                                              style: TextStyle(
+                                                color: Colors.black,
+                                                fontSize: 12.0,
+                                              ),
                                             ),
-                                          ),
-                                          Text(
-                                            e['dirección'],
-                                            style: TextStyle(
-                                              color: Colors.grey,
-                                              fontSize: 12.0,
+                                            Text(
+                                              e['dirección'],
+                                              style: TextStyle(
+                                                color: Colors.grey,
+                                                fontSize: 12.0,
+                                              ),
                                             ),
-                                          ),
-                                          Text(
-                                            e['oferta'],
-                                            style: TextStyle(
-                                              color: Color.fromRGBO(226, 120, 120, 1),
-                                              fontSize: 12.0,
+                                            Text(
+                                              e['oferta'],
+                                              style: TextStyle(
+                                                color: Color.fromRGBO(226, 120, 120, 1),
+                                                fontSize: 12.0,
+                                              ),
                                             ),
-                                          ),
-                                        ],
+                                          ],
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                  Container(
-                                    width: 48.0,
-                                    height: 24.0,
-                                    decoration: BoxDecoration(
-                                      color: Color.fromRGBO(149, 194, 55, 1),
-                                        borderRadius: BorderRadius.circular(6.0),
-                                    ),
-                                    child: Text(
-                                      e['valoracion'],
-                                      textAlign: TextAlign.center,
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 18.0,
+                                    Container(
+                                      width: 48.0,
+                                      height: 24.0,
+                                      decoration: BoxDecoration(
+                                        color: Color.fromRGBO(149, 194, 55, 1),
+                                          borderRadius: BorderRadius.circular(6.0),
+                                      ),
+                                      child: Text(
+                                        e['valoracion'],
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 18.0,
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                ],
-                              ),
-                              SizedBox(
-                                height: 20.0,
-                              ),
-                            ],
-                          ),
+                                  ],
+                                ),
+                                SizedBox(
+                                  height: 20.0,
+                                ),
+                              ],
+                            ),
+                      ),
                     ))
                     .toList(),
               ),
@@ -327,5 +333,8 @@ class _HomeState extends State<Home> {
         ),
       ),
     );
+  }
+  gotoDetail(){
+    GlobalMethods().pushPage(context, Details());
   }
 }

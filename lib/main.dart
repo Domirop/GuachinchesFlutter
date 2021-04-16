@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:guachinches/menu.dart';
 
-import 'details.dart';
-import 'home.dart';
 
 void main() {
   runApp(MyApp());
@@ -26,7 +25,7 @@ class _MyAppState extends State<MyApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
+      title: 'Guachinches',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         buttonTheme:ButtonThemeData(minWidth:5),
@@ -35,7 +34,7 @@ class _MyAppState extends State<MyApp> {
         splashColor: Colors.transparent,
         highlightColor: Colors.transparent,
       ),
-      home: Details(),
+      home: Menu(),
     );
   }
 
