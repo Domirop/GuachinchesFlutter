@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:guachinches/categorias.dart';
+import 'package:guachinches/perfil.dart';
+import 'package:guachinches/valoraciones.dart';
 
 import 'details.dart';
 import 'home.dart';
@@ -35,7 +38,7 @@ class _MyAppState extends State<MyApp> {
         splashColor: Colors.transparent,
         highlightColor: Colors.transparent,
       ),
-      home: Details(),
+      home: Perfil(),
     );
   }
 
