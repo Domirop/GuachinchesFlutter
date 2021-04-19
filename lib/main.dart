@@ -47,7 +47,7 @@ class _MyAppState extends State<MyApp> {
           splashColor: Colors.transparent,
           highlightColor: Colors.transparent,
         ),
-        home: Menu(),
+        home: Home(),
       ),
     );
   }

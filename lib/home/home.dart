@@ -51,7 +51,7 @@ class _HomeState extends State<Home> implements HomeView {
     final restaurantCubit = context.read<RestaurantCubit>();
 
     remoteRepository = HttpRemoteRepository(Client());
-    presenter = HomePresenter(remoteRepository,this );
+    presenter = HomePresenter(remoteRepository, this, restaurantCubit);
 
     presenter.getSelectedMunicipality();
     presenter.getAllRestaurants();
@@ -252,101 +252,110 @@ class _HomeState extends State<Home> implements HomeView {
               height: 20.0,
             ),
             Container(
-              child: Column(
-                children: restaurants.where((element) => element.negocioMunicipioId == municipalityId || municipalityId == "")
-                    .map((e) {
-                      bool condition = selectedCategories == "";
-                      for(int i = 0; i< e.categoriaRestaurantes.length; i++){
-                        if(e.categoriaRestaurantes[i].categorias.id == selectedCategories){
+              child: BlocBuilder<RestaurantCubit, RestaurantState>(
+                builder: (context, state){
+                  if(state is RestaurantLoaded){
+                    return Column(
+                      children: state.restaurants.where((element) => element.negocioMunicipioId == municipalityId || municipalityId == "")
+                          .map((e) {
+                        bool condition = selectedCategories == "";
+                        for(int i = 0; i< e.categoriaRestaurantes.length; i++){
+                          if(e.categoriaRestaurantes[i].categorias.id == selectedCategories){
                             condition = true;
+                          }
                         }
-                      }
-                      return condition == true?
-                    new Container(margin: EdgeInsets.symmetric(horizontal:
-                    10.0),
-                child: GestureDetector(
-                  onTap: () => gotoDetail(),
-                  child: Column(
-                    children: [
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Container(
-                            width: 80.0,
-                            height: 80.0,
-                            decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(12.0),
-                                image: DecorationImage(
-                                  image: AssetImage(
-                                      'assets/images/Morenita.png'),
-                                )),
-                          ),
-                          Expanded(
-                            child: Container(
-                              margin: EdgeInsets.only(left: 20.0),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    e.nombre,
-                                    style: TextStyle(
-                                      color: Colors.black,
-                                      fontSize: 18.0,
-                                      fontWeight: FontWeight.bold,
+                        return condition == true?
+                        new Container(margin: EdgeInsets.symmetric(horizontal:
+                        10.0),
+                          child: GestureDetector(
+                            onTap: () => gotoDetail(),
+                            child: Column(
+                              children: [
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Container(
+                                      width: 80.0,
+                                      height: 80.0,
+                                      decoration: BoxDecoration(
+                                          borderRadius: BorderRadius.circular(12.0),
+                                          image: DecorationImage(
+                                            image: AssetImage(
+                                                'assets/images/Morenita.png'),
+                                          )),
                                     ),
-                                  ),
-                                  Text(
-                                    "Carne fiesta",
-                                    style: TextStyle(
-                                      color: Colors.black,
-                                      fontSize: 12.0,
+                                    Expanded(
+                                      child: Container(
+                                        margin: EdgeInsets.only(left: 20.0),
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              e.nombre,
+                                              style: TextStyle(
+                                                color: Colors.black,
+                                                fontSize: 18.0,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                            Text(
+                                              "Carne fiesta",
+                                              style: TextStyle(
+                                                color: Colors.black,
+                                                fontSize: 12.0,
+                                              ),
+                                            ),
+                                            Text(
+                                              e.direccion,
+                                              style: TextStyle(
+                                                color: Colors.grey,
+                                                fontSize: 12.0,
+                                              ),
+                                            ),
+                                            Text(
+                                              "Oferta en carne cabra",
+                                              style: TextStyle(
+                                                color: Color.fromRGBO(226, 120, 120, 1),
+                                                fontSize: 12.0,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
                                     ),
-                                  ),
-                                  Text(
-                                    e.direccion,
-                                    style: TextStyle(
-                                      color: Colors.grey,
-                                      fontSize: 12.0,
+                                    Container(
+                                      width: 48.0,
+                                      height: 24.0,
+                                      decoration: BoxDecoration(
+                                        color: Color.fromRGBO(149, 194, 55, 1),
+                                        borderRadius: BorderRadius.circular(6.0),
+                                      ),
+                                      child: Text(
+                                        e.avg,
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 18.0,
+                                        ),
+                                      ),
                                     ),
-                                  ),
-                                  Text(
-                                    "Oferta en carne cabra",
-                                    style: TextStyle(
-                                      color: Color.fromRGBO(226, 120, 120, 1),
-                                      fontSize: 12.0,
-                                    ),
-                                  ),
-                                ],
-                              ),
+                                  ],
+                                ),
+                                SizedBox(
+                                  height: 20.0,
+                                ),
+                              ],
                             ),
                           ),
-                          Container(
-                            width: 48.0,
-                            height: 24.0,
-                            decoration: BoxDecoration(
-                              color: Color.fromRGBO(149, 194, 55, 1),
-                              borderRadius: BorderRadius.circular(6.0),
-                            ),
-                            child: Text(
-                              e.avg,
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 18.0,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      SizedBox(
-                        height: 20.0,
-                      ),
-                    ],
-                  ),
-                ),
-              ): Container();})
-                    .toList(),
+                        ): Container();})
+                          .toList(),
+                    );
+                  }
+                  return Container();
+                  }
+
+
               ),
             ),
           ],

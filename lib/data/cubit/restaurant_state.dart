@@ -5,6 +5,7 @@ import 'package:guachinches/model/restaurant.dart';
 @immutable
 abstract class RestaurantState {
   const RestaurantState();
+
 }
 
 class RestaurantInitial extends RestaurantState {

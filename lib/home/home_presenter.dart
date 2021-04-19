@@ -1,5 +1,6 @@
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
+import 'package:guachinches/data/cubit/restaurant_cubit.dart';
 import 'package:guachinches/model/Category.dart';
 import 'package:guachinches/model/Review.dart';
 import 'package:guachinches/model/restaurant.dart';
@@ -7,19 +8,16 @@ import 'package:guachinches/model/restaurant.dart';
 class HomePresenter{
   final RemoteRepository _remoteRepository;
   final HomeView _view;
+  RestaurantCubit _restaurantCubit;
+
   final storage = new FlutterSecureStorage();
 
-  HomePresenter(this._remoteRepository, this._view);
+  HomePresenter(this._remoteRepository, this._view, this._restaurantCubit);
 
   getAllRestaurants() async {
-    List<Restaurant> restaurants= await _remoteRepository.getAllRestaurants();
-    for(int i = 0; i<restaurants.length; i++){
-      String avg = await _calculateAvg(restaurants[i].valoraciones);
-      restaurants[i].avg = avg;
-      print(restaurants[i].avg);
-    }
+    await _restaurantCubit.getRestaurants();
 
-    _view.setAllRestaurants(restaurants);
+
   }
   Future<String> _calculateAvg(List<Review> reviews) async {
     double totalReviews = (reviews.length).toDouble();
@@ -27,7 +25,7 @@ class HomePresenter{
     for(int i = 0; i<reviews.length; i++){
       totalratingSum += double.parse(reviews[i].rating);
     }
-    return (totalratingSum/ totalReviews).toString();
+    return (totalratingSum / totalReviews).toString();
   }
 
   getAllCategories() async {
