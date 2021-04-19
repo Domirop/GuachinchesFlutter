@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:guachinches/model/Category.dart';
+import 'package:guachinches/model/Municipality.dart';
 import 'package:guachinches/model/restaurant.dart';
 import 'package:http/http.dart';
 
@@ -41,5 +42,16 @@ class HttpRemoteRepository implements RemoteRepository {
     return categories;
   }
 
-
+  @override
+  Future<List<Municipality>> getAllMunicipalities() async {
+    var uri = Uri.parse(endpoint + "municipality");
+    var response = await _client.get(uri);
+    List<dynamic> data = json.decode(response.body)['result'];
+    List<Municipality> municipalities = [];
+    for(var i = 0; i<data.length;i++){
+      Municipality municipality = Municipality.fromJson(data[i]);
+      municipalities.add(municipality);
+    }
+    return municipalities;
+  }
 }

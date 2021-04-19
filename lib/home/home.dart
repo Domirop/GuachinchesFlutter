@@ -2,11 +2,16 @@ import 'package:carousel_slider/carousel_slider.dart';
 import 'package:flutter/material.dart';
 import 'package:guachinches/data/HttpRemoteRepository.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:guachinches/data/cubit/restaurant_cubit.dart';
+import 'package:guachinches/data/cubit/restaurant_state.dart';
+import 'package:guachinches/data/cubit/restaurant_state.dart';
 import 'package:guachinches/globalMethods.dart';
 import 'package:guachinches/home/home_presenter.dart';
 import 'package:guachinches/model/Category.dart';
 import 'package:guachinches/model/CategoryRestaurant.dart';
 import 'package:guachinches/model/restaurant.dart';
+import 'package:guachinches/municipality_screen/municipality_screen.dart';
 import 'package:http/http.dart';
 
 import '../details.dart';
@@ -38,12 +43,17 @@ class _HomeState extends State<Home> implements HomeView {
   List<Restaurant> restaurants = [];
   List<Category> categories = [];
   String municipalityId = "";
+  String municipalityName = "Todos";
   HomePresenter presenter;
   RemoteRepository remoteRepository;
   @override
   void initState() {
+    final restaurantCubit = context.read<RestaurantCubit>();
+
     remoteRepository = HttpRemoteRepository(Client());
     presenter = HomePresenter(remoteRepository,this );
+
+    presenter.getSelectedMunicipality();
     presenter.getAllRestaurants();
     presenter.getAllCategories();
     super.initState();
@@ -79,22 +89,29 @@ class _HomeState extends State<Home> implements HomeView {
                   height: 40.0,
                   width: 40.0,
                 ),
-                Row(
-                  children: [
-                    Text(
-                      'Agua García, Tenerife',
-                      style: TextStyle(
-                        color: Colors.black,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18.0,
-                      ),
+                GestureDetector(
+                  onTap: ()=>goToSelectMunicipality(),
+                  child: Container(
+                    height: 60,
+                    color: Colors.transparent,
+                    child: Row(
+                      children: [
+                        Text(
+                          municipalityName,
+                          style: TextStyle(
+                            color: Colors.black,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18.0,
+                          ),
+                        ),
+                        Icon(
+                          Icons.keyboard_arrow_down,
+                          color: Colors.black,
+                          size: 20.0,
+                        ),
+                      ],
                     ),
-                    Icon(
-                      Icons.keyboard_arrow_down,
-                      color: Colors.black,
-                      size: 20.0,
-                    ),
-                  ],
+                  ),
                 ),
                 Icon(
                   Icons.search,
@@ -363,5 +380,15 @@ class _HomeState extends State<Home> implements HomeView {
       }
     });
   }
+  goToSelectMunicipality(){
+    GlobalMethods().pushAndReplacement(context, MunicipalityScreen());
+  }
 
+  @override
+  setMunicipality(String municipalityName, String municipalityId) {
+  setState(() {
+    this.municipalityName = municipalityName;
+    this.municipalityId = municipalityId;
+  });
+  }
 }

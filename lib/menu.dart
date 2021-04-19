@@ -22,7 +22,6 @@ class _ProfileState extends State<Menu> {
       color: Colors.black,
     )
         : Scaffold(
-     
       body: screens[selectedItem],
       bottomNavigationBar: Theme(
         data: Theme.of(context).copyWith(

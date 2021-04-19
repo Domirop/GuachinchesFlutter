@@ -15,6 +15,11 @@ class Municipality {
     _nombre = nombre;
   }
 
+
+  set id(String value) {
+    _id = value;
+  }
+
   Municipality.fromJson(dynamic json) {
     _id = json["Id"];
     _nombre = json["Nombre"];
@@ -27,4 +32,7 @@ class Municipality {
     return map;
   }
 
+  set nombre(String value) {
+    _nombre = value;
+  }
 }
