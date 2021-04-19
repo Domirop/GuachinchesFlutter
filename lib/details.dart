@@ -505,6 +505,6 @@ class _DetailsState extends State<Details> {
   }
 
   openMap() {
-    MapsLauncher.launchQuery('Calle la guancha 23 , 38530');
+    MapsLauncher.launchQuery('Calle Carr. San Antonio, 35, La Matanza de Acentejo.');
   }
 }
