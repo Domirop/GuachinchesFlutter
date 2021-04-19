@@ -1,6 +1,6 @@
-import 'package:carousel_slider/carousel_slider.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:maps_launcher/maps_launcher.dart';
 
 class Details extends StatefulWidget {
   @override
@@ -240,23 +240,26 @@ class _DetailsState extends State<Details> {
                       ],
                       borderRadius: BorderRadius.circular(10.0),
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Image(
-                          image: AssetImage('assets/images/map.png'),
-                          height: 40.0,
-                          width: 40.0,
-                        ),
-                        Text(
-                          'Abrir mapa',
-                          style: TextStyle(
-                            fontSize: 8.0,
-                            color: Colors.black,
+                    child: GestureDetector(
+                      onTap: ()=>openMap(),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Image(
+                            image: AssetImage('assets/images/map.png'),
+                            height: 40.0,
+                            width: 40.0,
                           ),
-                        ),
-                      ],
+                          Text(
+                            'Abrir mapa',
+                            style: TextStyle(
+                              fontSize: 8.0,
+                              color: Colors.black,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ],
@@ -499,5 +502,9 @@ class _DetailsState extends State<Details> {
         ),
       ),
     );
+  }
+
+  openMap() {
+    MapsLauncher.launchQuery('Calle Carr. San Antonio, 35, La Matanza de Acentejo.');
   }
 }
