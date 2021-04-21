@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
+import 'package:guachinches/perfil.dart';
 import 'package:guachinches/profile.dart';
 import 'package:guachinches/reviews.dart';
+import 'file:///C:/Users/Jessica/AndroidStudioProjects/GuachinchesFlutter/lib/valoraciones/valoraciones.dart';
 import 'home/home.dart';
 
 class Menu extends StatefulWidget {
@@ -12,7 +14,7 @@ class Menu extends StatefulWidget {
 class _ProfileState extends State<Menu> {
   int selectedItem = 0;
   int aux;
-  List<Widget> screens = [ Home(), Reviews(),Profile()];
+  List<Widget> screens = [ Home(), Valoraciones(),Perfil()];
 
   @override
   Widget build(BuildContext context) {

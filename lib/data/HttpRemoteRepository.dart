@@ -2,7 +2,9 @@ import 'dart:convert';
 
 import 'package:guachinches/model/Category.dart';
 import 'package:guachinches/model/Municipality.dart';
+import 'package:guachinches/model/User.dart';
 import 'package:guachinches/model/restaurant.dart';
+import 'package:guachinches/model/user_info.dart';
 import 'package:http/http.dart';
 
 import 'RemoteRepository.dart';
@@ -12,6 +14,18 @@ class HttpRemoteRepository implements RemoteRepository {
   final String endpoint = "http://163.172.183.16:32683/";
 
   HttpRemoteRepository(this._client);
+
+
+  @override
+  Future<UserInfo> getUserInfo(String userId) async {
+    var uri = Uri.parse(endpoint + "user/"+userId);
+    var response = await _client.get(uri);
+
+    var data = json.decode(response.body)['result'];
+  print(data);
+    UserInfo user= UserInfo.fromJson(data['Usuario'][0]);
+    return user;
+  }
 
   @override
   Future<List<Restaurant>> getAllRestaurants() async {
@@ -54,4 +68,6 @@ class HttpRemoteRepository implements RemoteRepository {
     }
     return municipalities;
   }
+
+
 }

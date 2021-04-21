@@ -1,4 +1,6 @@
 
+import 'package:guachinches/model/Review.dart';
+
 /// id : "08444ae3-0f82-4c51-9d67-50ef92458aac"
 /// nombre : "Pepe"
 /// apellidos : "Luis Cruz"
@@ -11,7 +13,7 @@ class User {
   String _apellidos;
   String _email;
   String _telefono;
-
+  List<Review> _reviews;
   String get id => _id;
   String get nombre => _nombre;
   String get apellidos => _apellidos;

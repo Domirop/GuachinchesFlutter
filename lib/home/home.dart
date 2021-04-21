@@ -5,7 +5,6 @@ import 'package:guachinches/data/RemoteRepository.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:guachinches/data/cubit/restaurant_cubit.dart';
 import 'package:guachinches/data/cubit/restaurant_state.dart';
-import 'package:guachinches/data/cubit/restaurant_state.dart';
 import 'package:guachinches/globalMethods.dart';
 import 'package:guachinches/home/home_presenter.dart';
 import 'package:guachinches/model/Category.dart';
