@@ -12,11 +12,14 @@ class Menu extends StatefulWidget {
 class _ProfileState extends State<Menu> {
   int selectedItem = 0;
   int aux;
-  List<Widget> screens = [ Home(), Reviews(),Profile()];
+  List<Widget> screens = [ Home(), Reviews(), Profile()];
 
   @override
   Widget build(BuildContext context) {
-    double width = MediaQuery.of(context).size.width;
+    double width = MediaQuery
+        .of(context)
+        .size
+        .width;
     return screens.length == 0
         ? SpinKitPulse(
       color: Colors.black,
@@ -26,7 +29,10 @@ class _ProfileState extends State<Menu> {
       bottomNavigationBar: Theme(
         data: Theme.of(context).copyWith(
           canvasColor: Colors.white,
-          textTheme: Theme.of(context).textTheme.copyWith(
+          textTheme: Theme
+              .of(context)
+              .textTheme
+              .copyWith(
             caption: TextStyle(color: Colors.white),
           ),
         ),

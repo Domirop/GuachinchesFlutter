@@ -45,6 +45,7 @@ class _DetailsState extends State<Details> {
                   left: 15.0,
                   child: Container(
                     width: 40.0,
+                    height: 40.0,
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
                       color: Colors.white,
@@ -57,6 +58,25 @@ class _DetailsState extends State<Details> {
                     ),
                   ),
                 ),
+                Positioned(
+                  top: 40.0,
+                  right: 15.0,
+                  child: Container(
+                    width: 40.0,
+                    height: 40.0,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12.0),
+                    ),
+                    child: Icon(
+                      Icons.favorite,
+                      size: 25.0,
+                      color: Colors.black,
+                    ),
+                  ),
+                ),
+
               ],
             ),
             SizedBox(
@@ -267,6 +287,14 @@ class _DetailsState extends State<Details> {
             ),
             SizedBox(
               height: 30.0,
+            ),
+            Text(
+              "Carta",
+              style: TextStyle(
+                color: Colors.black,
+                fontWeight: FontWeight.bold,
+                fontSize: 18.0,
+              ),
             ),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
