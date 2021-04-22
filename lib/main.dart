@@ -3,14 +3,13 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:guachinches/data/HttpRemoteRepository.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
-import 'package:guachinches/data/cubit/restaurant_state.dart';
-import 'package:guachinches/home/home.dart';
+import 'package:guachinches/inicio.dart';
+import 'package:guachinches/login.dart';
 import 'package:guachinches/menu.dart';
-import 'package:guachinches/municipality_screen/municipality_screen.dart';
+import 'package:guachinches/perfil.dart';
+import 'package:guachinches/valoraciones.dart';
 import 'package:http/http.dart';
-
 import 'data/cubit/restaurant_cubit.dart';
-import 'data/cubit/restaurant_state.dart';
 
 
 void main() {
@@ -47,7 +46,7 @@ class _MyAppState extends State<MyApp> {
           splashColor: Colors.transparent,
           highlightColor: Colors.transparent,
         ),
-        home: Home(),
+        home: Valoraciones(),
       ),
     );
   }
