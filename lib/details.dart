@@ -1,6 +1,8 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:guachinches/valoraciones.dart';
 import 'package:maps_launcher/maps_launcher.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class Details extends StatefulWidget {
   @override
@@ -8,6 +10,20 @@ class Details extends StatefulWidget {
 }
 
 class _DetailsState extends State<Details> {
+  List images = [
+    "assets/images/Morenita.png",
+    "assets/images/Morenita.png",
+    "assets/images/Morenita.png",
+    "assets/images/Morenita.png",
+    "assets/images/Morenita.png"
+  ];
+  String phone = "+34111222333";
+  int indexSection = 0;
+
+  final cardKey = GlobalKey();
+  final detailsKey = GlobalKey();
+  final reviewsKey = GlobalKey();
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -76,7 +92,6 @@ class _DetailsState extends State<Details> {
                     ),
                   ),
                 ),
-
               ],
             ),
             SizedBox(
@@ -85,51 +100,75 @@ class _DetailsState extends State<Details> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                Container(
-                  padding:
-                      EdgeInsets.symmetric(vertical: 5.0, horizontal: 10.0),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(7.0),
-                    color: Color.fromRGBO(254, 192, 75, 1),
-                  ),
-                  child: Text(
-                    'Detalles',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 12.0,
-                      fontWeight: FontWeight.bold,
+                GestureDetector(
+                  onTap: () => {
+                    Scrollable.ensureVisible(detailsKey.currentContext),
+                    changeSectionIndex(0),
+                  },
+                  child: Container(
+                    padding:
+                        EdgeInsets.symmetric(vertical: 5.0, horizontal: 10.0),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(7.0),
+                      color: indexSection == 0
+                          ? Color.fromRGBO(254, 192, 75, 1)
+                          : Colors.white,
+                    ),
+                    child: Text(
+                      'Detalles',
+                      style: TextStyle(
+                        color: indexSection == 0 ? Colors.white : Colors.black,
+                        fontSize: 12.0,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ),
-                Container(
-                  padding:
-                      EdgeInsets.symmetric(vertical: 5.0, horizontal: 10.0),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(7.0),
-                    color: Colors.white,
-                  ),
-                  child: Text(
-                    'Carta',
-                    style: TextStyle(
-                      fontSize: 12.0,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black,
+                GestureDetector(
+                  onTap: () => {
+                    Scrollable.ensureVisible(cardKey.currentContext),
+                    changeSectionIndex(1),
+                  },
+                  child: Container(
+                    padding:
+                        EdgeInsets.symmetric(vertical: 5.0, horizontal: 10.0),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(7.0),
+                      color: indexSection == 1
+                          ? Color.fromRGBO(254, 192, 75, 1)
+                          : Colors.white,
+                    ),
+                    child: Text(
+                      'Carta',
+                      style: TextStyle(
+                        fontSize: 12.0,
+                        fontWeight: FontWeight.bold,
+                        color: indexSection == 1 ? Colors.white : Colors.black,
+                      ),
                     ),
                   ),
                 ),
-                Container(
-                  padding:
-                      EdgeInsets.symmetric(vertical: 5.0, horizontal: 10.0),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(7.0),
-                    color: Colors.white,
-                  ),
-                  child: Text(
-                    'Valoraciones',
-                    style: TextStyle(
-                      fontSize: 12.0,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black,
+                GestureDetector(
+                  onTap: () => {
+                    Scrollable.ensureVisible(reviewsKey.currentContext),
+                    changeSectionIndex(2),
+                  },
+                  child: Container(
+                    padding:
+                        EdgeInsets.symmetric(vertical: 5.0, horizontal: 10.0),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(7.0),
+                      color: indexSection == 2
+                          ? Color.fromRGBO(254, 192, 75, 1)
+                          : Colors.white,
+                    ),
+                    child: Text(
+                      'Valoraciones',
+                      style: TextStyle(
+                        fontSize: 12.0,
+                        fontWeight: FontWeight.bold,
+                        color: indexSection == 2 ? Colors.white : Colors.black,
+                      ),
                     ),
                   ),
                 ),
@@ -145,6 +184,7 @@ class _DetailsState extends State<Details> {
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Column(
+                    key: detailsKey,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
@@ -157,10 +197,13 @@ class _DetailsState extends State<Details> {
                               color: Colors.black,
                             ),
                           ),
-                          Image(
-                            image: AssetImage('assets/images/phone.png'),
-                            width: 23.0,
-                            height: 24.0,
+                          GestureDetector(
+                            onTap: () => openPhone(phone),
+                            child: Image(
+                              image: AssetImage('assets/images/phone.png'),
+                              width: 23.0,
+                              height: 24.0,
+                            ),
                           ),
                         ],
                       ),
@@ -261,7 +304,7 @@ class _DetailsState extends State<Details> {
                       borderRadius: BorderRadius.circular(10.0),
                     ),
                     child: GestureDetector(
-                      onTap: ()=>openMap(),
+                      onTap: () => openMap(),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.center,
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -286,14 +329,83 @@ class _DetailsState extends State<Details> {
               ),
             ),
             SizedBox(
-              height: 30.0,
+              height: 15.0,
             ),
-            Text(
-              "Carta",
-              style: TextStyle(
-                color: Colors.black,
-                fontWeight: FontWeight.bold,
-                fontSize: 18.0,
+            Divider(
+              color: Colors.grey,
+              indent: 10.0,
+              endIndent: 10.0,
+            ),
+            SizedBox(
+              height: 15.0,
+            ),
+            Container(
+              margin: EdgeInsets.symmetric(horizontal: 10.0),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      Image.asset("assets/images/instagram.png"),
+                      Text(
+                        "@bodegonmojopicon",
+                        style: TextStyle(
+                          fontSize: 10.0,
+                          color: Colors.black,
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(
+                    height: 15.0,
+                  ),
+                  Container(
+                    height: 80.0,
+                    child: ListView.builder(
+                        shrinkWrap: true,
+                        primary: false,
+                        itemExtent: MediaQuery.of(context).size.width / 4,
+                        itemCount: images.length,
+                        scrollDirection: Axis.horizontal,
+                        itemBuilder: (context, index) {
+                          return Container(
+                            height: 73.0,
+                            margin: EdgeInsets.symmetric(horizontal: 10.0),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(7.0),
+                              image: DecorationImage(
+                                repeat: ImageRepeat.noRepeat,
+                                alignment: Alignment.center,
+                                fit: BoxFit.cover,
+                                image: AssetImage(images[index]),
+                              ),
+                            ),
+                          );
+                        }),
+                  ),
+                ],
+              ),
+            ),
+            SizedBox(
+              height: 15.0,
+            ),
+            Divider(
+              color: Colors.grey,
+              indent: 10.0,
+              endIndent: 10.0,
+            ),
+            SizedBox(
+              height: 15.0,
+            ),
+            Container(
+              margin: EdgeInsets.only(left: 10.0),
+              child: Text(
+                "Carta",
+                key: cardKey,
+                style: TextStyle(
+                  color: Colors.black,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18.0,
+                ),
               ),
             ),
             Row(
@@ -397,7 +509,9 @@ class _DetailsState extends State<Details> {
                       ),
                     ),
                   ),
-                  SizedBox(width: 20.0,),
+                  SizedBox(
+                    width: 20.0,
+                  ),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -410,7 +524,9 @@ class _DetailsState extends State<Details> {
                             color: Colors.black,
                           ),
                         ),
-                        SizedBox(height: 7.0,),
+                        SizedBox(
+                          height: 7.0,
+                        ),
                         Text(
                           'La mejor carne de cabra de la zona',
                           style: TextStyle(
@@ -418,7 +534,9 @@ class _DetailsState extends State<Details> {
                             color: Colors.black,
                           ),
                         ),
-                        SizedBox(height: 10.0,),
+                        SizedBox(
+                          height: 10.0,
+                        ),
                         Text(
                           'Sin alergenos(preguntar dudas)',
                           style: TextStyle(
@@ -429,7 +547,9 @@ class _DetailsState extends State<Details> {
                       ],
                     ),
                   ),
-                  SizedBox(width: 20.0,),
+                  SizedBox(
+                    width: 20.0,
+                  ),
                   Text(
                     '5,20€',
                     style: TextStyle(
@@ -473,7 +593,9 @@ class _DetailsState extends State<Details> {
                       ),
                     ),
                   ),
-                  SizedBox(width: 20.0,),
+                  SizedBox(
+                    width: 20.0,
+                  ),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -486,7 +608,9 @@ class _DetailsState extends State<Details> {
                             color: Colors.black,
                           ),
                         ),
-                        SizedBox(height: 7.0,),
+                        SizedBox(
+                          height: 7.0,
+                        ),
                         Text(
                           'Un clasico de canarias que podrás saborear.',
                           style: TextStyle(
@@ -496,12 +620,16 @@ class _DetailsState extends State<Details> {
                         ),
                         Row(
                           children: [
-                            Icon(Icons.circle,
-                            color: Colors.deepOrange,
-                            size: 20.0,),
-                            Icon(Icons.circle,
+                            Icon(
+                              Icons.circle,
+                              color: Colors.deepOrange,
+                              size: 20.0,
+                            ),
+                            Icon(
+                              Icons.circle,
                               color: Colors.deepOrangeAccent,
-                              size: 20.0,)
+                              size: 20.0,
+                            )
                           ],
                         ),
                         Text(
@@ -514,7 +642,9 @@ class _DetailsState extends State<Details> {
                       ],
                     ),
                   ),
-                  SizedBox(width: 20.0,),
+                  SizedBox(
+                    width: 20.0,
+                  ),
                   Text(
                     '5,20€',
                     style: TextStyle(
@@ -526,13 +656,33 @@ class _DetailsState extends State<Details> {
                 ],
               ),
             ),
+            SizedBox(
+              height: 15.0,
+            ),
+            Divider(
+              color: Colors.grey,
+              indent: 10.0,
+              endIndent: 10.0,
+            ),
+            Container(key: reviewsKey,child: ValoracionesComponent("Valoraciones")),
           ],
         ),
       ),
     );
   }
 
+  changeSectionIndex(index) {
+    setState(() {
+      indexSection = index;
+    });
+  }
+
+  openPhone(phone){
+    launch("tel://" + phone);
+  }
+
   openMap() {
-    MapsLauncher.launchQuery('Calle Carr. San Antonio, 35, La Matanza de Acentejo.');
+    MapsLauncher.launchQuery(
+        'Calle Carr. San Antonio, 35, La Matanza de Acentejo.');
   }
 }

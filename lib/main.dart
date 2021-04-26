@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:guachinches/data/HttpRemoteRepository.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
+import 'package:guachinches/details.dart';
 import 'package:guachinches/inicio.dart';
 import 'package:guachinches/login.dart';
 import 'package:guachinches/menu.dart';
@@ -46,7 +47,7 @@ class _MyAppState extends State<MyApp> {
           splashColor: Colors.transparent,
           highlightColor: Colors.transparent,
         ),
-        home: Valoraciones(),
+        home: Details(),
       ),
     );
   }
