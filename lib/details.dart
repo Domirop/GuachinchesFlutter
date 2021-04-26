@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:guachinches/globalMethods.dart';
 import 'package:maps_launcher/maps_launcher.dart';
 
 class Details extends StatefulWidget {
@@ -43,17 +44,20 @@ class _DetailsState extends State<Details> {
                 Positioned(
                   top: 40.0,
                   left: 15.0,
-                  child: Container(
-                    width: 40.0,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12.0),
-                    ),
-                    child: Icon(
-                      Icons.chevron_left,
-                      size: 40.0,
-                      color: Colors.black,
+                  child: GestureDetector(
+                    onTap: ()=>GlobalMethods().popPage(context),
+                    child: Container(
+                      width: 40.0,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12.0),
+                      ),
+                      child: Icon(
+                        Icons.chevron_left,
+                        size: 40.0,
+                        color: Colors.black,
+                      ),
                     ),
                   ),
                 ),

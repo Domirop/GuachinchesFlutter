@@ -75,12 +75,14 @@ class Valoraciones {
   String _id;
   String _review;
   String _rating;
+  String _title;
   String _valoracionesNegocioId;
   String _valoracionesUsuarioId;
   Restaurantes _restaurantes;
 
   String get id => _id;
   String get review => _review;
+  String get title => _title;
   String get rating => _rating;
   String get valoracionesNegocioId => _valoracionesNegocioId;
   String get valoracionesUsuarioId => _valoracionesUsuarioId;
@@ -88,13 +90,15 @@ class Valoraciones {
 
   Valoraciones({
       String id, 
-      String review, 
-      String rating, 
+      String review,
+      String title,
+      String rating,
       String valoracionesNegocioId, 
       String valoracionesUsuarioId, 
       Restaurantes restaurantes}){
     _id = id;
     _review = review;
+    _title = title;
     _rating = rating;
     _valoracionesNegocioId = valoracionesNegocioId;
     _valoracionesUsuarioId = valoracionesUsuarioId;
@@ -104,6 +108,7 @@ class Valoraciones {
   Valoraciones.fromJson(dynamic json) {
     _id = json["id"];
     _review = json["review"];
+    _title = json["title"];
     _rating = json["rating"];
     _valoracionesNegocioId = json["ValoracionesNegocioId"];
     _valoracionesUsuarioId = json["ValoracionesUsuarioId"];
@@ -114,6 +119,7 @@ class Valoraciones {
     var map = <String, dynamic>{};
     map["id"] = _id;
     map["review"] = _review;
+    map["title"] = _title;
     map["rating"] = _rating;
     map["ValoracionesNegocioId"] = _valoracionesNegocioId;
     map["ValoracionesUsuarioId"] = _valoracionesUsuarioId;

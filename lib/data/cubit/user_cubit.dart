@@ -19,5 +19,11 @@ class UserCubit extends Cubit<UserState> {
   emit(UserLoaded(userInfo));
 
   }
+  Future<bool> updateUserReview(String userId, String reviewId, String title, String rating, String review) async {
+    await _remoteRepository.updateReview(userId,reviewId, title, rating, review);
+    UserInfo userInfo = await _remoteRepository.getUserInfo(userId);
+    emit(UserLoaded(userInfo));
+    return true;
+  }
 }
 

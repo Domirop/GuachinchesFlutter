@@ -10,4 +10,5 @@ abstract class RemoteRepository{
   Future<List<Restaurant>> getAllRestaurants();
   Future<List<Municipality>> getAllMunicipalities();
   Future<UserInfo> getUserInfo(String userId);
+  Future<bool> updateReview(String userId, String reviewId, String title,String rating, String review);
 }

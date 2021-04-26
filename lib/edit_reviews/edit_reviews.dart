@@ -1,32 +1,39 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
+import 'package:guachinches/data/cubit/user_cubit.dart';
+import 'package:guachinches/edit_reviews/edit_reviews_presenter.dart';
 import 'package:guachinches/globalMethods.dart';
 import 'package:guachinches/model/user_info.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 
-class EditReviews extends StatefulWidget {
+class EditReview extends StatefulWidget {
   final Valoraciones review;
-
-  EditReviews(this.review);
+  final String userId;
+  EditReview(this.userId, this.review);
 
   @override
-  _EditReviewsState createState() => _EditReviewsState();
+  _EditReviewState createState() => _EditReviewState();
 }
 
-class _EditReviewsState extends State<EditReviews> {
+class _EditReviewState extends State<EditReview> implements EditReviewView{
   var reviewController;
   var tittleController;
+  String rating;
+  EditReviewPresenter _presenter;
+
 @override
   void initState() {
-   reviewController = TextEditingController(text: widget.review.review);
-   tittleController = TextEditingController(text: "Productos de calidad");
-
-  super.initState();
+    final restaurantCubit = context.read<UserCubit>();
+    _presenter = EditReviewPresenter(this, restaurantCubit);
+    reviewController = TextEditingController(text: widget.review.review);
+    tittleController = TextEditingController(text: widget.review.title);
+    rating = widget.review.rating;
+    super.initState();
   }
   @override
   Widget build(BuildContext context) {
     double bottomInsets = MediaQuery.of(context).viewInsets.bottom;
-
     return Scaffold(
         appBar: AppBar(
           leading: new IconButton(
@@ -59,7 +66,7 @@ class _EditReviewsState extends State<EditReviews> {
               color: Colors.amber,
             ),
             onRatingUpdate: (rating) {
-              print(rating);
+              this.rating = rating.toString();
             },
         ),
           ),
@@ -75,7 +82,7 @@ class _EditReviewsState extends State<EditReviews> {
                       borderSide: new BorderSide(color: Colors.teal)
                   ),),
                 keyboardType: TextInputType.multiline,
-                maxLines: 4,
+                maxLines: 1,
               ),
             ),
             Text("Tu experiencia",style: TextStyle(fontWeight: FontWeight.bold),),
@@ -94,7 +101,13 @@ class _EditReviewsState extends State<EditReviews> {
               ),
             ),
             RaisedButton(
-              onPressed: () => {},
+              onPressed: () =>
+              {
+                print(tittleController.text),
+                print(reviewController.text),
+                _presenter.updateReview(widget.userId, widget.review.id,
+                    tittleController.text, rating, reviewController.text)
+              },
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(7.0),
               ),
@@ -108,8 +121,12 @@ class _EditReviewsState extends State<EditReviews> {
                 ),
               ),
             ),
-
           ],
         ));
+  }
+
+  @override
+  reviewUpdated() {
+
   }
 }

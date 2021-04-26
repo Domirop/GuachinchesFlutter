@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:guachinches/model/Category.dart';
 import 'package:guachinches/model/Municipality.dart';
+import 'package:guachinches/model/Review.dart';
 import 'package:guachinches/model/User.dart';
 import 'package:guachinches/model/restaurant.dart';
 import 'package:guachinches/model/user_info.dart';
@@ -67,6 +68,23 @@ class HttpRemoteRepository implements RemoteRepository {
       municipalities.add(municipality);
     }
     return municipalities;
+  }
+
+  @override
+  Future<bool> updateReview(String userId, String reviewId, String title,String rating, String review) async {
+    var uri = Uri.parse(endpoint + "user/" + userId + "/review/" + reviewId);
+
+    var body;
+    body = jsonEncode(
+        {
+          "title": title,
+          "review": review,
+          "rating": rating
+        });
+    var response = await _client.put(uri,
+        headers: {"Content-Type": "application/json"}, body: body);
+    print(jsonDecode(response.body));
+    return true;
   }
 
 

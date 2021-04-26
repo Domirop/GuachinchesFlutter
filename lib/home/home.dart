@@ -8,7 +8,6 @@ import 'package:guachinches/data/cubit/restaurant_state.dart';
 import 'package:guachinches/globalMethods.dart';
 import 'package:guachinches/home/home_presenter.dart';
 import 'package:guachinches/model/Category.dart';
-import 'package:guachinches/model/CategoryRestaurant.dart';
 import 'package:guachinches/model/restaurant.dart';
 import 'package:guachinches/municipality_screen/municipality_screen.dart';
 import 'package:http/http.dart';
