@@ -7,6 +7,8 @@ import 'package:guachinches/model/Municipality.dart';
 import 'package:guachinches/municipality_screen/municipality_presenter.dart';
 import 'package:http/http.dart';
 
+import '../menu.dart';
+
 class MunicipalityScreen extends StatefulWidget {
   @override
   _MunicipalityScreenState createState() => _MunicipalityScreenState();
@@ -32,9 +34,9 @@ class _MunicipalityScreenState extends State<MunicipalityScreen> implements Muni
       appBar: AppBar(
         leading: new IconButton(
           icon: new Icon(Icons.arrow_back_ios_sharp, color: Colors.black),
-          onPressed: () =>GlobalMethods().pushAndReplacement(context, Home()),
+          onPressed: () =>GlobalMethods().pushAndReplacement(context, Menu()),
         ),
-        title:              Text("Lista de Municipios",
+        title:Text("Lista de Municipios",
             style: TextStyle(color: Colors.black)),
         elevation: 0,
         backgroundColor: Colors.white,

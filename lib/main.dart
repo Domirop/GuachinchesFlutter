@@ -9,9 +9,11 @@ import 'package:guachinches/login.dart';
 import 'package:guachinches/menu.dart';
 import 'package:guachinches/perfil.dart';
 import 'package:guachinches/valoraciones.dart';
+import 'package:guachinches/data/cubit/user_cubit.dart';
+import 'package:guachinches/menu.dart';
+import 'package:guachinches/splash_screen/splash_screen.dart';
 import 'package:http/http.dart';
 import 'data/cubit/restaurant_cubit.dart';
-
 
 void main() {
   runApp(MyApp());
@@ -26,30 +28,34 @@ class _MyAppState extends State<MyApp> {
   @override
   void initState() {
     super.initState();
-    SystemChrome.setPreferredOrientations([
-      DeviceOrientation.portraitUp,
-      DeviceOrientation.portraitDown
-    ]);
+    SystemChrome.setPreferredOrientations(
+        [DeviceOrientation.portraitUp, DeviceOrientation.portraitDown]);
   }
 
   @override
   Widget build(BuildContext context) {
     RemoteRepository remoteRepository = HttpRemoteRepository(Client());
-    return BlocProvider(
-      create: ((context) => RestaurantCubit(remoteRepository)),
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider(
+          create: ((context) => RestaurantCubit(remoteRepository)),
+        ),
+        BlocProvider(
+          create: ((context) => UserCubit(remoteRepository)),
+        )
+      ],
       child: MaterialApp(
         title: 'Guachinches',
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
-          buttonTheme:ButtonThemeData(minWidth:5),
+          buttonTheme: ButtonThemeData(minWidth: 5),
           dividerColor: Colors.black,
           primarySwatch: Colors.blue,
           splashColor: Colors.transparent,
           highlightColor: Colors.transparent,
         ),
-        home: Details(),
+        home: SplashScreen(),
       ),
     );
   }
-
 }

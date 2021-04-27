@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:guachinches/valoraciones.dart';
+import 'package:guachinches/globalMethods.dart';
 import 'package:maps_launcher/maps_launcher.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -59,18 +60,20 @@ class _DetailsState extends State<Details> {
                 Positioned(
                   top: 40.0,
                   left: 15.0,
-                  child: Container(
-                    width: 40.0,
-                    height: 40.0,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12.0),
-                    ),
-                    child: Icon(
-                      Icons.chevron_left,
-                      size: 40.0,
-                      color: Colors.black,
+                  child: GestureDetector(
+                    onTap: () => GlobalMethods().popPage(context),
+                    child: Container(
+                      width: 40.0,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12.0),
+                      ),
+                      child: Icon(
+                        Icons.chevron_left,
+                        size: 40.0,
+                        color: Colors.black,
+                      ),
                     ),
                   ),
                 ),
@@ -664,7 +667,8 @@ class _DetailsState extends State<Details> {
               indent: 10.0,
               endIndent: 10.0,
             ),
-            Container(key: reviewsKey,child: ValoracionesComponent("Valoraciones")),
+            Container(
+                key: reviewsKey, child: ValoracionesComponent("Valoraciones")),
           ],
         ),
       ),
@@ -677,7 +681,7 @@ class _DetailsState extends State<Details> {
     });
   }
 
-  openPhone(phone){
+  openPhone(phone) {
     launch("tel://" + phone);
   }
 
