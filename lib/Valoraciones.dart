@@ -50,7 +50,7 @@ class ValoracionesComponent extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal:10.0),
+          padding: EdgeInsets.symmetric(horizontal:10.0),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
