@@ -2,8 +2,6 @@ import 'dart:convert';
 
 import 'package:guachinches/model/Category.dart';
 import 'package:guachinches/model/Municipality.dart';
-import 'package:guachinches/model/Review.dart';
-import 'package:guachinches/model/User.dart';
 import 'package:guachinches/model/restaurant.dart';
 import 'package:guachinches/model/user_info.dart';
 import 'package:http/http.dart';
@@ -19,11 +17,11 @@ class HttpRemoteRepository implements RemoteRepository {
 
   @override
   Future<UserInfo> getUserInfo(String userId) async {
+    print(userId);
     var uri = Uri.parse(endpoint + "user/"+userId);
     var response = await _client.get(uri);
 
     var data = json.decode(response.body)['result'];
-  print(data);
     UserInfo user= UserInfo.fromJson(data['Usuario'][0]);
     return user;
   }
@@ -103,5 +101,22 @@ class HttpRemoteRepository implements RemoteRepository {
         headers: {"Content-Type": "application/json"}, body: body);
     print(jsonDecode(response.body));
     return true;
+  }
+
+  @override
+  Future<String> loginUser(String login, String password) async {
+    var uri = Uri.parse(endpoint + "login");
+
+    var body;
+    body = jsonEncode(
+        {
+          "email": login,
+          "password": password,
+          });
+    var response = await _client.post(uri,
+        headers: {"Content-Type": "application/json"}, body: body);
+    var data = jsonDecode(response.body);
+    print(data);
+    return data["result"]["id"];
   }
 }

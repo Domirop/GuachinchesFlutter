@@ -7,6 +7,7 @@ import 'package:guachinches/data/cubit/user_cubit.dart';
 import 'package:guachinches/splash_screen/splash_screen.dart';
 import 'package:http/http.dart';
 import 'data/cubit/restaurant_cubit.dart';
+import 'menu.dart';
 
 void main() {
   runApp(MyApp());

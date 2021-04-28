@@ -2,10 +2,15 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
+import 'package:guachinches/data/HttpRemoteRepository.dart';
+import 'package:guachinches/data/RemoteRepository.dart';
 import 'package:guachinches/data/cubit/user_cubit.dart';
 import 'package:guachinches/data/cubit/user_state.dart';
 import 'package:guachinches/edit_reviews/edit_reviews.dart';
 import 'package:guachinches/globalMethods.dart';
+import 'package:guachinches/login/login.dart';
+import 'package:guachinches/valoraciones/valoraciones_presenter.dart';
+import 'package:http/http.dart';
 
 
 
@@ -14,7 +19,17 @@ class Valoraciones extends StatefulWidget {
   _ValoracionesState createState() => _ValoracionesState();
 }
 
-class _ValoracionesState extends State<Valoraciones> {
+class _ValoracionesState extends State<Valoraciones> implements ValoracionesView{
+  RemoteRepository _remoteRepository;
+  ValoracionesPresenter _presenter;
+  @override
+  void initState() {
+    // TODO: implement initState
+    _remoteRepository = HttpRemoteRepository(Client());
+    _presenter = ValoracionesPresenter(this, _remoteRepository);
+    _presenter.isUserLogged();
+    super.initState();
+  }
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -245,5 +260,10 @@ class _ValoracionesState extends State<Valoraciones> {
         ),
       ),
     );
+  }
+
+  @override
+  goToLogin() {
+    GlobalMethods().pushPage(context, Login("Inicia sesion para ver tus valoraciones"));
   }
 }
