@@ -19,7 +19,6 @@ class _SplashScreenState extends State<SplashScreen> implements SplashScreenView
   @override
   void initState() {
     final userCubit = context.read<UserCubit>();
-
     remoteRepository = HttpRemoteRepository(Client());
     presenter = SplashScreenPresenter(this, remoteRepository, userCubit);
     presenter.getUserInfo();
@@ -27,7 +26,13 @@ class _SplashScreenState extends State<SplashScreen> implements SplashScreenView
   }
   @override
   Widget build(BuildContext context) {
-    return Scaffold(body: Container());
+    return Scaffold(body:Container(
+      color: Colors.white,
+      height: MediaQuery.of(context).size.height,
+      width: MediaQuery.of(context).size.width,
+      alignment: Alignment.center,
+      child: Image.asset("assets/images/logo.png", height: 298, width: 293,),
+    ));
   }
 
   @override

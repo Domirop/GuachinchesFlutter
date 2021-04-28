@@ -263,10 +263,10 @@ class _HomeState extends State<Home> implements HomeView {
                           }
                         }
                         return condition == true?
-                        new Container(margin: EdgeInsets.symmetric(horizontal:
+                          Container(margin: EdgeInsets.symmetric(horizontal:
                         10.0),
                           child: GestureDetector(
-                            onTap: () => gotoDetail(),
+                            onTap: () => gotoDetail(e),
                             child: Column(
                               children: [
                                 Row(
@@ -311,7 +311,7 @@ class _HomeState extends State<Home> implements HomeView {
                                               ),
                                             ),
                                             Text(
-                                              "Oferta en carne cabra",
+                                              e.destacado!=null ? e.destacado:"",
                                               style: TextStyle(
                                                 color: Color.fromRGBO(226, 120, 120, 1),
                                                 fontSize: 12.0,
@@ -352,8 +352,6 @@ class _HomeState extends State<Home> implements HomeView {
                   }
                   return Container();
                   }
-
-
               ),
             ),
           ],
@@ -361,8 +359,8 @@ class _HomeState extends State<Home> implements HomeView {
       ),
     );
   }
-  gotoDetail(){
-    GlobalMethods().pushPage(context, Details());
+  gotoDetail(Restaurant restaurant){
+    GlobalMethods().pushPage(context, Details(restaurant));
   }
 
   @override

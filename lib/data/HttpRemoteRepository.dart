@@ -87,5 +87,21 @@ class HttpRemoteRepository implements RemoteRepository {
     return true;
   }
 
+  @override
+  Future<bool> saveReview(String userId, Restaurant restaurant ,String title, String review, String rating) async {
+    var uri = Uri.parse(endpoint + "user/" + userId + "/review");
 
+    var body;
+    body = jsonEncode(
+        {
+          "title": title,
+          "review": review,
+          "rating": rating,
+          "ValoracionesNegocioId":restaurant.id
+        });
+    var response = await _client.post(uri,
+        headers: {"Content-Type": "application/json"}, body: body);
+    print(jsonDecode(response.body));
+    return true;
+  }
 }

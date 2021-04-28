@@ -21,6 +21,7 @@ class Restaurant {
   String _nombre;
   String _direccion;
   String _telefono;
+  String _destacado;
   String avg = "n/d";
   String _createdAt;
   String _updatedAt;
@@ -34,6 +35,7 @@ class Restaurant {
   String get nombre => _nombre;
   String get direccion => _direccion;
   String get telefono => _telefono;
+  String get destacado => _destacado;
   String get createdAt => _createdAt;
   String get updatedAt => _updatedAt;
   String get negocioMunicipioId => _negocioMunicipioId;
@@ -46,7 +48,8 @@ class Restaurant {
       String id, 
       String nombre, 
       String direccion, 
-      String telefono, 
+      String telefono,
+      String destacado,
       String createdAt, 
       String updatedAt, 
       String negocioMunicipioId,
@@ -58,6 +61,7 @@ class Restaurant {
     _nombre = nombre;
     _direccion = direccion;
     _telefono = telefono;
+    _destacado = destacado;
     _createdAt = createdAt;
     _updatedAt = updatedAt;
     _negocioMunicipioId = negocioMunicipioId;
@@ -72,6 +76,7 @@ class Restaurant {
     _nombre = json["nombre"];
     _direccion = json["direccion"];
     _telefono = json["telefono"];
+    _destacado = json["destacado"];
     _createdAt = json["createdAt"];
     _updatedAt = json["updatedAt"];
     _negocioMunicipioId = json["NegocioMunicipioId"];
@@ -97,6 +102,7 @@ class Restaurant {
     map["nombre"] = _nombre;
     map["direccion"] = _direccion;
     map["telefono"] = _telefono;
+    map["destacado"] = _destacado;
     map["createdAt"] = _createdAt;
     map["updatedAt"] = _updatedAt;
     map["NegocioMunicipioId"] = _negocioMunicipioId;

@@ -145,7 +145,7 @@ class _ValoracionesState extends State<Valoraciones> {
                                 children: [
                                   TextButton(
                                     onPressed:()=>{
-                                      GlobalMethods().pushPage(context, EditReview(state.user.id, state.user.valoraciones[0]))
+                                      GlobalMethods().pushPage(context, EditReview(state.user.id, e))
                                     },
                                     child: Text(
                                       "Editar valoración",

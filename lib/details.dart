@@ -1,11 +1,18 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:guachinches/valoraciones.dart';
+import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 import 'package:guachinches/globalMethods.dart';
+import 'package:guachinches/model/restaurant.dart';
 import 'package:maps_launcher/maps_launcher.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import 'Valoraciones.dart';
+
 class Details extends StatefulWidget {
+  final Restaurant _restaurant;
+
+  Details(this._restaurant);
+
   @override
   _DetailsState createState() => _DetailsState();
 }
@@ -193,7 +200,7 @@ class _DetailsState extends State<Details> {
                       Row(
                         children: [
                           Text(
-                            'Guachinche el Parralito',
+                            widget._restaurant.nombre,
                             style: TextStyle(
                               fontSize: 18.0,
                               fontWeight: FontWeight.bold,
@@ -216,40 +223,32 @@ class _DetailsState extends State<Details> {
                       Row(
                         children: [
                           Text(
-                            '4,5',
+                            widget._restaurant.avg,
                             style: TextStyle(
                               fontSize: 18.0,
                               fontWeight: FontWeight.bold,
                               color: Colors.black,
                             ),
                           ),
-                          Icon(
-                            Icons.star,
-                            color: Colors.yellow,
-                            size: 30.0,
+                          RatingBar.builder(
+                            ignoreGestures: true,
+                            initialRating: double.parse(widget._restaurant.avg),
+                            minRating: 1,
+                            direction: Axis.horizontal,
+                            allowHalfRating: true,
+                            itemCount: 5,
+                            itemSize: 30,
+                            glowColor: Colors.white,
+                            onRatingUpdate: (rating)=>{},
+                            itemPadding: EdgeInsets.symmetric(horizontal: 2.0),
+                            itemBuilder: (context, _) => Icon(
+                              Icons.star,
+                              color: Colors.amber,
+                            ),
                           ),
-                          Icon(
-                            Icons.star,
-                            color: Colors.yellow,
-                            size: 30.0,
-                          ),
-                          Icon(
-                            Icons.star,
-                            color: Colors.yellow,
-                            size: 30.0,
-                          ),
-                          Icon(
-                            Icons.star,
-                            color: Colors.yellow,
-                            size: 30.0,
-                          ),
-                          Icon(
-                            Icons.star_half,
-                            color: Colors.yellow,
-                            size: 30.0,
-                          ),
+
                           Text(
-                            '45 valoraciones',
+                            widget._restaurant.valoraciones.length.toString()+' valoraciones',
                             style: TextStyle(
                               fontSize: 10.0,
                               color: Colors.black,
@@ -281,7 +280,7 @@ class _DetailsState extends State<Details> {
                         height: 5.0,
                       ),
                       Text(
-                        'Calle Carr. San Antonio, 35, La Matanza de Acentejo.',
+                        widget._restaurant.direccion,
                         style: TextStyle(
                           fontSize: 12.0,
                           color: Colors.black,
@@ -293,8 +292,8 @@ class _DetailsState extends State<Details> {
                     ],
                   ),
                   Container(
-                    width: 64.0,
-                    height: 64.0,
+                    width: 55.0,
+                    height: 55.0,
                     decoration: BoxDecoration(
                       color: Colors.white,
                       boxShadow: [
@@ -411,75 +410,75 @@ class _DetailsState extends State<Details> {
                 ),
               ),
             ),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                Container(
-                  padding:
-                      EdgeInsets.symmetric(vertical: 5.0, horizontal: 10.0),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(7.0),
-                    color: Color.fromRGBO(222, 99, 44, 1),
-                  ),
-                  child: Text(
-                    'Entrantes',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 12.0,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                Container(
-                  padding:
-                      EdgeInsets.symmetric(vertical: 5.0, horizontal: 10.0),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(7.0),
-                    color: Color.fromRGBO(245, 245, 245, 1),
-                  ),
-                  child: Text(
-                    'Carnes',
-                    style: TextStyle(
-                      fontSize: 12.0,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black,
-                    ),
-                  ),
-                ),
-                Container(
-                  padding:
-                      EdgeInsets.symmetric(vertical: 5.0, horizontal: 10.0),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(7.0),
-                    color: Color.fromRGBO(245, 245, 245, 1),
-                  ),
-                  child: Text(
-                    'Valoraciones',
-                    style: TextStyle(
-                      fontSize: 12.0,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black,
-                    ),
-                  ),
-                ),
-                Container(
-                  padding:
-                      EdgeInsets.symmetric(vertical: 5.0, horizontal: 10.0),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(7.0),
-                    color: Color.fromRGBO(245, 245, 245, 1),
-                  ),
-                  child: Text(
-                    'Valoraciones',
-                    style: TextStyle(
-                      fontSize: 12.0,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black,
-                    ),
-                  ),
-                ),
-              ],
-            ),
+            // Row(
+            //   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            //   children: [
+            //     Container(
+            //       padding:
+            //           EdgeInsets.symmetric(vertical: 5.0, horizontal: 10.0),
+            //       decoration: BoxDecoration(
+            //         borderRadius: BorderRadius.circular(7.0),
+            //         color: Color.fromRGBO(222, 99, 44, 1),
+            //       ),
+            //       child: Text(
+            //         'Entrantes',
+            //         style: TextStyle(
+            //           color: Colors.white,
+            //           fontSize: 12.0,
+            //           fontWeight: FontWeight.bold,
+            //         ),
+            //       ),
+            //     ),
+            //     Container(
+            //       padding:
+            //           EdgeInsets.symmetric(vertical: 5.0, horizontal: 10.0),
+            //       decoration: BoxDecoration(
+            //         borderRadius: BorderRadius.circular(7.0),
+            //         color: Color.fromRGBO(245, 245, 245, 1),
+            //       ),
+            //       child: Text(
+            //         'Carnes',
+            //         style: TextStyle(
+            //           fontSize: 12.0,
+            //           fontWeight: FontWeight.bold,
+            //           color: Colors.black,
+            //         ),
+            //       ),
+            //     ),
+            //     Container(
+            //       padding:
+            //           EdgeInsets.symmetric(vertical: 5.0, horizontal: 10.0),
+            //       decoration: BoxDecoration(
+            //         borderRadius: BorderRadius.circular(7.0),
+            //         color: Color.fromRGBO(245, 245, 245, 1),
+            //       ),
+            //       child: Text(
+            //         'Valoraciones',
+            //         style: TextStyle(
+            //           fontSize: 12.0,
+            //           fontWeight: FontWeight.bold,
+            //           color: Colors.black,
+            //         ),
+            //       ),
+            //     ),
+            //     Container(
+            //       padding:
+            //           EdgeInsets.symmetric(vertical: 5.0, horizontal: 10.0),
+            //       decoration: BoxDecoration(
+            //         borderRadius: BorderRadius.circular(7.0),
+            //         color: Color.fromRGBO(245, 245, 245, 1),
+            //       ),
+            //       child: Text(
+            //         'Valoraciones',
+            //         style: TextStyle(
+            //           fontSize: 12.0,
+            //           fontWeight: FontWeight.bold,
+            //           color: Colors.black,
+            //         ),
+            //       ),
+            //     ),
+            //   ],
+            // ),
             SizedBox(
               height: 30.0,
             ),

@@ -17,7 +17,6 @@ class MunicipalityPresenter{
   defaultSelection() async {
     String municipalityId = await storage.read(key: "municipalityId");
     _view.selectedMunicipality(municipalityId);
-
   }
   storeMunicipality(String municipalityName, String municipalityId) async {
     await storage.write(key: "municipalityName", value: municipalityName);
