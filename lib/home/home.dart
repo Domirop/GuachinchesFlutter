@@ -127,7 +127,7 @@ class _HomeState extends State<Home> implements HomeView {
                   autoPlay: true,
                   viewportFraction: 0.9,
                   enlargeCenterPage: true,
-                  aspectRatio: 2.0,
+                  aspectRatio: 12/6,
                   onPageChanged: (index, reason) {
                     setState(() {
                       _current = index;
