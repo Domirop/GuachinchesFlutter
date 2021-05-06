@@ -9,8 +9,6 @@ import 'package:guachinches/profile.dart';
 import 'package:guachinches/valoraciones/valoraciones.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'menu_presenter.dart';
-
 class Menu extends StatefulWidget {
   List<Widget> screens;
 
@@ -20,19 +18,16 @@ class Menu extends StatefulWidget {
   _ProfileState createState() => _ProfileState(screens);
 }
 
-class _ProfileState extends State<Menu> implements MenuView{
+class _ProfileState extends State<Menu>{
   int selectedItem = 0;
   int aux;
   List<Widget> screens;
-  MenuPresenter _presenter;
 
   _ProfileState(this.screens);
 
   @override
   void initState() {
     final userCubit = context.read<UserCubit>();
-    _presenter = MenuPresenter(this, userCubit);
-    _presenter.getUserInfo();
     super.initState();
   }
 
@@ -83,22 +78,9 @@ class _ProfileState extends State<Menu> implements MenuView{
           );
   }
 
-  @override
   showScreen(int index) {
     setState(() {
       selectedItem = index;
     });
-  }
-
-  @override
-  loginError() {
-    setState(() {
-      screens = [Home(), Login("Para ver tus valoraciones debes iniciar sesión."), Login("Para ver tu perfíl debes iniciar sesión.")];
-    });
-  }
-
-  @override
-  loginSuccess() {
-    screens = [Home(), Valoraciones(), Profile()];
   }
 }

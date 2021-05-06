@@ -59,4 +59,8 @@ class Review {
     return map;
   }
 
+  @override
+  String toString() {
+    return 'Review{_id: $_id, _review: $_review, _rating: $_rating, _valoracionesNegocioId: $_valoracionesNegocioId, _valoracionesUsuarioId: $_valoracionesUsuarioId, _usuario: $_usuario}';
+  }
 }

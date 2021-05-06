@@ -11,8 +11,7 @@ import 'package:guachinches/globalMethods.dart';
 import 'package:guachinches/login/login.dart';
 import 'package:guachinches/valoraciones/valoraciones_presenter.dart';
 import 'package:http/http.dart';
-
-
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 class Valoraciones extends StatefulWidget {
   @override
@@ -24,9 +23,9 @@ class _ValoracionesState extends State<Valoraciones> implements ValoracionesView
   ValoracionesPresenter _presenter;
   @override
   void initState() {
-    // TODO: implement initState
     _remoteRepository = HttpRemoteRepository(Client());
-    _presenter = ValoracionesPresenter(this, _remoteRepository);
+    final userCubit = context.read<UserCubit>();
+    _presenter = ValoracionesPresenter(this, _remoteRepository, userCubit);
     _presenter.isUserLogged();
     super.initState();
   }

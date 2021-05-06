@@ -6,15 +6,13 @@ import 'package:guachinches/model/restaurant.dart';
 import 'package:maps_launcher/maps_launcher.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import 'Valoraciones.dart';
-
 class Details extends StatefulWidget {
   final Restaurant _restaurant;
 
   Details(this._restaurant);
 
   @override
-  _DetailsState createState() => _DetailsState();
+  _DetailsState createState() => _DetailsState(_restaurant);
 }
 
 class _DetailsState extends State<Details> {
@@ -25,6 +23,10 @@ class _DetailsState extends State<Details> {
     "assets/images/Morenita.png",
     "assets/images/Morenita.png"
   ];
+
+  _DetailsState(this.restaurant);
+
+  Restaurant restaurant;
   String url = "https://www.google.com";
   String phone = "+34111222333";
   int indexSection = 0;
@@ -35,6 +37,9 @@ class _DetailsState extends State<Details> {
 
   @override
   Widget build(BuildContext context) {
+    restaurant.valoraciones.forEach((element) {
+      print(element.toString());
+    });
     return Scaffold(
       body: SingleChildScrollView(
         child: Column(
@@ -236,42 +241,47 @@ class _DetailsState extends State<Details> {
                         SizedBox(
                           height: 5.0,
                         ),
-                        widget._restaurant.avg == "NaN" ? Container() : Row(
-                          children: [
-                            Text(
-                              widget._restaurant.avg,
-                              style: TextStyle(
-                                fontSize: 18.0,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.black,
+                        widget._restaurant.avg == "NaN"
+                            ? Container()
+                            : Row(
+                                children: [
+                                  Text(
+                                    widget._restaurant.avg,
+                                    style: TextStyle(
+                                      fontSize: 18.0,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.black,
+                                    ),
+                                  ),
+                                  RatingBar.builder(
+                                    ignoreGestures: true,
+                                    initialRating:
+                                        double.parse(widget._restaurant.avg),
+                                    minRating: 1,
+                                    direction: Axis.horizontal,
+                                    allowHalfRating: true,
+                                    itemCount: 5,
+                                    itemSize: 30,
+                                    glowColor: Colors.white,
+                                    onRatingUpdate: (rating) => {},
+                                    itemPadding:
+                                        EdgeInsets.symmetric(horizontal: 2.0),
+                                    itemBuilder: (context, _) => Icon(
+                                      Icons.star,
+                                      color: Colors.amber,
+                                    ),
+                                  ),
+                                  Text(
+                                    widget._restaurant.valoraciones.length
+                                            .toString() +
+                                        ' valoraciones',
+                                    style: TextStyle(
+                                      fontSize: 10.0,
+                                      color: Colors.black,
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ),
-                            RatingBar.builder(
-                              ignoreGestures: true,
-                              initialRating: double.parse(widget._restaurant.avg),
-                              minRating: 1,
-                              direction: Axis.horizontal,
-                              allowHalfRating: true,
-                              itemCount: 5,
-                              itemSize: 30,
-                              glowColor: Colors.white,
-                              onRatingUpdate: (rating)=>{},
-                              itemPadding: EdgeInsets.symmetric(horizontal: 2.0),
-                              itemBuilder: (context, _) => Icon(
-                                Icons.star,
-                                color: Colors.amber,
-                              ),
-                            ),
-
-                            Text(
-                              widget._restaurant.valoraciones.length.toString()+' valoraciones',
-                              style: TextStyle(
-                                fontSize: 10.0,
-                                color: Colors.black,
-                              ),
-                            ),
-                          ],
-                        ),
                         SizedBox(
                           height: 5.0,
                         ),
@@ -655,7 +665,121 @@ class _DetailsState extends State<Details> {
               endIndent: 10.0,
             ),
             Container(
-                key: reviewsKey, child: ValoracionesComponent("Valoraciones",widget._restaurant.id)),
+              height: 400.0,
+              key: reviewsKey,
+              child: Column(
+                children: restaurant.valoraciones.map((e) {
+                  return Padding(
+                    padding: const EdgeInsets.only(top:8.0),
+                    child: Container(
+                      padding: EdgeInsets.all(20.0),
+                      margin: EdgeInsets.symmetric(horizontal: 10.0),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        boxShadow: [
+                          BoxShadow(
+                              color: Colors.black54,
+                              blurRadius: 5.0,
+                              spreadRadius: 1.0,
+                              offset: Offset(2.0, 4.0))
+                        ],
+                        borderRadius: BorderRadius.circular(17.0),
+                      ),
+                      child: Column(
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    "hola",
+                                    style: TextStyle(
+                                      color: Colors.black,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16.0,
+                                    ),
+                                  ),
+                                  Row(
+                                    children: [
+                                      Text(
+                                        e.rating,
+                                        style: TextStyle(
+                                          fontSize: 18.0,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.black,
+                                        ),
+                                      ),
+                                      RatingBar.builder(
+                                        ignoreGestures: true,
+                                        initialRating: double.parse(e.rating),
+                                        minRating: 1,
+                                        direction: Axis.horizontal,
+                                        allowHalfRating: true,
+                                        itemCount: 5,
+                                        itemSize: 20,
+                                        glowColor: Colors.white,
+                                        onRatingUpdate: (rating)=>{},
+                                        itemPadding: EdgeInsets.symmetric(horizontal: 2.0),
+                                        itemBuilder: (context, _) => Icon(
+                                          Icons.star,
+                                          color: Colors.amber,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                mainAxisAlignment: MainAxisAlignment.start,
+                                children: [
+                                  SizedBox(
+                                    height: 5.0,
+                                  ),
+                                  Text(
+                                    restaurant.nombre,
+                                    style: TextStyle(
+                                      color: Colors.black,
+                                      fontSize: 14.0,
+                                    ),
+                                  ),
+                                  Text(
+                                    "20/02/2021",
+                                    textAlign: TextAlign.right,
+                                    style: TextStyle(
+                                      color: Colors.black,
+                                      fontSize: 10.0,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                          SizedBox(
+                            height: 20.0,
+                          ),
+                          Text(
+                            e.review,
+                            style: TextStyle(
+                              color: Colors.black,
+                              fontSize: 14.0,
+                            ),
+                          ),
+                          SizedBox(
+                            height: 20.0,
+                          ),
+
+                        ],
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
             SizedBox(
               height: 30.0,
             ),

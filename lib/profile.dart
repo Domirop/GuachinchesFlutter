@@ -60,6 +60,22 @@ class _ProfileState extends State<Profile> {
 
   @override
   Widget build(BuildContext context) {
+    double height = 0.0;
+    double width = 0.0;
+    if(MediaQuery.of(context).size.width < 330){
+      width = 83.11;
+    }else if(MediaQuery.of(context).size.width > 380){
+      width = 102.0;
+    }else{
+      width = 90.9;
+    }
+    if(MediaQuery.of(context).size.height < 600){
+      height = 69.11;
+    }else if(MediaQuery.of(context).size.height > 700){
+      height = 102.0;
+    }else{
+      height = 84.75;
+    }
     return Scaffold(
       body: SingleChildScrollView(
         child: Container(
@@ -85,8 +101,8 @@ class _ProfileState extends State<Profile> {
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
                   Container(
-                    height: 99.0,
-                    width: 102.0,
+                    height: height,
+                    width: width,
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(49.5),
                       image: DecorationImage(
@@ -97,36 +113,73 @@ class _ProfileState extends State<Profile> {
                       ),
                     ),
                   ),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  Flexible(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "Canarygo1",
+                          style: TextStyle(
+                            color: Colors.black,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18.0,
+                          ),
+                        ),
+                        Text(
+                          "Alejandro Cruz Fernández",
+                          style: TextStyle(
+                            color: Colors.black,
+                            fontSize: 18.0,
+                          ),
+                        ),
+                        Text(
+                          "Puntal (4 Valoraciones)",
+                          style: TextStyle(
+                            decoration: TextDecoration.underline,
+                            decorationColor: Colors.black,
+                            color: Colors.black,
+                            fontSize: 18.0,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(
+                height: 10.0,
+              ),
+              Container(
+                margin: EdgeInsets.symmetric(horizontal: 45.0),
+                width: double.infinity,
+                child: RaisedButton(
+                  onPressed: () => {},
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(7.0),
+                  ),
+                  color: Color.fromRGBO(222, 99, 44, 1),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
+                      Container(
+                        margin: EdgeInsets.only(right: 10.0),
+                        child: Icon(
+                          Icons.edit,
+                          color: Colors.white,
+                          size: 25.0,
+                        ),
+                      ),
                       Text(
-                        "Canarygo1",
+                        "Cerrar sesión",
                         style: TextStyle(
-                          color: Colors.black,
+                          color: Colors.white,
                           fontWeight: FontWeight.bold,
-                          fontSize: 18.0,
-                        ),
-                      ),
-                      Text(
-                        "Alejandro Cruz Fernández",
-                        style: TextStyle(
-                          color: Colors.black,
-                          fontSize: 18.0,
-                        ),
-                      ),
-                      Text(
-                        "Puntal (4 Valoraciones)",
-                        style: TextStyle(
-                          decoration: TextDecoration.underline,
-                          decorationColor: Colors.black,
-                          color: Colors.black,
-                          fontSize: 18.0,
+                          fontSize: 16.0,
                         ),
                       ),
                     ],
                   ),
-                ],
+                ),
               ),
               SizedBox(
                 height: 30.0,
@@ -136,7 +189,7 @@ class _ProfileState extends State<Profile> {
                 children: [
                   GestureDetector(
                     onTap: () => {
-                      Scrollable.ensureVisible(favKey.currentContext),
+                      Scrollable.ensureVisible(levelKey.currentContext),
                       changeSectionIndex(0),
                     },
                     child: Container(
@@ -148,7 +201,7 @@ class _ProfileState extends State<Profile> {
                             : Colors.transparent,
                       ),
                       child: Text(
-                        "Favoritos",
+                        "Nivel",
                         style: TextStyle(
                           color:
                               indexSection == 0 ? Colors.white : Colors.black,
@@ -160,7 +213,7 @@ class _ProfileState extends State<Profile> {
                   ),
                   GestureDetector(
                     onTap: () => {
-                      Scrollable.ensureVisible(levelKey.currentContext),
+                      Scrollable.ensureVisible(favKey.currentContext),
                       changeSectionIndex(1),
                     },
                     child: Container(
@@ -172,23 +225,23 @@ class _ProfileState extends State<Profile> {
                             : Colors.transparent,
                       ),
                       child: Text(
-                        "Nivel",
+                        "Favoritos",
                         style: TextStyle(
                           color:
-                              indexSection == 1 ? Colors.white : Colors.black,
+                          indexSection == 1 ? Colors.white : Colors.black,
                           fontWeight: FontWeight.bold,
                           fontSize: 16.0,
                         ),
                       ),
                     ),
                   ),
+
                 ],
               ),
               SizedBox(
                 height: 30.0,
               ),
               Row(
-                key: levelKey,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Container(
@@ -199,6 +252,7 @@ class _ProfileState extends State<Profile> {
                   ),
                   Expanded(
                     child: Column(
+                      key: levelKey,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
@@ -270,42 +324,44 @@ class _ProfileState extends State<Profile> {
                               ),
                             ),
                           ),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                favs[index]["nombre"],
-                                style: TextStyle(
-                                    color: Colors.black,
-                                    fontSize: 18.0,
-                                    fontWeight: FontWeight.bold),
-                              ),
-                              SizedBox(
-                                height: 5.0,
-                              ),
-                              Text(
-                                favs[index]["especialidad"],
-                                style: TextStyle(
-                                    color: Colors.black, fontSize: 12.0),
-                              ),
-                              SizedBox(
-                                height: 2.0,
-                              ),
-                              Text(
-                                favs[index]["direccion"],
-                                style: TextStyle(
-                                    color: Colors.grey, fontSize: 12.0),
-                              ),
-                              SizedBox(
-                                height: 2.0,
-                              ),
-                              Text(
-                                favs[index]["oferta"],
-                                style: TextStyle(
-                                    color: Color.fromRGBO(226, 120, 120, 1),
-                                    fontSize: 12.0),
-                              ),
-                            ],
+                          Flexible(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  favs[index]["nombre"],
+                                  style: TextStyle(
+                                      color: Colors.black,
+                                      fontSize: 18.0,
+                                      fontWeight: FontWeight.bold),
+                                ),
+                                SizedBox(
+                                  height: 5.0,
+                                ),
+                                Text(
+                                  favs[index]["especialidad"],
+                                  style: TextStyle(
+                                      color: Colors.black, fontSize: 12.0),
+                                ),
+                                SizedBox(
+                                  height: 2.0,
+                                ),
+                                Text(
+                                  favs[index]["direccion"],
+                                  style: TextStyle(
+                                      color: Colors.grey, fontSize: 12.0),
+                                ),
+                                SizedBox(
+                                  height: 2.0,
+                                ),
+                                Text(
+                                  favs[index]["oferta"],
+                                  style: TextStyle(
+                                      color: Color.fromRGBO(226, 120, 120, 1),
+                                      fontSize: 12.0),
+                                ),
+                              ],
+                            ),
                           ),
                           Container(
                             padding: EdgeInsets.symmetric(
@@ -334,21 +390,33 @@ class _ProfileState extends State<Profile> {
     );
   }
 
-  getCardLevel(index){
+  getCardLevel(index) {
     Color textColor;
     Color background;
-    if(usersLevels.length - 1 > index){
-      textColor = int.parse(usersLevels[index + 1]["requisitos"]) <= userValorations ? Colors.black :
-      int.parse(usersLevels[index]["requisitos"]) > userValorations ? Colors.black : Colors.white;
-      background = int.parse(usersLevels[index + 1]["requisitos"]) <= userValorations ? Colors.white :
-      int.parse(usersLevels[index]["requisitos"]) > userValorations ? Colors.white : Color.fromRGBO(254, 192, 75, 1);
-    }else{
-      textColor = int.parse(usersLevels[index]["requisitos"]) <= userValorations ? Colors.white : Colors.black;
-      background = int.parse(usersLevels[index]["requisitos"]) <= userValorations ?  Color.fromRGBO(254, 192, 75, 1) : Colors.white;
+    if (usersLevels.length - 1 > index) {
+      textColor =
+          int.parse(usersLevels[index + 1]["requisitos"]) <= userValorations
+              ? Colors.black
+              : int.parse(usersLevels[index]["requisitos"]) > userValorations
+                  ? Colors.black
+                  : Colors.white;
+      background =
+          int.parse(usersLevels[index + 1]["requisitos"]) <= userValorations
+              ? Colors.white
+              : int.parse(usersLevels[index]["requisitos"]) > userValorations
+                  ? Colors.white
+                  : Color.fromRGBO(254, 192, 75, 1);
+    } else {
+      textColor = int.parse(usersLevels[index]["requisitos"]) <= userValorations
+          ? Colors.white
+          : Colors.black;
+      background =
+          int.parse(usersLevels[index]["requisitos"]) <= userValorations
+              ? Color.fromRGBO(254, 192, 75, 1)
+              : Colors.white;
     }
     return Container(
-      padding:
-      EdgeInsets.symmetric(horizontal: 5.0, vertical: 10.0),
+      padding: EdgeInsets.symmetric(horizontal: 5.0, vertical: 10.0),
       margin: EdgeInsets.only(bottom: 15.0),
       decoration: BoxDecoration(
         color: background,
@@ -381,16 +449,13 @@ class _ProfileState extends State<Profile> {
                 ),
                 Text(
                   usersLevels[index]["descripcion"],
-                  style: TextStyle(
-                      color: textColor, fontSize: 12.0),
+                  style: TextStyle(color: textColor, fontSize: 12.0),
                 ),
               ],
             ),
           ),
           Text(
-            "+" +
-                usersLevels[index]["requisitos"] +
-                " Valoraciones",
+            "+" + usersLevels[index]["requisitos"] + " Valoraciones",
             style: TextStyle(
               fontWeight: FontWeight.bold,
               fontSize: 18.0,

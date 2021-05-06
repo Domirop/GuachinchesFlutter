@@ -4,6 +4,7 @@ import 'package:guachinches/data/HttpRemoteRepository.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
 import 'package:guachinches/data/cubit/user_cubit.dart';
 import 'package:guachinches/globalMethods.dart';
+import 'package:guachinches/home/home.dart';
 import 'package:guachinches/login/login_presenter.dart';
 import 'package:guachinches/menu/menu.dart';
 import 'package:http/http.dart';
@@ -53,7 +54,7 @@ class _LoginState extends State<Login> implements LoginView{
                 height: 40.0,
               ),
               GestureDetector(
-                onTap: ()=> GlobalMethods().popPage(context),
+                onTap: ()=> GlobalMethods().pushAndReplacement(context, Menu([Home(), Login("Para ver tus valoraciones debes iniciar sesión."), Login("Para ver tu perfíl debes iniciar sesión.")])),
                 child: Container(
                   alignment: Alignment.centerRight,
                   child: Icon(
