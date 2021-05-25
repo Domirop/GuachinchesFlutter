@@ -124,33 +124,6 @@ class _ProfileState extends State<Profile> {
                           fontSize: 18.0,
                         ),
                       ),
-                      RaisedButton(
-                        onPressed: () => {},
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(7.0),
-                        ),
-                        color: Color.fromRGBO(222, 99, 44, 1),
-                        child: Row(
-                          children: [
-                            Container(
-                              margin: EdgeInsets.only(right: 10.0),
-                              child: Icon(
-                                Icons.edit,
-                                color: Colors.white,
-                                size: 25.0,
-                              ),
-                            ),
-                            Text(
-                              "Editar Perfil",
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16.0,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
                     ],
                   ),
                 ],
@@ -214,6 +187,46 @@ class _ProfileState extends State<Profile> {
               SizedBox(
                 height: 30.0,
               ),
+              Row(
+                key: levelKey,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                      margin: EdgeInsets.only(top: 3.0),
+                      child: Image.asset("assets/images/trophy.png")),
+                  SizedBox(
+                    width: 10.0,
+                  ),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "Nivel",
+                          style: TextStyle(
+                            color: Colors.black,
+                            fontSize: 18.0,
+                          ),
+                        ),
+                        Text(
+                          "El nivel se determina en base a las valoraciones realizadas en los ultimos 6 meses.",
+                          style: TextStyle(
+                            color: Colors.black,
+                            fontSize: 12.0,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              ListView.builder(
+                  primary: false,
+                  shrinkWrap: true,
+                  itemCount: usersLevels.length,
+                  itemBuilder: (context, index) {
+                    return getCardLevel(index);
+                  }),
               Row(
                 key: favKey,
                 children: [
@@ -313,46 +326,6 @@ class _ProfileState extends State<Profile> {
                         ],
                       ),
                     );
-                  }),
-              Row(
-                key: levelKey,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                      margin: EdgeInsets.only(top: 3.0),
-                      child: Image.asset("assets/images/trophy.png")),
-                  SizedBox(
-                    width: 10.0,
-                  ),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          "Nivel",
-                          style: TextStyle(
-                            color: Colors.black,
-                            fontSize: 18.0,
-                          ),
-                        ),
-                        Text(
-                          "El nivel se determina en base a las valoraciones realizadas en los ultimos 6 meses.",
-                          style: TextStyle(
-                            color: Colors.black,
-                            fontSize: 12.0,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              ListView.builder(
-                  primary: false,
-                  shrinkWrap: true,
-                  itemCount: usersLevels.length,
-                  itemBuilder: (context, index) {
-                    return getCardLevel(index);
                   }),
             ],
           ),

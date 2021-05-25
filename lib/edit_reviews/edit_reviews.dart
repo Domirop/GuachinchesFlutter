@@ -103,8 +103,6 @@ class _EditReviewState extends State<EditReview> implements EditReviewView{
             RaisedButton(
               onPressed: () =>
               {
-                print(tittleController.text),
-                print(reviewController.text),
                 _presenter.updateReview(widget.userId, widget.review.id,
                     tittleController.text, rating, reviewController.text)
               },

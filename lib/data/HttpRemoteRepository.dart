@@ -17,7 +17,6 @@ class HttpRemoteRepository implements RemoteRepository {
 
   @override
   Future<UserInfo> getUserInfo(String userId) async {
-    print(userId);
     var uri = Uri.parse(endpoint + "user/"+userId);
     var response = await _client.get(uri);
 
@@ -81,7 +80,6 @@ class HttpRemoteRepository implements RemoteRepository {
         });
     var response = await _client.put(uri,
         headers: {"Content-Type": "application/json"}, body: body);
-    print(jsonDecode(response.body));
     return true;
   }
 
@@ -99,7 +97,6 @@ class HttpRemoteRepository implements RemoteRepository {
         });
     var response = await _client.post(uri,
         headers: {"Content-Type": "application/json"}, body: body);
-    print(jsonDecode(response.body));
     return true;
   }
 
@@ -116,7 +113,6 @@ class HttpRemoteRepository implements RemoteRepository {
     var response = await _client.post(uri,
         headers: {"Content-Type": "application/json"}, body: body);
     var data = jsonDecode(response.body);
-    print(data);
     return data["result"]["id"];
   }
 }

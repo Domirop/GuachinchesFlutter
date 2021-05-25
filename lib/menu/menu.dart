@@ -1,19 +1,40 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
+import 'package:guachinches/data/HttpRemoteRepository.dart';
+import 'package:guachinches/data/RemoteRepository.dart';
+import 'package:guachinches/data/cubit/user_cubit.dart';
+import 'package:guachinches/home/home.dart';
+import 'package:guachinches/login/login.dart';
 import 'package:guachinches/profile.dart';
-import 'package:guachinches/reviews.dart';
-import 'Valoraciones.dart';
-import 'home/home.dart';
+import 'package:guachinches/valoraciones/valoraciones.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+
+import 'menu_presenter.dart';
 
 class Menu extends StatefulWidget {
+  List<Widget> screens;
+
+  Menu(this.screens);
+
   @override
-  _ProfileState createState() => _ProfileState();
+  _ProfileState createState() => _ProfileState(screens);
 }
 
-class _ProfileState extends State<Menu> {
+class _ProfileState extends State<Menu> implements MenuView{
   int selectedItem = 0;
   int aux;
-  List<Widget> screens = [Home(), Reviews(), Profile()];
+  List<Widget> screens;
+  MenuPresenter _presenter;
+
+  _ProfileState(this.screens);
+
+  @override
+  void initState() {
+    final userCubit = context.read<UserCubit>();
+    _presenter = MenuPresenter(this, userCubit);
+    _presenter.getUserInfo();
+    super.initState();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -67,5 +88,17 @@ class _ProfileState extends State<Menu> {
     setState(() {
       selectedItem = index;
     });
+  }
+
+  @override
+  loginError() {
+    setState(() {
+      screens = [Home(), Login("Para ver tus valoraciones debes iniciar sesión."), Login("Para ver tu perfíl debes iniciar sesión.")];
+    });
+  }
+
+  @override
+  loginSuccess() {
+    screens = [Home(), Valoraciones(), Profile()];
   }
 }

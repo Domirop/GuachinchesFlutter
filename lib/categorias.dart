@@ -1,6 +1,8 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
+import 'model/Category.dart';
+
 class Categorias extends StatefulWidget {
   @override
   _CategoriasState createState() => _CategoriasState();
@@ -9,14 +11,22 @@ class Categorias extends StatefulWidget {
 class _CategoriasState extends State<Categorias> {
   TextEditingController textFieldBuscar = new TextEditingController();
 
-  List<String> categories = ["primero", "segundo", "tercero"];
-  String value = "primero";
-  int aux;
+  List<Category> categories = [
+    Category.fromJson({
+      "id": "76e52d7a-8c9b-4b2e-a74a-bcd74af4d4f5",
+      "nombre": "Ternera",
+      "iconUrl": "https://louvre.s3.fr-par.scw.cloud/Guachinches/cow.png"
+    }),
+    Category.fromJson({
+      "id": "16bd1169-9b0c-43d8-985b-42699dab2527",
+      "nombre": "Cerdo",
+      "iconUrl": "https://louvre.s3.fr-par.scw.cloud/Guachinches/pig.png"
+    })
+  ];
 
   @override
   Widget build(BuildContext context) {
-    aux = -1;
-    double listIndexs = categories.length / 2.0;
+    int rows = (categories.length / 2).round();
     return Scaffold(
       body: SingleChildScrollView(
         child: Container(
@@ -50,49 +60,11 @@ class _CategoriasState extends State<Categorias> {
                       color: Colors.black,
                     ),
                   ),
+                  onChanged: searchCategory,
                 ),
               ),
               SizedBox(
                 height: 20.0,
-              ),
-              Material(
-                elevation: 5.0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10.0),
-                ),
-                shadowColor: Colors.black,
-                child: DropdownButtonFormField(
-                  items: categories.map((e) {
-                    return DropdownMenuItem(
-                      value: e,
-                      child: Text(e),
-                    );
-                  }).toList(),
-                  onChanged: (newValue) {
-                    setState(() {
-                      value = newValue;
-                    });
-                  },
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 18.0,
-                    color: Colors.black,
-                  ),
-                  value: value,
-                  iconSize: 0.0,
-                  decoration: InputDecoration(
-                    prefixIcon: Icon(
-                      Icons.keyboard_arrow_down_outlined,
-                      color: Colors.black,
-                      size: 35.0,
-                    ),
-                    disabledBorder: InputBorder.none,
-                  ),
-                  isExpanded: true,
-                ),
-              ),
-              SizedBox(
-                height: 30.0,
               ),
               Container(
                 alignment: Alignment.centerLeft,
@@ -109,50 +81,52 @@ class _CategoriasState extends State<Categorias> {
               ),
               ListView.builder(
                 shrinkWrap: true,
-                itemCount: listIndexs.round(),
+                primary: false,
+                itemCount: rows,
                 scrollDirection: Axis.vertical,
                 itemBuilder: (context, index) {
-                  aux++;
                   return Column(
                     children: [
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceAround,
-                        crossAxisAlignment: CrossAxisAlignment.center,
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Container(
+                            margin: EdgeInsets.symmetric(horizontal: 30.0),
                             color: Colors.red,
                             child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.center,
                               children: [
-                                Image.asset(
-                                  "assets/images/logo.png",
-                                  height: 100.0,
-                                  width: 100.0,
+                                Container(
+                                  child: Image.network(
+                                    categories[index].iconUrl,
+                                    height: 100.0,
+                                    width: 100.0,
+                                  ),
                                 ),
-                                Text(categories[index + aux]),
+                                Text(categories[index].nombre),
                               ],
                             ),
                           ),
-                          (aux + 1) >= listIndexs.round()
-                              ? Container(
-                                  width: 100.0,
-                                )
-                              : Container(
-                                  color: Colors.red,
-                                  child: Column(
-                                    children: [
-                                      Image.asset(
-                                        "assets/images/logo.png",
-                                        height: 100.0,
-                                      ),
-                                      Text(categories[index + aux + 1]),
-                                    ],
+                          categories.length >= index + rows + 1 ? Container(
+                            margin: EdgeInsets.symmetric(horizontal: 30.0),
+                            color: Colors.red,
+                            child: Column(
+                              children: [
+                                Container(
+                                  child: Image.network(
+                                    categories[index + 1].iconUrl,
+                                    height: 100.0,
+                                    width: 100.0,
                                   ),
                                 ),
+                                Text(categories[index + 1].nombre),
+                              ],
+
+                            ),
+                          ) : Container()
                         ],
                       ),
-                      SizedBox(
-                        height: 30.0,
-                      ),
+                      SizedBox(height: 15,),
                     ],
                   );
                 },
@@ -162,5 +136,12 @@ class _CategoriasState extends State<Categorias> {
         ),
       ),
     );
+  }
+
+  searchCategory(e) {
+    List<Category> aux = categories.where((element) => element.nombre.contains(e)).toList();
+    setState(() {
+      categories = aux;
+    });
   }
 }

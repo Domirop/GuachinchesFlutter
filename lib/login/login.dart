@@ -5,7 +5,7 @@ import 'package:guachinches/data/RemoteRepository.dart';
 import 'package:guachinches/data/cubit/user_cubit.dart';
 import 'package:guachinches/globalMethods.dart';
 import 'package:guachinches/login/login_presenter.dart';
-import 'package:guachinches/menu.dart';
+import 'package:guachinches/menu/menu.dart';
 import 'package:http/http.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -165,7 +165,7 @@ class _LoginState extends State<Login> implements LoginView{
   }
 
   @override
-  loginSuccess() {
-    GlobalMethods().pushPage(context, Menu());
+  loginSuccess(List<Widget> screens) {
+    GlobalMethods().pushPage(context, Menu(screens));
   }
 }

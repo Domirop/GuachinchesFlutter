@@ -16,22 +16,13 @@ class HomePresenter{
 
   getAllRestaurants() async {
     await _restaurantCubit.getRestaurants();
-
-
-  }
-  Future<String> _calculateAvg(List<Review> reviews) async {
-    double totalReviews = (reviews.length).toDouble();
-    double totalratingSum = 0.0;
-    for(int i = 0; i<reviews.length; i++){
-      totalratingSum += double.parse(reviews[i].rating);
-    }
-    return (totalratingSum / totalReviews).toString();
   }
 
   getAllCategories() async {
     List<Category> categories = await _remoteRepository.getAllCategories();
     _view.setAllCategories(categories);
   }
+
   getSelectedMunicipality() async {
     String name = await storage.read(key: "municipalityName");
     String id = await storage.read(key: "municipalityId");
@@ -44,6 +35,10 @@ class HomePresenter{
     }
     _view.setMunicipality(name, id);
 
+  }
+
+  getRestaurantsFilter(List<Restaurant> restaurants, String value) async {
+    await _restaurantCubit.getFilterRestaurants(restaurants, value);
   }
 }
 abstract class HomeView{

@@ -25,6 +25,7 @@ class _DetailsState extends State<Details> {
     "assets/images/Morenita.png",
     "assets/images/Morenita.png"
   ];
+  String url = "https://www.google.com";
   String phone = "+34111222333";
   int indexSection = 0;
 
@@ -193,103 +194,119 @@ class _DetailsState extends State<Details> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  Column(
-                    key: detailsKey,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Text(
-                            widget._restaurant.nombre,
-                            style: TextStyle(
-                              fontSize: 18.0,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black,
+                  Expanded(
+                    child: Column(
+                      key: detailsKey,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Text(
+                              widget._restaurant.nombre,
+                              style: TextStyle(
+                                fontSize: 18.0,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black,
+                              ),
                             ),
-                          ),
-                          GestureDetector(
-                            onTap: () => openPhone(phone),
-                            child: Image(
-                              image: AssetImage('assets/images/phone.png'),
-                              width: 23.0,
-                              height: 24.0,
+                            GestureDetector(
+                              onTap: () => openPhone(phone),
+                              child: Container(
+                                margin: EdgeInsets.only(right: 5.0, left: 10.0),
+                                child: Image(
+                                  image: AssetImage('assets/images/phone.png'),
+                                  width: 23.0,
+                                  height: 24.0,
+                                ),
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
-                      SizedBox(
-                        height: 5.0,
-                      ),
-                      Row(
-                        children: [
-                          Text(
-                            widget._restaurant.avg,
-                            style: TextStyle(
-                              fontSize: 18.0,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black,
+                            GestureDetector(
+                              onTap: () => launch(url),
+                              child: Container(
+                                margin: EdgeInsets.only(left: 5.0),
+                                child: Image(
+                                  image: AssetImage('assets/images/google.png'),
+                                  width: 23.0,
+                                  height: 24.0,
+                                ),
+                              ),
                             ),
-                          ),
-                          RatingBar.builder(
-                            ignoreGestures: true,
-                            initialRating: double.parse(widget._restaurant.avg),
-                            minRating: 1,
-                            direction: Axis.horizontal,
-                            allowHalfRating: true,
-                            itemCount: 5,
-                            itemSize: 30,
-                            glowColor: Colors.white,
-                            onRatingUpdate: (rating)=>{},
-                            itemPadding: EdgeInsets.symmetric(horizontal: 2.0),
-                            itemBuilder: (context, _) => Icon(
-                              Icons.star,
-                              color: Colors.amber,
+                          ],
+                        ),
+                        SizedBox(
+                          height: 5.0,
+                        ),
+                        widget._restaurant.avg == "NaN" ? Container() : Row(
+                          children: [
+                            Text(
+                              widget._restaurant.avg,
+                              style: TextStyle(
+                                fontSize: 18.0,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black,
+                              ),
                             ),
-                          ),
+                            RatingBar.builder(
+                              ignoreGestures: true,
+                              initialRating: double.parse(widget._restaurant.avg),
+                              minRating: 1,
+                              direction: Axis.horizontal,
+                              allowHalfRating: true,
+                              itemCount: 5,
+                              itemSize: 30,
+                              glowColor: Colors.white,
+                              onRatingUpdate: (rating)=>{},
+                              itemPadding: EdgeInsets.symmetric(horizontal: 2.0),
+                              itemBuilder: (context, _) => Icon(
+                                Icons.star,
+                                color: Colors.amber,
+                              ),
+                            ),
 
-                          Text(
-                            widget._restaurant.valoraciones.length.toString()+' valoraciones',
-                            style: TextStyle(
-                              fontSize: 10.0,
-                              color: Colors.black,
+                            Text(
+                              widget._restaurant.valoraciones.length.toString()+' valoraciones',
+                              style: TextStyle(
+                                fontSize: 10.0,
+                                color: Colors.black,
+                              ),
                             ),
+                          ],
+                        ),
+                        SizedBox(
+                          height: 5.0,
+                        ),
+                        Text(
+                          'De lunes a viernes de 12:00 a 15:00',
+                          style: TextStyle(
+                            fontSize: 12.0,
+                            color: Colors.black,
                           ),
-                        ],
-                      ),
-                      SizedBox(
-                        height: 5.0,
-                      ),
-                      Text(
-                        'De lunes a viernes de 12:00 a 15:00',
-                        style: TextStyle(
-                          fontSize: 12.0,
-                          color: Colors.black,
                         ),
-                      ),
-                      SizedBox(
-                        height: 5.0,
-                      ),
-                      Text(
-                        'Carnes de cerdo y ternera.',
-                        style: TextStyle(
-                          fontSize: 12.0,
-                          color: Colors.black,
+                        SizedBox(
+                          height: 5.0,
                         ),
-                      ),
-                      SizedBox(
-                        height: 5.0,
-                      ),
-                      Text(
-                        widget._restaurant.direccion,
-                        style: TextStyle(
-                          fontSize: 12.0,
-                          color: Colors.black,
+                        Text(
+                          'Carnes de cerdo y ternera.',
+                          style: TextStyle(
+                            fontSize: 12.0,
+                            color: Colors.black,
+                          ),
                         ),
-                      ),
-                      SizedBox(
-                        height: 5.0,
-                      ),
-                    ],
+                        SizedBox(
+                          height: 5.0,
+                        ),
+                        Text(
+                          widget._restaurant.direccion,
+                          style: TextStyle(
+                            fontSize: 12.0,
+                            color: Colors.black,
+                          ),
+                        ),
+                        SizedBox(
+                          height: 5.0,
+                        ),
+                      ],
+                    ),
                   ),
                   Container(
                     width: 55.0,
@@ -345,21 +362,6 @@ class _DetailsState extends State<Details> {
               margin: EdgeInsets.symmetric(horizontal: 10.0),
               child: Column(
                 children: [
-                  Row(
-                    children: [
-                      Image.asset("assets/images/instagram.png"),
-                      Text(
-                        "@bodegonmojopicon",
-                        style: TextStyle(
-                          fontSize: 10.0,
-                          color: Colors.black,
-                        ),
-                      ),
-                    ],
-                  ),
-                  SizedBox(
-                    height: 15.0,
-                  ),
                   Container(
                     height: 80.0,
                     child: ListView.builder(
@@ -620,20 +622,6 @@ class _DetailsState extends State<Details> {
                             color: Colors.black,
                           ),
                         ),
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.circle,
-                              color: Colors.deepOrange,
-                              size: 20.0,
-                            ),
-                            Icon(
-                              Icons.circle,
-                              color: Colors.deepOrangeAccent,
-                              size: 20.0,
-                            )
-                          ],
-                        ),
                         Text(
                           'Gluten, huevo (preguntar dudas)',
                           style: TextStyle(
@@ -668,6 +656,9 @@ class _DetailsState extends State<Details> {
             ),
             Container(
                 key: reviewsKey, child: ValoracionesComponent("Valoraciones",widget._restaurant.id)),
+            SizedBox(
+              height: 30.0,
+            ),
           ],
         ),
       ),

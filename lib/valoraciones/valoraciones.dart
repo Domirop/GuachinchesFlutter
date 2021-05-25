@@ -57,35 +57,6 @@ class _ValoracionesState extends State<Valoraciones> implements ValoracionesView
             SizedBox(
               height: 20.0,
             ),
-            Container(
-              height: 20,
-              margin: EdgeInsets.only(left: 30.0),
-              width: 90.0,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                border: Border.all(color: Colors.black, width: 1.0),
-                borderRadius: BorderRadius.circular(4.0),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.keyboard_arrow_down_outlined,
-                    size: 10.0,
-                  ),
-                  Text(
-                    "Mas Recientes",
-                    style: TextStyle(
-                      color: Colors.black,
-                      fontSize: 10.0,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            SizedBox(
-              height: 20.0,
-            ),
             BlocBuilder<UserCubit, UserState>(
               builder: (context, state){
                 if(state is UserLoaded){

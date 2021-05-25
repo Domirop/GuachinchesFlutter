@@ -3,7 +3,7 @@ import 'package:guachinches/data/HttpRemoteRepository.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
 import 'package:guachinches/data/cubit/user_cubit.dart';
 import 'package:guachinches/globalMethods.dart';
-import 'package:guachinches/menu.dart';
+import 'package:guachinches/menu/menu.dart';
 import 'package:guachinches/splash_screen/splash_screen_presenter.dart';
 import 'package:http/http.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -36,7 +36,7 @@ class _SplashScreenState extends State<SplashScreen> implements SplashScreenView
   }
 
   @override
-  goToMenu() {
-    GlobalMethods().pushAndReplacement(context, Menu());
+  goToMenu(List<Widget> screens) {
+    GlobalMethods().pushAndReplacement(context, Menu(screens));
   }
 }

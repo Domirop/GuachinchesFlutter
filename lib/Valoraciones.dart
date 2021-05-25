@@ -83,36 +83,7 @@ class ValoracionesComponent extends StatelessWidget {
           ),
         ),
         SizedBox(
-          height: 15.0,
-        ),
-        SizedBox(
-          height: 20.0,
-        ),
-        Container(
-          height: 20,
-          margin: EdgeInsets.only(left: 30.0),
-          width: 90.0,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border.all(color: Colors.black, width: 1.0),
-            borderRadius: BorderRadius.circular(4.0),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.keyboard_arrow_down_outlined,
-                size: 10.0,
-              ),
-              Text(
-                "Mas Recientes",
-                style: TextStyle(
-                  color: Colors.black,
-                  fontSize: 10.0,
-                ),
-              ),
-            ],
-          ),
+          height: 10.0,
         ),
         Container(
           child: BlocBuilder<RestaurantCubit, RestaurantState>(
@@ -121,157 +92,164 @@ class ValoracionesComponent extends StatelessWidget {
                 restaurant = state.restaurants
                     .where((element) => element.id == restaurantId)
                     .first;
-                return Column(
-                  children: restaurant.valoraciones.map((e) {
-                    return Container(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.start,
-                        children: [
-                          SizedBox(
-                            height: 20.0,
+                List<Widget> aux = [];
+
+                aux.addAll(restaurant.valoraciones.map((e) {
+                  return Container(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.start,
+                      children: [
+                        SizedBox(
+                          height: 20.0,
+                        ),
+                        Container(
+                          padding: EdgeInsets.all(20.0),
+                          margin: EdgeInsets.symmetric(horizontal: 10.0),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            boxShadow: [
+                              BoxShadow(
+                                  color: Colors.black54,
+                                  blurRadius: 5.0,
+                                  spreadRadius: 1.0,
+                                  offset: Offset(2.0, 4.0))
+                            ],
+                            borderRadius: BorderRadius.circular(17.0),
                           ),
-                          Container(
-                            padding: EdgeInsets.all(20.0),
-                            margin: EdgeInsets.symmetric(horizontal: 10.0),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              boxShadow: [
-                                BoxShadow(
-                                    color: Colors.black54,
-                                    blurRadius: 5.0,
-                                    spreadRadius: 1.0,
-                                    offset: Offset(2.0, 4.0))
-                              ],
-                              borderRadius: BorderRadius.circular(17.0),
-                            ),
-                            child: Column(
-                              children: [
-                                Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      children: [
-                                        Text(
-                                          "\"Espectacular\"",
-                                          style: TextStyle(
-                                            color: Colors.black,
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 16.0,
+                          child: Column(
+                            children: [
+                              Row(
+                                mainAxisAlignment:
+                                MainAxisAlignment.spaceBetween,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Column(
+                                    crossAxisAlignment:
+                                    CrossAxisAlignment.start,
+                                    mainAxisAlignment:
+                                    MainAxisAlignment.center,
+                                    children: [
+                                      Text(
+                                        "\"Espectacular\"",
+                                        style: TextStyle(
+                                          color: Colors.black,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 16.0,
+                                        ),
+                                      ),
+                                      Row(
+                                        children: [
+                                          Text(
+                                            e.rating,
+                                            style: TextStyle(
+                                              fontSize: 18.0,
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.black,
+                                            ),
                                           ),
-                                        ),
-                                        Row(
-                                          children: [
-                                            Text(
-                                              e.rating,
-                                              style: TextStyle(
-                                                fontSize: 18.0,
-                                                fontWeight: FontWeight.bold,
-                                                color: Colors.black,
-                                              ),
+                                          RatingBar.builder(
+                                            ignoreGestures: true,
+                                            initialRating:
+                                            double.parse(e.rating),
+                                            minRating: 1,
+                                            direction: Axis.horizontal,
+                                            allowHalfRating: true,
+                                            itemCount: 5,
+                                            itemSize: 20,
+                                            glowColor: Colors.white,
+                                            onRatingUpdate: (rating) => {},
+                                            itemPadding: EdgeInsets.symmetric(
+                                                horizontal: 2.0),
+                                            itemBuilder: (context, _) => Icon(
+                                              Icons.star,
+                                              color: Colors.amber,
                                             ),
-                                            RatingBar.builder(
-                                              ignoreGestures: true,
-                                              initialRating:
-                                                  double.parse(e.rating),
-                                              minRating: 1,
-                                              direction: Axis.horizontal,
-                                              allowHalfRating: true,
-                                              itemCount: 5,
-                                              itemSize: 20,
-                                              glowColor: Colors.white,
-                                              onRatingUpdate: (rating) => {},
-                                              itemPadding: EdgeInsets.symmetric(
-                                                  horizontal: 2.0),
-                                              itemBuilder: (context, _) => Icon(
-                                                Icons.star,
-                                                color: Colors.amber,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ],
-                                    ),
-                                    Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.end,
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.start,
-                                      children: [],
-                                    ),
-                                  ],
-                                ),
-                                SizedBox(
-                                  height: 20.0,
-                                ),
-                                // Row(
-                                //   children: [
-                                //     Container(
-                                //       height: 56.0,
-                                //       width: 56.0,
-                                //       decoration: BoxDecoration(
-                                //         image: DecorationImage(
-                                //           repeat: ImageRepeat.noRepeat,
-                                //           alignment: Alignment.center,
-                                //           fit: BoxFit.cover,
-                                //           image: AssetImage('assets/images/escaldon.png'),
-                                //         ),
-                                //       ),
-                                //     ),
-                                //     SizedBox(
-                                //       width: 10.0,
-                                //     ),
-                                //     Container(
-                                //       height: 56.0,
-                                //       width: 56.0,
-                                //       decoration: BoxDecoration(
-                                //         image: DecorationImage(
-                                //           repeat: ImageRepeat.noRepeat,
-                                //           alignment: Alignment.center,
-                                //           fit: BoxFit.cover,
-                                //           image: AssetImage('assets/images/escaldon.png'),
-                                //         ),
-                                //       ),
-                                //     ),
-                                //   ],
-                                // ),
-                                SizedBox(
-                                  height: 20.0,
-                                ),
-                                Text(
-                                  e.review,
-                                  style: TextStyle(
-                                    color: Colors.black,
-                                    fontSize: 14.0,
+                                          ),
+                                        ],
+                                      ),
+                                    ],
                                   ),
-                                ),
-                                SizedBox(
-                                  height: 20.0,
-                                ),
-                                Text(
-                                  "Ver más",
-                                  style: TextStyle(
-                                    fontSize: 12.0,
-                                    color: Color.fromRGBO(222, 99, 44, 1),
-                                    decoration: TextDecoration.underline,
-                                    decorationColor:
-                                        Color.fromRGBO(222, 99, 44, 1),
+                                  Column(
+                                    crossAxisAlignment:
+                                    CrossAxisAlignment.end,
+                                    mainAxisAlignment:
+                                    MainAxisAlignment.start,
+                                    children: [],
                                   ),
+                                ],
+                              ),
+                              SizedBox(
+                                height: 20.0,
+                              ),
+                              // Row(
+                              //   children: [
+                              //     Container(
+                              //       height: 56.0,
+                              //       width: 56.0,
+                              //       decoration: BoxDecoration(
+                              //         image: DecorationImage(
+                              //           repeat: ImageRepeat.noRepeat,
+                              //           alignment: Alignment.center,
+                              //           fit: BoxFit.cover,
+                              //           image: AssetImage('assets/images/escaldon.png'),
+                              //         ),
+                              //       ),
+                              //     ),
+                              //     SizedBox(
+                              //       width: 10.0,
+                              //     ),
+                              //     Container(
+                              //       height: 56.0,
+                              //       width: 56.0,
+                              //       decoration: BoxDecoration(
+                              //         image: DecorationImage(
+                              //           repeat: ImageRepeat.noRepeat,
+                              //           alignment: Alignment.center,
+                              //           fit: BoxFit.cover,
+                              //           image: AssetImage('assets/images/escaldon.png'),
+                              //         ),
+                              //       ),
+                              //     ),
+                              //   ],
+                              // ),
+                              SizedBox(
+                                height: 20.0,
+                              ),
+                              Text(
+                                e.review,
+                                style: TextStyle(
+                                  color: Colors.black,
+                                  fontSize: 14.0,
                                 ),
-                              ],
-                            ),
+                              ),
+                              SizedBox(
+                                height: 20.0,
+                              ),
+                              Text(
+                                "Ver más",
+                                style: TextStyle(
+                                  fontSize: 12.0,
+                                  color: Color.fromRGBO(222, 99, 44, 1),
+                                  decoration: TextDecoration.underline,
+                                  decorationColor:
+                                  Color.fromRGBO(222, 99, 44, 1),
+                                ),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
-                    );
-                  }).toList(),
-                );
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList());
+                if(aux.length > 1){
+                  return Column(
+                    children: aux.map((e) {return e;}).toList(),
+                  );
+                }else{
+                  return Container();
+                }
               }
               return Container();
             },
