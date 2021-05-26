@@ -9,18 +9,18 @@ class CategoryRestaurant {
   String _id;
   String _categoriasRestauranteId;
   String _categoriaId;
-  Category _categorias;
+  ModelCategory _categorias;
 
   String get id => _id;
   String get categoriasRestauranteId => _categoriasRestauranteId;
   String get categoriaId => _categoriaId;
-  Category get categorias => _categorias;
+  ModelCategory get categorias => _categorias;
 
   CategoryRestaurant({
     String id,
     String categoriasRestauranteId,
     String categoriaId,
-    Category categorias}){
+    ModelCategory categorias}){
     _id = id;
     _categoriasRestauranteId = categoriasRestauranteId;
     _categoriaId = categoriaId;
@@ -31,7 +31,7 @@ class CategoryRestaurant {
     _id = json["id"];
     _categoriasRestauranteId = json["categorias_restauranteId"];
     _categoriaId = json["categoriaId"];
-    _categorias = json["Categorias"] != null ? Category.fromJson(json["Categorias"]) : null;
+    _categorias = json["Categorias"] != null ? ModelCategory.fromJson(json["Categorias"]) : null;
   }
 
   Map<String, dynamic> toJson() {

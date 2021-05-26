@@ -1,5 +1,6 @@
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
+import 'package:guachinches/data/cubit/categories_cubit.dart';
 import 'package:guachinches/data/cubit/restaurant_cubit.dart';
 import 'package:guachinches/model/Category.dart';
 import 'package:guachinches/model/Review.dart';
@@ -9,18 +10,18 @@ class HomePresenter{
   final RemoteRepository _remoteRepository;
   final HomeView _view;
   RestaurantCubit _restaurantCubit;
+  CategoriesCubit _categoriesCubit;
 
   final storage = new FlutterSecureStorage();
 
-  HomePresenter(this._remoteRepository, this._view, this._restaurantCubit);
+  HomePresenter(this._remoteRepository, this._view, this._restaurantCubit, this._categoriesCubit);
 
   getAllRestaurants() async {
     await _restaurantCubit.getRestaurants();
   }
 
   getAllCategories() async {
-    List<Category> categories = await _remoteRepository.getAllCategories();
-    _view.setAllCategories(categories);
+    await _categoriesCubit.getCategories();
   }
 
   getSelectedMunicipality() async {
@@ -43,6 +44,6 @@ class HomePresenter{
 }
 abstract class HomeView{
   setAllRestaurants(List<Restaurant> restaurants);
-  setAllCategories(List<Category> categories);
+  setAllCategories(List<ModelCategory> categories);
   setMunicipality(String municipalityName, String municipalityId);
 }

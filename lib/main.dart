@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:guachinches/data/HttpRemoteRepository.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
+import 'package:guachinches/data/cubit/categories_cubit.dart';
 import 'package:guachinches/data/cubit/user_cubit.dart';
 import 'package:guachinches/splash_screen/splash_screen.dart';
 import 'package:http/http.dart';
@@ -35,6 +36,9 @@ class _MyAppState extends State<MyApp> {
         ),
         BlocProvider(
           create: ((context) => UserCubit(remoteRepository)),
+        ),
+        BlocProvider(
+          create: ((context) => CategoriesCubit(remoteRepository)),
         )
       ],
       child: MaterialApp(

@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:guachinches/data/HttpRemoteRepository.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:guachinches/data/cubit/categories_cubit.dart';
+import 'package:guachinches/data/cubit/categories_state.dart';
 import 'package:guachinches/data/cubit/restaurant_cubit.dart';
 import 'package:guachinches/data/cubit/restaurant_state.dart';
 import 'package:guachinches/globalMethods.dart';
@@ -12,7 +14,7 @@ import 'package:guachinches/model/restaurant.dart';
 import 'package:guachinches/municipality_screen/municipality_screen.dart';
 import 'package:http/http.dart';
 
-import '../categorias.dart';
+import '../Categorias/categorias.dart';
 import '../details.dart';
 
 class Home extends StatefulWidget {
@@ -21,7 +23,6 @@ class Home extends StatefulWidget {
 }
 
 class _HomeState extends State<Home>
-    with SingleTickerProviderStateMixin
     implements HomeView {
   int _current = 0;
   final List<String> imgList = [
@@ -34,7 +35,7 @@ class _HomeState extends State<Home>
   bool isDescendent = false;
   String selectedCategories = "";
   List<Restaurant> restaurants = [];
-  List<Category> categories = [];
+  List<ModelCategory> categories = [];
   String municipalityId = "";
   String municipalityName = "Todos";
   GlobalKey inputFocus = GlobalKey();
@@ -47,13 +48,17 @@ class _HomeState extends State<Home>
   @override
   void initState() {
     final restaurantCubit = context.read<RestaurantCubit>();
+    final categoriesCubit = context.read<CategoriesCubit>();
     remoteRepository = HttpRemoteRepository(Client());
-    presenter = HomePresenter(remoteRepository, this, restaurantCubit);
+    presenter =
+        HomePresenter(remoteRepository, this, restaurantCubit, categoriesCubit);
     presenter.getSelectedMunicipality();
     if (restaurantCubit.state is RestaurantInitial) {
       presenter.getAllRestaurants();
     }
-    presenter.getAllCategories();
+    if (categoriesCubit.state is CategoriesInitial) {
+      presenter.getAllCategories();
+    }
     super.initState();
   }
 
@@ -190,49 +195,60 @@ class _HomeState extends State<Home>
             SizedBox(
               height: 20.0,
             ),
-            Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: categories
-                    .map((e) => GestureDetector(
-                          onTap: () => categorySelected(e.id),
-                          child: new Container(
-                            height: 72.0,
-                            width: MediaQuery.of(context).size.width * 0.143,
-                            decoration: BoxDecoration(
-                              color: selectedCategories.contains(e.id)
-                                  ? Colors.black12
-                                  : Colors.white,
-                              borderRadius: BorderRadius.circular(10.0),
-                              border: Border.all(
-                                color: Colors.black,
-                                width: 1,
+            Container(
+              child: BlocBuilder<CategoriesCubit, CategoriesState>(
+                  builder: (context, state) {
+                if (state is CategoriesLoaded) {
+                  return Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: state.categories
+                          .map(
+                            (e) => GestureDetector(
+                              onTap: () => categorySelected(e.id),
+                              child: new Container(
+                                height: 72.0,
+                                width:
+                                    MediaQuery.of(context).size.width * 0.143,
+                                decoration: BoxDecoration(
+                                  color: selectedCategories.contains(e.id)
+                                      ? Colors.black12
+                                      : Colors.white,
+                                  borderRadius: BorderRadius.circular(10.0),
+                                  border: Border.all(
+                                    color: Colors.black,
+                                    width: 1,
+                                  ),
+                                ),
+                                child: Stack(
+                                  overflow: Overflow.visible,
+                                  alignment: Alignment.bottomCenter,
+                                  children: [
+                                    Positioned(
+                                      top: -15.0,
+                                      child: Image(
+                                        image: NetworkImage(e.iconUrl),
+                                        height: 40.0,
+                                        width: 40.0,
+                                      ),
+                                    ),
+                                    Text(
+                                      e.nombre,
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        color: Colors.black,
+                                        fontSize: 12.0,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
-                            child: Stack(
-                              overflow: Overflow.visible,
-                              alignment: Alignment.bottomCenter,
-                              children: [
-                                Positioned(
-                                  top: -15.0,
-                                  child: Image(
-                                    image: NetworkImage(e.iconUrl),
-                                    height: 40.0,
-                                    width: 40.0,
-                                  ),
-                                ),
-                                Text(
-                                  e.nombre,
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    color: Colors.black,
-                                    fontSize: 12.0,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ))
-                    .toList()),
+                          )
+                          .toList());
+                }
+                return Container();
+              }),
+            ),
             SizedBox(
               height: 20.0,
             ),
@@ -333,7 +349,7 @@ class _HomeState extends State<Home>
   }
 
   @override
-  setAllCategories(List<Category> categories) {
+  setAllCategories(List<ModelCategory> categories) {
     setState(() {
       this.categories = categories;
     });
