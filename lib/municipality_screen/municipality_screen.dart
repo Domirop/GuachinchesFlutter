@@ -9,7 +9,7 @@ import 'package:guachinches/valoraciones/valoraciones.dart';
 import 'package:http/http.dart';
 
 import '../menu/menu.dart';
-import '../profile.dart';
+import '../profile/profile.dart';
 
 class MunicipalityScreen extends StatefulWidget {
   @override

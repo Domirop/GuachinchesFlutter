@@ -7,7 +7,7 @@ import 'package:guachinches/home/home.dart';
 import 'package:guachinches/login/login.dart';
 import 'package:guachinches/valoraciones/valoraciones.dart';
 
-import '../profile.dart';
+import '../profile/profile.dart';
 
 class SplashScreenPresenter{
   final SplashScreenView _view ;
@@ -27,7 +27,7 @@ class SplashScreenPresenter{
       }
       screens = [Home(), Valoraciones(), Profile()];
     }else{
-      screens = [Home(), Login("Para ver tus valoraciones debes iniciar sesión."), Profile()];
+      screens = [Home(), Login("Para ver tus valoraciones debes iniciar sesión."), Login("Para ver tu perfíl debes iniciar sesión.")];
     }
     _view.goToMenu(screens);
   }

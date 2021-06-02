@@ -11,7 +11,6 @@ import 'package:guachinches/globalMethods.dart';
 import 'package:guachinches/login/login.dart';
 import 'package:guachinches/valoraciones/valoraciones_presenter.dart';
 import 'package:http/http.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 
 class Valoraciones extends StatefulWidget {
   @override
@@ -59,6 +58,7 @@ class _ValoracionesState extends State<Valoraciones> implements ValoracionesView
             BlocBuilder<UserCubit, UserState>(
               builder: (context, state){
                 if(state is UserLoaded){
+                  print(state.user.valoraciones.length);
                   return  Column(children:
                   state.user.valoraciones.map((e) => Padding(
                     padding: const EdgeInsets.only(top:8.0),

@@ -12,5 +12,5 @@ abstract class RemoteRepository{
   Future<UserInfo> getUserInfo(String userId);
   Future<bool> updateReview(String userId, String reviewId, String title,String rating, String review);
   Future<bool> saveReview(String userId, Restaurant restaurant ,String title, String review, String rating);
-  Future<String> loginUser(String login, String password);
+  Future<dynamic> loginUser(String login, String password);
 }

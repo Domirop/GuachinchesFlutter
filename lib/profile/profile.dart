@@ -1,12 +1,15 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:guachinches/globalMethods.dart';
+import 'package:guachinches/profile/profile_presenter.dart';
+import 'package:guachinches/splash_screen/splash_screen.dart';
 
 class Profile extends StatefulWidget {
   @override
   _ProfileState createState() => _ProfileState();
 }
 
-class _ProfileState extends State<Profile> {
+class _ProfileState extends State<Profile> implements ProfileView {
   final favKey = new GlobalKey();
   final levelKey = new GlobalKey();
   int indexSection = 0;
@@ -57,7 +60,13 @@ class _ProfileState extends State<Profile> {
   ];
 
   int userValorations = 3;
+  ProfilePresenter _presenter;
 
+@override
+  void initState() {
+    _presenter  = ProfilePresenter(this);
+    super.initState();
+  }
   @override
   Widget build(BuildContext context) {
     double height = 0.0;
@@ -153,7 +162,7 @@ class _ProfileState extends State<Profile> {
                 margin: EdgeInsets.symmetric(horizontal: 45.0),
                 width: double.infinity,
                 child: RaisedButton(
-                  onPressed: () => {},
+                  onPressed: () => _presenter.logOut(),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(7.0),
                   ),
@@ -471,5 +480,9 @@ class _ProfileState extends State<Profile> {
     setState(() {
       indexSection = index;
     });
+  }
+  goSplashScreen(){
+    print("TU PRIMO");
+    GlobalMethods().pushAndReplacement(context, SplashScreen());
   }
 }
