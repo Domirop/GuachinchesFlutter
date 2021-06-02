@@ -95,10 +95,11 @@ class _CategoriasState extends State<Categorias> implements CategoriasView{
                         return Wrap(
                           children: state.categories.map((e) {
                               return Container(
-                                margin: EdgeInsets.symmetric(horizontal: 30.0),
+                                width: MediaQuery.of(context).size.width / 2 - 70,
+                                height: 150,
+                                margin: EdgeInsets.symmetric(horizontal: 20.0, vertical: 20.0),
                                 color: Colors.red,
                                 child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.center,
                                   children: [
                                     Container(
                                       child: Image.network(
@@ -107,7 +108,7 @@ class _CategoriasState extends State<Categorias> implements CategoriasView{
                                         width: 100.0,
                                       ),
                                     ),
-                                    Text(e.nombre),
+                                    Center(child: Text(e.nombre, textAlign: TextAlign.center,)),
                                   ],
                                 ),
                               );}

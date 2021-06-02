@@ -22,8 +22,7 @@ class Home extends StatefulWidget {
   _HomeState createState() => _HomeState();
 }
 
-class _HomeState extends State<Home>
-    implements HomeView {
+class _HomeState extends State<Home> implements HomeView {
   int _current = 0;
   final List<String> imgList = [
     'assets/images/car.png',
@@ -196,59 +195,70 @@ class _HomeState extends State<Home>
               height: 20.0,
             ),
             Container(
-              child: BlocBuilder<CategoriesCubit, CategoriesState>(
-                  builder: (context, state) {
-                if (state is CategoriesLoaded) {
-                  return Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: state.categories
-                          .map(
-                            (e) => GestureDetector(
-                              onTap: () => categorySelected(e.id),
-                              child: new Container(
-                                height: 72.0,
-                                width:
-                                    MediaQuery.of(context).size.width * 0.143,
-                                decoration: BoxDecoration(
-                                  color: selectedCategories.contains(e.id)
-                                      ? Colors.black12
-                                      : Colors.white,
-                                  borderRadius: BorderRadius.circular(10.0),
-                                  border: Border.all(
-                                    color: Colors.black,
-                                    width: 1,
+                margin: EdgeInsets.only(left: 15.0),
+                child: BlocBuilder<CategoriesCubit, CategoriesState>(
+                    builder: (context, state) {
+                  if (state is CategoriesLoaded) {
+                    return Container(
+                      height: 120.0,
+                      width: double.infinity,
+                      child: ListView.builder(
+                          shrinkWrap: true,
+                          primary: false,
+                          itemExtent: MediaQuery.of(context).size.width / 4,
+                          itemCount: state.categories.length,
+                          scrollDirection: Axis.horizontal,
+                          itemBuilder: (context, index) {
+                            return Wrap(
+                              children: [
+                                GestureDetector(
+                                  onTap: () => categorySelected(
+                                      state.categories[index].id),
+                                  child: Container(
+                                    height: 110,
+                                    width: 80.0,
+                                    decoration: BoxDecoration(
+                                      color: selectedCategories.contains(
+                                              state.categories[index].id)
+                                          ? Colors.black12
+                                          : Colors.white,
+                                      borderRadius: BorderRadius.circular(10.0),
+                                      border: Border.all(
+                                        color: Colors.black,
+                                        width: 1,
+                                      ),
+                                    ),
+                                    child: Column(
+                                      children: [
+                                        Image(
+                                          image: NetworkImage(
+                                              state.categories[index].iconUrl),
+                                          height: 60.0,
+                                          width: 60.0,
+                                        ),
+                                        Center(
+                                          child: Text(
+                                            state.categories[index].nombre,
+                                            textAlign: TextAlign.center,
+                                            style: TextStyle(
+                                              color: Colors.black,
+                                              fontSize: 12.0,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
-                                child: Stack(
-                                  overflow: Overflow.visible,
-                                  alignment: Alignment.bottomCenter,
-                                  children: [
-                                    Positioned(
-                                      top: -15.0,
-                                      child: Image(
-                                        image: NetworkImage(e.iconUrl),
-                                        height: 40.0,
-                                        width: 40.0,
-                                      ),
-                                    ),
-                                    Text(
-                                      e.nombre,
-                                      textAlign: TextAlign.center,
-                                      style: TextStyle(
-                                        color: Colors.black,
-                                        fontSize: 12.0,
-                                      ),
-                                    ),
-                                  ],
+                                SizedBox(
+                                  width: 30.0,
                                 ),
-                              ),
-                            ),
-                          )
-                          .toList());
-                }
-                return Container();
-              }),
-            ),
+                              ],
+                            );
+                          }),
+                    );
+                  }
+                })),
             SizedBox(
               height: 20.0,
             ),

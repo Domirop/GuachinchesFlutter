@@ -28,14 +28,12 @@ class HomePresenter{
     String name = await storage.read(key: "municipalityName");
     String id = await storage.read(key: "municipalityId");
     if(id == null){
-
       name = "Todos";
       id = "";
       await storage.write(key: "municipalityName", value: name);
       await storage.write(key: "municipalityId", value: id);
     }
     _view.setMunicipality(name, id);
-
   }
 
   getRestaurantsFilter(List<Restaurant> restaurants, String value) async {
