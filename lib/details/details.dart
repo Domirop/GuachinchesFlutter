@@ -34,7 +34,7 @@ class _DetailsState extends State<Details> implements DetailView {
   String userId;
 
   _DetailsState(this.restaurant);
-
+  bool isFav = false;
   Restaurant restaurant;
   int indexCarta = 0;
   int indexValoraciones = 0;
@@ -53,6 +53,7 @@ class _DetailsState extends State<Details> implements DetailView {
     remoteRepository = HttpRemoteRepository(Client());
     presenter = DetailPresenter(remoteRepository, this);
     presenter.isUserLogged();
+    presenter.getIsFav(restaurant.id);
   }
 
   @override
@@ -113,7 +114,7 @@ class _DetailsState extends State<Details> implements DetailView {
                     ),
                   ),
                 ),
-                /*Positioned(
+                Positioned(
                   top: 40.0,
                   right: 15.0,
                   child: GestureDetector(
@@ -129,11 +130,11 @@ class _DetailsState extends State<Details> implements DetailView {
                       child: Icon(
                         Icons.favorite,
                         size: 25.0,
-                        color: Colors.black,
+                        color: isFav ? Colors.red : Colors.black,
                       ),
                     ),
                   ),
-                ),*/
+                ),
               ],
             ),
             SizedBox(
@@ -231,20 +232,24 @@ class _DetailsState extends State<Details> implements DetailView {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              restaurant.nombre,
-                              style: TextStyle(
-                                fontSize: 18.0,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.black,
+                            Flexible(
+                              child: Text(
+                                restaurant.nombre,
+                                style: TextStyle(
+                                  fontSize: 18.0,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black,
+                                ),
                               ),
                             ),
                             GestureDetector(
                               onTap: () => openPhone("+34" +
                                   restaurant.telefono.replaceAll(" ", "")),
                               child: Container(
-                                margin: EdgeInsets.only(right: 5.0, left: 10.0),
+                                margin: EdgeInsets.only(right: 20.0),
                                 child: Image(
                                   image: AssetImage('assets/images/phone.png'),
                                   width: 23.0,
@@ -258,7 +263,6 @@ class _DetailsState extends State<Details> implements DetailView {
                                 : GestureDetector(
                                     onTap: () => launch(restaurant.googleUrl),
                                     child: Container(
-                                      margin: EdgeInsets.only(left: 5.0),
                                       child: Image(
                                         image: AssetImage(
                                             'assets/images/google.png'),
@@ -836,7 +840,7 @@ class _DetailsState extends State<Details> implements DetailView {
 
   saveFav() {
     if (this.userId != null) {
-      presenter.saveFavRestaurant();
+      presenter.saveFavRestaurant(restaurant.id);
     }
   }
 
@@ -850,6 +854,13 @@ class _DetailsState extends State<Details> implements DetailView {
   setUserId(String id) {
     setState(() {
       this.userId = id;
+    });
+  }
+
+  @override
+  setFav(bool correct) {
+    setState(() {
+      this.isFav = correct;
     });
   }
 }

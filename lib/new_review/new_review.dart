@@ -203,8 +203,6 @@ class _NewReviewState extends State<NewReview> implements NewReviewView {
                 onPressed: () => {
                   _presenter.saveReview(widget._userId, widget._restaurant,
                       tittleController.text, reviewController.text, rating)
-                  // _presenter.updateReview(widget.userId, widget.review.id,
-                  //     tittleController.text, rating, reviewController.text)
                 },
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(7.0),

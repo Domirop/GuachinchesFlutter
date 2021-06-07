@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/svg.dart';
 import 'package:guachinches/Categorias/categorias_presenter.dart';
 import 'package:guachinches/data/HttpRemoteRepository.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
@@ -15,7 +16,7 @@ class Categorias extends StatefulWidget {
   _CategoriasState createState() => _CategoriasState();
 }
 
-class _CategoriasState extends State<Categorias> implements CategoriasView{
+class _CategoriasState extends State<Categorias> implements CategoriasView {
   TextEditingController textFieldBuscar = new TextEditingController();
   List<ModelCategory> categories = [];
   CategoriasPresenter presenter;
@@ -25,8 +26,7 @@ class _CategoriasState extends State<Categorias> implements CategoriasView{
   void initState() {
     final categoriesCubit = context.read<CategoriesCubit>();
     remoteRepository = HttpRemoteRepository(Client());
-    presenter =
-        CategoriasPresenter(remoteRepository, this, categoriesCubit);
+    presenter = CategoriasPresenter(remoteRepository, this, categoriesCubit);
     if (categoriesCubit.state is CategoriesInitial) {
       presenter.getAllCategories();
     }
@@ -90,42 +90,49 @@ class _CategoriasState extends State<Categorias> implements CategoriasView{
               Container(
                 child: BlocBuilder<CategoriesCubit, CategoriesState>(
                     builder: (context, state) {
-                      if (state is CategoriesLoaded) {
-                        return Wrap(
-                          children: state.categories.map((e) {
-                              return Container(
-                                width: MediaQuery.of(context).size.width / 2 - 70,
-                                height: 150,
-                                margin: EdgeInsets.symmetric(horizontal: 20.0, vertical: 20.0),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  boxShadow: [
-                                    BoxShadow(
-                                        color: Colors.black54,
-                                        blurRadius: 5.0,
-                                        spreadRadius: 1.0,
-                                        offset: Offset(2.0, 4.0))
-                                  ],
-                                  borderRadius: BorderRadius.circular(17.0),
+                  if (state is CategoriesLoaded) {
+                    return Wrap(
+                      children: state.categories.map((e) {
+                        return Container(
+                          width: MediaQuery.of(context).size.width / 2 - 60,
+                          height: 160,
+                          margin: EdgeInsets.symmetric(
+                              horizontal: 20.0, vertical: 20.0),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            boxShadow: [
+                              BoxShadow(
+                                  color: Colors.black54,
+                                  blurRadius: 5.0,
+                                  spreadRadius: 1.0,
+                                  offset: Offset(2.0, 4.0))
+                            ],
+                            borderRadius: BorderRadius.circular(17.0),
+                          ),
+                          child: Column(
+                            children: [
+                              Container(
+                                child: SvgPicture.network(
+                                  e.iconUrl,
+                                  height: 100.0,
+                                  width: 100.0,
                                 ),
-                                child: Column(
-                                  children: [
-                                    Container(
-                                      child: Image.network(
-                                        e.iconUrl,
-                                        height: 100.0,
-                                        width: 100.0,
-                                      ),
-                                    ),
-                                    Center(child: Text(e.nombre, textAlign: TextAlign.center,)),
-                                  ],
-                                ),
-                              );}
-                        ).toList(),
+                              ),
+                              Container(
+                                  margin: EdgeInsets.only(
+                                      top: 10.0, left: 5.0, right: 5.0),
+                                  child: Text(
+                                    e.nombre,
+                                    textAlign: TextAlign.center,
+                                  )),
+                            ],
+                          ),
                         );
-                      }
-                      return Container();
-                    }),
+                      }).toList(),
+                    );
+                  }
+                  return Container();
+                }),
               ),
             ],
           ),
@@ -135,7 +142,8 @@ class _CategoriasState extends State<Categorias> implements CategoriasView{
   }
 
   searchCategory(e) {
-    List<ModelCategory> aux = categories.where((element) => element.nombre.contains(e)).toList();
+    List<ModelCategory> aux =
+        categories.where((element) => element.nombre.contains(e)).toList();
     setState(() {
       categories = aux;
     });
@@ -147,5 +155,4 @@ class _CategoriasState extends State<Categorias> implements CategoriasView{
       this.categories = categories;
     });
   }
-
 }

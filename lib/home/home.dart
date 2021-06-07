@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/svg.dart';
 import 'package:guachinches/data/HttpRemoteRepository.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -209,24 +210,23 @@ class _HomeState extends State<Home> implements HomeView {
                                     width: 80.0,
                                     decoration: BoxDecoration(
                                       color: selectedCategories.contains(
-                                              state.categories[index].id)
-                                          ? Colors.black12
+                                          state.categories[index].id)
+                                          ? Color.fromRGBO(255, 255, 255, 0.85)
                                           : Colors.white,
-                                      borderRadius: BorderRadius.circular(10.0),
-                                      border: Border.all(
-                                        color: Colors.black,
-                                        width: 1,
-                                      ),
+                                      boxShadow: [
+                                        BoxShadow(
+                                            color: Colors.black54,
+                                            blurRadius: 2.0,
+                                            spreadRadius: 1.0,
+                                            offset: Offset(2.0, 3.0))
+                                      ],
+                                      borderRadius: BorderRadius.circular(17.0),
                                     ),
                                     child: Column(
                                       children: [
-                                        Image(
-                                          image: NetworkImage(
-                                              state.categories[index].iconUrl),
-                                          height: 60.0,
-                                          width: 60.0,
-                                        ),
-                                        Center(
+                                        SvgPicture.network(state.categories[index].iconUrl, height: 60.0, width: 60.0,),
+                                        Container(
+                                          margin: EdgeInsets.symmetric(vertical: 10.0, horizontal: 1.0),
                                           child: Text(
                                             state.categories[index].nombre != null ? state.categories[index].nombre: "",
                                             textAlign: TextAlign.center,
@@ -422,11 +422,6 @@ class _HomeState extends State<Home> implements HomeView {
   }
 
   Widget componentStateBuilder(List<Restaurant> restaurants) {
-    print(restaurants[0]);
-    print(restaurants[0].negocioMunicipioId);
-    print(restaurants[0].municipio);
-    print(municipalityName);
-    print(municipalityId);
     return Column(
       children: restaurants
           .where((element) =>

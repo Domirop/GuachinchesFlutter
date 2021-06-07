@@ -10,6 +10,12 @@ class NewReviewPresenter{
   NewReviewPresenter(this._remoteRepository, this._view, this._restaurantCubit);
 
   saveReview(String userId, Restaurant restaurant ,String title, String review, String rating) async {
+    if(title == null || title.length == 0){
+      title = "Título";
+    }
+    if(review == null || review.length == 0){
+      review = "Descripción";
+    }
     bool isAdded = await _remoteRepository.saveReview( userId,  restaurant , title,  review,  rating);
     if(isAdded == true){
       await _restaurantCubit.getRestaurants();

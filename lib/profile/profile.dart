@@ -2,9 +2,14 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
+import 'package:guachinches/data/cubit/restaurant_cubit.dart';
+import 'package:guachinches/data/cubit/restaurant_state.dart';
 import 'package:guachinches/data/cubit/user_cubit.dart';
 import 'package:guachinches/data/cubit/user_state.dart';
+import 'package:guachinches/data/local/restaurant_sql_lite.dart';
 import 'package:guachinches/globalMethods.dart';
+import 'package:guachinches/model/fotos.dart';
+import 'package:guachinches/model/restaurant.dart';
 import 'package:guachinches/profile/profile_presenter.dart';
 import 'package:guachinches/splash_screen/splash_screen.dart';
 
@@ -22,7 +27,7 @@ class _ProfileState extends State<Profile> implements ProfileView {
     {
       "nombre": "Pivito/Pivita",
       "descripcion":
-          "Estas empezado, añade valoraciones para aumertar el nivel",
+      "Estas empezado, añade valoraciones para aumertar el nivel",
       "requisitos": "0",
     },
     {
@@ -33,47 +38,34 @@ class _ProfileState extends State<Profile> implements ProfileView {
     {
       "nombre": "Puntal",
       "descripcion":
-          "Tu experiencia ayuda a los demas, eres uno/a de los grandes.",
+      "Tu experiencia ayuda a los demas, eres uno/a de los grandes.",
       "requisitos": "4",
     },
     {
       "nombre": "Mago/Maga",
       "descripcion":
-          "Tu experiencia ayuda a los demas, eres uno/a de los grandes.",
+      "Tu experiencia ayuda a los demas, eres uno/a de los grandes.",
       "requisitos": "6"
     }
   ];
 
-  List favs = [
-    {
-      "nombre": "Bodegón Mojo Picón",
-      "especialidad": "Carnes de cerdo y ternera.",
-      "direccion": "Calle Cecilio Marrero, 5A, Agua García.",
-      "oferta": "Oferta en carne de cabra",
-      "imagen": "assets/images/mojoPicon.png",
-      "Valoracion": "4,6"
-    },
-    {
-      "nombre": "Bodegón Mojo Picón",
-      "especialidad": "Carnes de cerdo y ternera.",
-      "direccion": "Calle Cecilio Marrero, 5A, Agua García.",
-      "oferta": "Oferta en carne de cabra",
-      "imagen": "assets/images/mojoPicon.png",
-      "Valoracion": "4,6"
-    }
-  ];
+  List<Restaurant> favs = [];
 
-  ProfilePresenter presenter;
+  List<RestaurantSQLLite> restaurantSql = [];
+
   RemoteRepository remoteRepository;
   ProfilePresenter _presenter;
 
   @override
   void initState() {
     final userCubit = context.read<UserCubit>();
-    _presenter = ProfilePresenter(this, userCubit);
-    if (userCubit.state is UserInitial) {
-      presenter.getUserInfo();
+    final restaurantCubit = context.read<RestaurantCubit>();
+    _presenter = ProfilePresenter(this, userCubit, restaurantCubit);
+    _presenter.getUserInfo();
+    if (restaurantCubit.state is RestaurantInitial) {
+      _presenter.getAllRestaurants();
     }
+    _presenter.getRestaurantsFavs();
     super.initState();
   }
 
@@ -81,16 +73,28 @@ class _ProfileState extends State<Profile> implements ProfileView {
   Widget build(BuildContext context) {
     double height = 0.0;
     double width = 0.0;
-    if (MediaQuery.of(context).size.width < 330) {
+    if (MediaQuery
+        .of(context)
+        .size
+        .width < 330) {
       width = 83.11;
-    } else if (MediaQuery.of(context).size.width > 380) {
+    } else if (MediaQuery
+        .of(context)
+        .size
+        .width > 380) {
       width = 102.0;
     } else {
       width = 90.9;
     }
-    if (MediaQuery.of(context).size.height < 600) {
+    if (MediaQuery
+        .of(context)
+        .size
+        .height < 600) {
       height = 69.11;
-    } else if (MediaQuery.of(context).size.height > 700) {
+    } else if (MediaQuery
+        .of(context)
+        .size
+        .height > 700) {
       height = 102.0;
     } else {
       height = 84.75;
@@ -154,7 +158,8 @@ class _ProfileState extends State<Profile> implements ProfileView {
                               ),
                             ),
                             Text(
-                              state.user.valoraciones.length.toString() + " Valoracion/es",
+                              state.user.valoraciones.length.toString() +
+                                  " Valoracion/es",
                               style: TextStyle(
                                 decoration: TextDecoration.underline,
                                 decorationColor: Colors.black,
@@ -209,7 +214,8 @@ class _ProfileState extends State<Profile> implements ProfileView {
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
                       GestureDetector(
-                        onTap: () => {
+                        onTap: () =>
+                        {
                           Scrollable.ensureVisible(levelKey.currentContext),
                           changeSectionIndex(0),
                         },
@@ -234,7 +240,8 @@ class _ProfileState extends State<Profile> implements ProfileView {
                         ),
                       ),
                       GestureDetector(
-                        onTap: () => {
+                        onTap: () =>
+                        {
                           Scrollable.ensureVisible(favKey.currentContext),
                           changeSectionIndex(1),
                         },
@@ -301,7 +308,8 @@ class _ProfileState extends State<Profile> implements ProfileView {
                       shrinkWrap: true,
                       itemCount: usersLevels.length,
                       itemBuilder: (context, index) {
-                        return getCardLevel(index, state.user.valoraciones.length);
+                        return getCardLevel(index, state.user.valoraciones
+                            .length);
                       }),
                   Row(
                     key: favKey,
@@ -323,92 +331,121 @@ class _ProfileState extends State<Profile> implements ProfileView {
                       ),
                     ],
                   ),
-                  ListView.builder(
-                      primary: false,
-                      shrinkWrap: true,
-                      itemCount: favs.length,
-                      itemBuilder: (context, index) {
-                        return Container(
-                          margin: EdgeInsets.only(bottom: 15.0),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Container(
-                                width: 80.0,
-                                height: 80.0,
-                                decoration: BoxDecoration(
-                                  image: DecorationImage(
-                                    repeat: ImageRepeat.noRepeat,
-                                    alignment: Alignment.center,
-                                    fit: BoxFit.cover,
-                                    image: AssetImage(favs[index]["imagen"]),
-                                  ),
-                                ),
-                              ),
-                              Flexible(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      favs[index]["nombre"],
-                                      style: TextStyle(
-                                          color: Colors.black,
-                                          fontSize: 18.0,
-                                          fontWeight: FontWeight.bold),
+                  SizedBox(height: 10.0,),
+                  Container(
+                    child: BlocBuilder<RestaurantCubit, RestaurantState>(
+                        builder: (context, state) {
+                          if (state is RestaurantLoaded) {
+                            favs = setFavsFilter(state.restaurants);
+                            if(favs.isNotEmpty){
+                              return Column(
+                                children: favs.map((e) {
+                                  Fotos foto =
+                                  e.fotos.firstWhere((element) => element.type == "principal", orElse: () => null);
+                                  return Container(
+                                    margin: EdgeInsets.only(bottom: 15.0),
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment
+                                          .spaceBetween,
+                                      crossAxisAlignment: CrossAxisAlignment
+                                          .start,
+                                      children: [
+                                        Container(
+                                          width: 80.0,
+                                          height: 80.0,
+                                          margin: EdgeInsets.only(right: 10.0),
+                                          decoration: BoxDecoration(
+                                            borderRadius: BorderRadius.circular(12.0),
+                                            image: DecorationImage(
+                                              repeat: ImageRepeat.noRepeat,
+                                              alignment: Alignment.center,
+                                              fit: BoxFit.contain,
+                                              image: foto != null ? NetworkImage(foto.photoUrl) : AssetImage("assets/images/Morenita.png"),
+                                            ),
+                                          ),
+                                        ),
+                                        Flexible(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment
+                                                .start,
+                                            children: [
+                                              Text(
+                                                e.nombre == null ? "" : e.nombre,
+                                                style: TextStyle(
+                                                    color: Colors.black,
+                                                    fontSize: 18.0,
+                                                    fontWeight: FontWeight.bold),
+                                              ),
+                                              SizedBox(
+                                                height: 5.0,
+                                              ),
+                                              Text(
+                                                e.telefono != null ? e.telefono : "",
+                                                style: TextStyle(
+                                                    color: Colors.black,
+                                                    fontSize: 12.0),
+                                              ),
+                                              SizedBox(
+                                                height: 2.0,
+                                              ),
+                                              Text(
+                                                e.direccion != null ? e.direccion : "",
+                                                style: TextStyle(
+                                                    color: Colors.grey,
+                                                    fontSize: 12.0),
+                                              ),
+                                              Text(
+                                                e.destacado != null ? e.destacado : "",
+                                                style: TextStyle(
+                                                    color:
+                                                    Color.fromRGBO(226, 120, 120, 1),
+                                                    fontSize: 12.0),
+                                              ),
+                                              SizedBox(
+                                                height: 2.0,
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        e.avg == "NaN" ? Container() : Container(
+                                          padding: EdgeInsets.symmetric(
+                                              horizontal: 10.0, vertical: 2.0),
+                                          decoration: BoxDecoration(
+                                            color: Color.fromRGBO(
+                                                149, 194, 55, 1),
+                                            borderRadius: BorderRadius.circular(
+                                                6.0),
+                                          ),
+                                          child: Text(
+                                            e.avg,
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 18.0,
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                    SizedBox(
-                                      height: 5.0,
-                                    ),
-                                    Text(
-                                      favs[index]["especialidad"],
-                                      style: TextStyle(
-                                          color: Colors.black, fontSize: 12.0),
-                                    ),
-                                    SizedBox(
-                                      height: 2.0,
-                                    ),
-                                    Text(
-                                      favs[index]["direccion"],
-                                      style: TextStyle(
-                                          color: Colors.grey, fontSize: 12.0),
-                                    ),
-                                    SizedBox(
-                                      height: 2.0,
-                                    ),
-                                    Text(
-                                      favs[index]["oferta"],
-                                      style: TextStyle(
-                                          color:
-                                              Color.fromRGBO(226, 120, 120, 1),
-                                          fontSize: 12.0),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Container(
-                                padding: EdgeInsets.symmetric(
-                                    horizontal: 10.0, vertical: 2.0),
-                                decoration: BoxDecoration(
-                                  color: Color.fromRGBO(149, 194, 55, 1),
-                                  borderRadius: BorderRadius.circular(6.0),
-                                ),
-                                child: Text(
-                                  favs[index]["Valoracion"],
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 18.0,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      }),
+                                  );
+                                }).toList(),
+                              );
+                            }else{
+                              return Center(
+                                child: Text("Añade nuevos guachinches a favoritos", style: TextStyle(
+                                  fontSize: 18.0,
+                                  color: Colors.black,
+                                  fontWeight: FontWeight.bold,
+                                ),),
+                              );
+                            }
+                          }
+                          return Container();
+                        }),
+                  ),
                 ],
               );
-            }else{
+            } else {
               return Container();
             }
           }),
@@ -422,25 +459,25 @@ class _ProfileState extends State<Profile> implements ProfileView {
     Color background;
     if (usersLevels.length - 1 > index) {
       textColor =
-          int.parse(usersLevels[index + 1]["requisitos"]) <= userValorations
-              ? Colors.black
-              : int.parse(usersLevels[index]["requisitos"]) > userValorations
-                  ? Colors.black
-                  : Colors.white;
+      int.parse(usersLevels[index + 1]["requisitos"]) <= userValorations
+          ? Colors.black
+          : int.parse(usersLevels[index]["requisitos"]) > userValorations
+          ? Colors.black
+          : Colors.white;
       background =
-          int.parse(usersLevels[index + 1]["requisitos"]) <= userValorations
-              ? Colors.white
-              : int.parse(usersLevels[index]["requisitos"]) > userValorations
-                  ? Colors.white
-                  : Color.fromRGBO(254, 192, 75, 1);
+      int.parse(usersLevels[index + 1]["requisitos"]) <= userValorations
+          ? Colors.white
+          : int.parse(usersLevels[index]["requisitos"]) > userValorations
+          ? Colors.white
+          : Color.fromRGBO(254, 192, 75, 1);
     } else {
       textColor = int.parse(usersLevels[index]["requisitos"]) <= userValorations
           ? Colors.white
           : Colors.black;
       background =
-          int.parse(usersLevels[index]["requisitos"]) <= userValorations
-              ? Color.fromRGBO(254, 192, 75, 1)
-              : Colors.white;
+      int.parse(usersLevels[index]["requisitos"]) <= userValorations
+          ? Color.fromRGBO(254, 192, 75, 1)
+          : Colors.white;
     }
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 5.0, vertical: 10.0),
@@ -494,6 +531,17 @@ class _ProfileState extends State<Profile> implements ProfileView {
     );
   }
 
+  setFavsFilter(List<Restaurant> restaurants){
+    List<Restaurant> aux = [];
+    restaurantSql.forEach((element) {
+      Restaurant restaurant = restaurants.firstWhere((rest) => rest.id == element.restaurantId, orElse: () => null);
+      if(restaurant != null){
+        aux.add(restaurant);
+      }
+    });
+    return aux;
+  }
+
   changeSectionIndex(index) {
     setState(() {
       indexSection = index;
@@ -502,5 +550,12 @@ class _ProfileState extends State<Profile> implements ProfileView {
 
   goSplashScreen() {
     GlobalMethods().pushAndReplacement(context, SplashScreen());
+  }
+
+  @override
+  updateListSql(List<RestaurantSQLLite> restaurants) {
+    this.setState(() {
+      restaurantSql = restaurants;
+    });
   }
 }

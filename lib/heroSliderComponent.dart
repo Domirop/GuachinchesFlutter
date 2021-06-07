@@ -27,7 +27,7 @@ class _HeroSliderComponentState extends State<HeroSliderComponent> {
                 image: DecorationImage(
                   repeat: ImageRepeat.noRepeat,
                   alignment: Alignment.center,
-                  fit: BoxFit.cover,
+                  fit: BoxFit.fill,
                   image: NetworkImage(item.fotoUrl),
                 ),
               ),

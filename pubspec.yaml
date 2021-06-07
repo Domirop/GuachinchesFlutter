@@ -32,7 +32,10 @@ dependencies:
   flutter_spinkit: 4.1.2+1
   maps_launcher: ^2.0.0
   http: 0.12.2
+  sqflite: ^2.0.0+3
   flutter_bloc: 6.1.1
+  path_provider: 1.6.27
+  flutter_svg: ^0.22.0
   flutter_secure_storage: 3.3.5
   flutter_rating_bar: ^4.0.0
 

@@ -6,6 +6,7 @@ import 'package:guachinches/data/RemoteRepository.dart';
 import 'package:guachinches/data/cubit/banners_cubit.dart';
 import 'package:guachinches/data/cubit/categories_cubit.dart';
 import 'package:guachinches/data/cubit/user_cubit.dart';
+import 'package:guachinches/data/local/db_provider.dart';
 import 'package:guachinches/splash_screen/splash_screen.dart';
 import 'package:http/http.dart';
 import 'data/cubit/restaurant_cubit.dart';
@@ -23,6 +24,7 @@ class _MyAppState extends State<MyApp> {
   @override
   void initState() {
     super.initState();
+    DBProvider.db.initDB();
     SystemChrome.setPreferredOrientations(
         [DeviceOrientation.portraitUp, DeviceOrientation.portraitDown]);
   }
