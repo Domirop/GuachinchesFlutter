@@ -3,6 +3,7 @@ import 'package:guachinches/model/Review.dart';
 
 import 'Menu.dart';
 import 'Municipality.dart';
+import 'fotos.dart';
 
 /// id : "31db2882-293d-4d2d-98ba-4939578de349"
 /// nombre : "Guachinche El Barco"
@@ -19,19 +20,24 @@ import 'Municipality.dart';
 class Restaurant {
   String _id;
   String _nombre;
+  bool _enable;
+  String _googleUrl;
   String _direccion;
   String _telefono;
   String _destacado;
   String avg = "n/d";
   String _createdAt;
   String _updatedAt;
+  List<Fotos> _fotos;
   String _negocioMunicipioId;
   Municipality _municipio;
-  Menu _menu;
+  List<Menu> _menus;
   List<CategoryRestaurant> _categoriaRestaurantes;
   List<Review> _valoraciones;
 
   String get id => _id;
+  String get googleUrl => _googleUrl;
+  bool get enable => _enable;
   String get nombre => _nombre;
   String get direccion => _direccion;
   String get telefono => _telefono;
@@ -39,40 +45,54 @@ class Restaurant {
   String get createdAt => _createdAt;
   String get updatedAt => _updatedAt;
   String get negocioMunicipioId => _negocioMunicipioId;
+  List<Fotos> get fotos => _fotos;
   Municipality get municipio => _municipio;
-  Menu get menu => _menu;
+  List<Menu> get menus => _menus;
   List<CategoryRestaurant> get categoriaRestaurantes => _categoriaRestaurantes;
   List<Review> get valoraciones => _valoraciones;
 
+  @override
+  String toString() {
+    return 'Restaurant{_id: $_id, _nombre: $_nombre, _enable: $_enable, _googleUrl: $_googleUrl, _direccion: $_direccion, _telefono: $_telefono, _destacado: $_destacado, avg: $avg, _createdAt: $_createdAt, _updatedAt: $_updatedAt, _fotos: $_fotos, _negocioMunicipioId: $_negocioMunicipioId, _municipio: $_municipio, _menus: $_menus, _categoriaRestaurantes: $_categoriaRestaurantes, _valoraciones: $_valoraciones}';
+  }
+
   Restaurant({
       String id, 
-      String nombre, 
+      String nombre,
+      String googleUrl,
+      bool enable,
       String direccion, 
       String telefono,
       String destacado,
+      List<Fotos> fotos,
       String createdAt, 
       String updatedAt, 
       String negocioMunicipioId,
     Municipality municipio,
-      Menu menu, 
+      List<Menu> menus,
       List<CategoryRestaurant> categoriaRestaurantes,
       List<Review> valoraciones}){
     _id = id;
+    _enable = enable;
+    _googleUrl = googleUrl;
     _nombre = nombre;
     _direccion = direccion;
     _telefono = telefono;
     _destacado = destacado;
+    _fotos = fotos;
     _createdAt = createdAt;
     _updatedAt = updatedAt;
     _negocioMunicipioId = negocioMunicipioId;
     _municipio = municipio;
-    _menu = menu;
+    _menus = menus;
     _categoriaRestaurantes = categoriaRestaurantes;
     _valoraciones = valoraciones;
 }
 
   Restaurant.fromJson(dynamic json) {
     _id = json["id"];
+    _enable = json["enable"];
+    _googleUrl = json["googleUrl"];
     _nombre = json["nombre"];
     _direccion = json["direccion"];
     _telefono = json["telefono"];
@@ -81,11 +101,22 @@ class Restaurant {
     _updatedAt = json["updatedAt"];
     _negocioMunicipioId = json["NegocioMunicipioId"];
     _municipio = json["municipio"] != null ? Municipality.fromJson(json["municipio"]) : null;
-    _menu = json["menu"] != null ? Menu.fromJson(json["menu"]) : null;
+    if (json["menus"] != null) {
+      _menus = [];
+      json["menus"].forEach((v) {
+        _menus.add(Menu.fromJson(v));
+      });
+    }
     if (json["categoriaRestaurantes"] != null) {
       _categoriaRestaurantes = [];
       json["categoriaRestaurantes"].forEach((v) {
         _categoriaRestaurantes.add(CategoryRestaurant.fromJson(v));
+      });
+    }
+    if (json["fotos"] != null) {
+      _fotos = [];
+      json["fotos"].forEach((v) {
+        _fotos.add(Fotos.fromJson(v));
       });
     }
     if (json["Valoraciones"] != null) {
@@ -99,18 +130,21 @@ class Restaurant {
   Map<String, dynamic> toJson() {
     var map = <String, dynamic>{};
     map["id"] = _id;
+    map["googleUrl"] = _googleUrl;
+    map["enable"] = _enable;
     map["nombre"] = _nombre;
     map["direccion"] = _direccion;
     map["telefono"] = _telefono;
     map["destacado"] = _destacado;
+    map["fotos"] = _fotos;
     map["createdAt"] = _createdAt;
     map["updatedAt"] = _updatedAt;
     map["NegocioMunicipioId"] = _negocioMunicipioId;
     if (_municipio != null) {
       map["municipio"] = _municipio.toJson();
     }
-    if (_menu != null) {
-      map["menu"] = _menu.toJson();
+    if (_categoriaRestaurantes != null) {
+      map["menus"] = _menus.map((v) => v.toJson()).toList();
     }
     if (_categoriaRestaurantes != null) {
       map["categoriaRestaurantes"] = _categoriaRestaurantes.map((v) => v.toJson()).toList();

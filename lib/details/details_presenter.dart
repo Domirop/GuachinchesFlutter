@@ -1,7 +1,7 @@
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
 
-class DetailPresenter{
+class DetailPresenter {
   RemoteRepository _remoteRepository;
   DetailView _view;
   final storage = new FlutterSecureStorage();
@@ -10,15 +10,18 @@ class DetailPresenter{
 
   isUserLogged() async {
     String userId = await storage.read(key: "userId");
-    if(userId != null){
-      _view.goToNewReview();
-    }else{
+    if (userId == null) {
       _view.goToLogin();
+    }else{
+      _view.setUserId(userId);
     }
+  }
+
+  saveFavRestaurant() {
   }
 }
 
-abstract class DetailView{
+abstract class DetailView {
   goToLogin();
-  goToNewReview();
+  setUserId(String id);
 }

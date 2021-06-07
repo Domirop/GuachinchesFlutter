@@ -1,10 +1,16 @@
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:guachinches/data/cubit/user_cubit.dart';
 
 class ProfilePresenter{
   final ProfileView _view;
   final storage = new FlutterSecureStorage();
+  UserCubit _userCubit;
+  ProfilePresenter(this._view, this._userCubit);
 
-  ProfilePresenter(this._view);
+  getUserInfo() async {
+    String userId = await storage.read(key: "userId");
+    await _userCubit.getUserInfo(userId);
+  }
 
   logOut() async {
 

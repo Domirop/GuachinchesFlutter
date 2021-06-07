@@ -11,12 +11,14 @@ class Review {
   String _id;
   String _review;
   String _rating;
+  String _title;
   String _valoracionesNegocioId;
   String _valoracionesUsuarioId;
   User _usuario;
 
   String get id => _id;
   String get review => _review;
+  String get title => _title;
   String get rating => _rating;
   String get valoracionesNegocioId => _valoracionesNegocioId;
   String get valoracionesUsuarioId => _valoracionesUsuarioId;
@@ -26,11 +28,13 @@ class Review {
     String id,
     String review,
     String rating,
+    String title,
     String valoracionesNegocioId,
     String valoracionesUsuarioId,
     User usuario}){
     _id = id;
     _review = review;
+    _title = title;
     _rating = rating;
     _valoracionesNegocioId = valoracionesNegocioId;
     _valoracionesUsuarioId = valoracionesUsuarioId;
@@ -39,6 +43,7 @@ class Review {
 
   Review.fromJson(dynamic json) {
     _id = json["id"];
+    _title = json["title"];
     _review = json["review"];
     _rating = json["rating"];
     _valoracionesNegocioId = json["ValoracionesNegocioId"];
@@ -49,6 +54,7 @@ class Review {
   Map<String, dynamic> toJson() {
     var map = <String, dynamic>{};
     map["id"] = _id;
+    map["title"] = _title;
     map["review"] = _review;
     map["rating"] = _rating;
     map["ValoracionesNegocioId"] = _valoracionesNegocioId;

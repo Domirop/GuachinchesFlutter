@@ -91,14 +91,23 @@ class _CategoriasState extends State<Categorias> implements CategoriasView{
                 child: BlocBuilder<CategoriesCubit, CategoriesState>(
                     builder: (context, state) {
                       if (state is CategoriesLoaded) {
-                        int rows = (state.categories.length / 2).round();
                         return Wrap(
                           children: state.categories.map((e) {
                               return Container(
                                 width: MediaQuery.of(context).size.width / 2 - 70,
                                 height: 150,
                                 margin: EdgeInsets.symmetric(horizontal: 20.0, vertical: 20.0),
-                                color: Colors.red,
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  boxShadow: [
+                                    BoxShadow(
+                                        color: Colors.black54,
+                                        blurRadius: 5.0,
+                                        spreadRadius: 1.0,
+                                        offset: Offset(2.0, 4.0))
+                                  ],
+                                  borderRadius: BorderRadius.circular(17.0),
+                                ),
                                 child: Column(
                                   children: [
                                     Container(

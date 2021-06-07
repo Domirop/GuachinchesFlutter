@@ -1,10 +1,6 @@
 import 'package:bloc/bloc.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
 import 'package:guachinches/data/cubit/user_state.dart';
-import 'package:guachinches/model/Review.dart';
-import 'package:guachinches/model/User.dart';
-import 'package:guachinches/model/restaurant.dart';
-import 'package:guachinches/data/cubit/restaurant_state.dart';
 import 'package:guachinches/model/user_info.dart';
 
 class UserCubit extends Cubit<UserState> {

@@ -16,6 +16,11 @@ class CategoryRestaurant {
   String get categoriaId => _categoriaId;
   ModelCategory get categorias => _categorias;
 
+  @override
+  String toString() {
+    return 'CategoryRestaurant{_id: $_id, _categoriasRestauranteId: $_categoriasRestauranteId, _categoriaId: $_categoriaId, _categorias: $_categorias}';
+  }
+
   CategoryRestaurant({
     String id,
     String categoriasRestauranteId,

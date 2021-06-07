@@ -14,7 +14,6 @@ class ValoracionesPresenter{
 
   isUserLogged() async {
     String userId = await storage.read(key: "userId");
-    print(userId);
     if (userId == null){
       _view.goToLogin();
     }else{

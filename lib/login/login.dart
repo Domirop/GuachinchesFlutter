@@ -54,7 +54,7 @@ class _LoginState extends State<Login> implements LoginView{
                 height: 40.0,
               ),
               GestureDetector(
-                onTap: ()=> GlobalMethods().pushAndReplacement(context, Menu([Home(), Login("Para ver tus valoraciones debes iniciar sesión."), Login("Para ver tu perfíl debes iniciar sesión.")])),
+                onTap: ()=> GlobalMethods().removePagesAndGoToNewScreen(context, Menu([Home(), Login("Para ver tus valoraciones debes iniciar sesión."), Login("Para ver tu perfíl debes iniciar sesión.")])),
                 child: Container(
                   alignment: Alignment.centerRight,
                   child: Icon(
@@ -167,6 +167,6 @@ class _LoginState extends State<Login> implements LoginView{
 
   @override
   loginSuccess(List<Widget> screens) {
-    GlobalMethods().pushPage(context, Menu(screens));
+    GlobalMethods().removePagesAndGoToNewScreen(context, Menu(screens));
   }
 }

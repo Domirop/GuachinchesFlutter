@@ -26,7 +26,7 @@ class RestaurantCubit extends Cubit<RestaurantState> {
     for (int i = 0; i < reviews.length; i++) {
       totalratingSum += double.parse(reviews[i].rating);
     }
-    return (totalratingSum / totalReviews).toString();
+    return (totalratingSum / totalReviews).toStringAsFixed(2);
   }
 
   Future<void> getFilterRestaurants(

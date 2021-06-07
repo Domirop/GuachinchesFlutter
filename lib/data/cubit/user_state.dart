@@ -1,7 +1,5 @@
 
 import 'package:flutter/foundation.dart';
-import 'package:guachinches/model/User.dart';
-import 'package:guachinches/model/restaurant.dart';
 import 'package:guachinches/model/user_info.dart';
 
 @immutable

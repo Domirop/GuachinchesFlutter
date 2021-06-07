@@ -72,19 +72,13 @@ class _MunicipalityScreenState extends State<MunicipalityScreen>
                             children: [
                               GestureDetector(
                                 onTap: () => {
-                                  if (municipalities[index].nombre == "Todos")
-                                    {
-                                      presenter.storeMunicipality(
-                                          municipalities[index].nombre,
-                                          municipalities[index].id),
-                                      GlobalMethods().pushAndReplacement(
-                                          context,
-                                          Menu([
-                                            Home(),
-                                            Valoraciones(),
-                                            Profile()
-                                          ])),
-                                    }
+                                  presenter.storeMunicipality(
+                                      municipalities[index].nombre,
+                                      municipalities[index].id),
+                                  GlobalMethods().pushAndReplacement(
+                                      context,
+                                      Menu(
+                                          [Home(), Valoraciones(), Profile()])),
                                 },
                                 child: Text(
                                   municipalities[index].nombre,
@@ -98,15 +92,18 @@ class _MunicipalityScreenState extends State<MunicipalityScreen>
                               municipalities[index].municipalities.isNotEmpty
                                   ? GestureDetector(
                                       onTap: () => {
-                                        if(this.index == index){
-                                          setState(() {
-                                            this.index = -1;
-                                          })
-                                        }else{
-                                          setState(() {
-                                            this.index = index;
-                                          })
-                                        }
+                                        if (this.index == index)
+                                          {
+                                            setState(() {
+                                              this.index = -1;
+                                            })
+                                          }
+                                        else
+                                          {
+                                            setState(() {
+                                              this.index = index;
+                                            })
+                                          }
                                       },
                                       child: Container(
                                         width: 30.0,
@@ -117,7 +114,10 @@ class _MunicipalityScreenState extends State<MunicipalityScreen>
                                               BorderRadius.circular(7.0),
                                         ),
                                         child: Icon(
-                                          this.index == index ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
+                                          this.index == index
+                                              ? Icons.keyboard_arrow_up_rounded
+                                              : Icons
+                                                  .keyboard_arrow_down_rounded,
                                           size: 30.0,
                                         ),
                                       ),
@@ -126,52 +126,56 @@ class _MunicipalityScreenState extends State<MunicipalityScreen>
                             ],
                           ),
                         ),
-                        this.index == index ? Column(
-                          children: municipalities[index]
-                              .municipalities
-                              .map((a) => GestureDetector(
-                                    onTap: () => {
-                                      presenter.storeMunicipality(
-                                          a.nombre, a.id),
-                                      GlobalMethods().pushAndReplacement(
-                                          context,
-                                          Menu([
-                                            Home(),
-                                            Valoraciones(),
-                                            Profile()
-                                          ])),
-                                    },
-                                    child: Container(
-                                      margin: EdgeInsets.symmetric(
-                                          horizontal: 20.0, vertical: 10.0),
-                                      width: double.infinity,
-                                      height: 50,
-                                      decoration: BoxDecoration(
-                                        color: Colors.white,
-                                        boxShadow: [
-                                          BoxShadow(
-                                              color: Colors.black54,
-                                              blurRadius: 6.0,
-                                              spreadRadius: 1.0,
-                                              offset: Offset(1.0, 2.0))
-                                        ],
-                                        borderRadius:
-                                            BorderRadius.circular(7.0),
-                                      ),
-                                      child: Center(
-                                        child: Text(
-                                          a.nombre,
-                                          style: TextStyle(
-                                              color:
-                                                  selectedMunicipalityId == a.id
-                                                      ? Colors.black
-                                                      : Colors.grey),
-                                        ),
-                                      ),
-                                    ),
-                                  ))
-                              .toList(),
-                        ) : Container(),
+                        this.index == index
+                            ? Column(
+                                children: municipalities[index]
+                                    .municipalities
+                                    .map((a) => GestureDetector(
+                                          onTap: () => {
+                                            presenter.storeMunicipality(
+                                                a.nombre, a.id),
+                                            GlobalMethods().pushAndReplacement(
+                                                context,
+                                                Menu([
+                                                  Home(),
+                                                  Valoraciones(),
+                                                  Profile()
+                                                ])),
+                                          },
+                                          child: Container(
+                                            margin: EdgeInsets.symmetric(
+                                                horizontal: 20.0,
+                                                vertical: 10.0),
+                                            width: double.infinity,
+                                            height: 50,
+                                            decoration: BoxDecoration(
+                                              color: Colors.white,
+                                              boxShadow: [
+                                                BoxShadow(
+                                                    color: Colors.black54,
+                                                    blurRadius: 6.0,
+                                                    spreadRadius: 1.0,
+                                                    offset: Offset(1.0, 2.0))
+                                              ],
+                                              borderRadius:
+                                                  BorderRadius.circular(7.0),
+                                            ),
+                                            child: Center(
+                                              child: Text(
+                                                a.nombre,
+                                                style: TextStyle(
+                                                    color:
+                                                        selectedMunicipalityId ==
+                                                                a.id
+                                                            ? Colors.black
+                                                            : Colors.grey),
+                                              ),
+                                            ),
+                                          ),
+                                        ))
+                                    .toList(),
+                              )
+                            : Container(),
                         SizedBox(height: 25.0),
                       ],
                     );

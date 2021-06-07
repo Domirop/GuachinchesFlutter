@@ -1,9 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 import 'package:guachinches/data/HttpRemoteRepository.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
+import 'package:guachinches/data/cubit/restaurant_cubit.dart';
+import 'package:guachinches/details/details.dart';
 import 'package:guachinches/globalMethods.dart';
-import 'package:guachinches/model/Review.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:guachinches/model/restaurant.dart';
 import 'package:guachinches/new_review/new_review_presenter.dart';
 import 'package:http/http.dart';
@@ -21,17 +25,18 @@ class NewReview extends StatefulWidget {
 class _NewReviewState extends State<NewReview> implements NewReviewView {
   String rating = "5";
   var reviewController;
+  bool error = false;
   var tittleController;
   NewReviewPresenter _presenter;
   RemoteRepository remoteRepository;
 
   @override
   void initState() {
+    final restaurantCubit = context.read<RestaurantCubit>();
     reviewController = TextEditingController();
     tittleController = TextEditingController();
     remoteRepository = HttpRemoteRepository(Client());
-    _presenter = NewReviewPresenter(remoteRepository, this);
-
+    _presenter = NewReviewPresenter(remoteRepository, this, restaurantCubit);
     super.initState();
   }
 
@@ -179,6 +184,21 @@ class _NewReviewState extends State<NewReview> implements NewReviewView {
                   maxLines: 4,
                 ),
               ),
+              error ? Column(
+                children: [
+                  Container(
+                    width: double.infinity,
+                    child: Text(
+                      "Lo sentimos no hemos podido agregar su valoración.",
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18.0,
+                          color: Colors.red),textAlign: TextAlign.center,
+                    ),
+                  ),
+                  SizedBox(height: 20.0,),
+                ],
+              ) : Container(),
               RaisedButton(
                 onPressed: () => {
                   _presenter.saveReview(widget._userId, widget._restaurant,
@@ -206,7 +226,17 @@ class _NewReviewState extends State<NewReview> implements NewReviewView {
 
   @override
   reviewSaved() {
-    // TODO: implement reviewSaved
-    throw UnimplementedError();
+    GlobalMethods().removePages(context);
+  }
+
+  @override
+  reviewNotSaved() {
+    setState(() {
+      error = true;
+
+    });
+    Timer(Duration(seconds: 3), () => {
+      GlobalMethods().popPage(context),
+    });
   }
 }

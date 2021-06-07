@@ -1,23 +1,27 @@
-import 'package:carousel_slider/carousel_slider.dart';
 import 'package:flutter/material.dart';
 import 'package:guachinches/data/HttpRemoteRepository.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:guachinches/data/cubit/banners_cubit.dart';
+import 'package:guachinches/data/cubit/banners_state.dart';
 import 'package:guachinches/data/cubit/categories_cubit.dart';
 import 'package:guachinches/data/cubit/categories_state.dart';
 import 'package:guachinches/data/cubit/restaurant_cubit.dart';
 import 'package:guachinches/data/cubit/restaurant_state.dart';
 import 'package:guachinches/globalMethods.dart';
+import 'package:guachinches/heroSliderComponent.dart';
 import 'package:guachinches/home/home_presenter.dart';
 import 'package:guachinches/model/Category.dart';
+import 'package:guachinches/model/fotos.dart';
 import 'package:guachinches/model/restaurant.dart';
 import 'package:guachinches/municipality_screen/municipality_screen.dart';
 import 'package:http/http.dart';
 
 import '../Categorias/categorias.dart';
-import '../details.dart';
+import '../details/details.dart';
 
 class Home extends StatefulWidget {
+
   @override
   _HomeState createState() => _HomeState();
 }
@@ -48,9 +52,10 @@ class _HomeState extends State<Home> implements HomeView {
   void initState() {
     final restaurantCubit = context.read<RestaurantCubit>();
     final categoriesCubit = context.read<CategoriesCubit>();
+    final bannersCubit = context.read<BannersCubit>();
     remoteRepository = HttpRemoteRepository(Client());
-    presenter =
-        HomePresenter(remoteRepository, this, restaurantCubit, categoriesCubit);
+    presenter = HomePresenter(
+        remoteRepository, this, restaurantCubit, categoriesCubit, bannersCubit);
     presenter.getSelectedMunicipality();
     if (restaurantCubit.state is RestaurantInitial) {
       presenter.getAllRestaurants();
@@ -58,25 +63,15 @@ class _HomeState extends State<Home> implements HomeView {
     if (categoriesCubit.state is CategoriesInitial) {
       presenter.getAllCategories();
     }
+    if (bannersCubit.state is BannersInitial) {
+      presenter.getAllBanner();
+    }
     super.initState();
   }
 
   @override
   Widget build(BuildContext context) {
     _scrollPadding = MediaQuery.of(context).viewInsets.bottom;
-    final List<Widget> imageSliders = imgList
-        .map((item) => Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(20.0),
-                image: DecorationImage(
-                  repeat: ImageRepeat.noRepeat,
-                  alignment: Alignment.center,
-                  fit: BoxFit.cover,
-                  image: AssetImage(item),
-                ),
-              ),
-            ))
-        .toList();
     return Scaffold(
       body: SingleChildScrollView(
         child: Column(
@@ -101,7 +96,7 @@ class _HomeState extends State<Home> implements HomeView {
                     child: Row(
                       children: [
                         Text(
-                          municipalityName,
+                          municipalityName != null ? municipalityName : "",
                           style: TextStyle(
                             color: Colors.black,
                             fontWeight: FontWeight.bold,
@@ -130,19 +125,14 @@ class _HomeState extends State<Home> implements HomeView {
             SizedBox(
               height: 20.0,
             ),
-            CarouselSlider(
-              items: imageSliders,
-              options: CarouselOptions(
-                  autoPlay: true,
-                  viewportFraction: 0.9,
-                  enlargeCenterPage: true,
-                  aspectRatio: 12 / 6,
-                  onPageChanged: (index, reason) {
-                    setState(() {
-                      _current = index;
-                    });
-                  }),
-            ),
+            BlocBuilder<BannersCubit, BannersState>(
+                builder: (context, state) {
+              if (state is BannersLoaded) {
+                return HeroSliderComponent(state.banners);
+              }else{
+                return Container();
+              }
+            }),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: imgList.map((url) {
@@ -238,7 +228,7 @@ class _HomeState extends State<Home> implements HomeView {
                                         ),
                                         Center(
                                           child: Text(
-                                            state.categories[index].nombre,
+                                            state.categories[index].nombre != null ? state.categories[index].nombre: "",
                                             textAlign: TextAlign.center,
                                             style: TextStyle(
                                               color: Colors.black,
@@ -257,6 +247,8 @@ class _HomeState extends State<Home> implements HomeView {
                             );
                           }),
                     );
+                  } else {
+                    return Container();
                   }
                 })),
             SizedBox(
@@ -430,6 +422,11 @@ class _HomeState extends State<Home> implements HomeView {
   }
 
   Widget componentStateBuilder(List<Restaurant> restaurants) {
+    print(restaurants[0]);
+    print(restaurants[0].negocioMunicipioId);
+    print(restaurants[0].municipio);
+    print(municipalityName);
+    print(municipalityId);
     return Column(
       children: restaurants
           .where((element) =>
@@ -442,11 +439,14 @@ class _HomeState extends State<Home> implements HomeView {
             condition = true;
           }
         }
+        Fotos foto =
+            e.fotos.firstWhere((element) => element.type == "principal", orElse: () => null);
         return condition == true
-            ? Container(
-                margin: EdgeInsets.symmetric(horizontal: 10.0),
-                child: GestureDetector(
-                  onTap: () => gotoDetail(e),
+            ? GestureDetector(
+                onTap: () => gotoDetail(e),
+                child: Container(
+                  color: Colors.transparent,
+                  margin: EdgeInsets.symmetric(horizontal: 10.0),
                   child: Column(
                     children: [
                       Row(
@@ -458,8 +458,12 @@ class _HomeState extends State<Home> implements HomeView {
                             decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(12.0),
                                 image: DecorationImage(
-                                  image:
-                                      AssetImage('assets/images/Morenita.png'),
+                                  image: foto != null
+                                      ? NetworkImage(
+                                          foto.photoUrl,
+                                        )
+                                      : AssetImage(
+                                          "assets/images/Morenita.png"),
                                 )),
                           ),
                           Expanded(
@@ -469,7 +473,7 @@ class _HomeState extends State<Home> implements HomeView {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    e.nombre,
+                                    e.nombre != null ? e.nombre : "",
                                     style: TextStyle(
                                       color: Colors.black,
                                       fontSize: 18.0,
@@ -484,7 +488,7 @@ class _HomeState extends State<Home> implements HomeView {
                                     ),
                                   ),
                                   Text(
-                                    e.direccion,
+                                    e.direccion != null ? e.direccion : "",
                                     style: TextStyle(
                                       color: Colors.grey,
                                       fontSize: 12.0,
@@ -511,7 +515,7 @@ class _HomeState extends State<Home> implements HomeView {
                                     borderRadius: BorderRadius.circular(6.0),
                                   ),
                                   child: Text(
-                                    e.avg,
+                                    e.avg != null ? e.avg : "",
                                     textAlign: TextAlign.center,
                                     style: TextStyle(
                                       color: Colors.white,
