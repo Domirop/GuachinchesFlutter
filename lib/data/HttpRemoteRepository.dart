@@ -21,7 +21,12 @@ class HttpRemoteRepository implements RemoteRepository {
     var response = await _client.get(uri);
 
     var data = json.decode(response.body)['result'];
+
+    if(data['Usuario'] == null){
+      throw Error();
+    }
     UserInfo user = UserInfo.fromJson(data['Usuario']);
+
     return user;
   }
 

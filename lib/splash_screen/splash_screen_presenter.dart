@@ -9,29 +9,44 @@ import 'package:guachinches/valoraciones/valoraciones.dart';
 
 import '../profile/profile.dart';
 
-class SplashScreenPresenter{
-  final SplashScreenView _view ;
-  final RemoteRepository _remoteRepository ;
+class SplashScreenPresenter {
+  final SplashScreenView _view;
+
+  final RemoteRepository _remoteRepository;
+
   final UserCubit _userCubit;
   final storage = new FlutterSecureStorage();
-
 
   SplashScreenPresenter(this._view, this._remoteRepository, this._userCubit);
 
   getUserInfo() async {
     String userId = await storage.read(key: "userId");
-    List<Widget> screens = [Home(), Valoraciones(), Profile()];
-    if(userId != null){
+    List<Widget> screens = [
+      Home(),
+      Login("Para ver tus valoraciones debes iniciar sesión."),
+      Login("Para ver tu perfíl debes iniciar sesión.")
+    ];
+    print(userId);
+    if (userId != null) {
       if (_userCubit.state is UserInitial) {
-       await _userCubit.getUserInfo(userId);
+        var response = await _userCubit.getUserInfo(userId);
+        if (response == true) {
+          screens = [Home(), Valoraciones(), Profile()];
+        } else {
+          await storage.delete(key: "userId");
+        }
       }
-      screens = [Home(), Valoraciones(), Profile()];
-    }else{
-      screens = [Home(), Login("Para ver tus valoraciones debes iniciar sesión."), Login("Para ver tu perfíl debes iniciar sesión.")];
+    } else {
+      screens = [
+        Home(),
+        Login("Para ver tus valoraciones debes iniciar sesión."),
+        Login("Para ver tu perfíl debes iniciar sesión.")
+      ];
     }
     _view.goToMenu(screens);
   }
 }
-abstract class SplashScreenView{
+
+abstract class SplashScreenView {
   goToMenu(List<Widget> screens);
 }

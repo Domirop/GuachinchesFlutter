@@ -9,10 +9,14 @@ class UserCubit extends Cubit<UserState> {
 
   UserCubit(this._remoteRepository) : super(UserInitial());
 
-  Future<void> getUserInfo(String userId) async {
-  UserInfo userInfo = await _remoteRepository.getUserInfo(userId);
-  emit(UserLoaded(userInfo));
-
+  Future<bool> getUserInfo(String userId) async {
+    try{
+      UserInfo userInfo = await _remoteRepository.getUserInfo(userId);
+      emit(UserLoaded(userInfo));
+      return true;
+    }catch (e){
+      return false;
+    }
   }
   Future<bool> updateUserReview(String userId, String reviewId, String title, String rating, String review) async {
     await _remoteRepository.updateReview(userId,reviewId, title, rating, review);
