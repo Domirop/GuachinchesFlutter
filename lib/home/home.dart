@@ -22,7 +22,6 @@ import '../Categorias/categorias.dart';
 import '../details/details.dart';
 
 class Home extends StatefulWidget {
-
   @override
   _HomeState createState() => _HomeState();
 }
@@ -40,7 +39,9 @@ class _HomeState extends State<Home> implements HomeView {
   String selectedCategories = "";
   List<Restaurant> restaurants = [];
   List<ModelCategory> categories = [];
-  String municipalityId = "";
+  String municipalityId = "Todos";
+  String municipalityIdArea = "Todos";
+  String municipalityNameArea = "Todos";
   String municipalityName = "Todos";
   GlobalKey inputFocus = GlobalKey();
   HomePresenter presenter;
@@ -97,7 +98,11 @@ class _HomeState extends State<Home> implements HomeView {
                     child: Row(
                       children: [
                         Text(
-                          municipalityName != null ? municipalityName : "",
+                          municipalityId == null
+                              ? municipalityNameArea == null
+                                  ? ""
+                                  : municipalityNameArea
+                              : municipalityName,
                           style: TextStyle(
                             color: Colors.black,
                             fontWeight: FontWeight.bold,
@@ -126,11 +131,10 @@ class _HomeState extends State<Home> implements HomeView {
             SizedBox(
               height: 20.0,
             ),
-            BlocBuilder<BannersCubit, BannersState>(
-                builder: (context, state) {
+            BlocBuilder<BannersCubit, BannersState>(builder: (context, state) {
               if (state is BannersLoaded) {
                 return HeroSliderComponent(state.banners);
-              }else{
+              } else {
                 return Container();
               }
             }),
@@ -210,7 +214,7 @@ class _HomeState extends State<Home> implements HomeView {
                                     width: 80.0,
                                     decoration: BoxDecoration(
                                       color: selectedCategories.contains(
-                                          state.categories[index].id)
+                                              state.categories[index].id)
                                           ? Color.fromRGBO(255, 255, 255, 0.85)
                                           : Colors.white,
                                       boxShadow: [
@@ -224,11 +228,19 @@ class _HomeState extends State<Home> implements HomeView {
                                     ),
                                     child: Column(
                                       children: [
-                                        SvgPicture.network(state.categories[index].iconUrl, height: 60.0, width: 60.0,),
+                                        SvgPicture.network(
+                                          state.categories[index].iconUrl,
+                                          height: 60.0,
+                                          width: 60.0,
+                                        ),
                                         Container(
-                                          margin: EdgeInsets.symmetric(vertical: 10.0, horizontal: 1.0),
+                                          margin: EdgeInsets.symmetric(
+                                              vertical: 10.0, horizontal: 1.0),
                                           child: Text(
-                                            state.categories[index].nombre != null ? state.categories[index].nombre: "",
+                                            state.categories[index].nombre !=
+                                                    null
+                                                ? state.categories[index].nombre
+                                                : "",
                                             textAlign: TextAlign.center,
                                             style: TextStyle(
                                               color: Colors.black,
@@ -376,6 +388,18 @@ class _HomeState extends State<Home> implements HomeView {
     setState(() {
       this.municipalityName = municipalityName;
       this.municipalityId = municipalityId;
+      this.municipalityIdArea = null;
+      this.municipalityNameArea = null;
+    });
+  }
+
+  @override
+  setAreaMunicipality(String municipalityIdArea, String municipalityNameArea) {
+    setState(() {
+      this.municipalityIdArea = municipalityIdArea;
+      this.municipalityNameArea = municipalityNameArea;
+      this.municipalityName = null;
+      this.municipalityId = null;
     });
   }
 
@@ -423,19 +447,40 @@ class _HomeState extends State<Home> implements HomeView {
 
   Widget componentStateBuilder(List<Restaurant> restaurants) {
     return Column(
-      children: restaurants
-          .where((element) =>
-              element.negocioMunicipioId == municipalityId ||
-              municipalityId == "")
-          .map((e) {
+      children: restaurants.where((element) {
+        print(municipalityId);
+        print(municipalityIdArea);
+        print(element.municipio.areaMunicipioId);
+        print(element.municipio.id);
+        if (municipalityId == null) {
+          if (municipalityIdArea == "Todos") {
+            return true;
+          } else {
+            if (element.municipio.areaMunicipioId == municipalityIdArea) {
+              return true;
+            } else {
+              return false;
+            }
+          }
+        } else {
+          if (element.municipio.id == municipalityId) {
+            print("5");
+            return true;
+          } else {
+            print("6");
+            return false;
+          }
+        }
+      }).map((e) {
         bool condition = selectedCategories == "";
         for (int i = 0; i < e.categoriaRestaurantes.length; i++) {
           if (e.categoriaRestaurantes[i].categorias.id == selectedCategories) {
             condition = true;
           }
         }
-        Fotos foto =
-            e.fotos.firstWhere((element) => element.type == "principal", orElse: () => null);
+        Fotos foto = e.fotos.firstWhere(
+            (element) => element.type == "principal",
+            orElse: () => null);
         return condition == true
             ? GestureDetector(
                 onTap: () => gotoDetail(e),

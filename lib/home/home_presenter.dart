@@ -32,13 +32,17 @@ class HomePresenter{
   getSelectedMunicipality() async {
     String name = await storage.read(key: "municipalityName");
     String id = await storage.read(key: "municipalityId");
-    if(id == null){
-      name = "Todos";
-      id = "";
-      await storage.write(key: "municipalityName", value: name);
-      await storage.write(key: "municipalityId", value: id);
+    String areaId = await storage.read(key: "municipalityIdArea");
+    String areaName = await storage.read(key: "municipalityNameArea");
+    if(name == null && id == null && areaName == null && areaId == null){
+      await storage.write(key: "municipalityIdArea", value: "Todos");
+      await storage.write(key: "municipalityNameArea", value: "Todos");
     }
-    _view.setMunicipality(name, id);
+    if(id == null){
+      _view.setAreaMunicipality(areaId, areaName);
+    }else {
+      _view.setMunicipality(name, id);
+    }
   }
 
   getRestaurantsFilter(List<Restaurant> restaurants, String value) async {
@@ -49,4 +53,5 @@ abstract class HomeView{
   setAllRestaurants(List<Restaurant> restaurants);
   setAllCategories(List<ModelCategory> categories);
   setMunicipality(String municipalityName, String municipalityId);
+  setAreaMunicipality(String municipalityIdArea, String municipalityNameArea);
 }

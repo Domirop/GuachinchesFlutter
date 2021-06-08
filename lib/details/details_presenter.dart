@@ -13,9 +13,7 @@ class DetailPresenter {
 
   isUserLogged() async {
     String userId = await storage.read(key: "userId");
-    if (userId == null) {
-      _view.goToLogin();
-    }else{
+    if (userId != null) {
       _view.setUserId(userId);
     }
   }

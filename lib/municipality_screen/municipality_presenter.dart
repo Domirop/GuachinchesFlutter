@@ -18,9 +18,19 @@ class MunicipalityPresenter{
     String municipalityId = await storage.read(key: "municipalityId");
     _view.selectedMunicipality(municipalityId);
   }
-  storeMunicipality(String municipalityName, String municipalityId) async {
-    await storage.write(key: "municipalityName", value: municipalityName);
-    await storage.write(key: "municipalityId", value: municipalityId);
+  storeMunicipality(String municipalityName, String municipalityId, String municipalityIdArea, String municipalityNameArea) async {
+    if(municipalityName == null){
+      await storage.write(key: "municipalityName", value: municipalityName);
+    }
+    if(municipalityId == null){
+      await storage.write(key: "municipalityId", value: municipalityId);
+    }
+    if(municipalityId == null){
+      await storage.write(key: "municipalityIdArea", value: municipalityIdArea);
+    }
+    if(municipalityNameArea == null){
+      await storage.write(key: "municipalityNameArea", value: municipalityNameArea);
+    }
     _view.selectedMunicipality(municipalityId);
   }
 }

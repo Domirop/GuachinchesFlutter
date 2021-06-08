@@ -24,13 +24,6 @@ class Details extends StatefulWidget {
 }
 
 class _DetailsState extends State<Details> implements DetailView {
-  List images = [
-    "assets/images/Morenita.png",
-    "assets/images/Morenita.png",
-    "assets/images/Morenita.png",
-    "assets/images/Morenita.png",
-    "assets/images/Morenita.png"
-  ];
   String userId;
 
   _DetailsState(this.restaurant);
@@ -38,8 +31,6 @@ class _DetailsState extends State<Details> implements DetailView {
   Restaurant restaurant;
   int indexCarta = 0;
   int indexValoraciones = 0;
-  String url = "https://www.google.com";
-  String phone = "+34111222333";
   int indexSection = 0;
   DetailPresenter presenter;
   RemoteRepository remoteRepository;
@@ -402,36 +393,31 @@ class _DetailsState extends State<Details> implements DetailView {
               height: 15.0,
             ),
             Container(
+              height: 80.0,
               margin: EdgeInsets.symmetric(horizontal: 10.0),
-              child: Column(
-                children: [
-                  Container(
-                    height: 80.0,
-                    child: ListView.builder(
-                        shrinkWrap: true,
-                        primary: false,
-                        itemExtent: MediaQuery.of(context).size.width / 4,
-                        itemCount: restaurant.fotos.length,
-                        scrollDirection: Axis.horizontal,
-                        itemBuilder: (context, index) {
-                          return Container(
-                            height: 73.0,
-                            margin: EdgeInsets.symmetric(horizontal: 10.0),
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(7.0),
-                              image: DecorationImage(
-                                repeat: ImageRepeat.noRepeat,
-                                alignment: Alignment.center,
-                                fit: BoxFit.cover,
-                                image: NetworkImage(
-                                    restaurant.fotos[index].photoUrl),
-                              ),
-                            ),
-                          );
-                        }),
-                  ),
-                ],
-              ),
+              child: ListView.builder(
+                  shrinkWrap: true,
+                  primary: false,
+                  itemExtent: MediaQuery.of(context).size.width / 4,
+                  itemCount: restaurant.fotos.length,
+                  scrollDirection: Axis.horizontal,
+                  itemBuilder: (context, index) {
+                    return Container(
+                      height: 73.0,
+                      margin: EdgeInsets.symmetric(horizontal: 10.0),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(7.0),
+                        image: DecorationImage(
+                          repeat: ImageRepeat.noRepeat,
+                          alignment: Alignment.center,
+                          fit: BoxFit.cover,
+                          image: restaurant.fotos[index].photoUrl == null ? AssetImage(
+                              'assets/images/carne.png') : NetworkImage(
+                              restaurant.fotos[index].photoUrl),
+                        ),
+                      ),
+                    );
+                  }),
             ),
             SizedBox(
               height: 15.0,
@@ -535,7 +521,7 @@ class _DetailsState extends State<Details> implements DetailView {
                                       alignment: Alignment.center,
                                       fit: BoxFit.cover,
                                       image: restaurant.menus[index].fotoUrl ==
-                                              null
+                                              null || restaurant.menus[index].fotoUrl.isEmpty
                                           ? AssetImage(
                                               'assets/images/carne.png')
                                           : NetworkImage(

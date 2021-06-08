@@ -26,7 +26,6 @@ class SplashScreenPresenter {
       Login("Para ver tus valoraciones debes iniciar sesión."),
       Login("Para ver tu perfíl debes iniciar sesión.")
     ];
-    print(userId);
     if (userId != null) {
       if (_userCubit.state is UserInitial) {
         var response = await _userCubit.getUserInfo(userId);

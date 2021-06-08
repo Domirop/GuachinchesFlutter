@@ -4,6 +4,7 @@ import 'package:guachinches/model/Review.dart';
 import 'Menu.dart';
 import 'Municipality.dart';
 import 'fotos.dart';
+import 'municipio_restaurant.dart';
 
 /// id : "31db2882-293d-4d2d-98ba-4939578de349"
 /// nombre : "Guachinche El Barco"
@@ -30,7 +31,7 @@ class Restaurant {
   String _updatedAt;
   List<Fotos> _fotos;
   String _negocioMunicipioId;
-  Municipality _municipio;
+  MunicipioRestaurant _municipio;
   List<Menu> _menus;
   List<CategoryRestaurant> _categoriaRestaurantes;
   List<Review> _valoraciones;
@@ -46,7 +47,7 @@ class Restaurant {
   String get updatedAt => _updatedAt;
   String get negocioMunicipioId => _negocioMunicipioId;
   List<Fotos> get fotos => _fotos;
-  Municipality get municipio => _municipio;
+  MunicipioRestaurant get municipio => _municipio;
   List<Menu> get menus => _menus;
   List<CategoryRestaurant> get categoriaRestaurantes => _categoriaRestaurantes;
   List<Review> get valoraciones => _valoraciones;
@@ -68,7 +69,7 @@ class Restaurant {
       String createdAt, 
       String updatedAt, 
       String negocioMunicipioId,
-    Municipality municipio,
+    MunicipioRestaurant municipio,
       List<Menu> menus,
       List<CategoryRestaurant> categoriaRestaurantes,
       List<Review> valoraciones}){
@@ -100,7 +101,7 @@ class Restaurant {
     _createdAt = json["createdAt"];
     _updatedAt = json["updatedAt"];
     _negocioMunicipioId = json["NegocioMunicipioId"];
-    _municipio = json["municipio"] != null ? Municipality.fromJson(json["municipio"]) : null;
+    _municipio = json["municipio"] != null ? MunicipioRestaurant.fromJson(json["municipio"]) : null;
     if (json["menus"] != null) {
       _menus = [];
       json["menus"].forEach((v) {

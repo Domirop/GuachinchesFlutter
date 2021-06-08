@@ -73,8 +73,7 @@ class _MunicipalityScreenState extends State<MunicipalityScreen>
                               GestureDetector(
                                 onTap: () => {
                                   presenter.storeMunicipality(
-                                      municipalities[index].nombre,
-                                      municipalities[index].id),
+                                      null, null, municipalities[index].id, municipalities[index].nombre),
                                   GlobalMethods().pushAndReplacement(
                                       context,
                                       Menu(
@@ -133,7 +132,7 @@ class _MunicipalityScreenState extends State<MunicipalityScreen>
                                     .map((a) => GestureDetector(
                                           onTap: () => {
                                             presenter.storeMunicipality(
-                                                a.nombre, a.id),
+                                                a.nombre, a.id, municipalities[index].id, municipalities[index].nombre),
                                             GlobalMethods().pushAndReplacement(
                                                 context,
                                                 Menu([
@@ -191,7 +190,7 @@ class _MunicipalityScreenState extends State<MunicipalityScreen>
   setAllMunicipalities(List<Municipality> municipalities) {
     setState(() {
       Municipality municipality =
-          Municipality.fromJson({"Id": "", "Nombre": "Todos"});
+          Municipality.fromJson({"Id": "Todos", "Nombre": "Todos"});
       municipalities.insert(0, municipality);
       this.municipalities = municipalities;
     });

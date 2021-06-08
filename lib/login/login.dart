@@ -7,6 +7,7 @@ import 'package:guachinches/globalMethods.dart';
 import 'package:guachinches/home/home.dart';
 import 'package:guachinches/login/login_presenter.dart';
 import 'package:guachinches/menu/menu.dart';
+import 'package:guachinches/register/register.dart';
 import 'package:http/http.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -19,7 +20,7 @@ class Login extends StatefulWidget {
   _LoginState createState() => _LoginState();
 }
 
-class _LoginState extends State<Login> implements LoginView{
+class _LoginState extends State<Login> implements LoginView {
   TextEditingController emailController = TextEditingController();
   TextEditingController passwordController = TextEditingController();
   LoginPresenter _presenter;
@@ -32,29 +33,30 @@ class _LoginState extends State<Login> implements LoginView{
     _presenter = LoginPresenter(_remoteRepository, this, userCubit);
     super.initState();
   }
+
   @override
   Widget build(BuildContext context) {
     double bottomInsets = MediaQuery.of(context).viewInsets.bottom;
     return Scaffold(
-      body: ListView(
-        children: [Container(
+      body: ListView(children: [
+        Container(
           padding: EdgeInsets.symmetric(horizontal: 20.0),
           color: Colors.white,
-          height: MediaQuery
-              .of(context)
-              .size
-              .height,
-          width: MediaQuery
-              .of(context)
-              .size
-              .width,
+          height: MediaQuery.of(context).size.height,
+          width: MediaQuery.of(context).size.width,
           child: Column(
             children: [
               SizedBox(
                 height: 40.0,
               ),
               GestureDetector(
-                onTap: ()=> GlobalMethods().removePagesAndGoToNewScreen(context, Menu([Home(), Login("Para ver tus valoraciones debes iniciar sesión."), Login("Para ver tu perfíl debes iniciar sesión.")])),
+                onTap: () => GlobalMethods().removePagesAndGoToNewScreen(
+                    context,
+                    Menu([
+                      Home(),
+                      Login("Para ver tus valoraciones debes iniciar sesión."),
+                      Login("Para ver tu perfíl debes iniciar sesión.")
+                    ])),
                 child: Container(
                   alignment: Alignment.centerRight,
                   child: Icon(
@@ -85,7 +87,7 @@ class _LoginState extends State<Login> implements LoginView{
               ),
               TextField(
                 controller: emailController,
-                scrollPadding: EdgeInsets.only(bottom:bottomInsets + 50),
+                scrollPadding: EdgeInsets.only(bottom: bottomInsets + 50),
                 keyboardType: TextInputType.emailAddress,
                 style: TextStyle(
                   color: Colors.black,
@@ -125,7 +127,8 @@ class _LoginState extends State<Login> implements LoginView{
                 height: 30.0,
               ),
               GestureDetector(
-                onTap: ()=> _presenter.login(emailController.text, passwordController.text),
+                onTap: () => _presenter.login(
+                    emailController.text, passwordController.text),
                 child: Container(
                   width: double.infinity,
                   alignment: Alignment.center,
@@ -137,7 +140,8 @@ class _LoginState extends State<Login> implements LoginView{
                   padding: EdgeInsets.symmetric(vertical: 15.0),
                   child: Text(
                     "Iniciar sesión",
-                    style: TextStyle(fontWeight: FontWeight.bold,
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold,
                         color: Colors.white,
                         fontSize: 16.0),
                   ),
@@ -146,11 +150,15 @@ class _LoginState extends State<Login> implements LoginView{
               SizedBox(
                 height: 30.0,
               ),
-              Text(
-                "Registrate",
-                style: TextStyle(fontWeight: FontWeight.bold,
-                    color: Colors.black,
-                    fontSize: 16.0),
+              GestureDetector(
+                onTap: () => GlobalMethods().pushPage(context, Register()),
+                child: Text(
+                  "Registrate",
+                  style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black,
+                      fontSize: 16.0),
+                ),
               ),
             ],
           ),
@@ -161,7 +169,6 @@ class _LoginState extends State<Login> implements LoginView{
 
   @override
   loginError() {
-
     throw UnimplementedError();
   }
 

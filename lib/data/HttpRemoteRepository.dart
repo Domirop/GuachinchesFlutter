@@ -32,16 +32,19 @@ class HttpRemoteRepository implements RemoteRepository {
 
   @override
   Future<List<Restaurant>> getAllRestaurants() async {
-    var uri = Uri.parse(endpoint + "restaurant");
-    var response = await _client.get(uri);
-    List<dynamic> data = json.decode(response.body)['result'];
-
-    List<Restaurant> restaurants = [];
-    for (var i = 0; i < data.length; i++) {
-      Restaurant restaurant = Restaurant.fromJson(data[i]);
-      restaurants.add(restaurant);
+    try {
+      var uri = Uri.parse(endpoint + "restaurant");
+      var response = await _client.get(uri);
+      List<dynamic> data = json.decode(response.body)['result'];
+      List<Restaurant> restaurants = [];
+      for (var i = 0; i < data.length; i++) {
+        Restaurant restaurant = Restaurant.fromJson(data[i]);
+        restaurants.add(restaurant);
+      }
+      return restaurants;
+    } on Exception catch (e) {
+      return [];
     }
-    return restaurants;
   }
 
   @override
