@@ -25,7 +25,7 @@ class _LoginState extends State<Login> implements LoginView {
   TextEditingController passwordController = TextEditingController();
   LoginPresenter _presenter;
   RemoteRepository _remoteRepository;
-
+  bool dataError = false;
   @override
   void initState() {
     final userCubit = context.read<UserCubit>();
@@ -79,6 +79,14 @@ class _LoginState extends State<Login> implements LoginView {
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: Colors.black,
+                  fontSize: 18.0,
+                ),
+              ),
+              Text(
+                dataError == true ?"Email o contraseña incorrecta":"",
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.red,
                   fontSize: 18.0,
                 ),
               ),
@@ -169,7 +177,9 @@ class _LoginState extends State<Login> implements LoginView {
 
   @override
   loginError() {
-    throw UnimplementedError();
+  setState(() {
+    dataError = true;
+  });
   }
 
   @override

@@ -15,9 +15,9 @@ class LoginPresenter{
   LoginPresenter(this._remoteRepository, this._view, this._userCubit);
 
   login(String email, String password) async{
+    try{
     var userId = await _remoteRepository.loginUser(email,password);
     List<Widget> screens = [Home(), Valoraciones(), Profile()];
-
 
     if (userId != null){
       await storage.write(key: "userId", value: userId["id"]);
@@ -26,6 +26,9 @@ class LoginPresenter{
       _userCubit.getUserInfo(userId["id"]);
     }
     _view.loginSuccess(screens);
+  }catch(e){
+      _view.loginError();
+    }
   }
 }
 

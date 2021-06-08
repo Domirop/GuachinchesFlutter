@@ -118,6 +118,9 @@ class HttpRemoteRepository implements RemoteRepository {
     var response = await _client.post(uri,
         headers: {"Content-Type": "application/json"}, body: body);
     var data = jsonDecode(response.body);
+    if(data["code"]==400){
+      throw Error();
+    }
     return data["result"];
   }
 
