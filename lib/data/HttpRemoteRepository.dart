@@ -38,7 +38,6 @@ class HttpRemoteRepository implements RemoteRepository {
       List<dynamic> data = json.decode(response.body)['result'];
       List<Restaurant> restaurants = [];
       for (var i = 0; i < data.length; i++) {
-        print(data[i]);
         Restaurant restaurant = Restaurant.fromJson(data[i]);
         restaurants.add(restaurant);
       }
