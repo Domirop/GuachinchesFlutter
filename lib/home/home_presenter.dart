@@ -28,20 +28,33 @@ class HomePresenter{
   getAllBanner() async {
     await _bannersCubit.getBanners();
   }
+  getSelectedCategory() async {
+    String useCategory = await storage.read(key: "category");
+    _view.categorySelected(useCategory);
+  }
+
+  setSelectedCategory(String id) async {
+    String useCategory = await storage.read(key: "category");
+    if(useCategory == id){
+      await storage.write(key: "category", value: "Todas");
+    }else{
+      await storage.write(key: "category", value: id);
+    }
+    getSelectedCategory();
+  }
 
   getSelectedMunicipality() async {
-    String name = await storage.read(key: "municipalityName");
-    String id = await storage.read(key: "municipalityId");
-    String areaId = await storage.read(key: "municipalityIdArea");
-    String areaName = await storage.read(key: "municipalityNameArea");
-    if(name == null && id == null && areaName == null && areaId == null){
-      await storage.write(key: "municipalityIdArea", value: "Todos");
-      await storage.write(key: "municipalityNameArea", value: "Todos");
-    }
-    if(id == null){
-      _view.setAreaMunicipality(areaId, areaName);
-    }else {
+    String useMunicipality = await storage.read(key: "useMunicipality");
+    if(useMunicipality == "Todos"){
+      _view.setAllMunicipalities();
+    }else if (useMunicipality == "true"){
+      String name = await storage.read(key: "municipalityName");
+      String id = await storage.read(key: "municipalityId");
       _view.setMunicipality(name, id);
+    }else{
+      String areaId = await storage.read(key: "municipalityIdArea");
+      String areaName = await storage.read(key: "municipalityNameArea");
+      _view.setAreaMunicipality(areaId, areaName);
     }
   }
 
@@ -52,6 +65,8 @@ class HomePresenter{
 abstract class HomeView{
   setAllRestaurants(List<Restaurant> restaurants);
   setAllCategories(List<ModelCategory> categories);
+  setAllMunicipalities();
+  categorySelected(String id);
   setMunicipality(String municipalityName, String municipalityId);
   setAreaMunicipality(String municipalityIdArea, String municipalityNameArea);
 }

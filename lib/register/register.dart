@@ -247,6 +247,9 @@ class _RegisterState extends State<Register> implements RegisterView{
                   ),
                 ),
               ),
+              SizedBox(
+                height: 30.0,
+              ),
             ],
           ),
         ),

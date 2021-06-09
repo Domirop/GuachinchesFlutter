@@ -360,7 +360,7 @@ class _ProfileState extends State<Profile> implements ProfileView {
                                               repeat: ImageRepeat.noRepeat,
                                               alignment: Alignment.center,
                                               fit: BoxFit.contain,
-                                              image: foto != null ? NetworkImage(foto.photoUrl) : AssetImage("assets/images/Morenita.png"),
+                                              image: foto != null ? NetworkImage(foto.photoUrl) : AssetImage("assets/images/notImage.png"),
                                             ),
                                           ),
                                         ),

@@ -74,7 +74,7 @@ class _NewReviewState extends State<NewReview> implements NewReviewView {
                     decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(12.0),
                         image: DecorationImage(
-                          image: AssetImage('assets/images/Morenita.png'),
+                          image: AssetImage('assets/images/notImage.png'),
                         )),
                   ),
                   Expanded(

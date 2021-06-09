@@ -27,22 +27,18 @@ class Home extends StatefulWidget {
 }
 
 class _HomeState extends State<Home> implements HomeView {
-  int _current = 0;
-  final List<String> imgList = [
-    'assets/images/car.png',
-    'assets/images/carne.png',
-    'assets/images/fondoDetails.png',
-    'assets/images/mojoPicon.png'
-  ];
+  FocusNode myFocusNode;
   double _scrollPadding;
   bool isDescendent = false;
-  String selectedCategories = "";
+  String selectedCategories = "Todas";
   List<Restaurant> restaurants = [];
   List<ModelCategory> categories = [];
-  String municipalityId = "Todos";
-  String municipalityIdArea = "Todos";
-  String municipalityNameArea = "Todos";
-  String municipalityName = "Todos";
+  String municipalityId = "";
+  String municipalityIdArea = "";
+  bool doRequest = false;
+  String municipalityNameArea = "";
+  String municipalityName = "";
+  String useMunicipality = "";
   GlobalKey inputFocus = GlobalKey();
   HomePresenter presenter;
   RemoteRepository remoteRepository;
@@ -52,6 +48,7 @@ class _HomeState extends State<Home> implements HomeView {
 
   @override
   void initState() {
+    myFocusNode = FocusNode();
     final restaurantCubit = context.read<RestaurantCubit>();
     final categoriesCubit = context.read<CategoriesCubit>();
     final bannersCubit = context.read<BannersCubit>();
@@ -68,12 +65,26 @@ class _HomeState extends State<Home> implements HomeView {
     if (bannersCubit.state is BannersInitial) {
       presenter.getAllBanner();
     }
+    presenter.getSelectedMunicipality();
+    presenter.getSelectedCategory();
     super.initState();
   }
 
   @override
   Widget build(BuildContext context) {
+    String title = "";
+    if (useMunicipality == "Todos") {
+      title = "Todos";
+    } else if (useMunicipality == "true") {
+      title = municipalityName;
+    } else {
+      title = municipalityNameArea;
+    }
     _scrollPadding = MediaQuery.of(context).viewInsets.bottom;
+    if (doRequest) {
+      myFocusNode.requestFocus();
+      doRequest = false;
+    }
     return Scaffold(
       body: SingleChildScrollView(
         child: Column(
@@ -98,11 +109,7 @@ class _HomeState extends State<Home> implements HomeView {
                     child: Row(
                       children: [
                         Text(
-                          municipalityId == null
-                              ? municipalityNameArea == null
-                                  ? ""
-                                  : municipalityNameArea
-                              : municipalityName,
+                          title,
                           style: TextStyle(
                             color: Colors.black,
                             fontWeight: FontWeight.bold,
@@ -138,23 +145,6 @@ class _HomeState extends State<Home> implements HomeView {
                 return Container();
               }
             }),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: imgList.map((url) {
-                int index = imgList.indexOf(url);
-                return Container(
-                  width: 8.0,
-                  height: 8.0,
-                  margin: EdgeInsets.symmetric(vertical: 10.0, horizontal: 2.0),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: _current == index
-                        ? Colors.black
-                        : Color.fromRGBO(196, 196, 196, 1),
-                  ),
-                );
-              }).toList(),
-            ),
             SizedBox(
               height: 20.0,
             ),
@@ -194,6 +184,14 @@ class _HomeState extends State<Home> implements HomeView {
                 child: BlocBuilder<CategoriesCubit, CategoriesState>(
                     builder: (context, state) {
                   if (state is CategoriesLoaded) {
+                    List<ModelCategory> aux = [];
+                    if(selectedCategories != "Todas"){
+                      ModelCategory auxCategory = state.categories.firstWhere((element) => element.id == selectedCategories);
+                      aux.add(auxCategory);
+                      aux.addAll(state.categories.where((element) => element != auxCategory));
+                    }else{
+                      aux = state.categories;
+                    }
                     return Container(
                       height: 120.0,
                       width: double.infinity,
@@ -201,20 +199,20 @@ class _HomeState extends State<Home> implements HomeView {
                           shrinkWrap: true,
                           primary: false,
                           itemExtent: MediaQuery.of(context).size.width / 4,
-                          itemCount: state.categories.length,
+                          itemCount: aux.length,
                           scrollDirection: Axis.horizontal,
                           itemBuilder: (context, index) {
                             return Wrap(
                               children: [
                                 GestureDetector(
-                                  onTap: () => categorySelected(
-                                      state.categories[index].id),
+                                  onTap: () => presenter.setSelectedCategory(
+                                      aux[index].id),
                                   child: Container(
                                     height: 110,
                                     width: 80.0,
                                     decoration: BoxDecoration(
                                       color: selectedCategories.contains(
-                                              state.categories[index].id)
+                                          aux[index].id)
                                           ? Color.fromRGBO(255, 255, 255, 0.85)
                                           : Colors.white,
                                       boxShadow: [
@@ -229,7 +227,7 @@ class _HomeState extends State<Home> implements HomeView {
                                     child: Column(
                                       children: [
                                         SvgPicture.network(
-                                          state.categories[index].iconUrl,
+                                          aux[index].iconUrl,
                                           height: 60.0,
                                           width: 60.0,
                                         ),
@@ -237,9 +235,9 @@ class _HomeState extends State<Home> implements HomeView {
                                           margin: EdgeInsets.symmetric(
                                               vertical: 10.0, horizontal: 1.0),
                                           child: Text(
-                                            state.categories[index].nombre !=
+                                            aux[index].nombre !=
                                                     null
-                                                ? state.categories[index].nombre
+                                                ? aux[index].nombre
                                                 : "",
                                             textAlign: TextAlign.center,
                                             style: TextStyle(
@@ -299,10 +297,10 @@ class _HomeState extends State<Home> implements HomeView {
                       children: [
                         TextFormField(
                           key: inputFocus,
+                          focusNode: myFocusNode,
                           scrollPadding: EdgeInsets.only(
                               bottom:
                                   MediaQuery.of(context).size.height - 200.0),
-                          autofocus: true,
                           keyboardType: TextInputType.text,
                           controller: textFieldBuscar,
                           decoration: InputDecoration(
@@ -369,38 +367,15 @@ class _HomeState extends State<Home> implements HomeView {
     });
   }
 
-  categorySelected(String categoryUuid) {
+  @override
+  categorySelected(String id) {
     setState(() {
-      if (selectedCategories == categoryUuid) {
-        selectedCategories = "";
-      } else {
-        selectedCategories = categoryUuid;
-      }
+      selectedCategories = id;
     });
   }
 
   goToSelectMunicipality() {
-    GlobalMethods().pushAndReplacement(context, MunicipalityScreen());
-  }
-
-  @override
-  setMunicipality(String municipalityName, String municipalityId) {
-    setState(() {
-      this.municipalityName = municipalityName;
-      this.municipalityId = municipalityId;
-      this.municipalityIdArea = null;
-      this.municipalityNameArea = null;
-    });
-  }
-
-  @override
-  setAreaMunicipality(String municipalityIdArea, String municipalityNameArea) {
-    setState(() {
-      this.municipalityIdArea = municipalityIdArea;
-      this.municipalityNameArea = municipalityNameArea;
-      this.municipalityName = null;
-      this.municipalityId = null;
-    });
+    GlobalMethods().pushPage(context, MunicipalityScreen());
   }
 
   reorderList() {
@@ -442,47 +417,86 @@ class _HomeState extends State<Home> implements HomeView {
     setState(() {
       isSearching = !isSearching;
       textFieldBuscar.text = "";
+      doRequest = true;
     });
   }
 
+  @override
+  setMunicipality(String municipalityName, String municipalityId) {
+    setState(() {
+      this.municipalityName = municipalityName;
+      this.municipalityId = municipalityId;
+      this.useMunicipality = "true";
+      this.municipalityIdArea = "";
+      this.municipalityNameArea = "";
+    });
+  }
+
+  @override
+  setAreaMunicipality(String municipalityIdArea, String municipalityNameArea) {
+    setState(() {
+      this.municipalityIdArea = municipalityIdArea;
+      this.municipalityNameArea = municipalityNameArea;
+      this.useMunicipality = "false";
+      this.municipalityName = "";
+      this.municipalityId = "";
+    });
+  }
+
+  @override
+  setAllMunicipalities() {
+    setState(() {
+      this.useMunicipality = "Todos";
+      this.municipalityIdArea = "";
+      this.municipalityNameArea = "";
+      this.municipalityName = "";
+      this.municipalityId = "";
+    });
+  }
+
+  List<Restaurant> filterList(List<Restaurant> restaurants) {
+    List<Restaurant> aux = [];
+    restaurants.forEach((element) {
+      if (this.useMunicipality == "Todos") {
+        aux.add(element);
+      } else if (this.useMunicipality == "true") {
+        if (element.municipio.id == this.municipalityId) {
+          aux.add(element);
+        }
+      } else {
+        if (element.municipio.areaMunicipioId == this.municipalityIdArea) {
+          aux.add(element);
+        }
+      }
+    });
+    return aux;
+  }
+
+  List<Restaurant> filterListCategory(List<Restaurant> restaurants) {
+    List<Restaurant> aux = [];
+    restaurants.forEach((element) {
+      if(selectedCategories == "Todas"){
+        aux.add(element);
+      }else {
+        element.categoriaRestaurantes.forEach((cat) {
+          if(cat.categorias.id == selectedCategories){
+            aux.add(element);
+          }
+        });
+      }
+    });
+    return aux;
+  }
+
   Widget componentStateBuilder(List<Restaurant> restaurants) {
+    restaurants = filterList(restaurants);
+    restaurants = filterListCategory(restaurants);
     return Column(
-      children: restaurants.where((element) {
-        print(municipalityId);
-        print(municipalityIdArea);
-        print(element.municipio.areaMunicipioId);
-        print(element.municipio.id);
-        if (municipalityId == null) {
-          if (municipalityIdArea == "Todos") {
-            return true;
-          } else {
-            if (element.municipio.areaMunicipioId == municipalityIdArea) {
-              return true;
-            } else {
-              return false;
-            }
-          }
-        } else {
-          if (element.municipio.id == municipalityId) {
-            print("5");
-            return true;
-          } else {
-            print("6");
-            return false;
-          }
-        }
-      }).map((e) {
-        bool condition = selectedCategories == "";
-        for (int i = 0; i < e.categoriaRestaurantes.length; i++) {
-          if (e.categoriaRestaurantes[i].categorias.id == selectedCategories) {
-            condition = true;
-          }
-        }
+      children: restaurants.map((e) {
         Fotos foto = e.fotos.firstWhere(
             (element) => element.type == "principal",
             orElse: () => null);
-        return condition == true
-            ? GestureDetector(
+        return GestureDetector(
                 onTap: () => gotoDetail(e),
                 child: Container(
                   color: Colors.transparent,
@@ -503,7 +517,7 @@ class _HomeState extends State<Home> implements HomeView {
                                           foto.photoUrl,
                                         )
                                       : AssetImage(
-                                          "assets/images/Morenita.png"),
+                                          "assets/images/notImage.png"),
                                 )),
                           ),
                           Expanded(
@@ -572,8 +586,7 @@ class _HomeState extends State<Home> implements HomeView {
                     ],
                   ),
                 ),
-              )
-            : Container();
+              );
       }).toList(),
     );
   }

@@ -22,6 +22,7 @@ class Restaurant {
   String _id;
   String _nombre;
   bool _enable;
+  String _horarios;
   String _googleUrl;
   String _direccion;
   String _telefono;
@@ -37,6 +38,7 @@ class Restaurant {
   List<Review> _valoraciones;
 
   String get id => _id;
+  String get horarios => _horarios;
   String get googleUrl => _googleUrl;
   bool get enable => _enable;
   String get nombre => _nombre;
@@ -58,7 +60,8 @@ class Restaurant {
   }
 
   Restaurant({
-      String id, 
+      String id,
+    String horarios,
       String nombre,
       String googleUrl,
       bool enable,
@@ -75,6 +78,7 @@ class Restaurant {
       List<Review> valoraciones}){
     _id = id;
     _enable = enable;
+    _horarios = horarios;
     _googleUrl = googleUrl;
     _nombre = nombre;
     _direccion = direccion;
@@ -92,6 +96,7 @@ class Restaurant {
 
   Restaurant.fromJson(dynamic json) {
     _id = json["id"];
+    _horarios = json["horarios"];
     _enable = json["enable"];
     _googleUrl = json["googleUrl"];
     _nombre = json["nombre"];
@@ -131,6 +136,7 @@ class Restaurant {
   Map<String, dynamic> toJson() {
     var map = <String, dynamic>{};
     map["id"] = _id;
+    map["horarios"] = _horarios;
     map["googleUrl"] = _googleUrl;
     map["enable"] = _enable;
     map["nombre"] = _nombre;

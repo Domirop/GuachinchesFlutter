@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:guachinches/data/HttpRemoteRepository.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
 import 'package:guachinches/data/cubit/banners_cubit.dart';
@@ -21,9 +22,12 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
+
+  final storage = new FlutterSecureStorage();
   @override
   void initState() {
     super.initState();
+    addLocalStorage();
     DBProvider.db.initDB();
     SystemChrome.setPreferredOrientations(
         [DeviceOrientation.portraitUp, DeviceOrientation.portraitDown]);
@@ -60,5 +64,14 @@ class _MyAppState extends State<MyApp> {
         home: SplashScreen(),
       ),
     );
+  }
+
+  addLocalStorage() async {
+    await storage.write(key: "municipalityIdArea", value: "");
+    await storage.write(key: "municipalityNameArea", value: "");
+    await storage.write(key: "municipalityIdArea", value: "");
+    await storage.write(key: "municipalityNameArea", value: "");
+    await storage.write(key: "useMunicipality", value: "Todos");
+    await storage.write(key: "category", value: "Todas");
   }
 }

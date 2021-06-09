@@ -80,7 +80,7 @@ class _DetailsState extends State<Details> implements DetailView {
                       alignment: Alignment.center,
                       fit: BoxFit.cover,
                       image: mainFoto == null
-                          ? AssetImage('assets/images/fondoDetails.png')
+                          ? AssetImage('assets/images/bigNotImage.png')
                           : NetworkImage(mainFoto),
                     ),
                   ),
@@ -310,7 +310,7 @@ class _DetailsState extends State<Details> implements DetailView {
                           height: 5.0,
                         ),
                         Text(
-                          'De lunes a viernes de 12:00 a 15:00',
+                          restaurant.horarios == null ? "" : restaurant.horarios,
                           style: TextStyle(
                             fontSize: 12.0,
                             color: Colors.black,
@@ -320,7 +320,7 @@ class _DetailsState extends State<Details> implements DetailView {
                           height: 5.0,
                         ),
                         Text(
-                          'Carnes de cerdo y ternera.',
+                          restaurant.destacado == null ? "" : restaurant.destacado,
                           style: TextStyle(
                             fontSize: 12.0,
                             color: Colors.black,
@@ -384,15 +384,15 @@ class _DetailsState extends State<Details> implements DetailView {
             SizedBox(
               height: 15.0,
             ),
-            Divider(
+            restaurant.fotos.isNotEmpty ? Divider(
               color: Colors.grey,
               indent: 10.0,
               endIndent: 10.0,
-            ),
-            SizedBox(
+            ) : Container(),
+            restaurant.fotos.isNotEmpty ? SizedBox(
               height: 15.0,
-            ),
-            Container(
+            ) : Container(),
+            restaurant.fotos.isNotEmpty ? Container(
               height: 80.0,
               margin: EdgeInsets.symmetric(horizontal: 10.0),
               child: ListView.builder(
@@ -402,7 +402,7 @@ class _DetailsState extends State<Details> implements DetailView {
                   itemCount: restaurant.fotos.length,
                   scrollDirection: Axis.horizontal,
                   itemBuilder: (context, index) {
-                    return Container(
+                    return restaurant.fotos[index].photoUrl == null ? Container() : Container(
                       height: 73.0,
                       margin: EdgeInsets.symmetric(horizontal: 10.0),
                       decoration: BoxDecoration(
@@ -411,25 +411,26 @@ class _DetailsState extends State<Details> implements DetailView {
                           repeat: ImageRepeat.noRepeat,
                           alignment: Alignment.center,
                           fit: BoxFit.cover,
-                          image: restaurant.fotos[index].photoUrl == null ? AssetImage(
-                              'assets/images/carne.png') : NetworkImage(
+                          image: NetworkImage(
                               restaurant.fotos[index].photoUrl),
                         ),
                       ),
                     );
                   }),
-            ),
+            ) : Container(),
             SizedBox(
               height: 15.0,
             ),
-            Divider(
+            restaurant.menus.isNotEmpty
+                ? Divider(
               color: Colors.grey,
               indent: 10.0,
               endIndent: 10.0,
-            ),
-            SizedBox(
+            ) : Container(),
+            restaurant.menus.isNotEmpty
+                ? SizedBox(
               height: 15.0,
-            ),
+            ) : Container(),
             restaurant.menus.isNotEmpty
                 ? GestureDetector(
                     onTap: () => {
@@ -523,7 +524,7 @@ class _DetailsState extends State<Details> implements DetailView {
                                       image: restaurant.menus[index].fotoUrl ==
                                               null || restaurant.menus[index].fotoUrl.isEmpty
                                           ? AssetImage(
-                                              'assets/images/carne.png')
+                                              'assets/images/notImage.png')
                                           : NetworkImage(
                                               restaurant.menus[index].fotoUrl),
                                     ),
@@ -538,7 +539,7 @@ class _DetailsState extends State<Details> implements DetailView {
                                         CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        'Carne Cabra',
+                                        restaurant.menus[index].plato == null ? "" : restaurant.menus[index].plato,
                                         style: TextStyle(
                                           fontSize: 18.0,
                                           fontWeight: FontWeight.bold,
@@ -549,7 +550,7 @@ class _DetailsState extends State<Details> implements DetailView {
                                         height: 7.0,
                                       ),
                                       Text(
-                                        'La mejor carne de cabra de la zona',
+                                        restaurant.menus[index].descripcion == null ? "" : restaurant.menus[index].descripcion,
                                         style: TextStyle(
                                           fontSize: 12.0,
                                           color: Colors.black,
@@ -559,8 +560,7 @@ class _DetailsState extends State<Details> implements DetailView {
                                         height: 10.0,
                                       ),
                                       Text(
-                                        'Sin alergenos(preguntar dudas)',
-                                        style: TextStyle(
+                                        restaurant.menus[index].alergenos == null ? "" : restaurant.menus[index].alergenos,                                        style: TextStyle(
                                           fontSize: 8.0,
                                           color: Colors.black,
                                         ),
@@ -572,7 +572,7 @@ class _DetailsState extends State<Details> implements DetailView {
                                   width: 20.0,
                                 ),
                                 Text(
-                                  '5,20€',
+                                    restaurant.menus[index].precio == null ? "" : restaurant.menus[index].precio + "€",
                                   style: TextStyle(
                                     fontSize: 18.0,
                                     fontWeight: FontWeight.bold,
@@ -585,17 +585,20 @@ class _DetailsState extends State<Details> implements DetailView {
                         }),
                   )
                 : Container(),
-            SizedBox(
+            restaurant.valoraciones.isNotEmpty
+                ? SizedBox(
               height: 15.0,
-            ),
-            Divider(
+            ) : Container(),
+            restaurant.valoraciones.isNotEmpty
+                ? Divider(
               color: Colors.grey,
               indent: 10.0,
               endIndent: 10.0,
-            ),
-            SizedBox(
+            ) : Container(),
+            restaurant.valoraciones.isNotEmpty
+                ? SizedBox(
               height: 15.0,
-            ),
+            ) : Container(),
             GestureDetector(
               onTap: () => {
                 GlobalMethods().pushPage(context, NewReview(restaurant, userId))

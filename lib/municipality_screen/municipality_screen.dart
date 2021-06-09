@@ -2,14 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:guachinches/data/HttpRemoteRepository.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
 import 'package:guachinches/globalMethods.dart';
-import 'package:guachinches/home/home.dart';
 import 'package:guachinches/model/Municipality.dart';
 import 'package:guachinches/municipality_screen/municipality_presenter.dart';
-import 'package:guachinches/valoraciones/valoraciones.dart';
+import 'package:guachinches/splash_screen/splash_screen.dart';
 import 'package:http/http.dart';
 
-import '../menu/menu.dart';
-import '../profile/profile.dart';
 
 class MunicipalityScreen extends StatefulWidget {
   @override
@@ -20,7 +17,6 @@ class _MunicipalityScreenState extends State<MunicipalityScreen>
     implements MunicipalityView {
   List<Municipality> municipalities = [];
   MunicipalityPresenter presenter;
-  String selectedMunicipalityId = "";
   RemoteRepository remoteRepository;
   int index = -1;
 
@@ -29,7 +25,6 @@ class _MunicipalityScreenState extends State<MunicipalityScreen>
     remoteRepository = HttpRemoteRepository(Client());
     presenter = MunicipalityPresenter(remoteRepository, this);
     presenter.getAllMunicipalities();
-    presenter.defaultSelection();
     super.initState();
   }
 
@@ -40,8 +35,8 @@ class _MunicipalityScreenState extends State<MunicipalityScreen>
       appBar: AppBar(
         leading: new IconButton(
           icon: new Icon(Icons.arrow_back_ios_sharp, color: Colors.black),
-          onPressed: () => GlobalMethods().pushAndReplacement(
-              context, Menu([Home(), Valoraciones(), Profile()])),
+          onPressed: () => GlobalMethods().removePagesAndGoToNewScreen(
+              context, SplashScreen()),
         ),
         title:
             Text("Lista de Municipios", style: TextStyle(color: Colors.black)),
@@ -50,7 +45,7 @@ class _MunicipalityScreenState extends State<MunicipalityScreen>
       ),
       body: WillPopScope(
         onWillPop: () async {
-          GlobalMethods().pushAndReplacement(context, Home());
+          GlobalMethods().removePagesAndGoToNewScreen(context, SplashScreen());
           return false;
         },
         child: SingleChildScrollView(
@@ -73,11 +68,7 @@ class _MunicipalityScreenState extends State<MunicipalityScreen>
                               GestureDetector(
                                 onTap: () => {
                                   presenter.storeMunicipality(
-                                      null, null, municipalities[index].id, municipalities[index].nombre),
-                                  GlobalMethods().pushAndReplacement(
-                                      context,
-                                      Menu(
-                                          [Home(), Valoraciones(), Profile()])),
+                                      null, null, municipalities[index].id, municipalities[index].nombre, context),
                                 },
                                 child: Text(
                                   municipalities[index].nombre,
@@ -132,14 +123,7 @@ class _MunicipalityScreenState extends State<MunicipalityScreen>
                                     .map((a) => GestureDetector(
                                           onTap: () => {
                                             presenter.storeMunicipality(
-                                                a.nombre, a.id, municipalities[index].id, municipalities[index].nombre),
-                                            GlobalMethods().pushAndReplacement(
-                                                context,
-                                                Menu([
-                                                  Home(),
-                                                  Valoraciones(),
-                                                  Profile()
-                                                ])),
+                                                a.nombre, a.id, municipalities[index].id, municipalities[index].nombre, context),
                                           },
                                           child: Container(
                                             margin: EdgeInsets.symmetric(
@@ -163,11 +147,7 @@ class _MunicipalityScreenState extends State<MunicipalityScreen>
                                               child: Text(
                                                 a.nombre,
                                                 style: TextStyle(
-                                                    color:
-                                                        selectedMunicipalityId ==
-                                                                a.id
-                                                            ? Colors.black
-                                                            : Colors.grey),
+                                                    color: Colors.grey),
                                               ),
                                             ),
                                           ),
@@ -197,9 +177,7 @@ class _MunicipalityScreenState extends State<MunicipalityScreen>
   }
 
   @override
-  selectedMunicipality(String municipalityId) {
-    setState(() {
-      selectedMunicipalityId = municipalityId;
-    });
+  setMunicipality() {
+    GlobalMethods().removePagesAndGoToNewScreen(context, SplashScreen());
   }
 }
