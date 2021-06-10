@@ -496,6 +496,11 @@ class _HomeState extends State<Home> implements HomeView {
         Fotos foto = e.fotos.firstWhere(
             (element) => element.type == "principal",
             orElse: () => null);
+        String categorias = "";
+        for(int i =0;i<e.categoriaRestaurantes.length;i++){
+
+          categorias += i != e.categoriaRestaurantes.length-1 ?" "+e.categoriaRestaurantes[i].categorias.nombre+"," :" "+e.categoriaRestaurantes[i].categorias.nombre;
+        }
         return GestureDetector(
                 onTap: () => gotoDetail(e),
                 child: Container(
@@ -534,13 +539,15 @@ class _HomeState extends State<Home> implements HomeView {
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
-                                  Text(
-                                    "Carne fiesta",
+                                  categorias!=""?Text(
+                                    categorias,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                     style: TextStyle(
                                       color: Colors.black,
                                       fontSize: 12.0,
                                     ),
-                                  ),
+                                  ):Container(),
                                   Text(
                                     e.direccion != null ? e.direccion : "",
                                     style: TextStyle(

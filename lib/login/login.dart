@@ -26,6 +26,7 @@ class _LoginState extends State<Login> implements LoginView {
   LoginPresenter _presenter;
   RemoteRepository _remoteRepository;
   bool dataError = false;
+
   @override
   void initState() {
     final userCubit = context.read<UserCubit>();
