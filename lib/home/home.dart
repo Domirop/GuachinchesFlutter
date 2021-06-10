@@ -186,8 +186,10 @@ class _HomeState extends State<Home> implements HomeView {
                   if (state is CategoriesLoaded) {
                     List<ModelCategory> aux = [];
                     if(selectedCategories != "Todas"){
-                      ModelCategory auxCategory = state.categories.firstWhere((element) => element.id == selectedCategories);
-                      aux.add(auxCategory);
+                      ModelCategory auxCategory = state.categories.firstWhere((element) => element.id == selectedCategories, orElse: null);
+                      if(auxCategory != null){
+                        aux.add(auxCategory);
+                      }
                       aux.addAll(state.categories.where((element) => element != auxCategory));
                     }else{
                       aux = state.categories;
