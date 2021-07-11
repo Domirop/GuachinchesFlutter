@@ -1,14 +1,15 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
+import 'package:flutter_svg/svg.dart';
 import 'package:guachinches/details/details_presenter.dart';
 import 'package:guachinches/globalMethods.dart';
 import 'package:guachinches/model/restaurant.dart';
 import 'package:guachinches/new_review/new_review.dart';
+import 'package:guachinches/photo_full_screen/photo_full_screen.dart';
 import 'package:http/http.dart';
 import 'package:maps_launcher/maps_launcher.dart';
 import 'package:url_launcher/url_launcher.dart';
-
 import '../data/HttpRemoteRepository.dart';
 import '../data/RemoteRepository.dart';
 import '../login/login.dart';
@@ -242,8 +243,8 @@ class _DetailsState extends State<Details> implements DetailView {
                                   restaurant.telefono.replaceAll(" ", "")),
                               child: Container(
                                 margin: EdgeInsets.only(right: 20.0),
-                                child: Image(
-                                  image: AssetImage('assets/images/phone.png'),
+                                child: SvgPicture.asset(
+                                  'assets/images/phone.svg',
                                   width: 23.0,
                                   height: 24.0,
                                 ),
@@ -362,7 +363,7 @@ class _DetailsState extends State<Details> implements DetailView {
                       borderRadius: BorderRadius.circular(10.0),
                     ),
                     child: GestureDetector(
-                      onTap: () => openMap(),
+                      onTap: () => openMap(restaurant.direccion),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.center,
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -414,21 +415,26 @@ class _DetailsState extends State<Details> implements DetailView {
                         itemBuilder: (context, index) {
                           return restaurant.fotos[index].photoUrl == null
                               ? Container()
-                              : Container(
-                                  height: 73.0,
-                                  margin:
-                                      EdgeInsets.symmetric(horizontal: 10.0),
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(7.0),
-                                    image: DecorationImage(
-                                      repeat: ImageRepeat.noRepeat,
-                                      alignment: Alignment.center,
-                                      fit: BoxFit.cover,
-                                      image: NetworkImage(
-                                          restaurant.fotos[index].photoUrl),
+                              : GestureDetector(
+                            onTap: ()=>{
+                              GlobalMethods().pushPage(context, PhotoFullScreen(restaurant, index))
+                            },
+                                child: Container(
+                                    height: 73.0,
+                                    margin:
+                                        EdgeInsets.symmetric(horizontal: 10.0),
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(7.0),
+                                      image: DecorationImage(
+                                        repeat: ImageRepeat.noRepeat,
+                                        alignment: Alignment.center,
+                                        fit: BoxFit.cover,
+                                        image: NetworkImage(
+                                            restaurant.fotos[index].photoUrl),
+                                      ),
                                     ),
                                   ),
-                                );
+                              );
                         }),
                   )
                 : Container(),
@@ -861,9 +867,9 @@ class _DetailsState extends State<Details> implements DetailView {
     launch("tel://" + phone);
   }
 
-  openMap() {
+  openMap(String address) {
     MapsLauncher.launchQuery(
-        'Calle Carr. San Antonio, 35, La Matanza de Acentejo.');
+        address);
   }
 
   saveFav() {

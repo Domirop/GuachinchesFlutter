@@ -27,7 +27,6 @@ class _MyAppState extends State<MyApp> {
   @override
   void initState() {
     super.initState();
-    addLocalStorage();
     DBProvider.db.initDB();
     SystemChrome.setPreferredOrientations(
         [DeviceOrientation.portraitUp, DeviceOrientation.portraitDown]);
@@ -66,12 +65,5 @@ class _MyAppState extends State<MyApp> {
     );
   }
 
-  addLocalStorage() async {
-    await storage.write(key: "municipalityIdArea", value: "");
-    await storage.write(key: "municipalityNameArea", value: "");
-    await storage.write(key: "municipalityIdArea", value: "");
-    await storage.write(key: "municipalityNameArea", value: "");
-    await storage.write(key: "useMunicipality", value: "Todos");
-    await storage.write(key: "category", value: "Todas");
-  }
+
 }

@@ -18,8 +18,19 @@ class SplashScreenPresenter {
   final storage = new FlutterSecureStorage();
 
   SplashScreenPresenter(this._view, this._remoteRepository, this._userCubit);
+  addLocalStorage() async {
+    var municipalityId = await storage.read(key: "municipalityIdArea");
 
+    if(municipalityId == null){
+      await storage.write(key: "municipalityIdArea", value: "");
+      await storage.write(key: "municipalityNameArea", value: "");
+      await storage.write(key: "useMunicipality", value: "Todos");
+      await storage.write(key: "category", value: "Todas");
+    }
+
+  }
   getUserInfo() async {
+    await addLocalStorage();
     String userId = await storage.read(key: "userId");
     List<Widget> screens = [
       Home(),
