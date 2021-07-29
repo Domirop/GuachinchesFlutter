@@ -2,10 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
+import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:guachinches/data/HttpRemoteRepository.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
 import 'package:guachinches/data/cubit/restaurant_cubit.dart';
-import 'package:guachinches/details/details.dart';
 import 'package:guachinches/globalMethods.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:guachinches/model/restaurant.dart';
@@ -29,6 +29,7 @@ class _NewReviewState extends State<NewReview> implements NewReviewView {
   var tittleController;
   NewReviewPresenter _presenter;
   RemoteRepository remoteRepository;
+  bool reviewLoading = false;
 
   @override
   void initState() {
@@ -89,13 +90,6 @@ class _NewReviewState extends State<NewReview> implements NewReviewView {
                               color: Colors.black,
                               fontSize: 18.0,
                               fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          Text(
-                            "Carne fiesta",
-                            style: TextStyle(
-                              color: Colors.black,
-                              fontSize: 12.0,
                             ),
                           ),
                           Text(
@@ -184,39 +178,61 @@ class _NewReviewState extends State<NewReview> implements NewReviewView {
                   maxLines: 4,
                 ),
               ),
-              error ? Column(
-                children: [
-                  Container(
-                    width: double.infinity,
-                    child: Text(
-                      "Lo sentimos no hemos podido agregar su valoración.",
-                      style: TextStyle(
+              error
+                  ? Column(
+                      children: [
+                        Container(
+                          width: double.infinity,
+                          child: Text(
+                            "Lo sentimos no hemos podido agregar su valoración.",
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 18.0,
+                                color: Colors.red),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                        SizedBox(
+                          height: 20.0,
+                        ),
+                      ],
+                    )
+                  : Container(),
+              reviewLoading
+                  ? Column(
+                    children: [
+                      SpinKitPumpingHeart(
+                          color: Color.fromRGBO(222, 99, 44, 1),
+                          size: 50.0,
+                        ),
+                      Text("Estamos publicando tu valoración. Muchas Gracias!")
+                    ],
+                  )
+                  : RaisedButton(
+                      onPressed: () => {
+                      setState(() {
+                        reviewLoading = true;
+                      }),
+                        _presenter.saveReview(
+                            widget._userId,
+                            widget._restaurant,
+                            tittleController.text,
+                            reviewController.text,
+                            rating)
+                      },
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(7.0),
+                      ),
+                      color: Color.fromRGBO(222, 99, 44, 1),
+                      child: Text(
+                        "Publicar",
+                        style: TextStyle(
+                          color: Colors.white,
                           fontWeight: FontWeight.bold,
-                          fontSize: 18.0,
-                          color: Colors.red),textAlign: TextAlign.center,
+                          fontSize: 16.0,
+                        ),
+                      ),
                     ),
-                  ),
-                  SizedBox(height: 20.0,),
-                ],
-              ) : Container(),
-              RaisedButton(
-                onPressed: () => {
-                  _presenter.saveReview(widget._userId, widget._restaurant,
-                      tittleController.text, reviewController.text, rating)
-                },
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(7.0),
-                ),
-                color: Color.fromRGBO(222, 99, 44, 1),
-                child: Text(
-                  "Publicar",
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16.0,
-                  ),
-                ),
-              ),
             ],
           ),
         ]));
@@ -231,10 +247,11 @@ class _NewReviewState extends State<NewReview> implements NewReviewView {
   reviewNotSaved() {
     setState(() {
       error = true;
-
     });
-    Timer(Duration(seconds: 3), () => {
-      GlobalMethods().popPage(context),
-    });
+    Timer(
+        Duration(seconds: 3),
+        () => {
+              GlobalMethods().popPage(context),
+            });
   }
 }

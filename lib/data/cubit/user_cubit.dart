@@ -11,7 +11,7 @@ class UserCubit extends Cubit<UserState> {
 
   Future<bool> getUserInfo(String userId) async {
     try{
-      UserInfo userInfo = await _remoteRepository.getUserInfo(userId);
+      UserInfo userInfo = await _remoteRepository.getUserInfo(userId).timeout(const Duration(seconds: 5));
       emit(UserLoaded(userInfo));
       return true;
     }catch (e){

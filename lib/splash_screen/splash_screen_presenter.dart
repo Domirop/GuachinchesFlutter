@@ -18,10 +18,16 @@ class SplashScreenPresenter {
   final storage = new FlutterSecureStorage();
 
   SplashScreenPresenter(this._view, this._remoteRepository, this._userCubit);
+
   addLocalStorage() async {
     var municipalityId = await storage.read(key: "municipalityIdArea");
 
     if(municipalityId == null){
+      await storage.delete(key: "municipalityIdArea");
+      await storage.delete(key: "municipalityNameArea");
+      await storage.delete(key: "useMunicipality");
+      await storage.delete(key: "category");
+
       await storage.write(key: "municipalityIdArea", value: "");
       await storage.write(key: "municipalityNameArea", value: "");
       await storage.write(key: "useMunicipality", value: "Todos");
@@ -30,13 +36,15 @@ class SplashScreenPresenter {
 
   }
   getUserInfo() async {
-    await addLocalStorage();
-    String userId = await storage.read(key: "userId");
     List<Widget> screens = [
       Home(),
       Login("Para ver tus valoraciones debes iniciar sesión."),
       Login("Para ver tu perfíl debes iniciar sesión.")
-    ];
+    ]; 
+    try{
+    await addLocalStorage();
+    String userId = await storage.read(key: "userId");
+
     if (userId != null) {
       if (_userCubit.state is UserInitial) {
         var response = await _userCubit.getUserInfo(userId);
@@ -54,7 +62,12 @@ class SplashScreenPresenter {
       ];
     }
     _view.goToMenu(screens);
+    }catch(e){
+      print(e);
+      _view.goToMenu(screens);
+    }
   }
+
 }
 
 abstract class SplashScreenView {

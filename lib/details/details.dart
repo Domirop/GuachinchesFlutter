@@ -809,14 +809,14 @@ class _DetailsState extends State<Details> implements DetailView {
                                           height: 5.0,
                                         ),
                                         Text(
-                                          restaurant.nombre,
+                                          e.usuario.nombre,
                                           style: TextStyle(
                                             color: Colors.black,
                                             fontSize: 14.0,
                                           ),
                                         ),
                                         Text(
-                                          "20/02/2021",
+                                          "",
                                           textAlign: TextAlign.right,
                                           style: TextStyle(
                                             color: Colors.black,

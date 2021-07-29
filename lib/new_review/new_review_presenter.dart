@@ -11,10 +11,10 @@ class NewReviewPresenter{
 
   saveReview(String userId, Restaurant restaurant ,String title, String review, String rating) async {
     if(title == null || title.length == 0){
-      title = "Título";
+      title = "";
     }
     if(review == null || review.length == 0){
-      review = "Descripción";
+      review = "Sin descripción";
     }
     bool isAdded = await _remoteRepository.saveReview( userId,  restaurant , title,  review,  rating);
     if(isAdded == true){
