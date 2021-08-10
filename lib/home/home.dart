@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:guachinches/data/HttpRemoteRepository.dart';
@@ -6,6 +8,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:guachinches/data/cubit/banners_cubit.dart';
 import 'package:guachinches/data/cubit/banners_state.dart';
 import 'package:guachinches/data/cubit/categories_cubit.dart';
+import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:guachinches/data/cubit/categories_state.dart';
 import 'package:guachinches/data/cubit/restaurant_cubit.dart';
 import 'package:guachinches/data/cubit/restaurant_state.dart';
@@ -36,6 +39,7 @@ class _HomeState extends State<Home> implements HomeView {
   String municipalityId = "";
   String municipalityIdArea = "";
   bool doRequest = false;
+  bool isCharging = false;
   String municipalityNameArea = "";
   String municipalityName = "";
   String useMunicipality = "";
@@ -45,6 +49,8 @@ class _HomeState extends State<Home> implements HomeView {
   Icon iconRow = Icon(Icons.keyboard_arrow_down);
   bool isSearching = false;
   TextEditingController textFieldBuscar = new TextEditingController();
+  int index = 0;
+  ScrollController _controller;
 
   @override
   void initState() {
@@ -67,7 +73,26 @@ class _HomeState extends State<Home> implements HomeView {
     }
     presenter.getSelectedMunicipality();
     presenter.getSelectedCategory();
+    _controller = ScrollController();
+    _controller.addListener(_scrollListener);
     super.initState();
+  }
+
+  setListeners() {
+    setState(() {
+      isCharging = false;
+      index++;
+    });
+  }
+
+  _scrollListener() {
+    if (_controller.offset >= _controller.position.maxScrollExtent &&
+        !_controller.position.outOfRange) {
+      setState(() {
+        isCharging = true;
+        Timer(Duration(milliseconds: 2000), setListeners);
+      });
+    }
   }
 
   @override
@@ -87,6 +112,7 @@ class _HomeState extends State<Home> implements HomeView {
     }
     return Scaffold(
       body: SingleChildScrollView(
+        controller: _controller,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -185,13 +211,16 @@ class _HomeState extends State<Home> implements HomeView {
                     builder: (context, state) {
                   if (state is CategoriesLoaded) {
                     List<ModelCategory> aux = [];
-                    if(selectedCategories != "Todas"){
-                      ModelCategory auxCategory = state.categories.firstWhere((element) => element.id == selectedCategories, orElse: null);
-                      if(auxCategory != null){
+                    if (selectedCategories != "Todas") {
+                      ModelCategory auxCategory = state.categories.firstWhere(
+                          (element) => element.id == selectedCategories,
+                          orElse: null);
+                      if (auxCategory != null) {
                         aux.add(auxCategory);
                       }
-                      aux.addAll(state.categories.where((element) => element != auxCategory));
-                    }else{
+                      aux.addAll(state.categories
+                          .where((element) => element != auxCategory));
+                    } else {
                       aux = state.categories;
                     }
                     return Container(
@@ -207,14 +236,14 @@ class _HomeState extends State<Home> implements HomeView {
                             return Wrap(
                               children: [
                                 GestureDetector(
-                                  onTap: () => presenter.setSelectedCategory(
-                                      aux[index].id),
+                                  onTap: () => presenter
+                                      .setSelectedCategory(aux[index].id),
                                   child: Container(
                                     height: 110,
                                     width: 80.0,
                                     decoration: BoxDecoration(
-                                      color: selectedCategories.contains(
-                                          aux[index].id)
+                                      color: selectedCategories
+                                              .contains(aux[index].id)
                                           ? Color.fromRGBO(255, 255, 255, 0.85)
                                           : Colors.white,
                                       boxShadow: [
@@ -237,8 +266,7 @@ class _HomeState extends State<Home> implements HomeView {
                                           margin: EdgeInsets.symmetric(
                                               vertical: 10.0, horizontal: 1.0),
                                           child: Text(
-                                            aux[index].nombre !=
-                                                    null
+                                            aux[index].nombre != null
                                                 ? aux[index].nombre
                                                 : "",
                                             textAlign: TextAlign.center,
@@ -332,19 +360,12 @@ class _HomeState extends State<Home> implements HomeView {
                     ),
                   )
                 : Container(),
-            Container(
-              child: BlocBuilder<RestaurantCubit, RestaurantState>(
-                  builder: (context, state) {
-                if (state is RestaurantLoaded) {
-                  restaurants = state.restaurants;
-                  return componentStateBuilder(state.restaurants);
-                }
-                if (state is RestaurantFilter) {
-                  return componentStateBuilder(state.filtersRestaurants);
-                }
-                return Container();
-              }),
-            ),
+            createListWidgetForRestaurants(),
+            isCharging
+                ? SpinKitPulse(
+                    color: Colors.black,
+                  )
+                : Container(),
           ],
         ),
       ),
@@ -358,6 +379,7 @@ class _HomeState extends State<Home> implements HomeView {
   @override
   setAllRestaurants(List<Restaurant> restaurants) {
     setState(() {
+      index = 0;
       this.restaurants = restaurants;
     });
   }
@@ -365,6 +387,7 @@ class _HomeState extends State<Home> implements HomeView {
   @override
   setAllCategories(List<ModelCategory> categories) {
     setState(() {
+      index = 0;
       this.categories = categories;
     });
   }
@@ -372,6 +395,7 @@ class _HomeState extends State<Home> implements HomeView {
   @override
   categorySelected(String id) {
     setState(() {
+      index = 0;
       selectedCategories = id;
     });
   }
@@ -426,6 +450,7 @@ class _HomeState extends State<Home> implements HomeView {
   @override
   setMunicipality(String municipalityName, String municipalityId) {
     setState(() {
+      index = 0;
       this.municipalityName = municipalityName;
       this.municipalityId = municipalityId;
       this.useMunicipality = "true";
@@ -437,6 +462,7 @@ class _HomeState extends State<Home> implements HomeView {
   @override
   setAreaMunicipality(String municipalityIdArea, String municipalityNameArea) {
     setState(() {
+      index = 0;
       this.municipalityIdArea = municipalityIdArea;
       this.municipalityNameArea = municipalityNameArea;
       this.useMunicipality = "false";
@@ -448,6 +474,7 @@ class _HomeState extends State<Home> implements HomeView {
   @override
   setAllMunicipalities() {
     setState(() {
+      index = 0;
       this.useMunicipality = "Todos";
       this.municipalityIdArea = "";
       this.municipalityNameArea = "";
@@ -477,11 +504,11 @@ class _HomeState extends State<Home> implements HomeView {
   List<Restaurant> filterListCategory(List<Restaurant> restaurants) {
     List<Restaurant> aux = [];
     restaurants.forEach((element) {
-      if(selectedCategories == "Todas"){
+      if (selectedCategories == "Todas") {
         aux.add(element);
-      }else {
+      } else {
         element.categoriaRestaurantes.forEach((cat) {
-          if(cat.categorias.id == selectedCategories){
+          if (cat.categorias.id == selectedCategories) {
             aux.add(element);
           }
         });
@@ -490,58 +517,100 @@ class _HomeState extends State<Home> implements HomeView {
     return aux;
   }
 
-  Widget componentStateBuilder(List<Restaurant> restaurants) {
+  Widget createListWidgetForRestaurants() {
+    Widget aux;
+    List<Widget> widgets = [];
+    for (int i = 0; i < index + 1; i++) {
+      widgets.add(
+        Container(
+          child: BlocBuilder<RestaurantCubit, RestaurantState>(
+              builder: (context, state) {
+            if (state is RestaurantLoaded) {
+              restaurants = state.restaurants;
+              return Column(
+                children: componentStateBuilder(restaurants, i)
+                    .map((e) => e)
+                    .toList(),
+              );
+            }
+            if (state is RestaurantFilter) {
+              return Column(
+                children: componentStateBuilder(state.filtersRestaurants, i)
+                    .map((e) => e)
+                    .toList(),
+              );
+            }
+            return Container();
+          }),
+        ),
+      );
+    }
+    return Column(children: widgets.map((e) => e).toList());
+  }
+
+  List<Widget> componentStateBuilder(
+      List<Restaurant> restaurants, int indexList) {
     restaurants = filterList(restaurants);
     restaurants = filterListCategory(restaurants);
-    return Column(
-      children: restaurants.map((e) {
-        Fotos foto = e.fotos.firstWhere(
+    return getWidgetList(restaurants, indexList);
+  }
+
+  List<Widget> getWidgetList(restaurants, indexList) {
+    List<Widget> widgets = [];
+    for (int i = (indexList * 10); i < (indexList * 10 + 10); i++) {
+      if (i < restaurants.length) {
+        Fotos foto = restaurants[i].fotos.firstWhere(
             (element) => element.type == "principal",
             orElse: () => null);
         String categorias = "";
-        for(int i =0;i<e.categoriaRestaurantes.length;i++){
-
-          categorias += i != e.categoriaRestaurantes.length-1 ?" "+e.categoriaRestaurantes[i].categorias.nombre+"," :" "+e.categoriaRestaurantes[i].categorias.nombre;
+        for (int x = 0; x < restaurants[i].categoriaRestaurantes.length; x++) {
+          categorias += x != restaurants[i].categoriaRestaurantes.length - 1
+              ? " " +
+                  restaurants[i].categoriaRestaurantes[x].categorias.nombre +
+                  ","
+              : " " + restaurants[i].categoriaRestaurantes[x].categorias.nombre;
         }
-        return GestureDetector(
-                onTap: () => gotoDetail(e),
-                child: Container(
-                  color: Colors.transparent,
-                  margin: EdgeInsets.symmetric(horizontal: 10.0),
-                  child: Column(
-                    children: [
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Container(
-                            width: 80.0,
-                            height: 80.0,
-                            decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(12.0),
-                                image: DecorationImage(
-                                  image: foto != null
-                                      ? NetworkImage(
-                                          foto.photoUrl,
-                                        )
-                                      : AssetImage(
-                                          "assets/images/notImage.png"),
-                                )),
-                          ),
-                          Expanded(
-                            child: Container(
-                              margin: EdgeInsets.only(left: 20.0),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    e.nombre != null ? e.nombre : "",
-                                    style: TextStyle(
-                                      color: Colors.black,
-                                      fontSize: 18.0,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  categorias!=""?Text(
+        Widget aux = GestureDetector(
+          onTap: () => gotoDetail(restaurants[i]),
+          child: Container(
+            color: Colors.transparent,
+            margin: EdgeInsets.symmetric(horizontal: 10.0),
+            child: Column(
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 80.0,
+                      height: 80.0,
+                      decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12.0),
+                          image: DecorationImage(
+                            image: foto != null
+                                ? NetworkImage(
+                                    foto.photoUrl,
+                                  )
+                                : AssetImage("assets/images/notImage.png"),
+                          )),
+                    ),
+                    Expanded(
+                      child: Container(
+                        margin: EdgeInsets.only(left: 20.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              restaurants[i].nombre != null
+                                  ? restaurants[i].nombre
+                                  : "",
+                              style: TextStyle(
+                                color: Colors.black,
+                                fontSize: 18.0,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            categorias != ""
+                                ? Text(
                                     categorias,
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
@@ -549,54 +618,63 @@ class _HomeState extends State<Home> implements HomeView {
                                       color: Colors.black,
                                       fontSize: 12.0,
                                     ),
-                                  ):Container(),
-                                  Text(
-                                    e.direccion != null ? e.direccion : "",
-                                    style: TextStyle(
-                                      color: Colors.grey,
-                                      fontSize: 12.0,
-                                    ),
-                                  ),
-                                  Text(
-                                    e.destacado != null ? e.destacado : "",
-                                    style: TextStyle(
-                                      color: Color.fromRGBO(226, 120, 120, 1),
-                                      fontSize: 12.0,
-                                    ),
-                                  ),
-                                ],
+                                  )
+                                : Container(),
+                            Text(
+                              restaurants[i].direccion != null
+                                  ? restaurants[i].direccion
+                                  : "",
+                              style: TextStyle(
+                                color: Colors.grey,
+                                fontSize: 12.0,
+                              ),
+                            ),
+                            Text(
+                              restaurants[i].destacado != null
+                                  ? restaurants[i].destacado
+                                  : "",
+                              style: TextStyle(
+                                color: Color.fromRGBO(226, 120, 120, 1),
+                                fontSize: 12.0,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    restaurants[i].avg == "NaN"
+                        ? Container()
+                        : Container(
+                            width: 48.0,
+                            height: 24.0,
+                            decoration: BoxDecoration(
+                              color: Color.fromRGBO(149, 194, 55, 1),
+                              borderRadius: BorderRadius.circular(6.0),
+                            ),
+                            child: Text(
+                              restaurants[i].avg != null
+                                  ? restaurants[i].avg
+                                  : "",
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 18.0,
                               ),
                             ),
                           ),
-                          e.avg == "NaN"
-                              ? Container()
-                              : Container(
-                                  width: 48.0,
-                                  height: 24.0,
-                                  decoration: BoxDecoration(
-                                    color: Color.fromRGBO(149, 194, 55, 1),
-                                    borderRadius: BorderRadius.circular(6.0),
-                                  ),
-                                  child: Text(
-                                    e.avg != null ? e.avg : "",
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 18.0,
-                                    ),
-                                  ),
-                                ),
-                        ],
-                      ),
-                      SizedBox(
-                        height: 20.0,
-                      ),
-                    ],
-                  ),
+                  ],
                 ),
-              );
-      }).toList(),
-    );
+                SizedBox(
+                  height: 20.0,
+                ),
+              ],
+            ),
+          ),
+        );
+        widgets.add(aux);
+      }
+    }
+    return widgets;
   }
 }

@@ -63,7 +63,6 @@ class SplashScreenPresenter {
     }
     _view.goToMenu(screens);
     }catch(e){
-      print(e);
       _view.goToMenu(screens);
     }
   }
