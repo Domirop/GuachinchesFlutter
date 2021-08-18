@@ -642,7 +642,7 @@ class _DetailsState extends State<Details> implements DetailView {
                 ? GestureDetector(
                     onTap: () => {
                       GlobalMethods()
-                          .pushPage(context, NewReview(restaurant, userId))
+                          .pushPage(context, NewReview(restaurant, userId,mainFoto))
                     },
                     child: Container(
                       margin: EdgeInsets.only(left: 210.0, right: 20.0),

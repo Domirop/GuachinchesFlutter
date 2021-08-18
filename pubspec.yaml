@@ -38,6 +38,8 @@ dependencies:
   flutter_svg: ^0.22.0
   flutter_secure_storage: 3.3.5
   flutter_rating_bar: ^4.0.0
+  pinch_zoom: ^1.0.0
+  modal_bottom_sheet: ^2.0.0
 
 dev_dependencies:
   flutter_test:

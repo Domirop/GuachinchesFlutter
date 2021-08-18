@@ -15,8 +15,9 @@ import 'package:http/http.dart';
 class NewReview extends StatefulWidget {
   final Restaurant _restaurant;
   final String _userId;
+  final String _mainPhoto;
 
-  NewReview(this._restaurant, this._userId);
+  NewReview(this._restaurant, this._userId, this._mainPhoto);
 
   @override
   _NewReviewState createState() => _NewReviewState();
@@ -75,7 +76,7 @@ class _NewReviewState extends State<NewReview> implements NewReviewView {
                     decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(12.0),
                         image: DecorationImage(
-                          image: AssetImage('assets/images/notImage.png'),
+                          image: NetworkImage(widget._mainPhoto),
                         )),
                   ),
                   Expanded(
