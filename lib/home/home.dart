@@ -51,6 +51,7 @@ class _HomeState extends State<Home> implements HomeView {
   TextEditingController textFieldBuscar = new TextEditingController();
   int index = 0;
   ScrollController _controller;
+  List<Widget> widgetsRestaurants = [];
 
   @override
   void initState() {
@@ -75,22 +76,39 @@ class _HomeState extends State<Home> implements HomeView {
     presenter.getSelectedCategory();
     _controller = ScrollController();
     _controller.addListener(_scrollListener);
+    createListWidgetForRestaurants();
     super.initState();
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
+    _controller.dispose();
   }
 
   setListeners() {
     setState(() {
       isCharging = false;
-      index++;
+    });
+    Timer(Duration(milliseconds: 500), (){
+      setState(() {
+        index++;
+      });
+      createListWidgetForRestaurants();
+      _controller.addListener(_scrollListener);
+    });
+    Timer(Duration(milliseconds: 2000), (){
+      _controller.addListener(_scrollListener);
     });
   }
 
   _scrollListener() {
-    if (_controller.offset >= _controller.position.maxScrollExtent &&
-        !_controller.position.outOfRange) {
+    if (_controller.position.pixels >= _controller.position.maxScrollExtent &&
+        !isCharging) {
+      _controller.removeListener(_scrollListener);
       setState(() {
         isCharging = true;
-        Timer(Duration(milliseconds: 2000), setListeners);
+        Timer(Duration(milliseconds: 1000), setListeners);
       });
     }
   }
@@ -360,9 +378,11 @@ class _HomeState extends State<Home> implements HomeView {
                     ),
                   )
                 : Container(),
-            createListWidgetForRestaurants(),
+            Column(
+              children: widgetsRestaurants.map((e) => e).toList(),
+            ),
             isCharging
-                ? SpinKitPulse(
+                ? SpinKitCircle(
                     color: Colors.black,
                   )
                 : Container(),
@@ -517,35 +537,32 @@ class _HomeState extends State<Home> implements HomeView {
     return aux;
   }
 
-  Widget createListWidgetForRestaurants() {
-    Widget aux;
-    List<Widget> widgets = [];
-    for (int i = 0; i < index + 1; i++) {
-      widgets.add(
+  void createListWidgetForRestaurants() {
+      Widget aux =
         Container(
           child: BlocBuilder<RestaurantCubit, RestaurantState>(
               builder: (context, state) {
             if (state is RestaurantLoaded) {
               restaurants = state.restaurants;
               return Column(
-                children: componentStateBuilder(restaurants, i)
+                children: componentStateBuilder(restaurants, index)
                     .map((e) => e)
                     .toList(),
               );
             }
             if (state is RestaurantFilter) {
               return Column(
-                children: componentStateBuilder(state.filtersRestaurants, i)
+                children: componentStateBuilder(state.filtersRestaurants, index)
                     .map((e) => e)
                     .toList(),
               );
             }
             return Container();
           }),
-        ),
-      );
-    }
-    return Column(children: widgets.map((e) => e).toList());
+        );
+      setState(() {
+        widgetsRestaurants.add(aux);
+      });
   }
 
   List<Widget> componentStateBuilder(
