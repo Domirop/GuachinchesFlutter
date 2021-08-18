@@ -59,6 +59,7 @@ class _HomeState extends State<Home> implements HomeView {
 
   @override
   void initState() {
+    super.initState();
     myFocusNode = FocusNode();
     final restaurantCubit = context.read<RestaurantCubit>();
     final categoriesCubit = context.read<CategoriesCubit>();
@@ -67,21 +68,20 @@ class _HomeState extends State<Home> implements HomeView {
     presenter = HomePresenter(
         remoteRepository, this, restaurantCubit, categoriesCubit, bannersCubit);
     presenter.getSelectedMunicipality();
-    if (restaurantCubit.state is RestaurantInitial) {
-      presenter.getAllRestaurants();
-    }
     if (categoriesCubit.state is CategoriesInitial) {
       presenter.getAllCategories();
     }
     if (bannersCubit.state is BannersInitial) {
       presenter.getAllBanner();
     }
+    if (restaurantCubit.state is RestaurantInitial) {
+      presenter.getAllRestaurants();
+    }
     presenter.getSelectedMunicipality();
     presenter.getSelectedCategory();
     _controller = ScrollController();
     _controller.addListener(_scrollListener);
     createListWidgetForRestaurants();
-    super.initState();
   }
 
   @override
@@ -99,7 +99,6 @@ class _HomeState extends State<Home> implements HomeView {
         index++;
       });
       createListWidgetForRestaurants();
-      _controller.addListener(_scrollListener);
     });
     Timer(Duration(milliseconds: 2000), (){
       _controller.addListener(_scrollListener);
@@ -258,8 +257,9 @@ class _HomeState extends State<Home> implements HomeView {
                             return Wrap(
                               children: [
                                 GestureDetector(
-                                  onTap: () => presenter
-                                      .setSelectedCategory(aux[index].id),
+                                  onTap: (){
+                                    widgetsRestaurants = [];
+                                    presenter.setSelectedCategory(aux[index].id);},
                                   child: Container(
                                     height: 110,
                                     width: 80.0,
@@ -458,6 +458,7 @@ class _HomeState extends State<Home> implements HomeView {
       index = 0;
       selectedCategories = id;
     });
+    createListWidgetForRestaurants();
   }
 
   goToSelectMunicipality() {
@@ -492,7 +493,9 @@ class _HomeState extends State<Home> implements HomeView {
       restaurants = aux;
       isDescendent = !isDescendent;
       iconRow = iconAux;
+      widgetsRestaurants = [];
     });
+    createListWidgetForRestaurants();
   }
 
   searchGuachinche(e) {
@@ -577,7 +580,7 @@ class _HomeState extends State<Home> implements HomeView {
     return aux;
   }
 
-  void createListWidgetForRestaurants() {
+  createListWidgetForRestaurants() {
       Widget aux =
         Container(
           child: BlocBuilder<RestaurantCubit, RestaurantState>(
