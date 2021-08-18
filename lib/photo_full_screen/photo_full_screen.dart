@@ -2,6 +2,7 @@ import 'package:carousel_slider/carousel_slider.dart';
 import 'package:flutter/material.dart';
 import 'package:guachinches/model/fotos.dart';
 import 'package:guachinches/model/restaurant.dart';
+import 'package:pinch_zoom/pinch_zoom.dart';
 
 import '../globalMethods.dart';
 
@@ -25,17 +26,20 @@ class _PhotoFullScreenState extends State<PhotoFullScreen> {
   @override
   void initState() {
     imageSlider = restaurant.fotos
-        .map((item) => Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(20.0),
-                image: DecorationImage(
-                  repeat: ImageRepeat.noRepeat,
-                  alignment: Alignment.center,
-                  fit: BoxFit.fill,
-                  image: NetworkImage(item.photoUrl),
+        .map((item) => PinchZoom(
+        resetDuration: const Duration(milliseconds: 100),
+      child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(20.0),
+                  image: DecorationImage(
+                    repeat: ImageRepeat.noRepeat,
+                    alignment: Alignment.center,
+                    fit: BoxFit.fill,
+                    image: NetworkImage(item.photoUrl),
+                  ),
                 ),
               ),
-            ))
+        ))
         .toList();
     super.initState();
   }

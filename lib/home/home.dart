@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
+import 'package:guachinches/Filter/filter_content.dart';
 import 'package:guachinches/data/HttpRemoteRepository.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -20,6 +21,7 @@ import 'package:guachinches/model/fotos.dart';
 import 'package:guachinches/model/restaurant.dart';
 import 'package:guachinches/municipality_screen/municipality_screen.dart';
 import 'package:http/http.dart';
+import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
 
 import '../Categorias/categorias.dart';
 import '../details/details.dart';
@@ -52,6 +54,8 @@ class _HomeState extends State<Home> implements HomeView {
   int index = 0;
   ScrollController _controller;
   List<Widget> widgetsRestaurants = [];
+
+  List<String> test = ["Lunes", "Martes", "Miercoles", "Jueves"];
 
   @override
   void initState() {
@@ -262,7 +266,7 @@ class _HomeState extends State<Home> implements HomeView {
                                     decoration: BoxDecoration(
                                       color: selectedCategories
                                               .contains(aux[index].id)
-                                          ? Color.fromRGBO(255, 255, 255, 0.85)
+                                          ? Color.fromRGBO(254, 192, 75, 1)
                                           : Colors.white,
                                       boxShadow: [
                                         BoxShadow(
@@ -312,28 +316,64 @@ class _HomeState extends State<Home> implements HomeView {
             SizedBox(
               height: 20.0,
             ),
-            GestureDetector(
-              onTap: reorderList,
-              child: Container(
-                margin: EdgeInsets.only(left: 10.0),
-                width: 100.0,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(10.0),
-                  border: Border.all(
-                    color: Colors.black,
+            Row(
+              children: [
+                GestureDetector(
+                  onTap: reorderList,
+                  child: Container(
+                    margin: EdgeInsets.only(left: 10.0),
+                    width: 100.0,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(10.0),
+                      border: Border.all(
+                        color: Colors.black,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        iconRow == null
+                            ? Icon(Icons.keyboard_arrow_down)
+                            : iconRow,
+                        Text(
+                          'Valoración',
+                          style: TextStyle(fontSize: 12.0, color: Colors.black),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    iconRow == null ? Icon(Icons.keyboard_arrow_down) : iconRow,
-                    Text(
-                      'Valoración',
-                      style: TextStyle(fontSize: 12.0, color: Colors.black),
+                GestureDetector(
+                  onTap: () => showMaterialModalBottomSheet(
+                    backgroundColor: Colors.transparent,
+                    context: context,
+                    builder: (context) => FilterContent(),
+                  ),
+                  child: Container(
+                    margin: EdgeInsets.only(left: 10.0),
+                    width: 100.0,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(10.0),
+                      border: Border.all(
+                        color: Colors.black,
+                      ),
                     ),
-                  ],
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        SvgPicture.asset(
+                          "assets/images/filter_icon.svg",
+                          height: 24,
+                        ),
+                        Text(
+                          'Filtros',
+                          style: TextStyle(fontSize: 12.0, color: Colors.black),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
+              ],
             ),
             SizedBox(
               height: 20.0,
@@ -695,3 +735,4 @@ class _HomeState extends State<Home> implements HomeView {
     return widgets;
   }
 }
+
