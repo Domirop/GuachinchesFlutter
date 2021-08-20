@@ -9,12 +9,13 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:guachinches/data/cubit/banners_cubit.dart';
 import 'package:guachinches/data/cubit/banners_state.dart';
 import 'package:guachinches/data/cubit/categories_cubit.dart';
-import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:guachinches/data/cubit/categories_state.dart';
 import 'package:guachinches/data/cubit/restaurant_cubit.dart';
 import 'package:guachinches/data/cubit/restaurant_state.dart';
 import 'package:guachinches/globalMethods.dart';
 import 'package:guachinches/heroSliderComponent.dart';
+import 'package:guachinches/home/app_Bars/appbar_basic.dart';
+import 'package:guachinches/home/app_Bars/appbar_search.dart';
 import 'package:guachinches/home/home_presenter.dart';
 import 'package:guachinches/model/Category.dart';
 import 'package:guachinches/model/fotos.dart';
@@ -27,49 +28,60 @@ import '../Categorias/categorias.dart';
 import '../details/details.dart';
 
 class Home extends StatefulWidget {
+  List<Restaurant> restaurants = [];
+  bool isChargingInitalRestaurants = true;
+
   @override
   _HomeState createState() => _HomeState();
 }
 
 class _HomeState extends State<Home> implements HomeView {
-  FocusNode myFocusNode;
-  double _scrollPadding;
+  AppBarSearch appBarSearch;
+  AppBarBasic appBarBasic;
+
   bool isDescendent = false;
   String selectedCategories = "Todas";
-  List<Restaurant> restaurants = [];
+
   List<ModelCategory> categories = [];
-  String municipalityId = "";
-  String municipalityIdArea = "";
+
+  //Para El filtro catregorias
+  String _municipalityId = "";
+  String _municipalityIdArea = "";
+  String _useMunicipality = "Todos";
+
   bool doRequest = false;
   bool isCharging = false;
-  String municipalityNameArea = "";
-  String municipalityName = "";
-  String useMunicipality = "";
-  GlobalKey inputFocus = GlobalKey();
+
   HomePresenter presenter;
   RemoteRepository remoteRepository;
+
+  //Icon que cambia con el reordenado por valoracion
   Icon iconRow = Icon(Icons.keyboard_arrow_down);
-  bool isSearching = false;
-  TextEditingController textFieldBuscar = new TextEditingController();
+
   int index = 0;
   ScrollController _controller;
   List<Widget> widgetsRestaurants = [];
-
   List<String> test = ["Lunes", "Martes", "Miercoles", "Jueves"];
+
+  bool _isSearchingByName = false;
 
   @override
   void initState() {
     super.initState();
-    myFocusNode = FocusNode();
     final restaurantCubit = context.read<RestaurantCubit>();
     final categoriesCubit = context.read<CategoriesCubit>();
     final bannersCubit = context.read<BannersCubit>();
     remoteRepository = HttpRemoteRepository(Client());
-    presenter = HomePresenter(
-        remoteRepository, this, restaurantCubit, categoriesCubit, bannersCubit);
+    presenter =
+        HomePresenter(this, restaurantCubit, categoriesCubit, bannersCubit);
     presenter.getSelectedMunicipality();
     if (categoriesCubit.state is CategoriesInitial) {
       presenter.getAllCategories();
+      if (mounted) {
+        setState(() {
+          changeCharginInitial();
+        });
+      }
     }
     if (bannersCubit.state is BannersInitial) {
       presenter.getAllBanner();
@@ -81,7 +93,10 @@ class _HomeState extends State<Home> implements HomeView {
     presenter.getSelectedCategory();
     _controller = ScrollController();
     _controller.addListener(_scrollListener);
+    appBarBasic = AppBarBasic(presenter, widget);
+    presenter.setLocationData();
     createListWidgetForRestaurants();
+    appBarSearch = AppBarSearch(presenter, widget);
   }
 
   @override
@@ -91,97 +106,49 @@ class _HomeState extends State<Home> implements HomeView {
   }
 
   setListeners() {
-    setState(() {
-      isCharging = false;
-    });
-    Timer(Duration(milliseconds: 500), (){
+    if (mounted) {
       setState(() {
-        index++;
+        isCharging = false;
       });
+    }
+    Timer(Duration(milliseconds: 500), () {
+      if (mounted) {
+        setState(() {
+          index++;
+        });
+      }
       createListWidgetForRestaurants();
     });
-    Timer(Duration(milliseconds: 2000), (){
+    Timer(Duration(milliseconds: 2000), () {
       _controller.addListener(_scrollListener);
     });
   }
 
   _scrollListener() {
     if (_controller.position.pixels >= _controller.position.maxScrollExtent &&
-        !isCharging) {
+        !isCharging &&
+        widget.isChargingInitalRestaurants) {
       _controller.removeListener(_scrollListener);
-      setState(() {
-        isCharging = true;
-        Timer(Duration(milliseconds: 1000), setListeners);
-      });
+      if (mounted) {
+        setState(() {
+          isCharging = true;
+          Timer(Duration(milliseconds: 1000), setListeners);
+        });
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    String title = "";
-    if (useMunicipality == "Todos") {
-      title = "Todos";
-    } else if (useMunicipality == "true") {
-      title = municipalityName;
-    } else {
-      title = municipalityNameArea;
-    }
-    _scrollPadding = MediaQuery.of(context).viewInsets.bottom;
-    if (doRequest) {
-      myFocusNode.requestFocus();
-      doRequest = false;
-    }
     return Scaffold(
+      appBar: _isSearchingByName
+          ? appBarSearch.createWidget(context)
+          : appBarBasic.createWidget(context),
       body: SingleChildScrollView(
         controller: _controller,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            SizedBox(
-              height: 40.0,
-            ),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                Image(
-                  image: AssetImage('assets/images/logo.png'),
-                  height: 40.0,
-                  width: 40.0,
-                ),
-                GestureDetector(
-                  onTap: () => goToSelectMunicipality(),
-                  child: Container(
-                    height: 60,
-                    color: Colors.transparent,
-                    child: Row(
-                      children: [
-                        Text(
-                          title,
-                          style: TextStyle(
-                            color: Colors.black,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 18.0,
-                          ),
-                        ),
-                        Icon(
-                          Icons.keyboard_arrow_down,
-                          color: Colors.black,
-                          size: 20.0,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                GestureDetector(
-                  onTap: createSearch,
-                  child: Icon(
-                    Icons.search,
-                    color: Colors.black,
-                    size: 40.0,
-                  ),
-                ),
-              ],
-            ),
             SizedBox(
               height: 20.0,
             ),
@@ -257,9 +224,11 @@ class _HomeState extends State<Home> implements HomeView {
                             return Wrap(
                               children: [
                                 GestureDetector(
-                                  onTap: (){
+                                  onTap: () {
                                     widgetsRestaurants = [];
-                                    presenter.setSelectedCategory(aux[index].id);},
+                                    presenter
+                                        .setSelectedCategory(aux[index].id);
+                                  },
                                   child: Container(
                                     height: 110,
                                     width: 80.0,
@@ -378,52 +347,20 @@ class _HomeState extends State<Home> implements HomeView {
             SizedBox(
               height: 20.0,
             ),
-            isSearching
-                ? Padding(
-                    padding: EdgeInsets.only(bottom: _scrollPadding / 2),
-                    child: Column(
-                      children: [
-                        TextFormField(
-                          key: inputFocus,
-                          focusNode: myFocusNode,
-                          scrollPadding: EdgeInsets.only(
-                              bottom:
-                                  MediaQuery.of(context).size.height - 200.0),
-                          keyboardType: TextInputType.text,
-                          controller: textFieldBuscar,
-                          decoration: InputDecoration(
-                            hintText: "Buscar",
-                            hintStyle: TextStyle(
-                              color: Colors.black,
-                              fontSize: 18.0,
-                              fontWeight: FontWeight.bold,
-                            ),
-                            border: InputBorder.none,
-                            prefixIcon: Icon(
-                              Icons.search,
-                              color: Colors.black,
-                            ),
-                          ),
-                          onChanged: searchGuachinche,
-                        ),
-                        Divider(
-                          color: Colors.black,
-                          endIndent: 30,
-                          indent: 30,
-                        ),
-                        SizedBox(
-                          height: 10.0,
-                        ),
-                      ],
+            !widget.isChargingInitalRestaurants
+                ? Center(
+                    child: CircularProgressIndicator(
+                      backgroundColor: Colors.transparent,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.black),
                     ),
                   )
-                : Container(),
-            Column(
-              children: widgetsRestaurants.map((e) => e).toList(),
-            ),
+                : Column(
+                    children: widgetsRestaurants.map((e) => e).toList(),
+                  ),
             isCharging
-                ? SpinKitCircle(
-                    color: Colors.black,
+                ? CircularProgressIndicator(
+                    backgroundColor: Colors.transparent,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.black),
                   )
                 : Container(),
           ],
@@ -438,26 +375,32 @@ class _HomeState extends State<Home> implements HomeView {
 
   @override
   setAllRestaurants(List<Restaurant> restaurants) {
-    setState(() {
-      index = 0;
-      this.restaurants = restaurants;
-    });
+    if (mounted) {
+      setState(() {
+        index = 0;
+        this.widget.restaurants = restaurants;
+      });
+    }
   }
 
   @override
   setAllCategories(List<ModelCategory> categories) {
-    setState(() {
-      index = 0;
-      this.categories = categories;
-    });
+    if (mounted) {
+      setState(() {
+        index = 0;
+        this.categories = categories;
+      });
+    }
   }
 
   @override
   categorySelected(String id) {
-    setState(() {
-      index = 0;
-      selectedCategories = id;
-    });
+    if (mounted) {
+      setState(() {
+        index = 0;
+        selectedCategories = id;
+      });
+    }
     createListWidgetForRestaurants();
   }
 
@@ -466,7 +409,7 @@ class _HomeState extends State<Home> implements HomeView {
   }
 
   reorderList() {
-    List<Restaurant> aux = restaurants;
+    List<Restaurant> aux = widget.restaurants;
     Icon iconAux = iconRow;
     aux.sort((a, b) {
       double firstValue = a.avg == "NaN" ? 0.0 : double.parse(a.avg);
@@ -489,74 +432,28 @@ class _HomeState extends State<Home> implements HomeView {
           return 0;
       }
     });
-    setState(() {
-      restaurants = aux;
-      isDescendent = !isDescendent;
-      iconRow = iconAux;
-      widgetsRestaurants = [];
-    });
+    if (mounted) {
+      setState(() {
+        widget.restaurants = aux;
+        isDescendent = !isDescendent;
+        iconRow = iconAux;
+        widgetsRestaurants = [];
+      });
+    }
     createListWidgetForRestaurants();
-  }
-
-  searchGuachinche(e) {
-    presenter.getRestaurantsFilter(restaurants, e);
-  }
-
-  createSearch() {
-    setState(() {
-      isSearching = !isSearching;
-      textFieldBuscar.text = "";
-      doRequest = true;
-    });
-  }
-
-  @override
-  setMunicipality(String municipalityName, String municipalityId) {
-    setState(() {
-      index = 0;
-      this.municipalityName = municipalityName;
-      this.municipalityId = municipalityId;
-      this.useMunicipality = "true";
-      this.municipalityIdArea = "";
-      this.municipalityNameArea = "";
-    });
-  }
-
-  @override
-  setAreaMunicipality(String municipalityIdArea, String municipalityNameArea) {
-    setState(() {
-      index = 0;
-      this.municipalityIdArea = municipalityIdArea;
-      this.municipalityNameArea = municipalityNameArea;
-      this.useMunicipality = "false";
-      this.municipalityName = "";
-      this.municipalityId = "";
-    });
-  }
-
-  @override
-  setAllMunicipalities() {
-    setState(() {
-      index = 0;
-      this.useMunicipality = "Todos";
-      this.municipalityIdArea = "";
-      this.municipalityNameArea = "";
-      this.municipalityName = "";
-      this.municipalityId = "";
-    });
   }
 
   List<Restaurant> filterList(List<Restaurant> restaurants) {
     List<Restaurant> aux = [];
     restaurants.forEach((element) {
-      if (this.useMunicipality == "Todos") {
+      if (this._useMunicipality == "Todos") {
         aux.add(element);
-      } else if (this.useMunicipality == "true") {
-        if (element.municipio.id == this.municipalityId) {
+      } else if (this._useMunicipality == "true") {
+        if (element.municipio.id == this._municipalityId) {
           aux.add(element);
         }
       } else {
-        if (element.municipio.areaMunicipioId == this.municipalityIdArea) {
+        if (element.municipio.areaMunicipioId == this._municipalityIdArea) {
           aux.add(element);
         }
       }
@@ -581,31 +478,32 @@ class _HomeState extends State<Home> implements HomeView {
   }
 
   createListWidgetForRestaurants() {
-      Widget aux =
-        Container(
-          child: BlocBuilder<RestaurantCubit, RestaurantState>(
-              builder: (context, state) {
-            if (state is RestaurantLoaded) {
-              restaurants = state.restaurants;
-              return Column(
-                children: componentStateBuilder(restaurants, index)
-                    .map((e) => e)
-                    .toList(),
-              );
-            }
-            if (state is RestaurantFilter) {
-              return Column(
-                children: componentStateBuilder(state.filtersRestaurants, index)
-                    .map((e) => e)
-                    .toList(),
-              );
-            }
-            return Container();
-          }),
-        );
+    Widget aux = Container(
+      child: BlocBuilder<RestaurantCubit, RestaurantState>(
+          builder: (context, state) {
+        if (state is RestaurantLoaded) {
+          widget.restaurants = state.restaurants;
+          return Column(
+            children: componentStateBuilder(widget.restaurants, index)
+                .map((e) => e)
+                .toList(),
+          );
+        }
+        if (state is RestaurantFilter) {
+          return Column(
+            children: componentStateBuilder(state.filtersRestaurants, index)
+                .map((e) => e)
+                .toList(),
+          );
+        }
+        return Container();
+      }),
+    );
+    if (mounted) {
       setState(() {
         widgetsRestaurants.add(aux);
       });
+    }
   }
 
   List<Widget> componentStateBuilder(
@@ -737,5 +635,47 @@ class _HomeState extends State<Home> implements HomeView {
     }
     return widgets;
   }
-}
 
+  @override
+  changeStateAppBar(value) {
+    if (mounted) {
+      setState(() {
+        this._isSearchingByName = value;
+      });
+    }
+  }
+
+  @override
+  setLocationData(data) {
+    _useMunicipality = data["useMunicipality"];
+    _municipalityIdArea = data["municipalityIdArea"];
+    _municipalityId = data["municipalityId"];
+    widgetsRestaurants.clear();
+    createListWidgetForRestaurants();
+  }
+
+  @override
+  callCreateNewRestaurantsList() {
+    if (mounted) {
+      setState(() {
+        index = 0;
+        widgetsRestaurants.clear();
+        createListWidgetForRestaurants();
+      });
+    }
+  }
+
+  @override
+  changeCharginInitial() {
+    if (mounted) {
+      setState(() {
+        this.widget.isChargingInitalRestaurants = !this.widget.isChargingInitalRestaurants;
+      });
+    }
+  }
+
+  @override
+  changeScreen(widget) {
+    GlobalMethods().pushAndReplacement(context, widget);
+  }
+}
