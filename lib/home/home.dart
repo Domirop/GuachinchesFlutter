@@ -358,10 +358,12 @@ class _HomeState extends State<Home> implements HomeView {
                     children: widgetsRestaurants.map((e) => e).toList(),
                   ),
             isCharging
-                ? CircularProgressIndicator(
-                    backgroundColor: Colors.transparent,
-                    valueColor: AlwaysStoppedAnimation<Color>(Colors.black),
-                  )
+                ? Center(
+                  child: CircularProgressIndicator(
+                      backgroundColor: Colors.transparent,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.black),
+                    ),
+                )
                 : Container(),
           ],
         ),
