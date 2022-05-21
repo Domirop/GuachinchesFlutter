@@ -1,5 +1,5 @@
 import 'package:flutter/foundation.dart';
-import 'package:guachinches/model/fotoBanner.dart';
+import 'package:guachinches/data/model/fotoBanner.dart';
 
 @immutable
 abstract class BannersState {

@@ -1,8 +1,8 @@
-import 'package:guachinches/model/Category.dart';
-import 'package:guachinches/model/Municipality.dart';
-import 'package:guachinches/model/fotoBanner.dart';
-import 'package:guachinches/model/restaurant.dart';
-import 'package:guachinches/model/user_info.dart';
+import 'package:guachinches/data/model/Category.dart';
+import 'package:guachinches/data/model/Municipality.dart';
+import 'package:guachinches/data/model/fotoBanner.dart';
+import 'package:guachinches/data/model/restaurant.dart';
+import 'package:guachinches/data/model/user_info.dart';
 
 abstract class RemoteRepository{
   Future<List<ModelCategory>> getAllCategories();

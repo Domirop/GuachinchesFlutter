@@ -1,7 +1,7 @@
 import 'package:bloc/bloc.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
 import 'package:guachinches/data/cubit/user_state.dart';
-import 'package:guachinches/model/user_info.dart';
+import 'package:guachinches/data/model/user_info.dart';
 
 class UserCubit extends Cubit<UserState> {
   final RemoteRepository _remoteRepository;

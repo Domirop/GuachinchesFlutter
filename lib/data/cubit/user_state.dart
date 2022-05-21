@@ -1,6 +1,6 @@
 
 import 'package:flutter/foundation.dart';
-import 'package:guachinches/model/user_info.dart';
+import 'package:guachinches/data/model/user_info.dart';
 
 @immutable
 abstract class UserState {

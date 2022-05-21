@@ -1,7 +1,7 @@
 import 'package:bloc/bloc.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
-import 'package:guachinches/model/Review.dart';
-import 'package:guachinches/model/restaurant.dart';
+import 'package:guachinches/data/model/Review.dart';
+import 'package:guachinches/data/model/restaurant.dart';
 import 'package:guachinches/data/cubit/restaurant_state.dart';
 
 class RestaurantCubit extends Cubit<RestaurantState> {

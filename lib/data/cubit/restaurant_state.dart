@@ -1,6 +1,6 @@
 
 import 'package:flutter/foundation.dart';
-import 'package:guachinches/model/restaurant.dart';
+import 'package:guachinches/data/model/restaurant.dart';
 
 @immutable
 abstract class RestaurantState {

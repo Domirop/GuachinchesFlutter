@@ -2,7 +2,7 @@ import 'package:bloc/bloc.dart';
 
 import 'package:guachinches/data/RemoteRepository.dart';
 import 'package:guachinches/data/cubit/categories_state.dart';
-import 'package:guachinches/model/Category.dart';
+import 'package:guachinches/data/model/Category.dart';
 
 class CategoriesCubit extends Cubit<CategoriesState> {
   final RemoteRepository _remoteRepository;

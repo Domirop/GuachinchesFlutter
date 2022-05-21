@@ -1,4 +1,4 @@
-import 'package:guachinches/model/Category.dart';
+import 'package:guachinches/data/model/Category.dart';
 import 'package:flutter/foundation.dart';
 
 @immutable

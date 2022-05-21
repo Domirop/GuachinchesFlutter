@@ -8,15 +8,21 @@ import 'package:guachinches/data/cubit/banners_cubit.dart';
 import 'package:guachinches/data/cubit/categories_cubit.dart';
 import 'package:guachinches/data/cubit/user_cubit.dart';
 import 'package:guachinches/data/local/db_provider.dart';
-import 'package:guachinches/splash_screen/splash_screen.dart';
+import 'package:guachinches/ui/main/splash_screen/splash_screen.dart';
 import 'package:http/http.dart';
 import 'data/cubit/restaurant_cubit.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
-void main() {
+const bool _kReleaseMode = const bool.fromEnvironment("dart.vm.product");
+
+Future<void> main() async{
+  String file = _kReleaseMode == true ? 'env_files/release.env' : 'env_files/debug.env';
+  await dotenv.load(fileName: file);
   runApp(MyApp());
 }
 
 class MyApp extends StatefulWidget {
+
   @override
   _MyAppState createState() => _MyAppState();
 }
