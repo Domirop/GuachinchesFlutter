@@ -103,4 +103,21 @@ class HttpRemoteRepository implements RemoteRepository {
     print(jsonDecode(response.body));
     return true;
   }
+
+  @override
+  Future<String> loginUser(String login, String password) async {
+    var uri = Uri.parse(endpoint + "login");
+
+    var body;
+    body = jsonEncode(
+        {
+          "email": login,
+          "password": password,
+          });
+    var response = await _client.post(uri,
+        headers: {"Content-Type": "application/json"}, body: body);
+    var data = jsonDecode(response.body);
+    print(data);
+    return data["result"]["id"];
+  }
 }

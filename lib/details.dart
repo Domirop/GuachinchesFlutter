@@ -667,7 +667,7 @@ class _DetailsState extends State<Details> {
               endIndent: 10.0,
             ),
             Container(
-                key: reviewsKey, child: ValoracionesComponent("Valoraciones")),
+                key: reviewsKey, child: ValoracionesComponent("Valoraciones",widget._restaurant.id)),
           ],
         ),
       ),
