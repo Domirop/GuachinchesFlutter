@@ -15,7 +15,6 @@ class UserCubit extends Cubit<UserState> {
 
   Future<void> getUserInfo(String userId) async {
   UserInfo userInfo = await _remoteRepository.getUserInfo(userId);
-  print(userInfo.valoraciones[0].restaurantes.nombre);
   emit(UserLoaded(userInfo));
 
   }

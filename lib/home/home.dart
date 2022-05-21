@@ -199,8 +199,7 @@ class _HomeState extends State<Home> implements HomeView {
                               ),
                             ),
                             child: Stack(
-                              overflow: Overflow.visible,
-                              alignment: Alignment.bottomCenter,
+                              clipBehavior: Clip.none, alignment: Alignment.bottomCenter,
                               children: [
                                 Positioned(
                                   top: -15.0,

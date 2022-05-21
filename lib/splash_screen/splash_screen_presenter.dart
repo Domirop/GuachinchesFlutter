@@ -14,7 +14,7 @@ class SplashScreenPresenter{
   getUserInfo() async {
     // String userId = await storage.read(key: "userId");
 
-    String userId = "08444ae3-0f82-4c51-9d67-50ef92458aac";
+    String userId = "7f88bd16-db4b-4ac6-85fb-47910b15ee74";
     if(userId != null){
       await _userCubit.getUserInfo(userId);
 

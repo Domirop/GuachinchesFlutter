@@ -41,7 +41,7 @@ class _ValoracionesState extends State<Valoraciones> {
 class ValoracionesComponent extends StatelessWidget {
   String title;
   String restaurantId = "31db2882-293d-4d2d-98ba-4939578de349";
-  ValoracionesComponent(this.title);
+  ValoracionesComponent(this.title, );
   Restaurant restaurant;
 
   @override

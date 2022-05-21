@@ -23,8 +23,7 @@ class _InicioState extends State<Inicio> {
         height: MediaQuery.of(context).size.height,
         width: MediaQuery.of(context).size.width,
         child: Stack(
-          overflow: Overflow.visible,
-          children: [
+          clipBehavior: Clip.none, children: [
             Positioned(
               top: -(MediaQuery.of(context).size.height / 3),
               child: Container(
