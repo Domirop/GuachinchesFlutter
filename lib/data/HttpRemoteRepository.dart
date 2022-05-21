@@ -2,8 +2,7 @@ import 'dart:convert';
 
 import 'package:guachinches/model/Category.dart';
 import 'package:guachinches/model/Municipality.dart';
-import 'package:guachinches/model/Review.dart';
-import 'package:guachinches/model/User.dart';
+import 'package:guachinches/model/fotoBanner.dart';
 import 'package:guachinches/model/restaurant.dart';
 import 'package:guachinches/model/user_info.dart';
 import 'package:http/http.dart';
@@ -16,41 +15,47 @@ class HttpRemoteRepository implements RemoteRepository {
 
   HttpRemoteRepository(this._client);
 
-
   @override
   Future<UserInfo> getUserInfo(String userId) async {
-    var uri = Uri.parse(endpoint + "user/"+userId);
+    var uri = Uri.parse(endpoint + "user/" + userId);
     var response = await _client.get(uri);
 
     var data = json.decode(response.body)['result'];
-    UserInfo user= UserInfo.fromJson(data['Usuario']);
+
+    if(data['Usuario'] == null){
+      throw Error();
+    }
+    UserInfo user = UserInfo.fromJson(data['Usuario']);
+
     return user;
   }
 
   @override
   Future<List<Restaurant>> getAllRestaurants() async {
-    var uri = Uri.parse(endpoint + "restaurant");
-    var response = await _client.get(uri);
-    List<dynamic> data = json.decode(response.body)['result'];
-
-    List<Restaurant> restaurants = [];
-    for (var i = 0; i < data.length; i++) {
-      Restaurant restaurant = Restaurant.fromJson(data[i]);
-      restaurants.add(restaurant);
+    try {
+      var uri = Uri.parse(endpoint + "restaurant");
+      var response = await _client.get(uri);
+      List<dynamic> data = json.decode(response.body)['result'];
+      List<Restaurant> restaurants = [];
+      for (var i = 0; i < data.length; i++) {
+        Restaurant restaurant = Restaurant.fromJson(data[i]);
+        restaurants.add(restaurant);
+      }
+      return restaurants;
+    } on Exception catch (e) {
+      return [];
     }
-    return restaurants;
-
   }
 
   @override
-  Future<List<Category>> getAllCategories() async {
+  Future<List<ModelCategory>> getAllCategories() async {
     var uri = Uri.parse(endpoint + "restaurant/category");
     var response = await _client.get(uri);
     List<dynamic> data = json.decode(response.body)['result'];
-    List<Category> categories = [];
+    List<ModelCategory> categories = [];
 
     for (var i = 0; i < data.length; i++) {
-      Category category = Category.fromJson(data[i]);
+      ModelCategory category = ModelCategory.fromJson(data[i]);
       categories.add(category);
     }
     return categories;
@@ -62,7 +67,7 @@ class HttpRemoteRepository implements RemoteRepository {
     var response = await _client.get(uri);
     List<dynamic> data = json.decode(response.body)['result'];
     List<Municipality> municipalities = [];
-    for(var i = 0; i<data.length;i++){
+    for (var i = 0; i < data.length; i++) {
       Municipality municipality = Municipality.fromJson(data[i]);
       municipalities.add(municipality);
     }
@@ -70,54 +75,98 @@ class HttpRemoteRepository implements RemoteRepository {
   }
 
   @override
-  Future<bool> updateReview(String userId, String reviewId, String title,String rating, String review) async {
+  Future<bool> updateReview(String userId, String reviewId, String title,
+      String rating, String review) async {
     var uri = Uri.parse(endpoint + "user/" + userId + "/review/" + reviewId);
 
     var body;
-    body = jsonEncode(
-        {
-          "title": title,
-          "review": review,
-          "rating": rating
-        });
+    body = jsonEncode({"title": title, "review": review, "rating": rating});
     var response = await _client.put(uri,
         headers: {"Content-Type": "application/json"}, body: body);
-    print(jsonDecode(response.body));
     return true;
   }
 
   @override
-  Future<bool> saveReview(String userId, Restaurant restaurant ,String title, String review, String rating) async {
+  Future<bool> saveReview(String userId, Restaurant restaurant, String title,
+      String review, String rating) async {
     var uri = Uri.parse(endpoint + "user/" + userId + "/review");
-
     var body;
-    body = jsonEncode(
-        {
-          "title": title,
-          "review": review,
-          "rating": rating,
-          "ValoracionesNegocioId":restaurant.id
-        });
+    body = jsonEncode({
+      "title": title,
+      "review": review,
+      "rating": rating,
+      "ValoracionesNegocioId": restaurant.id
+    });
     var response = await _client.post(uri,
         headers: {"Content-Type": "application/json"}, body: body);
-    print(jsonDecode(response.body));
-    return true;
+    if (jsonDecode(response.body)["code"] == 200) {
+      return true;
+    } else {
+      return false;
+    }
   }
 
   @override
-  Future<String> loginUser(String login, String password) async {
+  Future<dynamic> loginUser(String login, String password) async {
     var uri = Uri.parse(endpoint + "login");
 
     var body;
-    body = jsonEncode(
-        {
-          "email": login,
-          "password": password,
-          });
+    body = jsonEncode({
+      "email": login,
+      "password": password,
+    });
     var response = await _client.post(uri,
         headers: {"Content-Type": "application/json"}, body: body);
     var data = jsonDecode(response.body);
-    print(data);
-    return data["result"]["id"];
+    if(data["code"]==400){
+      throw Error();
+    }
+    return data["result"];
+  }
+
+  @override
+  Future<List<FotoBanner>> getGlobalImages() async {
+    var uri = Uri.parse(endpoint + "restaurant/banners");
+    var response =
+        await _client.get(uri, headers: {"Content-Type": "application/json"});
+    List<dynamic> data = json.decode(response.body)['result'];
+    List<FotoBanner> banners = [];
+    for (var i = 0; i < data.length; i++) {
+      FotoBanner fotoBanner = FotoBanner.fromJson(data[i]);
+      banners.add(fotoBanner);
+    }
+    return banners;
+  }
+
+  @override
+  Future<bool> registerUser(Map data) async {
+    var uri = Uri.parse(endpoint + "register");
+    var body;
+    body = jsonEncode({
+      "email": data["email"],
+      "password": data["password"],
+    });
+    var response = await _client.post(uri,
+        headers: {"Content-Type": "application/json"}, body: body);
+    String id = json.decode(response.body)["result"];
+    if (json.decode(response.body)["code"] == 200 && id != null) {
+      uri = Uri.parse(endpoint + "user");
+      body = jsonEncode({
+        "id": id,
+        "nombre": data["nombre"],
+        "apellidos": data["apellidos"],
+        "email": data["email"],
+        "telefono": data["telefono"],
+      });
+      response = await _client.post(uri,
+          headers: {"Content-Type": "application/json"}, body: body);
+      if(json.decode(response.body)["code"] == 200 && json.decode(response.body)["result"] != null){
+        return true;
+      }else{
+        return false;
+      }
+    } else {
+      return false;
+    }
   }
 }

@@ -35,6 +35,11 @@ class UserInfo {
     _valoraciones = valoraciones;
 }
 
+  @override
+  String toString() {
+    return 'UserInfo{_id: $_id, _nombre: $_nombre, _apellidos: $_apellidos, _email: $_email, _telefono: $_telefono, _valoraciones: $_valoraciones}';
+  }
+
   UserInfo.fromJson(dynamic json) {
     _id = json["id"];
     _nombre = json["nombre"];
@@ -129,16 +134,12 @@ class Valoraciones {
     return map;
   }
 
+  @override
+  String toString() {
+    return 'Valoraciones{_id: $_id, _review: $_review, _rating: $_rating, _title: $_title, _valoracionesNegocioId: $_valoracionesNegocioId, _valoracionesUsuarioId: $_valoracionesUsuarioId, _restaurantes: $_restaurantes}';
+  }
 }
 
-/// id : "31db2882-293d-4d2d-98ba-4939578de349"
-/// destacado : ""
-/// nombre : "El parralito"
-/// direccion : "Calle San Cristobal, 66, 38379 La Matanza de Acentejo"
-/// telefono : "922581552"
-/// createdAt : "2021-04-17T11:29:00.910Z"
-/// updatedAt : "2021-04-17T11:29:00.910Z"
-/// NegocioMunicipioId : "1111a92f-45c8-4760-a5cb-9c7dc9555193"
 
 class Restaurantes {
   String _id;
@@ -149,6 +150,11 @@ class Restaurantes {
   String _createdAt;
   String _updatedAt;
   String _negocioMunicipioId;
+
+  @override
+  String toString() {
+    return 'Restaurantes{_id: $_id, _destacado: $_destacado, _nombre: $_nombre, _direccion: $_direccion, _telefono: $_telefono, _createdAt: $_createdAt, _updatedAt: $_updatedAt, _negocioMunicipioId: $_negocioMunicipioId}';
+  }
 
   String get id => _id;
   String get destacado => _destacado;

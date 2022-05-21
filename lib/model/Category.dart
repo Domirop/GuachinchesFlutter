@@ -1,7 +1,7 @@
 /// id : "76e52d7a-8c9b-4b2e-a74a-bcd74af4d4f5"
 /// nombre : "Ternera"
 
-class Category {
+class ModelCategory {
   String _id;
   String _nombre;
   String _iconUrl;
@@ -9,7 +9,7 @@ class Category {
   String get id => _id;
   String get nombre => _nombre;
   String get iconUrl => _iconUrl;
-  Category({
+  ModelCategory({
     String id,
     String nombre,
   String iconUrl}){
@@ -18,7 +18,7 @@ class Category {
     _iconUrl = iconUrl;
   }
 
-  Category.fromJson(dynamic json) {
+  ModelCategory.fromJson(dynamic json) {
     _id = json["id"];
     _nombre = json["nombre"];
     _iconUrl = json["iconUrl"];

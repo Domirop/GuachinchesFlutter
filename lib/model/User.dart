@@ -20,6 +20,11 @@ class User {
   String get email => _email;
   String get telefono => _telefono;
 
+  @override
+  String toString() {
+    return 'User{_id: $_id, _nombre: $_nombre, _apellidos: $_apellidos, _email: $_email, _telefono: $_telefono, _reviews: $_reviews}';
+  }
+
   User({
     String id,
     String nombre,

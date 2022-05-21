@@ -6,13 +6,10 @@ import 'package:guachinches/data/HttpRemoteRepository.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
 import 'package:guachinches/data/cubit/user_cubit.dart';
 import 'package:guachinches/data/cubit/user_state.dart';
-import 'package:guachinches/edit_reviews/edit_reviews.dart';
 import 'package:guachinches/globalMethods.dart';
 import 'package:guachinches/login/login.dart';
 import 'package:guachinches/valoraciones/valoraciones_presenter.dart';
 import 'package:http/http.dart';
-
-
 
 class Valoraciones extends StatefulWidget {
   @override
@@ -24,9 +21,9 @@ class _ValoracionesState extends State<Valoraciones> implements ValoracionesView
   ValoracionesPresenter _presenter;
   @override
   void initState() {
-    // TODO: implement initState
     _remoteRepository = HttpRemoteRepository(Client());
-    _presenter = ValoracionesPresenter(this, _remoteRepository);
+    final userCubit = context.read<UserCubit>();
+    _presenter = ValoracionesPresenter(this, _remoteRepository, userCubit);
     _presenter.isUserLogged();
     super.initState();
   }
@@ -57,41 +54,12 @@ class _ValoracionesState extends State<Valoraciones> implements ValoracionesView
             SizedBox(
               height: 20.0,
             ),
-            Container(
-              height: 20,
-              margin: EdgeInsets.only(left: 30.0),
-              width: 90.0,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                border: Border.all(color: Colors.black, width: 1.0),
-                borderRadius: BorderRadius.circular(4.0),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.keyboard_arrow_down_outlined,
-                    size: 10.0,
-                  ),
-                  Text(
-                    "Mas Recientes",
-                    style: TextStyle(
-                      color: Colors.black,
-                      fontSize: 10.0,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            SizedBox(
-              height: 20.0,
-            ),
             BlocBuilder<UserCubit, UserState>(
               builder: (context, state){
                 if(state is UserLoaded){
                   return  Column(children:
                   state.user.valoraciones.map((e) => Padding(
-                    padding: const EdgeInsets.only(top:8.0),
+                    padding: EdgeInsets.only(top:8.0),
                     child: Container(
                       padding: EdgeInsets.all(20.0),
                       margin: EdgeInsets.symmetric(horizontal: 10.0),
@@ -117,7 +85,7 @@ class _ValoracionesState extends State<Valoraciones> implements ValoracionesView
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   Text(
-                                    "\""+e.title+"\"",
+                                   e.title != null ? e.title : "Tu valoración",
                                     style: TextStyle(
                                       color: Colors.black,
                                       fontWeight: FontWeight.bold,
@@ -158,19 +126,6 @@ class _ValoracionesState extends State<Valoraciones> implements ValoracionesView
                                 crossAxisAlignment: CrossAxisAlignment.end,
                                 mainAxisAlignment: MainAxisAlignment.start,
                                 children: [
-                                  TextButton(
-                                    onPressed:()=>{
-                                      GlobalMethods().pushPage(context, EditReview(state.user.id, e))
-                                    },
-                                    child: Text(
-                                      "Editar valoración",
-                                      style: TextStyle(
-                                        color: Color.fromRGBO(254, 192, 75, 1),
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 16.0,
-                                      ),
-                                    ),
-                                  ),
                                   SizedBox(
                                     height: 5.0,
                                   ),
@@ -196,40 +151,11 @@ class _ValoracionesState extends State<Valoraciones> implements ValoracionesView
                           SizedBox(
                             height: 20.0,
                           ),
-                          // Row(
-                          //   children: [
-                          //     Container(
-                          //       height: 56.0,
-                          //       width: 56.0,
-                          //       decoration: BoxDecoration(
-                          //         image: DecorationImage(
-                          //           repeat: ImageRepeat.noRepeat,
-                          //           alignment: Alignment.center,
-                          //           fit: BoxFit.cover,
-                          //           image: AssetImage('assets/images/escaldon.png'),
-                          //         ),
-                          //       ),
-                          //     ),
-                          //     SizedBox(width: 10.0,),
-                          //     Container(
-                          //       height: 56.0,
-                          //       width: 56.0,
-                          //       decoration: BoxDecoration(
-                          //         image: DecorationImage(
-                          //           repeat: ImageRepeat.noRepeat,
-                          //           alignment: Alignment.center,
-                          //           fit: BoxFit.cover,
-                          //           image: AssetImage('assets/images/escaldon.png'),
-                          //         ),
-                          //       ),
-                          //     ),
-                          //   ],
-                          // ),
                           SizedBox(
                             height: 20.0,
                           ),
                           Text(
-                            state.user.valoraciones[0].review,
+                            e.review != null ? e.review : "",
                             style: TextStyle(
                               color: Colors.black,
                               fontSize: 14.0,
@@ -238,24 +164,16 @@ class _ValoracionesState extends State<Valoraciones> implements ValoracionesView
                           SizedBox(
                             height: 20.0,
                           ),
-                          // Text(
-                          //   "Ver más",
-                          //   style: TextStyle(
-                          //     fontSize: 12.0,
-                          //     color: Color.fromRGBO(222, 99, 44, 1),
-                          //     decoration: TextDecoration.underline,
-                          //     decorationColor: Color.fromRGBO(222, 99, 44, 1),
-                          //   ),
-                          // ),
                         ],
                       ),
                     ),
-                  )).toList()
-                    ,);
+                  )).toList());
+                }else{
+                  return Container();
                 }
-                return Container();
               }
             ),
+            SizedBox(height: 20.0),
           ],
         ),
       ),

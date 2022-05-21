@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:guachinches/data/HttpRemoteRepository.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
+import 'package:guachinches/data/cubit/banners_cubit.dart';
+import 'package:guachinches/data/cubit/categories_cubit.dart';
 import 'package:guachinches/data/cubit/user_cubit.dart';
+import 'package:guachinches/data/local/db_provider.dart';
 import 'package:guachinches/splash_screen/splash_screen.dart';
 import 'package:http/http.dart';
 import 'data/cubit/restaurant_cubit.dart';
-import 'menu.dart';
 
 void main() {
   runApp(MyApp());
@@ -19,9 +22,12 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
+
+  final storage = new FlutterSecureStorage();
   @override
   void initState() {
     super.initState();
+    DBProvider.db.initDB();
     SystemChrome.setPreferredOrientations(
         [DeviceOrientation.portraitUp, DeviceOrientation.portraitDown]);
   }
@@ -36,6 +42,12 @@ class _MyAppState extends State<MyApp> {
         ),
         BlocProvider(
           create: ((context) => UserCubit(remoteRepository)),
+        ),
+        BlocProvider(
+          create: ((context) => CategoriesCubit(remoteRepository)),
+        ),
+        BlocProvider(
+          create: ((context) => BannersCubit(remoteRepository)),
         )
       ],
       child: MaterialApp(
@@ -52,4 +64,6 @@ class _MyAppState extends State<MyApp> {
       ),
     );
   }
+
+
 }
