@@ -41,9 +41,9 @@ class SplashScreenPresenter {
   checkVersion(String versionBD) async {
     String versionApp;
     if (Platform.isIOS == true) {
-      versionApp = DotEnv().env['GET_IOS_VERSION'];
+      versionApp = dotenv.env['GET_IOS_VERSION'];
     } else {
-      versionApp = DotEnv().env['GET_ANDROID_VERSION'];
+      versionApp = dotenv.env['GET_ANDROID_VERSION'];
     }
 
     return versionApp.split(".")[0] != versionBD.split(".")[0] ||
@@ -90,7 +90,8 @@ class SplashScreenPresenter {
     } else {
       versionBD = "1.0.0";
     }
-    if(checkVersion(versionBD))_view.goToUpdateScreen();
+    bool check = await checkVersion(versionBD);
+    if(check)_view.goToUpdateScreen();
     else mainFunction();
   }
 }

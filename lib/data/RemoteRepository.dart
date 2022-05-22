@@ -7,6 +7,7 @@ import 'package:guachinches/data/model/user_info.dart';
 abstract class RemoteRepository{
   Future<List<ModelCategory>> getAllCategories();
   Future<List<Restaurant>> getAllRestaurants();
+  Future<List<Restaurant>> getTopRestaurants();
   Future<List<Municipality>> getAllMunicipalities();
   Future<UserInfo> getUserInfo(String userId);
   Future<bool> updateReview(String userId, String reviewId, String title,String rating, String review);

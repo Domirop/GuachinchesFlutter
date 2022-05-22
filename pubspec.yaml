@@ -58,6 +58,7 @@ flutter:
 
   assets:
     - assets/images/
+    - env_files/
 
 flutter_icons:
   ios: true

@@ -12,6 +12,7 @@ import 'RemoteRepository.dart';
 class HttpRemoteRepository implements RemoteRepository {
   final Client _client;
   final String endpoint = "http://163.172.183.16:32683/";
+  final String endpointV2 = "http://163.172.183.16:32432/";
 
   HttpRemoteRepository(this._client);
 
@@ -167,6 +168,24 @@ class HttpRemoteRepository implements RemoteRepository {
       }
     } else {
       return false;
+    }
+  }
+
+  @override
+  Future<List<Restaurant>> getTopRestaurants() async {
+    try {
+      var uri = Uri.parse(endpointV2 + "restaurant/top");
+      var response = await _client.get(uri);
+      print("result");
+      // List<dynamic> data = json.decode(response.body)['result'];
+      List<Restaurant> restaurants = [];
+      // for (var i = 0; i < data.length; i++) {
+      //   Restaurant restaurant = Restaurant.fromJson(data[i]);
+      //   restaurants.add(restaurant);
+      // }
+      // return restaurants;
+    } on Exception catch (e) {
+      return [];
     }
   }
 }
