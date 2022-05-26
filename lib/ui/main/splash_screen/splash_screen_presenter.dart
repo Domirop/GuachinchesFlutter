@@ -6,6 +6,7 @@ import 'package:guachinches/data/RemoteRepository.dart';
 import 'package:flutter/material.dart';
 import 'package:guachinches/data/cubit/user_cubit.dart';
 import 'package:guachinches/data/cubit/user_state.dart';
+import 'package:guachinches/data/model/version.dart';
 import 'package:guachinches/ui/main/login/login.dart';
 import 'package:guachinches/ui/sub_menu_pages/home/home.dart';
 import 'package:guachinches/ui/sub_menu_pages/profile/profile.dart';
@@ -22,22 +23,6 @@ class SplashScreenPresenter {
 
   SplashScreenPresenter(this._view, this._remoteRepository, this._userCubit);
 
-  addLocalStorage() async {
-    var municipalityId = await storage.read(key: "municipalityIdArea");
-
-    if (municipalityId == null) {
-      await storage.delete(key: "municipalityIdArea");
-      await storage.delete(key: "municipalityNameArea");
-      await storage.delete(key: "useMunicipality");
-      await storage.delete(key: "category");
-
-      await storage.write(key: "municipalityIdArea", value: "");
-      await storage.write(key: "municipalityNameArea", value: "");
-      await storage.write(key: "useMunicipality", value: "Todos");
-      await storage.write(key: "category", value: "Todas");
-    }
-  }
-
   checkVersion(String versionBD) async {
     String versionApp;
     if (Platform.isIOS == true) {
@@ -45,6 +30,8 @@ class SplashScreenPresenter {
     } else {
       versionApp = dotenv.env['GET_ANDROID_VERSION'];
     }
+    print(versionApp);
+    print(versionBD);
 
     return versionApp.split(".")[0] != versionBD.split(".")[0] ||
         versionApp.split(".")[1] != versionBD.split(".")[1];
@@ -58,7 +45,6 @@ class SplashScreenPresenter {
       Login("Para ver tu perfíl debes iniciar sesión.")
     ];
     try {
-      await addLocalStorage();
       String userId = await storage.read(key: "userId");
 
       if (userId != null) {
@@ -84,11 +70,12 @@ class SplashScreenPresenter {
   }
 
   getUserInfo() async {
+    Version version = await _remoteRepository.getVersion();
     String versionBD = "1.0.0";
     if (Platform.isIOS == true) {
-      versionBD = "1.0.0";
+      versionBD = version.iosVersion;
     } else {
-      versionBD = "1.0.0";
+      versionBD = version.androidVersion;
     }
     bool check = await checkVersion(versionBD);
     if(check)_view.goToUpdateScreen();

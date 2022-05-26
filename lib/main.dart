@@ -6,6 +6,7 @@ import 'package:guachinches/data/HttpRemoteRepository.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
 import 'package:guachinches/data/cubit/banners_cubit.dart';
 import 'package:guachinches/data/cubit/categories_cubit.dart';
+import 'package:guachinches/data/cubit/top_restaurants_cubit.dart';
 import 'package:guachinches/data/cubit/user_cubit.dart';
 import 'package:guachinches/data/local/db_provider.dart';
 import 'package:guachinches/ui/main/splash_screen/splash_screen.dart';
@@ -45,6 +46,9 @@ class _MyAppState extends State<MyApp> {
       providers: [
         BlocProvider(
           create: ((context) => RestaurantCubit(remoteRepository)),
+        ),
+        BlocProvider(
+          create: ((context) => TopRestaurantCubit(remoteRepository)),
         ),
         BlocProvider(
           create: ((context) => UserCubit(remoteRepository)),

@@ -1,10 +1,13 @@
 import 'dart:convert';
 
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:guachinches/data/model/Category.dart';
 import 'package:guachinches/data/model/Municipality.dart';
+import 'package:guachinches/data/model/TopRestaurants.dart';
 import 'package:guachinches/data/model/fotoBanner.dart';
 import 'package:guachinches/data/model/restaurant.dart';
 import 'package:guachinches/data/model/user_info.dart';
+import 'package:guachinches/data/model/version.dart';
 import 'package:http/http.dart';
 
 import 'RemoteRepository.dart';
@@ -23,7 +26,7 @@ class HttpRemoteRepository implements RemoteRepository {
 
     var data = json.decode(response.body)['result'];
 
-    if(data['Usuario'] == null){
+    if (data['Usuario'] == null) {
       throw Error();
     }
     UserInfo user = UserInfo.fromJson(data['Usuario']);
@@ -119,7 +122,7 @@ class HttpRemoteRepository implements RemoteRepository {
     var response = await _client.post(uri,
         headers: {"Content-Type": "application/json"}, body: body);
     var data = jsonDecode(response.body);
-    if(data["code"]==400){
+    if (data["code"] == 400) {
       throw Error();
     }
     return data["result"];
@@ -127,10 +130,11 @@ class HttpRemoteRepository implements RemoteRepository {
 
   @override
   Future<List<FotoBanner>> getGlobalImages() async {
-    var uri = Uri.parse(endpoint + "restaurant/banners");
+    String url = dotenv.env['ENDPOINT_V2'] + "banner";
+    var uri = Uri.parse(url);
     var response =
         await _client.get(uri, headers: {"Content-Type": "application/json"});
-    List<dynamic> data = json.decode(response.body)['result'];
+    List<dynamic> data = json.decode(response.body);
     List<FotoBanner> banners = [];
     for (var i = 0; i < data.length; i++) {
       FotoBanner fotoBanner = FotoBanner.fromJson(data[i]);
@@ -161,9 +165,10 @@ class HttpRemoteRepository implements RemoteRepository {
       });
       response = await _client.post(uri,
           headers: {"Content-Type": "application/json"}, body: body);
-      if(json.decode(response.body)["code"] == 200 && json.decode(response.body)["result"] != null){
+      if (json.decode(response.body)["code"] == 200 &&
+          json.decode(response.body)["result"] != null) {
         return true;
-      }else{
+      } else {
         return false;
       }
     } else {
@@ -172,20 +177,33 @@ class HttpRemoteRepository implements RemoteRepository {
   }
 
   @override
-  Future<List<Restaurant>> getTopRestaurants() async {
+  Future<List<TopRestaurants>> getTopRestaurants() async {
     try {
-      var uri = Uri.parse(endpointV2 + "restaurant/top");
+      String url = dotenv.env['ENDPOINT_V2'] + "restaurant/top";
+      var uri = Uri.parse(url);
       var response = await _client.get(uri);
-      print("result");
-      // List<dynamic> data = json.decode(response.body)['result'];
-      List<Restaurant> restaurants = [];
-      // for (var i = 0; i < data.length; i++) {
-      //   Restaurant restaurant = Restaurant.fromJson(data[i]);
-      //   restaurants.add(restaurant);
-      // }
-      // return restaurants;
+      List<dynamic> data = json.decode(response.body);
+      List<TopRestaurants> restaurants = [];
+      for (var i = 0; i < data.length; i++) {
+        TopRestaurants restaurant = TopRestaurants.fromJson(data[i]);
+        restaurants.add(restaurant);
+      }
+      return restaurants;
     } on Exception catch (e) {
       return [];
+    }
+  }
+
+  @override
+  Future<Version> getVersion() async {
+    String url = dotenv.env['ENDPOINT_V2'] + "version";
+    try {
+      var uri = Uri.parse(url);
+      var response = await _client.get(uri);
+      Version data = Version.fromJson(json.decode(response.body));
+      return data;
+    } on Exception catch (e) {
+      return null;
     }
   }
 }

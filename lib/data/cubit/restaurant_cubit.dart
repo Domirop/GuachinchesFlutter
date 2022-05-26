@@ -20,16 +20,6 @@ class RestaurantCubit extends Cubit<RestaurantState> {
     emit(RestaurantLoaded(restaurants));
   }
 
-  Future<void> getTopRestaurants() async {
-    List<Restaurant> restaurants = await _remoteRepository.getTopRestaurants();
-
-    // for (int i = 0; i < restaurants.length; i++) {
-    //   String avg = await _calculateAvg(restaurants[i].valoraciones);
-    //   restaurants[i].avg = avg;
-    // }
-    emit(RestaurantLoaded(restaurants));
-  }
-
   Future<String> _calculateAvg(List<Review> reviews) async {
     double totalReviews = (reviews.length).toDouble();
     double totalratingSum = 0.0;

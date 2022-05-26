@@ -4,18 +4,17 @@ import 'package:guachinches/data/RemoteRepository.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:guachinches/data/cubit/banners_cubit.dart';
 import 'package:guachinches/data/cubit/banners_state.dart';
-import 'package:guachinches/data/cubit/restaurant_cubit.dart';
-import 'package:guachinches/data/cubit/restaurant_state.dart';
-import 'package:guachinches/data/model/restaurant.dart';
+import 'package:guachinches/data/cubit/top_restaurant_state.dart';
+import 'package:guachinches/data/cubit/top_restaurants_cubit.dart';
+import 'package:guachinches/data/model/TopRestaurants.dart';
 import 'package:guachinches/globalMethods.dart';
-import 'package:guachinches/ui/Others/details/details.dart';
 import 'package:guachinches/ui/components/app_Bars/appbar_basic.dart';
 import 'package:guachinches/ui/components/heroSliderComponent.dart';
 import 'package:guachinches/ui/sub_menu_pages/home/home_presenter.dart';
 import 'package:http/http.dart';
 
 class Home extends StatefulWidget {
-  List<Restaurant> restaurants = [];
+  List<TopRestaurants> restaurants = [];
   bool isChargingInitalRestaurants = true;
 
   @override
@@ -35,14 +34,14 @@ class _HomeState extends State<Home> implements HomeView {
   @override
   void initState() {
     super.initState();
-    final restaurantCubit = context.read<RestaurantCubit>();
+    final topRestaurantCubit = context.read<TopRestaurantCubit>();
     final bannersCubit = context.read<BannersCubit>();
     remoteRepository = HttpRemoteRepository(Client());
-    presenter = HomePresenter(this, restaurantCubit, bannersCubit);
+    presenter = HomePresenter(this, topRestaurantCubit, bannersCubit);
     if (bannersCubit.state is BannersInitial) {
       presenter.getAllBanner();
     }
-    if (restaurantCubit.state is RestaurantInitial) {
+    if (topRestaurantCubit.state is TopRestaurantInitial) {
       presenter.getTopRestaurants();
       createListWidgetForRestaurants();
     }
@@ -54,8 +53,7 @@ class _HomeState extends State<Home> implements HomeView {
     return Scaffold(
       appBar: appBarBasic.createWidget(context),
       body: SingleChildScrollView(
-        primary: false,
-        padding: EdgeInsets.symmetric(horizontal: 10),
+        padding: EdgeInsets.only(left: 10),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -67,13 +65,13 @@ class _HomeState extends State<Home> implements HomeView {
             SizedBox(
               height: 20.0,
             ),
-            // BlocBuilder<BannersCubit, BannersState>(builder: (context, state) {
-            //   if (state is BannersLoaded) {
-            //     return HeroSliderComponent(state.banners);
-            //   } else {
-            //     return Container();
-            //   }
-            // }),
+            BlocBuilder<BannersCubit, BannersState>(builder: (context, state) {
+              if (state is BannersLoaded) {
+                return HeroSliderComponent(state.banners);
+              } else {
+                return Container();
+              }
+            }),
             SizedBox(
               height: 20.0,
             ),
@@ -82,9 +80,11 @@ class _HomeState extends State<Home> implements HomeView {
               height: 20.0,
             ),
             Container(
-              height: 270,
-              width: MediaQuery.of(context).size.width,
+              height: 320,
               child: restaurantsWidgets,
+            ),
+            SizedBox(
+              height: 20.0,
             ),
           ],
         ),
@@ -93,22 +93,17 @@ class _HomeState extends State<Home> implements HomeView {
   }
 
   createListWidgetForRestaurants() {
-    Widget aux = Container(
-      child: BlocBuilder<RestaurantCubit, RestaurantState>(
+    Widget aux = BlocBuilder<TopRestaurantCubit, TopRestaurantState>(
           builder: (context, state) {
-        if (state is RestaurantLoaded) {
+        if (state is TopRestaurantLoaded) {
           widget.restaurants = state.restaurants;
-          return Container(
-            width: MediaQuery.of(context).size.width,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              children: generateWidgetsRestaurant().map((e) => e).toList(),
-            ),
+          return Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: generateWidgetsRestaurant().map((e) => e).toList(),
           );
         }
         return Container();
-      }),
-    );
+      });
     if (mounted) {
       setState(() {
         restaurantsWidgets = aux;
@@ -118,10 +113,8 @@ class _HomeState extends State<Home> implements HomeView {
 
   List<Widget> generateWidgetsRestaurant() {
     List<Widget> widgets = [];
-    widget.restaurants = [Restaurant(), Restaurant(), Restaurant()];
     widget.restaurants.forEach((element) {
-      widgets.add(Container(
-        height: 400,
+      Widget container = Container(
         margin: EdgeInsets.only(right: 20),
         width: MediaQuery.of(context).size.width * 0.7,
         decoration: BoxDecoration(
@@ -148,36 +141,37 @@ class _HomeState extends State<Home> implements HomeView {
                   repeat: ImageRepeat.noRepeat,
                   alignment: Alignment.center,
                   fit: BoxFit.fill,
-                  image: NetworkImage(
-                      "https://i.pinimg.com/550x/a6/51/1e/a6511e138352d38726e03b69d18bccdf.jpg"),
+                  image: NetworkImage(element.imagen),
                 ),
               ),
             ),
             Container(
               margin: EdgeInsets.only(top: 10),
-              padding: EdgeInsets.only(left: 10),
+              padding: EdgeInsets.symmetric(horizontal: 10),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Container(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          "Bodegón Mojo Picón",
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                        ),
-                        Text(
-                          "Carnes de cerdo y ternera.",
-                          style: TextStyle(fontSize: 12),
-                        ),
-                        Text(
-                          "Hoy cerrado",
-                          style: TextStyle(
-                              fontSize: 12, color: Color.fromRGBO(226, 120, 120, 1)),
-                        ),
-                      ],
+                    child: Flexible(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            element.nombre,
+                            softWrap: true,
+                            maxLines: 2,
+                            style: TextStyle(
+                                fontSize: 18, fontWeight: FontWeight.bold),
+                          ),
+                          Text(
+                            element.horarios,
+                            style: TextStyle(
+                                fontSize: 12,
+                                color: Color.fromRGBO(226, 120, 120, 1)),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ],
@@ -185,21 +179,17 @@ class _HomeState extends State<Home> implements HomeView {
             ),
           ],
         ),
-      ));
+      );
+      widgets.add(container);
     });
     return widgets;
   }
 
-  gotoDetail(Restaurant restaurant) {
-    GlobalMethods().pushPage(context, Details(restaurant));
-  }
-
   @override
-  setTopRestaurants(List<Restaurant> restaurants) {
+  setTopRestaurants(List<TopRestaurants> restaurants) {
     if (mounted) {
       setState(() {
         this.widget.restaurants = restaurants;
-        this.widget.restaurants = [Restaurant(), Restaurant(), Restaurant()];
         generateWidgetsRestaurant();
       });
     }
