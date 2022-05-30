@@ -35,19 +35,17 @@ class AppBarBasic {
                   ),
                 ),
               ),
-              Container(
-                margin: EdgeInsets.only(right: 10.0),
-                child: GestureDetector(
-                  onTap: () {
-                    GlobalMethods().pushPage(context, SearchPage());
-                  },
-                  child: Icon(
-                    Icons.notifications_none,
-                    color: Colors.black,
-                    size: 30.0,
-                  ),
-                ),
-              ),
+              // Container(
+              //   margin: EdgeInsets.only(right: 10.0),
+              //   child: GestureDetector(
+              //     onTap: () {},
+              //     child: Icon(
+              //       Icons.notifications_none,
+              //       color: Colors.black,
+              //       size: 30.0,
+              //     ),
+              //   ),
+              // ),
               GestureDetector(
                 onTap: () {
                   GlobalMethods().pushPage(context, SearchPage());

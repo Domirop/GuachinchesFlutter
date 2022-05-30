@@ -21,5 +21,6 @@ abstract class RemoteRepository{
   Future<bool> registerUser(Map data);
   Future<Version> getVersion();
   Future<List<CuponesAgrupados>> getCuponesHistorias();
-  Future<void> saveCupon(String cuponId, String userId);
+  Future<bool> saveCupon(String cuponId, String userId);
+  Future<Restaurant> getRestaurantById(String id);
 }

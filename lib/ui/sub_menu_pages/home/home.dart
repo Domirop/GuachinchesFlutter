@@ -11,9 +11,10 @@ import 'package:guachinches/data/cubit/restaurants/top/top_restaurants_cubit.dar
 import 'package:guachinches/data/model/CuponesAgrupados.dart';
 import 'package:guachinches/data/model/TopRestaurants.dart';
 import 'package:guachinches/globalMethods.dart';
+import 'package:guachinches/ui/Others/details/details.dart';
 import 'package:guachinches/ui/components/app_Bars/appbar_basic.dart';
 import 'package:guachinches/ui/components/heroSliderComponent.dart';
-import 'package:guachinches/ui/components/history_full_page.dart';
+import 'package:guachinches/ui/components/history_full_page/history_full_page.dart';
 import 'package:guachinches/ui/sub_menu_pages/home/home_presenter.dart';
 import 'package:http/http.dart';
 
@@ -33,6 +34,7 @@ class _HomeState extends State<Home> implements HomeView {
 
   HomePresenter presenter;
   RemoteRepository remoteRepository;
+  bool isCorrectSaveCupon;
   Widget restaurantsWidgets;
   String userId;
   List<CuponesAgrupados> cuponesAgrupados = [];
@@ -45,7 +47,7 @@ class _HomeState extends State<Home> implements HomeView {
     final bannersCubit = context.read<BannersCubit>();
     remoteRepository = HttpRemoteRepository(Client());
     presenter =
-        HomePresenter(this, topRestaurantCubit, bannersCubit, cuponesCubit);
+        HomePresenter(this, topRestaurantCubit, bannersCubit, cuponesCubit, remoteRepository);
     presenter.getUserInfo();
     if (bannersCubit.state is BannersInitial) {
       presenter.getAllBanner();
@@ -55,6 +57,8 @@ class _HomeState extends State<Home> implements HomeView {
     }
     if (topRestaurantCubit.state is TopRestaurantInitial) {
       presenter.getTopRestaurants();
+      createListWidgetForRestaurants();
+    }else if(topRestaurantCubit.state is TopRestaurantLoaded){
       createListWidgetForRestaurants();
     }
     appBarBasic = AppBarBasic(widget);
@@ -80,13 +84,13 @@ class _HomeState extends State<Home> implements HomeView {
               height: 100,
               child: BlocBuilder<CuponesCubit, CuponesState>(
                   builder: (context, state) {
-                    if (state is CuponesLoaded) {
-                      cuponesAgrupados = state.cuponesAgrupados;
-                      return historyPreviewWidget();
-                    } else {
-                      return Container();
-                    }
-                  }),
+                if (state is CuponesLoaded) {
+                  cuponesAgrupados = state.cuponesAgrupados;
+                  return historyPreviewWidget();
+                } else {
+                  return Container();
+                }
+              }),
             ),
             SizedBox(
               height: 20.0,
@@ -127,9 +131,10 @@ class _HomeState extends State<Home> implements HomeView {
           return Wrap(
             children: [
               GestureDetector(
-                onTap: () =>
-                    GlobalMethods().pushPage(
-                        context, HistoryFullPage(cuponesAgrupados[index], guardarCupon, userId)),
+                onTap: () => GlobalMethods().pushPage(
+                    context,
+                    HistoryFullPage(
+                        cuponesAgrupados[index], userId)),
                 child: Column(
                   children: [
                     Container(
@@ -166,101 +171,100 @@ class _HomeState extends State<Home> implements HomeView {
   createListWidgetForRestaurants() {
     Widget aux = BlocBuilder<TopRestaurantCubit, TopRestaurantState>(
         builder: (context, state) {
-          if (state is TopRestaurantLoaded) {
-            widget.restaurants = state.restaurants;
-            return Container(
-              height: 320,
-              width: double.infinity,
-              child: ListView.builder(
-                  shrinkWrap: true,
-                  primary: false,
-                  itemCount: widget.restaurants.length,
-                  scrollDirection: Axis.horizontal,
-                  itemBuilder: (context, index) {
-                    return Wrap(
-                      children: [
-                        Container(
-                          height: 280,
-                          margin: EdgeInsets.only(right: 20),
-                          width: MediaQuery
-                              .of(context)
-                              .size
-                              .width * 0.7,
-                          decoration: BoxDecoration(
-                            color: Color(0xfff6f6f6),
-                            borderRadius: BorderRadius.circular(20),
-                            boxShadow: <BoxShadow>[
-                              BoxShadow(
-                                color: Colors.black45,
-                                offset: Offset(0.0, 2.0),
-                                blurRadius: 10.0,
+      if (state is TopRestaurantLoaded) {
+        widget.restaurants = state.restaurants;
+        return Container(
+          height: 320,
+          width: double.infinity,
+          child: ListView.builder(
+              shrinkWrap: true,
+              primary: false,
+              itemCount: widget.restaurants.length,
+              scrollDirection: Axis.horizontal,
+              itemBuilder: (context, index) {
+                return Wrap(
+                  children: [
+                    GestureDetector(
+                      onTap: () => GlobalMethods().pushPage(context, Details(widget.restaurants[index].id)),
+                      child: Container(
+                        height: 280,
+                        margin: EdgeInsets.only(right: 20),
+                        width: MediaQuery.of(context).size.width * 0.7,
+                        decoration: BoxDecoration(
+                          color: Color(0xfff6f6f6),
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: <BoxShadow>[
+                            BoxShadow(
+                              color: Colors.black45,
+                              offset: Offset(0.0, 2.0),
+                              blurRadius: 10.0,
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              height: 160,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.only(
+                                    topLeft: Radius.circular(20),
+                                    topRight: Radius.circular(20)),
+                                image: DecorationImage(
+                                  repeat: ImageRepeat.noRepeat,
+                                  alignment: Alignment.center,
+                                  fit: BoxFit.fill,
+                                  image: NetworkImage(
+                                      widget.restaurants[index].imagen),
+                                ),
                               ),
-                            ],
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Container(
-                                height: 160,
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.only(
-                                      topLeft: Radius.circular(20),
-                                      topRight: Radius.circular(20)),
-                                  image: DecorationImage(
-                                    repeat: ImageRepeat.noRepeat,
-                                    alignment: Alignment.center,
-                                    fit: BoxFit.fill,
-                                    image: NetworkImage(
-                                        widget.restaurants[index].imagen),
+                            ),
+                            Container(
+                              margin: EdgeInsets.only(top: 10),
+                              padding: EdgeInsets.symmetric(horizontal: 10),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    widget.restaurants[index].nombre,
+                                    softWrap: true,
+                                    maxLines: 2,
+                                    style: TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold),
                                   ),
-                                ),
+                                  Text(
+                                    widget.restaurants[index].open
+                                        ? "Abierto"
+                                        : "Cerrado",
+                                    style: TextStyle(
+                                        fontSize: 12,
+                                        color: widget.restaurants[index].open
+                                            ? Color.fromRGBO(149, 220, 0, 1)
+                                            : Color.fromRGBO(226, 120, 120, 1)),
+                                  ),
+                                ],
                               ),
-                              Container(
-                                margin: EdgeInsets.only(top: 10),
-                                padding: EdgeInsets.symmetric(horizontal: 10),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      widget.restaurants[index].nombre,
-                                      softWrap: true,
-                                      maxLines: 2,
-                                      style: TextStyle(
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.bold),
-                                    ),
-                                    Text(
-                                      "widget.restaurants[index].horarios",
-                                      style: TextStyle(
-                                          fontSize: 12,
-                                          color: Color.fromRGBO(
-                                              226, 120, 120, 1)),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
-                        SizedBox(
-                          width: 30.0,
-                        ),
-                      ],
-                    );
-                  }),
-            );
-          }
-          return Container();
-        });
+                      ),
+                    ),
+                    SizedBox(
+                      width: 30.0,
+                    ),
+                  ],
+                );
+              }),
+        );
+      }
+      return Container();
+    });
     if (mounted) {
       setState(() {
         restaurantsWidgets = aux;
       });
     }
-  }
-
-  guardarCupon(String cuponId, String userId){
-    presenter.saveCupon(cuponId, userId);
   }
 
   @override
@@ -277,7 +281,7 @@ class _HomeState extends State<Home> implements HomeView {
     if (mounted) {
       setState(() {
         this.widget.isChargingInitalRestaurants =
-        !this.widget.isChargingInitalRestaurants;
+            !this.widget.isChargingInitalRestaurants;
       });
     }
   }

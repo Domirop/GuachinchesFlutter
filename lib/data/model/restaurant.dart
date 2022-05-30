@@ -29,28 +29,52 @@ class Restaurant {
   String avg = "n/d";
   String _createdAt;
   String _updatedAt;
-  List<Fotos> _fotos;
+  List<Fotos> _fotos = [];
   String _negocioMunicipioId;
   MunicipioRestaurant _municipio;
-  List<Menu> _menus;
-  List<CategoryRestaurant> _categoriaRestaurantes;
-  List<Review> _valoraciones;
+  List<Menu> _menus = [];
+  List<CategoryRestaurant> _categoriaRestaurantes = [];
+  List<Review> _valoraciones = [];
+  bool _open;
+  String _googleHorarios;
+  double _avgRating;
 
   String get id => _id;
+
   String get horarios => _horarios;
+
   String get googleUrl => _googleUrl;
+
   bool get enable => _enable;
+
   String get nombre => _nombre;
+
   String get direccion => _direccion;
+
   String get telefono => _telefono;
+
   String get destacado => _destacado;
+
   String get createdAt => _createdAt;
+
   String get updatedAt => _updatedAt;
+
+  double get avgRating => _avgRating;
+
+  bool get open => _open;
+
+  String get googleHorarios => _googleHorarios;
+
   String get negocioMunicipioId => _negocioMunicipioId;
+
   List<Fotos> get fotos => _fotos;
+
   MunicipioRestaurant get municipio => _municipio;
+
   List<Menu> get menus => _menus;
+
   List<CategoryRestaurant> get categoriaRestaurantes => _categoriaRestaurantes;
+
   List<Review> get valoraciones => _valoraciones;
 
   @override
@@ -58,23 +82,26 @@ class Restaurant {
     return 'Restaurant{_id: $_id, _nombre: $_nombre, _enable: $_enable, _googleUrl: $_googleUrl, _direccion: $_direccion, _telefono: $_telefono, _destacado: $_destacado, avg: $avg, _createdAt: $_createdAt, _updatedAt: $_updatedAt, _fotos: $_fotos, _negocioMunicipioId: $_negocioMunicipioId, _municipio: $_municipio, _menus: $_menus, _categoriaRestaurantes: $_categoriaRestaurantes, _valoraciones: $_valoraciones}';
   }
 
-  Restaurant({
-      String id,
-    String horarios,
+  Restaurant(
+      {String id,
+      String horarios,
       String nombre,
       String googleUrl,
       bool enable,
-      String direccion, 
+      String direccion,
       String telefono,
       String destacado,
       List<Fotos> fotos,
-      String createdAt, 
-      String updatedAt, 
+      String createdAt,
+      String updatedAt,
       String negocioMunicipioId,
-    MunicipioRestaurant municipio,
+      MunicipioRestaurant municipio,
       List<Menu> menus,
       List<CategoryRestaurant> categoriaRestaurantes,
-      List<Review> valoraciones}){
+      List<Review> valoraciones,
+      String googleHorarios,
+      bool open,
+      double avgRating}) {
     _id = id;
     _enable = enable;
     _horarios = horarios;
@@ -91,7 +118,10 @@ class Restaurant {
     _menus = menus;
     _categoriaRestaurantes = categoriaRestaurantes;
     _valoraciones = valoraciones;
-}
+    _open = open;
+    _googleHorarios = googleHorarios;
+    _avgRating = avgRating;
+  }
 
   Restaurant.fromJson(dynamic json) {
     _id = json["id"];
@@ -102,10 +132,16 @@ class Restaurant {
     _direccion = json["direccion"];
     _telefono = json["telefono"];
     _destacado = json["destacado"];
+    if (json["avgRating"] != null)
+      _avgRating =
+          double.parse(double.parse(json["avgRating"]).toStringAsFixed(2));
+    else _avgRating = 4.868;
     _createdAt = json["createdAt"];
     _updatedAt = json["updatedAt"];
     _negocioMunicipioId = json["NegocioMunicipioId"];
-    _municipio = json["municipio"] != null ? MunicipioRestaurant.fromJson(json["municipio"]) : null;
+    _municipio = json["municipio"] != null
+        ? MunicipioRestaurant.fromJson(json["municipio"])
+        : null;
     if (json["menus"] != null) {
       _menus = [];
       json["menus"].forEach((v) {
@@ -124,12 +160,57 @@ class Restaurant {
         _fotos.add(Fotos.fromJson(v));
       });
     }
-    if (json["Valoraciones"] != null) {
+    if (json["valoraciones"] != null) {
       _valoraciones = [];
-      json["Valoraciones"].forEach((v) {
+      json["valoraciones"].forEach((v) {
         _valoraciones.add(Review.fromJson(v));
       });
     }
+
+    bool auxOpen = true;
+    String auxValue = json["google_horarios"];
+    if (auxValue.toLowerCase() == "cerrado" ||
+        auxValue.toLowerCase() == "sin horario") {
+      auxOpen = false;
+    } else {
+      String auxValue2 = json["google_horarios"]
+          .split("\n")[DateTime.now().toUtc().weekday]
+          .split(": ")[1];
+      if (auxValue2.toLowerCase() == "cerrado") auxOpen = false;
+    }
+    if (auxOpen) {
+      List<String> aux = json["google_horarios"]
+          .split("\n")[DateTime.now().toUtc().weekday]
+          .split(": ")[1]
+          .split(", ");
+      DateTime actualDate = DateTime.now();
+      for (var i = 0; i < aux.length; i++) {
+        List<String> auxHours = aux[i].split("–");
+        DateTime dateTimeFirst = DateTime.now();
+        dateTimeFirst = DateTime(
+            dateTimeFirst.year,
+            dateTimeFirst.month,
+            dateTimeFirst.day,
+            int.parse(auxHours[0].split(":")[0]),
+            int.parse(auxHours[0].split(":")[1]),
+            dateTimeFirst.second,
+            dateTimeFirst.millisecond,
+            dateTimeFirst.microsecond);
+        DateTime dateTimeSecond = DateTime.now();
+        dateTimeSecond = DateTime(
+            dateTimeSecond.year,
+            dateTimeSecond.month,
+            dateTimeSecond.day,
+            int.parse(auxHours[1].split(":")[0]),
+            int.parse(auxHours[1].split(":")[1]),
+            dateTimeSecond.second,
+            dateTimeSecond.millisecond,
+            dateTimeSecond.microsecond);
+        if (actualDate.isBefore(dateTimeFirst) ||
+            actualDate.isAfter(dateTimeSecond)) auxOpen = false;
+      }
+    }
+    _open = auxOpen;
   }
 
   Map<String, dynamic> toJson() {
@@ -153,23 +234,12 @@ class Restaurant {
       map["menus"] = _menus.map((v) => v.toJson()).toList();
     }
     if (_categoriaRestaurantes != null) {
-      map["categoriaRestaurantes"] = _categoriaRestaurantes.map((v) => v.toJson()).toList();
+      map["categoriaRestaurantes"] =
+          _categoriaRestaurantes.map((v) => v.toJson()).toList();
     }
     if (_valoraciones != null) {
       map["Valoraciones"] = _valoraciones.map((v) => v.toJson()).toList();
     }
     return map;
   }
-
 }
-
-
-
-
-
-
-
-
-
-
-

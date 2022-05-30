@@ -18,13 +18,26 @@ class SearchPagePresenter{
     _view.changeCharginInitial();
   }
 
+  setCharging() async {
+    _view.changeCharginInitial();
+  }
+
+  getAllRestaurantsFilters(String categoria, String municipio, String nombre, bool abierto) async {
+    // await _restaurantCubit.getFilterRestaurants();
+  }
+
   getAllMunicipalitiesAndCategories() async {
     List<ModelCategory> categories = await _remoteRepository.getAllCategories();
     List<Municipality> municipality = await _remoteRepository.getAllMunicipalities();
     _view.setMunicipalitiesAndCategories(categories, municipality);
   }
+
+  updateNumber(int number){
+    _view.updateNumber(number);
+  }
 }
 abstract class SearchPageView{
   changeCharginInitial();
   setMunicipalitiesAndCategories(List<ModelCategory> categories, List<Municipality> municipality);
+  updateNumber(int number);
 }

@@ -29,7 +29,7 @@ class Cupones {
     _mesasDisponibles = json["mesasDisponibles"];
     _mesasTotales = json["mesasTotales"];
     _fotoUrl = json["fotoUrl"];
-    _descuento = json["_descuento"];
+    _descuento = json["descuento"];
     _restaurantId = json["restaurantId"];
   }
 

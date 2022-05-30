@@ -2,6 +2,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
 import 'package:guachinches/data/local/restaurant_sql_lite.dart';
 import 'package:guachinches/data/local/sql_lite_local_repository.dart';
+import 'package:guachinches/data/model/restaurant.dart';
 
 class DetailPresenter {
   RemoteRepository _remoteRepository;
@@ -16,6 +17,13 @@ class DetailPresenter {
     if (userId != null) {
       _view.setUserId(userId);
     }
+  }
+
+  getRestaurantById(String id) async {
+    Restaurant restaurant = await _remoteRepository.getRestaurantById(id);
+    await getIsFav(id);
+    await isUserLogged();
+    _view.setRestaurant(restaurant);
   }
 
   getIsFav(String restaurantId) async {
@@ -46,4 +54,5 @@ abstract class DetailView {
   goToLogin();
   setFav(bool correct);
   setUserId(String id);
+  setRestaurant(Restaurant restaurant);
 }

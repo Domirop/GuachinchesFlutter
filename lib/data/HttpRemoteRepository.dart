@@ -53,6 +53,21 @@ class HttpRemoteRepository implements RemoteRepository {
   }
 
   @override
+  Future<Restaurant> getRestaurantById(String id) async {
+    try {
+      String url = dotenv.env['ENDPOINT_V2'] +
+          "restaurant/" + id;
+      var uri = Uri.parse(url);
+      var response = await _client.get(uri);
+      Restaurant restaurant =
+          Restaurant.fromJson(json.decode(response.body));
+      return restaurant;
+    } on Exception catch (e) {
+      return null;
+    }
+  }
+
+  @override
   Future<List<ModelCategory>> getAllCategories() async {
     var uri = Uri.parse(endpoint + "restaurant/category");
     var response = await _client.get(uri);
@@ -191,6 +206,8 @@ class HttpRemoteRepository implements RemoteRepository {
       }
       return restaurants;
     } on Exception catch (e) {
+      print("hola");
+      print(e);
       return [];
     }
   }
@@ -227,7 +244,7 @@ class HttpRemoteRepository implements RemoteRepository {
   }
 
   @override
-  Future<void> saveCupon(String cuponId, String userId) async {
+  Future<bool> saveCupon(String cuponId, String userId) async {
     String url = dotenv.env['ENDPOINT_V2'] + "cupones/book";
     var uri = Uri.parse(url);
     var body;
@@ -237,8 +254,8 @@ class HttpRemoteRepository implements RemoteRepository {
     });
     var response = await _client.post(uri,
         headers: {"Content-Type": "application/json"}, body: body);
-    print(response.body);
-    String data = json.decode(response.body);
-    return false;
+    var x = json.decode(response.body);
+    if(x["statusCode"] != null && x["statusCode"] == 500)return false;
+    else return true;
   }
 }

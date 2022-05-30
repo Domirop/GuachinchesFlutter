@@ -17,8 +17,4 @@ class CuponesCubit extends Cubit<CuponesState> {
     List<CuponesAgrupados> cuponesAgrupados = await _remoteRepository.getCuponesHistorias();
     emit(CuponesLoaded(cuponesAgrupados));
   }
-
-  Future<void> saveCupon(String cuponId, String userId) async {
-    await _remoteRepository.getCuponesHistorias();
-  }
 }

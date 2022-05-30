@@ -49,7 +49,7 @@ class SplashScreenPresenter {
         if (_userCubit.state is UserInitial) {
           var response = await _userCubit.getUserInfo(userId);
           if (response == true) {
-            screens = [Home(), Valoraciones(), Profile()];
+            screens = [Home(), SearchPage(), Valoraciones(), Profile()];
           } else {
             await storage.delete(key: "userId");
           }
@@ -57,6 +57,7 @@ class SplashScreenPresenter {
       } else {
         screens = [
           Home(),
+          SearchPage(),
           Login("Para ver tus valoraciones debes iniciar sesión."),
           Login("Para ver tu perfíl debes iniciar sesión.")
         ];

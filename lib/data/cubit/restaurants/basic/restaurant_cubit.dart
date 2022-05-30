@@ -21,15 +21,6 @@ class RestaurantCubit extends Cubit<RestaurantState> {
     emit(RestaurantLoaded(restaurantResponse));
   }
 
-  Future<String> _calculateAvg(List<Review> reviews) async {
-    double totalReviews = (reviews.length).toDouble();
-    double totalratingSum = 0.0;
-    for (int i = 0; i < reviews.length; i++) {
-      totalratingSum += double.parse(reviews[i].rating);
-    }
-    return (totalratingSum / totalReviews).toStringAsFixed(2);
-  }
-
   Future<void> getFilterRestaurants(
       RestaurantResponse restaurantResponse, String value) async {
     if (value == null || value.length == 0) {

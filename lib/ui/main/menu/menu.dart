@@ -5,8 +5,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 class Menu extends StatefulWidget {
   List<Widget> screens;
+  int selectedItem;
 
-  Menu(this.screens);
+  Menu(this.screens, {this.selectedItem});
 
   @override
   _ProfileState createState() => _ProfileState(screens);
@@ -21,6 +22,7 @@ class _ProfileState extends State<Menu>{
 
   @override
   void initState() {
+    if(widget.selectedItem != null) selectedItem = widget.selectedItem;
     final userCubit = context.read<UserCubit>();
     super.initState();
   }
