@@ -1,16 +1,17 @@
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:guachinches/data/cubit/categories_cubit.dart';
+// import 'package:guachinches/data/cubit/categorias/categories_cubit.dart';
 
 class CategoriasPresenter{
   final CategoriasView _view;
-  CategoriesCubit _categoriesCubit;
+  // CategoriesCubit _categoriesCubit;
 
   final storage = new FlutterSecureStorage();
 
-  CategoriasPresenter(this._view, this._categoriesCubit);
+  // CategoriasPresenter(this._view, this._categoriesCubit);
+  CategoriasPresenter(this._view);
 
   getAllCategories() async {
-    await _categoriesCubit.getCategories();
+    // await _categoriesCubit.getCategories();
   }
 
   setCategoryToSelect(String id ) async {

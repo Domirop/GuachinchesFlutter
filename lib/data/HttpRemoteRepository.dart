@@ -2,10 +2,12 @@ import 'dart:convert';
 
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:guachinches/data/model/Category.dart';
+import 'package:guachinches/data/model/CuponesAgrupados.dart';
 import 'package:guachinches/data/model/Municipality.dart';
 import 'package:guachinches/data/model/TopRestaurants.dart';
 import 'package:guachinches/data/model/fotoBanner.dart';
 import 'package:guachinches/data/model/restaurant.dart';
+import 'package:guachinches/data/model/restaurant_response.dart';
 import 'package:guachinches/data/model/user_info.dart';
 import 'package:guachinches/data/model/version.dart';
 import 'package:http/http.dart';
@@ -35,19 +37,18 @@ class HttpRemoteRepository implements RemoteRepository {
   }
 
   @override
-  Future<List<Restaurant>> getAllRestaurants() async {
+  Future<RestaurantResponse> getAllRestaurants(int number) async {
     try {
-      var uri = Uri.parse(endpoint + "restaurant");
+      String url = dotenv.env['ENDPOINT_V2'] +
+          "restaurant/pagination?from=" +
+          number.toString();
+      var uri = Uri.parse(url);
       var response = await _client.get(uri);
-      List<dynamic> data = json.decode(response.body)['result'];
-      List<Restaurant> restaurants = [];
-      for (var i = 0; i < data.length; i++) {
-        Restaurant restaurant = Restaurant.fromJson(data[i]);
-        restaurants.add(restaurant);
-      }
-      return restaurants;
+      RestaurantResponse restaurantResponse =
+          RestaurantResponse.fromJson(json.decode(response.body));
+      return restaurantResponse;
     } on Exception catch (e) {
-      return [];
+      return null;
     }
   }
 
@@ -205,5 +206,39 @@ class HttpRemoteRepository implements RemoteRepository {
     } on Exception catch (e) {
       return null;
     }
+  }
+
+  @override
+  Future<List<CuponesAgrupados>> getCuponesHistorias() async {
+    try {
+      String url = dotenv.env['ENDPOINT_V2'] + "restaurant/cupones";
+      var uri = Uri.parse(url);
+      var response = await _client.get(uri);
+      List<dynamic> data = json.decode(response.body);
+      List<CuponesAgrupados> cupones = [];
+      for (var i = 0; i < data.length; i++) {
+        CuponesAgrupados cuponesAgrupados = CuponesAgrupados.fromJson(data[i]);
+        cupones.add(cuponesAgrupados);
+      }
+      return cupones;
+    } on Exception catch (e) {
+      return [];
+    }
+  }
+
+  @override
+  Future<void> saveCupon(String cuponId, String userId) async {
+    String url = dotenv.env['ENDPOINT_V2'] + "cupones/book";
+    var uri = Uri.parse(url);
+    var body;
+    body = jsonEncode({
+      "cuponesId": cuponId,
+      "userId": userId,
+    });
+    var response = await _client.post(uri,
+        headers: {"Content-Type": "application/json"}, body: body);
+    print(response.body);
+    String data = json.decode(response.body);
+    return false;
   }
 }

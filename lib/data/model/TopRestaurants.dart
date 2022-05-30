@@ -12,6 +12,7 @@ class TopRestaurants {
   String _direccion;
   String _counter;
   String _imagen;
+  String _cerrado;
 
   String get id => _id;
   String get nombre => _nombre;
@@ -19,14 +20,16 @@ class TopRestaurants {
   String get direccion => _direccion;
   String get counter => _counter;
   String get imagen => _imagen;
+  String get cerrado => _cerrado;
 
-  TopRestaurants({String id, String nombre, String horarios, String direccion, String counter, String imagen}){
+  TopRestaurants({String id, String nombre, String horarios, String direccion, String counter, String imagen, String cerrado}){
     _id = id;
     _nombre = nombre;
     _horarios = horarios;
     _direccion = direccion;
     _counter = counter;
     _imagen = imagen;
+    _cerrado = cerrado;
   }
 
   TopRestaurants.fromJson(dynamic json) {

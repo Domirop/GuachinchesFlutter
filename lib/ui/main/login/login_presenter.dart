@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
-import 'package:guachinches/data/cubit/user_cubit.dart';
+import 'package:guachinches/data/cubit/user/user_cubit.dart';
 import 'package:guachinches/ui/sub_menu_pages/home/home.dart';
 import 'package:guachinches/ui/sub_menu_pages/profile/profile.dart';
 import 'package:guachinches/ui/sub_menu_pages/valoraciones/valoraciones.dart';

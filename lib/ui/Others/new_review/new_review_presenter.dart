@@ -1,5 +1,5 @@
 import 'package:guachinches/data/RemoteRepository.dart';
-import 'package:guachinches/data/cubit/restaurant_cubit.dart';
+import 'package:guachinches/data/cubit/restaurants/basic/restaurant_cubit.dart';
 import 'package:guachinches/data/model/restaurant.dart';
 
 class NewReviewPresenter{
@@ -18,7 +18,7 @@ class NewReviewPresenter{
     }
     bool isAdded = await _remoteRepository.saveReview( userId,  restaurant , title,  review,  rating);
     if(isAdded == true){
-      await _restaurantCubit.getRestaurants();
+      // await _restaurantCubit.getRestaurants();
       _view.reviewSaved();
     }else{
       _view.reviewNotSaved();

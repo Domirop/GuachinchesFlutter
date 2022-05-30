@@ -1,8 +1,9 @@
 import 'package:bloc/bloc.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
+import 'package:guachinches/data/cubit/restaurants/basic/restaurant_state.dart';
 import 'package:guachinches/data/model/Review.dart';
 import 'package:guachinches/data/model/restaurant.dart';
-import 'package:guachinches/data/cubit/restaurant_state.dart';
+import 'package:guachinches/data/model/restaurant_response.dart';
 
 class RestaurantCubit extends Cubit<RestaurantState> {
   final RemoteRepository _remoteRepository;
@@ -10,14 +11,14 @@ class RestaurantCubit extends Cubit<RestaurantState> {
 
   RestaurantCubit(this._remoteRepository) : super(RestaurantInitial());
 
-  Future<void> getRestaurants() async {
-    List<Restaurant> restaurants = await _remoteRepository.getAllRestaurants();
+  Future<void> getRestaurants(int number) async {
+    RestaurantResponse restaurantResponse = await _remoteRepository.getAllRestaurants(number);
 
-    for (int i = 0; i < restaurants.length; i++) {
-      String avg = await _calculateAvg(restaurants[i].valoraciones);
-      restaurants[i].avg = avg;
-    }
-    emit(RestaurantLoaded(restaurants));
+    // for (int i = 0; i < restaurantResponse.restaurants.length; i++) {
+    //   String avg = await _calculateAvg(restaurantResponse.restaurants[i].valoraciones);
+    //   restaurantResponse.restaurants[i].avg = avg;
+    // }
+    emit(RestaurantLoaded(restaurantResponse));
   }
 
   Future<String> _calculateAvg(List<Review> reviews) async {
@@ -30,14 +31,15 @@ class RestaurantCubit extends Cubit<RestaurantState> {
   }
 
   Future<void> getFilterRestaurants(
-      List<Restaurant> restaurants, String value) async {
+      RestaurantResponse restaurantResponse, String value) async {
     if (value == null || value.length == 0) {
-      emit(RestaurantFilter(restaurants));
+      emit(RestaurantFilter(restaurantResponse));
     } else {
-      List<Restaurant> aux = restaurants.where((element) {
+      List<Restaurant> aux = restaurantResponse.restaurants.where((element) {
         return element.nombre.toLowerCase().contains(value.toLowerCase());
       }).toList();
-      emit(RestaurantFilter(aux));
+      restaurantResponse.restaurants = aux;
+      emit(RestaurantFilter(restaurantResponse));
     }
   }
 }

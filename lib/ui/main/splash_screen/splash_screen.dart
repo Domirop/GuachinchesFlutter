@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:guachinches/data/HttpRemoteRepository.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
-import 'package:guachinches/data/cubit/user_cubit.dart';
+import 'package:guachinches/data/cubit/user/user_cubit.dart';
 import 'package:guachinches/globalMethods.dart';
 import 'package:guachinches/ui/main/menu/menu.dart';
 import 'package:guachinches/ui/main/splash_screen/splash_screen_presenter.dart';

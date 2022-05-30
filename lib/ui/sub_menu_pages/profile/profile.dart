@@ -2,10 +2,10 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
-import 'package:guachinches/data/cubit/restaurant_cubit.dart';
-import 'package:guachinches/data/cubit/restaurant_state.dart';
-import 'package:guachinches/data/cubit/user_cubit.dart';
-import 'package:guachinches/data/cubit/user_state.dart';
+import 'package:guachinches/data/cubit/restaurants/basic/restaurant_cubit.dart';
+import 'package:guachinches/data/cubit/restaurants/basic/restaurant_state.dart';
+import 'package:guachinches/data/cubit/user/user_cubit.dart';
+import 'package:guachinches/data/cubit/user/user_state.dart';
 import 'package:guachinches/data/local/restaurant_sql_lite.dart';
 import 'package:guachinches/data/model/fotos.dart';
 import 'package:guachinches/data/model/restaurant.dart';
@@ -336,7 +336,7 @@ class _ProfileState extends State<Profile> implements ProfileView {
                     child: BlocBuilder<RestaurantCubit, RestaurantState>(
                         builder: (context, state) {
                           if (state is RestaurantLoaded) {
-                            favs = setFavsFilter(state.restaurants);
+                            favs = setFavsFilter(state.restaurantResponse.restaurants);
                             if(favs.isNotEmpty){
                               return Column(
                                 children: favs.map((e) {

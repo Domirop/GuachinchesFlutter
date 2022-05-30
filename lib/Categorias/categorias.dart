@@ -4,8 +4,6 @@ import 'package:flutter_svg/svg.dart';
 import 'package:guachinches/Categorias/categorias_presenter.dart';
 import 'package:guachinches/data/HttpRemoteRepository.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
-import 'package:guachinches/data/cubit/categories_cubit.dart';
-import 'package:guachinches/data/cubit/categories_state.dart';
 import 'package:guachinches/data/model/Category.dart';
 import 'package:guachinches/globalMethods.dart';
 import 'package:guachinches/ui/main/splash_screen/splash_screen.dart';
@@ -27,12 +25,12 @@ class _CategoriasState extends State<Categorias> implements CategoriasView {
 
   @override
   void initState() {
-    final categoriesCubit = context.read<CategoriesCubit>();
+    // final categoriesCubit = context.read<CategoriesCubit>();
     remoteRepository = HttpRemoteRepository(Client());
-    presenter = CategoriasPresenter(this, categoriesCubit);
-    if (categoriesCubit.state is CategoriesInitial) {
-      presenter.getAllCategories();
-    }
+    // presenter = CategoriasPresenter(this, categoriesCubit);
+    // if (categoriesCubit.state is CategoriesInitial) {
+    //   presenter.getAllCategories();
+    // }
     super.initState();
   }
 
@@ -91,60 +89,60 @@ class _CategoriasState extends State<Categorias> implements CategoriasView {
                 height: 20.0,
               ),
               Container(
-                child: BlocBuilder<CategoriesCubit, CategoriesState>(
-                    builder: (context, state) {
-                  if (state is CategoriesLoaded) {
-                    List<ModelCategory> aux = [];
-                    if(filterCategory.isEmpty){
-                      aux = state.categories;
-                    }else{
-                      aux.addAll(state.categories.where((element) => element.nombre.toLowerCase().contains(filterCategory.toLowerCase())));
-                    }
-                    return Wrap(
-                      children: aux.map((e) {
-                        return GestureDetector(
-                          onTap: () => presenter.setCategoryToSelect(e.id),
-                          child: Container(
-                            width: MediaQuery.of(context).size.width / 2 - 60,
-                            height: 160,
-                            margin: EdgeInsets.symmetric(
-                                horizontal: 20.0, vertical: 20.0),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              boxShadow: [
-                                BoxShadow(
-                                    color: Colors.black54,
-                                    blurRadius: 5.0,
-                                    spreadRadius: 1.0,
-                                    offset: Offset(2.0, 4.0))
-                              ],
-                              borderRadius: BorderRadius.circular(17.0),
-                            ),
-                            child: Column(
-                              children: [
-                                Container(
-                                  child: SvgPicture.network(
-                                    e.iconUrl,
-                                    height: 100.0,
-                                    width: 100.0,
-                                  ),
-                                ),
-                                Container(
-                                    margin: EdgeInsets.only(
-                                        top: 10.0, left: 5.0, right: 5.0),
-                                    child: Text(
-                                      e.nombre,
-                                      textAlign: TextAlign.center,
-                                    )),
-                              ],
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                    );
-                  }
-                  return Container();
-                }),
+                // child: BlocBuilder<CategoriesCubit, CategoriesState>(
+                //     builder: (context, state) {
+                //   if (state is CategoriesLoaded) {
+                //     List<ModelCategory> aux = [];
+                //     if(filterCategory.isEmpty){
+                //       aux = state.categories;
+                //     }else{
+                //       aux.addAll(state.categories.where((element) => element.nombre.toLowerCase().contains(filterCategory.toLowerCase())));
+                //     }
+                //     return Wrap(
+                //       children: aux.map((e) {
+                //         return GestureDetector(
+                //           onTap: () => presenter.setCategoryToSelect(e.id),
+                //           child: Container(
+                //             width: MediaQuery.of(context).size.width / 2 - 60,
+                //             height: 160,
+                //             margin: EdgeInsets.symmetric(
+                //                 horizontal: 20.0, vertical: 20.0),
+                //             decoration: BoxDecoration(
+                //               color: Colors.white,
+                //               boxShadow: [
+                //                 BoxShadow(
+                //                     color: Colors.black54,
+                //                     blurRadius: 5.0,
+                //                     spreadRadius: 1.0,
+                //                     offset: Offset(2.0, 4.0))
+                //               ],
+                //               borderRadius: BorderRadius.circular(17.0),
+                //             ),
+                //             child: Column(
+                //               children: [
+                //                 Container(
+                //                   child: SvgPicture.network(
+                //                     e.iconUrl,
+                //                     height: 100.0,
+                //                     width: 100.0,
+                //                   ),
+                //                 ),
+                //                 Container(
+                //                     margin: EdgeInsets.only(
+                //                         top: 10.0, left: 5.0, right: 5.0),
+                //                     child: Text(
+                //                       e.nombre,
+                //                       textAlign: TextAlign.center,
+                //                     )),
+                //               ],
+                //             ),
+                //           ),
+                //         );
+                //       }).toList(),
+                //     );
+                //   }
+                //   return Container();
+                // }),
               ),
             ],
           ),

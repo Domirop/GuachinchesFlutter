@@ -4,14 +4,14 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:guachinches/data/HttpRemoteRepository.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
-import 'package:guachinches/data/cubit/banners_cubit.dart';
-import 'package:guachinches/data/cubit/categories_cubit.dart';
-import 'package:guachinches/data/cubit/top_restaurants_cubit.dart';
-import 'package:guachinches/data/cubit/user_cubit.dart';
+import 'package:guachinches/data/cubit/banners/banners_cubit.dart';
+import 'package:guachinches/data/cubit/cupones/cupones_cubit.dart';
+import 'package:guachinches/data/cubit/restaurants/top/top_restaurants_cubit.dart';
+import 'package:guachinches/data/cubit/user/user_cubit.dart';
 import 'package:guachinches/data/local/db_provider.dart';
 import 'package:guachinches/ui/main/splash_screen/splash_screen.dart';
 import 'package:http/http.dart';
-import 'data/cubit/restaurant_cubit.dart';
+import 'data/cubit/restaurants/basic/restaurant_cubit.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 const bool _kReleaseMode = const bool.fromEnvironment("dart.vm.product");
@@ -48,13 +48,13 @@ class _MyAppState extends State<MyApp> {
           create: ((context) => RestaurantCubit(remoteRepository)),
         ),
         BlocProvider(
+          create: ((context) => CuponesCubit(remoteRepository)),
+        ),
+        BlocProvider(
           create: ((context) => TopRestaurantCubit(remoteRepository)),
         ),
         BlocProvider(
           create: ((context) => UserCubit(remoteRepository)),
-        ),
-        BlocProvider(
-          create: ((context) => CategoriesCubit(remoteRepository)),
         ),
         BlocProvider(
           create: ((context) => BannersCubit(remoteRepository)),

@@ -1,7 +1,7 @@
 import 'package:bloc/bloc.dart';
 
 import 'package:guachinches/data/RemoteRepository.dart';
-import 'package:guachinches/data/cubit/banners_state.dart';
+import 'package:guachinches/data/cubit/banners/banners_state.dart';
 import 'package:guachinches/data/model/fotoBanner.dart';
 
 class BannersCubit extends Cubit<BannersState> {

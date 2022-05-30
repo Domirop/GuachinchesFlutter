@@ -4,8 +4,8 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
 import 'package:flutter/material.dart';
-import 'package:guachinches/data/cubit/user_cubit.dart';
-import 'package:guachinches/data/cubit/user_state.dart';
+import 'package:guachinches/data/cubit/user/user_cubit.dart';
+import 'package:guachinches/data/cubit/user/user_state.dart';
 import 'package:guachinches/data/model/version.dart';
 import 'package:guachinches/ui/main/login/login.dart';
 import 'package:guachinches/ui/sub_menu_pages/home/home.dart';
@@ -30,8 +30,6 @@ class SplashScreenPresenter {
     } else {
       versionApp = dotenv.env['GET_ANDROID_VERSION'];
     }
-    print(versionApp);
-    print(versionBD);
 
     return versionApp.split(".")[0] != versionBD.split(".")[0] ||
         versionApp.split(".")[1] != versionBD.split(".")[1];

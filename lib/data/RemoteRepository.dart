@@ -1,14 +1,16 @@
 import 'package:guachinches/data/model/Category.dart';
+import 'package:guachinches/data/model/CuponesAgrupados.dart';
 import 'package:guachinches/data/model/Municipality.dart';
 import 'package:guachinches/data/model/TopRestaurants.dart';
 import 'package:guachinches/data/model/fotoBanner.dart';
 import 'package:guachinches/data/model/restaurant.dart';
+import 'package:guachinches/data/model/restaurant_response.dart';
 import 'package:guachinches/data/model/user_info.dart';
 import 'package:guachinches/data/model/version.dart';
 
 abstract class RemoteRepository{
   Future<List<ModelCategory>> getAllCategories();
-  Future<List<Restaurant>> getAllRestaurants();
+  Future<RestaurantResponse> getAllRestaurants(int number);
   Future<List<TopRestaurants>> getTopRestaurants();
   Future<List<Municipality>> getAllMunicipalities();
   Future<UserInfo> getUserInfo(String userId);
@@ -18,4 +20,6 @@ abstract class RemoteRepository{
   Future<List<FotoBanner>> getGlobalImages();
   Future<bool> registerUser(Map data);
   Future<Version> getVersion();
+  Future<List<CuponesAgrupados>> getCuponesHistorias();
+  Future<void> saveCupon(String cuponId, String userId);
 }
