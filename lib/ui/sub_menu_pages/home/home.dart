@@ -8,6 +8,8 @@ import 'package:guachinches/data/cubit/cupones/cupones_cubit.dart';
 import 'package:guachinches/data/cubit/cupones/cupones_state.dart';
 import 'package:guachinches/data/cubit/restaurants/top/top_restaurant_state.dart';
 import 'package:guachinches/data/cubit/restaurants/top/top_restaurants_cubit.dart';
+import 'package:guachinches/data/cubit/user/user_cubit.dart';
+import 'package:guachinches/data/cubit/user/user_state.dart';
 import 'package:guachinches/data/model/CuponesAgrupados.dart';
 import 'package:guachinches/data/model/TopRestaurants.dart';
 import 'package:guachinches/globalMethods.dart';
@@ -33,6 +35,7 @@ class _HomeState extends State<Home> implements HomeView {
   bool isCharging = false;
 
   HomePresenter presenter;
+  List<Widget> screens;
   RemoteRepository remoteRepository;
   bool isCorrectSaveCupon;
   Widget restaurantsWidgets;
@@ -45,12 +48,18 @@ class _HomeState extends State<Home> implements HomeView {
     final topRestaurantCubit = context.read<TopRestaurantCubit>();
     final cuponesCubit = context.read<CuponesCubit>();
     final bannersCubit = context.read<BannersCubit>();
+    final userCubit = context.read<UserCubit>();
     remoteRepository = HttpRemoteRepository(Client());
-    presenter =
-        HomePresenter(this, topRestaurantCubit, bannersCubit, cuponesCubit, remoteRepository);
+    presenter = HomePresenter(this, topRestaurantCubit, bannersCubit,
+        cuponesCubit, userCubit, remoteRepository);
     presenter.getUserInfo();
     if (bannersCubit.state is BannersInitial) {
       presenter.getAllBanner();
+    }
+    if (userCubit.state is UserInitial) {
+      presenter.getScreens();
+    } else if (userCubit.state is UserLoaded) {
+      presenter.getScreens();
     }
     if (cuponesCubit.state is CuponesInitial) {
       presenter.getCupones();
@@ -58,14 +67,14 @@ class _HomeState extends State<Home> implements HomeView {
     if (topRestaurantCubit.state is TopRestaurantInitial) {
       presenter.getTopRestaurants();
       createListWidgetForRestaurants();
-    }else if(topRestaurantCubit.state is TopRestaurantLoaded){
+    } else if (topRestaurantCubit.state is TopRestaurantLoaded) {
       createListWidgetForRestaurants();
     }
-    appBarBasic = AppBarBasic(widget);
   }
 
   @override
   Widget build(BuildContext context) {
+    appBarBasic = AppBarBasic(widget, screens);
     return Scaffold(
       appBar: appBarBasic.createWidget(context),
       body: SingleChildScrollView(
@@ -132,9 +141,7 @@ class _HomeState extends State<Home> implements HomeView {
             children: [
               GestureDetector(
                 onTap: () => GlobalMethods().pushPage(
-                    context,
-                    HistoryFullPage(
-                        cuponesAgrupados[index], userId)),
+                    context, HistoryFullPage(cuponesAgrupados[index], userId)),
                 child: Column(
                   children: [
                     Container(
@@ -151,7 +158,8 @@ class _HomeState extends State<Home> implements HomeView {
                           repeat: ImageRepeat.noRepeat,
                           alignment: Alignment.center,
                           fit: BoxFit.fill,
-                          image: NetworkImage(cuponesAgrupados[index].foto),
+                          image: cuponesAgrupados[index].foto != null ? NetworkImage(cuponesAgrupados[index].foto) : AssetImage(
+                              "assets/images/notImage.png"),
                         ),
                       ),
                     ),
@@ -185,7 +193,8 @@ class _HomeState extends State<Home> implements HomeView {
                 return Wrap(
                   children: [
                     GestureDetector(
-                      onTap: () => GlobalMethods().pushPage(context, Details(widget.restaurants[index].id)),
+                      onTap: () => GlobalMethods().pushPage(
+                          context, Details(widget.restaurants[index].id)),
                       child: Container(
                         height: 280,
                         margin: EdgeInsets.only(right: 20),
@@ -214,8 +223,9 @@ class _HomeState extends State<Home> implements HomeView {
                                   repeat: ImageRepeat.noRepeat,
                                   alignment: Alignment.center,
                                   fit: BoxFit.fill,
-                                  image: NetworkImage(
-                                      widget.restaurants[index].imagen),
+                                  image: widget.restaurants[index].imagen != null ? NetworkImage(
+                                      widget.restaurants[index].imagen) : AssetImage(
+                                      "assets/images/notImage.png"),
                                 ),
                               ),
                             ),
@@ -296,6 +306,15 @@ class _HomeState extends State<Home> implements HomeView {
     if (mounted) {
       setState(() {
         userId = id;
+      });
+    }
+  }
+
+  @override
+  setScreens(List<Widget> screens) {
+    if (mounted) {
+      setState(() {
+        this.screens = screens;
       });
     }
   }

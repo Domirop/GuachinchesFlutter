@@ -33,7 +33,8 @@ class _PhotoFullScreenState extends State<PhotoFullScreen> {
                     repeat: ImageRepeat.noRepeat,
                     alignment: Alignment.center,
                     fit: BoxFit.fill,
-                    image: NetworkImage(item.photoUrl),
+                    image: item.photoUrl != null ? NetworkImage(item.photoUrl) : AssetImage(
+                        "assets/images/notImage.png"),
                   ),
                 ),
               ),

@@ -38,8 +38,16 @@ class Restaurant {
   bool _open;
   String _googleHorarios;
   double _avgRating;
+  String _mainFoto;
+
+
+  set id(String value) {
+    _id = value;
+  }
 
   String get id => _id;
+
+  String get mainFoto => _mainFoto;
 
   String get horarios => _horarios;
 
@@ -101,7 +109,7 @@ class Restaurant {
       List<Review> valoraciones,
       String googleHorarios,
       bool open,
-      double avgRating}) {
+      double avgRating, String mainFoto}) {
     _id = id;
     _enable = enable;
     _horarios = horarios;
@@ -121,6 +129,7 @@ class Restaurant {
     _open = open;
     _googleHorarios = googleHorarios;
     _avgRating = avgRating;
+    _mainFoto = mainFoto;
   }
 
   Restaurant.fromJson(dynamic json) {
@@ -132,10 +141,10 @@ class Restaurant {
     _direccion = json["direccion"];
     _telefono = json["telefono"];
     _destacado = json["destacado"];
+    _mainFoto = json["fotos.photoUrl"];
     if (json["avgRating"] != null)
       _avgRating =
           double.parse(double.parse(json["avgRating"]).toStringAsFixed(2));
-    else _avgRating = 4.868;
     _createdAt = json["createdAt"];
     _updatedAt = json["updatedAt"];
     _negocioMunicipioId = json["NegocioMunicipioId"];

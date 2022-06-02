@@ -1,4 +1,5 @@
 import 'package:guachinches/data/model/Category.dart';
+import 'package:guachinches/data/model/Cupones.dart';
 import 'package:guachinches/data/model/CuponesAgrupados.dart';
 import 'package:guachinches/data/model/Municipality.dart';
 import 'package:guachinches/data/model/TopRestaurants.dart';
@@ -23,4 +24,6 @@ abstract class RemoteRepository{
   Future<List<CuponesAgrupados>> getCuponesHistorias();
   Future<bool> saveCupon(String cuponId, String userId);
   Future<Restaurant> getRestaurantById(String id);
+  Future<List<Restaurant>> getFilterRestaurants(String categorias, String municipalities, String nombre);
+  Future<List<Cupones>> getCuponesUsuario(String id);
 }

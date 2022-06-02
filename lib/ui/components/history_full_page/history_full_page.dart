@@ -111,7 +111,8 @@ class _HistoryFullPageState extends State<HistoryFullPage>
                         CircleAvatar(
                           radius: 24,
                           backgroundImage:
-                              NetworkImage(widget.cuponesAgrupados.foto),
+                              widget.cuponesAgrupados.foto != null ? NetworkImage(widget.cuponesAgrupados.foto) : AssetImage(
+                                  "assets/images/notImage.png"),
                         ),
                         SizedBox(width: 16),
                         Expanded(

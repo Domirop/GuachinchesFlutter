@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:guachinches/data/model/Category.dart';
+import 'package:guachinches/data/model/Cupones.dart';
 import 'package:guachinches/data/model/CuponesAgrupados.dart';
 import 'package:guachinches/data/model/Municipality.dart';
 import 'package:guachinches/data/model/TopRestaurants.dart';
@@ -49,6 +50,27 @@ class HttpRemoteRepository implements RemoteRepository {
       return restaurantResponse;
     } on Exception catch (e) {
       return null;
+    }
+  }
+
+  Future<List<Restaurant>> getFilterRestaurants(String categorias, String municipalities, String nombre) async {
+    try {
+      List<Restaurant> restaurants = [];
+      String url = dotenv.env['ENDPOINT_V2'] +
+          "restaurant/findByFilter/filter?name=";
+      if(nombre != null || nombre.isNotEmpty)url += nombre;
+      if(categorias != null && categorias.isNotEmpty) url += "&categories=" + categorias;
+      if(municipalities != null && municipalities.isNotEmpty) url += "&municipalities=" + municipalities;
+      var uri = Uri.parse(url);
+      var response = await _client.get(uri);
+      List<dynamic> data = json.decode(response.body);
+      for (var i = 0; i < data.length; i++) {
+        Restaurant restaurant = Restaurant.fromJson(data[i]);
+        restaurants.add(restaurant);
+      }
+      return restaurants;
+    } on Exception catch (e) {
+      return [];
     }
   }
 
@@ -258,4 +280,23 @@ class HttpRemoteRepository implements RemoteRepository {
     if(x["statusCode"] != null && x["statusCode"] == 500)return false;
     else return true;
   }
+
+  Future<List<Cupones>> getCuponesUsuario(String id) async {
+    try {
+      List<Cupones> cupones = [];
+      String url = dotenv.env['ENDPOINT_V2'] +
+          "users/" + id + "/cupones";
+      var uri = Uri.parse(url);
+      var response = await _client.get(uri);
+      var data = json.decode(response.body);
+      for (var i = 0; i < data["cuponesUsuario"].length; i++) {
+        Cupones cupon = Cupones.fromJson(data["cuponesUsuario"][i]["cupones"]);
+        cupones.add(cupon);
+      }
+      return cupones;
+    } on Exception catch (e) {
+      return [];
+    }
+  }
+
 }

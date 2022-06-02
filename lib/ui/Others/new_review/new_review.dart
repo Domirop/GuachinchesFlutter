@@ -76,7 +76,8 @@ class _NewReviewState extends State<NewReview> implements NewReviewView {
                     decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(12.0),
                         image: DecorationImage(
-                          image: NetworkImage(widget._mainPhoto),
+                          image: widget._mainPhoto != null ? NetworkImage(widget._mainPhoto) : AssetImage(
+                              "assets/images/notImage.png"),
                         )),
                   ),
                   Expanded(

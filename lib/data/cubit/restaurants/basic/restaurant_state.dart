@@ -1,5 +1,6 @@
 
 import 'package:flutter/foundation.dart';
+import 'package:guachinches/data/model/restaurant.dart';
 import 'package:guachinches/data/model/restaurant_response.dart';
 
 @immutable
@@ -13,14 +14,14 @@ class RestaurantInitial extends RestaurantState {
 }
 
 class RestaurantFilter extends RestaurantState {
-  final RestaurantResponse filtersRestaurants;
+  final List<Restaurant> filtersRestaurants;
   const RestaurantFilter(this.filtersRestaurants);
 
   @override
   bool operator ==(Object o) {
     if (identical(this, o)) return true;
 
-    return o is RestaurantLoaded && o.restaurantResponse == filtersRestaurants;
+    return o is RestaurantFilter && o.filtersRestaurants == filtersRestaurants;
   }
 
   @override

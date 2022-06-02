@@ -1,30 +1,36 @@
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:guachinches/data/cubit/restaurants/basic/restaurant_cubit.dart';
+import 'package:guachinches/data/RemoteRepository.dart';
 import 'package:guachinches/data/cubit/user/user_cubit.dart';
 import 'package:guachinches/data/local/restaurant_sql_lite.dart';
 import 'package:guachinches/data/local/sql_lite_local_repository.dart';
+import 'package:guachinches/data/model/Cupones.dart';
+import 'package:guachinches/data/model/restaurant.dart';
 
 class ProfilePresenter{
   final ProfileView _view;
   final storage = new FlutterSecureStorage();
   UserCubit _userCubit;
+  RemoteRepository _remoteRepository;
   SqlLiteLocalRepository sqlLiteLocalRepository = SqlLiteLocalRepository();
-  RestaurantCubit _restaurantCubit;
-  ProfilePresenter(this._view, this._userCubit, this._restaurantCubit);
+  ProfilePresenter(this._view, this._userCubit, this._remoteRepository);
 
 
   getUserInfo() async {
     String userId = await storage.read(key: "userId");
     await _userCubit.getUserInfo(userId);
+    List<Cupones> cupones = await _remoteRepository.getCuponesUsuario(userId);
+    _view.updateCupones(cupones);
   }
 
   getRestaurantsFavs() async {
-    List<RestaurantSQLLite> restaurants = await sqlLiteLocalRepository.getRestaurants();
+    List<RestaurantSQLLite> restaurantsSql = await sqlLiteLocalRepository.getRestaurants();
+    List<Restaurant> restaurants = [];
+    for(var i = 0; i < restaurantsSql.length; i++) {
+      Restaurant restaurant = await _remoteRepository.getRestaurantById(restaurantsSql[i].restaurantId);
+      restaurant.id = restaurantsSql[i].restaurantId;
+      restaurants.add(restaurant);
+    }
     _view.updateListSql(restaurants);
-  }
-
-  getAllRestaurants() async {
-    // await _restaurantCubit.getRestaurants();
   }
 
   logOut() async {
@@ -39,5 +45,6 @@ class ProfilePresenter{
 
 abstract class ProfileView{
   goSplashScreen();
-  updateListSql(List<RestaurantSQLLite> restaurants);
+  updateListSql(List<Restaurant> restaurants);
+  updateCupones(List<Cupones> cupones);
 }

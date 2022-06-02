@@ -49,10 +49,12 @@ class SplashScreenPresenter {
         if (_userCubit.state is UserInitial) {
           var response = await _userCubit.getUserInfo(userId);
           if (response == true) {
-            screens = [Home(), SearchPage(), Valoraciones(), Profile()];
+            screens = [Home(), SearchPage(userId: userId), Valoraciones(), Profile()];
           } else {
             await storage.delete(key: "userId");
           }
+        }else if(_userCubit.state is UserLoaded){
+          screens = [Home(), SearchPage(userId: userId), Valoraciones(), Profile()];
         }
       } else {
         screens = [

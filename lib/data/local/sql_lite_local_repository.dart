@@ -25,7 +25,8 @@ class SqlLiteLocalRepository implements LocalRepository {
   @override
   Future<RestaurantSQLLite> getRestaurant(String restaurantId) async {
     final db = await DBProvider.db.database;
-    var res = await db.rawQuery("select * from fav where restaurantId='" + restaurantId + "'");
+    String query = "select * from fav where restaurantId='" + restaurantId + "'";
+    var res = await db.rawQuery(query);
     if(res.isEmpty) return null;
     else return RestaurantSQLLite.fromMap(res[0]);
   }

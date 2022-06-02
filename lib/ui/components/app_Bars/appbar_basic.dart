@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:guachinches/globalMethods.dart';
+import 'package:guachinches/ui/main/menu/menu.dart';
 import 'package:guachinches/ui/sub_menu_pages/home/home.dart';
-import 'package:guachinches/ui/sub_menu_pages/search_page/search_page.dart';
 
 class AppBarBasic {
   Home home;
+  List<Widget> screens;
 
-  AppBarBasic(this.home);
+  AppBarBasic(this.home, this.screens);
 
   AppBar createWidget(BuildContext context) {
     return AppBar(
@@ -26,7 +27,7 @@ class AppBarBasic {
                 margin: EdgeInsets.only(right: 10.0),
                 child: GestureDetector(
                   onTap: () {
-                    GlobalMethods().pushPage(context, SearchPage());
+                    GlobalMethods().pushAndReplacement(context, Menu(screens, selectedItem: 1));
                   },
                   child: Icon(
                     Icons.search,
@@ -35,20 +36,9 @@ class AppBarBasic {
                   ),
                 ),
               ),
-              // Container(
-              //   margin: EdgeInsets.only(right: 10.0),
-              //   child: GestureDetector(
-              //     onTap: () {},
-              //     child: Icon(
-              //       Icons.notifications_none,
-              //       color: Colors.black,
-              //       size: 30.0,
-              //     ),
-              //   ),
-              // ),
               GestureDetector(
                 onTap: () {
-                  GlobalMethods().pushPage(context, SearchPage());
+                  GlobalMethods().pushAndReplacement(context, Menu(screens, selectedItem: 3));
                 },
                 child: Icon(
                   Icons.favorite_border,
@@ -64,4 +54,5 @@ class AppBarBasic {
       elevation: 5.0,
     );
   }
+
 }

@@ -291,7 +291,7 @@ class _DetailsState extends State<Details> implements DetailView {
                                   : Row(
                                       children: [
                                         Text(
-                                          restaurant.avg,
+                                          restaurant.avgRating.toString(),
                                           style: TextStyle(
                                             fontSize: 18.0,
                                             fontWeight: FontWeight.bold,
@@ -451,8 +451,9 @@ class _DetailsState extends State<Details> implements DetailView {
                                                   repeat: ImageRepeat.noRepeat,
                                                   alignment: Alignment.center,
                                                   fit: BoxFit.cover,
-                                                  image: NetworkImage(restaurant
-                                                      .fotos[index].photoUrl),
+                                                  image: restaurant.fotos[index].photoUrl != null ? NetworkImage(restaurant
+                                                      .fotos[index].photoUrl) : AssetImage(
+                                                      "assets/images/notImage.png"),
                                                 ),
                                               ),
                                             ),
@@ -915,7 +916,7 @@ class _DetailsState extends State<Details> implements DetailView {
 
   saveFav() {
     if (this.userId != null) {
-      presenter.saveFavRestaurant(restaurant.id);
+      presenter.saveFavRestaurant(widget.id);
     }
   }
 

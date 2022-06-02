@@ -28,7 +28,8 @@ class _HeroSliderComponentState extends State<HeroSliderComponent> {
                   repeat: ImageRepeat.noRepeat,
                   alignment: Alignment.center,
                   fit: BoxFit.fill,
-                  image: NetworkImage(item.fotoUrl),
+                  image: item.fotoUrl != null ? NetworkImage(item.fotoUrl) : AssetImage(
+                      "assets/images/notImage.png"),
                 ),
               ),
             ))

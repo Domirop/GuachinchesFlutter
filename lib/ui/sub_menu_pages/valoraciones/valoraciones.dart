@@ -75,81 +75,74 @@ class _ValoracionesState extends State<Valoraciones> implements ValoracionesView
                         borderRadius: BorderRadius.circular(17.0),
                       ),
                       child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Text(
-                                   e.title != null ? e.title : "Tu valoración",
-                                    style: TextStyle(
-                                      color: Colors.black,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 16.0,
+                              Flexible(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                     e.title != null && e.title.isNotEmpty ? e.title : "Tu valoración",
+                                      style: TextStyle(
+                                        color: Colors.black,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 16.0,
+                                      ),
                                     ),
-                                  ),
-                                  Row(
-                                    children: [
-                                      Text(
-                                        e.rating,
-                                        style: TextStyle(
-                                          fontSize: 18.0,
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.black,
+                                    Row(
+                                      children: [
+                                        Text(
+                                          e.rating,
+                                          style: TextStyle(
+                                            fontSize: 18.0,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.black,
+                                          ),
                                         ),
-                                      ),
-                                      RatingBar.builder(
-                                        ignoreGestures: true,
-                                        initialRating: double.parse(e.rating),
-                                        minRating: 1,
-                                        direction: Axis.horizontal,
-                                        allowHalfRating: true,
-                                        itemCount: 5,
-                                        itemSize: 20,
-                                        glowColor: Colors.white,
-                                        onRatingUpdate: (rating)=>{},
-                                        itemPadding: EdgeInsets.symmetric(horizontal: 2.0),
-                                        itemBuilder: (context, _) => Icon(
-                                          Icons.star,
-                                          color: Colors.amber,
+                                        RatingBar.builder(
+                                          ignoreGestures: true,
+                                          initialRating: double.parse(e.rating),
+                                          minRating: 1,
+                                          direction: Axis.horizontal,
+                                          allowHalfRating: true,
+                                          itemCount: 5,
+                                          itemSize: 20,
+                                          glowColor: Colors.white,
+                                          onRatingUpdate: (rating)=>{},
+                                          itemPadding: EdgeInsets.symmetric(horizontal: 2.0),
+                                          itemBuilder: (context, _) => Icon(
+                                            Icons.star,
+                                            color: Colors.amber,
+                                          ),
                                         ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
+                                      ],
+                                    ),
+                                  ],
+                                ),
                               ),
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.end,
-                                mainAxisAlignment: MainAxisAlignment.start,
-                                children: [
-                                  SizedBox(
-                                    height: 5.0,
-                                  ),
-                                  Text(
-                                    e.restaurantes.nombre,
-                                    style: TextStyle(
-                                      color: Colors.black,
-                                      fontSize: 14.0,
+                              Flexible(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    SizedBox(
+                                      height: 5.0,
                                     ),
-                                  ),
-                                  Text(
-                                    "20/02/2021",
-                                    textAlign: TextAlign.right,
-                                    style: TextStyle(
-                                      color: Colors.black,
-                                      fontSize: 10.0,
+                                    Text(
+                                      e.restaurantes.nombre,
+                                      style: TextStyle(
+                                        color: Colors.black,
+                                        fontSize: 14.0,
+                                        fontWeight: FontWeight.bold
+                                      ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
                             ],
-                          ),
-                          SizedBox(
-                            height: 20.0,
                           ),
                           SizedBox(
                             height: 20.0,

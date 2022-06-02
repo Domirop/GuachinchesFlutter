@@ -1,43 +1,94 @@
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
+import 'package:guachinches/data/cubit/cupones/cupones_cubit.dart';
 import 'package:guachinches/data/cubit/restaurants/basic/restaurant_cubit.dart';
 import 'package:guachinches/data/model/Category.dart';
 import 'package:guachinches/data/model/Municipality.dart';
 
-class SearchPagePresenter{
+class SearchPagePresenter {
   final SearchPageView _view;
   RestaurantCubit _restaurantCubit;
+  CuponesCubit _cuponesCubit;
   final RemoteRepository _remoteRepository;
 
   final storage = new FlutterSecureStorage();
 
-  SearchPagePresenter(this._view, this._restaurantCubit, this._remoteRepository);
+  SearchPagePresenter(this._view, this._restaurantCubit, this._cuponesCubit,
+      this._remoteRepository);
 
   getAllRestaurants(number) async {
     await _restaurantCubit.getRestaurants(number);
     _view.changeCharginInitial();
   }
 
+  saveCupon(String userId, String cuponId) async {
+    bool aux = await _remoteRepository.saveCupon(cuponId, userId);
+    await _cuponesCubit.getCuponesHistorias();
+    _view.estadoCupon(aux);
+    _view.generateWidgetTab3();
+  }
+
+  getAllRestaurantsPag1(number) async {
+    await getAllRestaurants(number);
+    _view.generateWidgetTab1();
+  }
+
+  getAllRestaurantsPag2(number) async {
+    await getAllRestaurants(number);
+    _view.generateWidgetTab2();
+  }
+
+  getAllCupones() async {
+    await _cuponesCubit.getCuponesHistorias();
+  }
+
   setCharging() async {
     _view.changeCharginInitial();
   }
 
-  getAllRestaurantsFilters(String categoria, String municipio, String nombre, bool abierto) async {
-    // await _restaurantCubit.getFilterRestaurants();
+  getAllRestaurantsFilters({List<String> categories, List<String> municipalities, int number, String text}) async {
+    if((categories == null || categories.isEmpty) &&
+        (municipalities == null || municipalities.isEmpty) &&
+        (text == null || text.length <= 3)){
+    }else{
+      await _restaurantCubit.getFilterRestaurants(categories: categories, municipalities: municipalities, text: text);
+      _view.removeListeners();
+    }
   }
 
   getAllMunicipalitiesAndCategories() async {
     List<ModelCategory> categories = await _remoteRepository.getAllCategories();
-    List<Municipality> municipality = await _remoteRepository.getAllMunicipalities();
+    List<Municipality> municipality =
+        await _remoteRepository.getAllMunicipalities();
     _view.setMunicipalitiesAndCategories(categories, municipality);
   }
 
-  updateNumber(int number){
-    _view.updateNumber(number);
+  updateNumber(List<String> categories, List<String> municipalities, int number) async {
+    _view.updateNumber(categories, municipalities, number);
+  }
+
+  updateFilter(){
+    _view.updateFilter();
   }
 }
-abstract class SearchPageView{
+
+abstract class SearchPageView {
   changeCharginInitial();
-  setMunicipalitiesAndCategories(List<ModelCategory> categories, List<Municipality> municipality);
-  updateNumber(int number);
+
+  setMunicipalitiesAndCategories(
+      List<ModelCategory> categories, List<Municipality> municipality);
+
+  updateNumber(List<String> categories, List<String> municipalities, int number);
+
+  updateFilter();
+
+  generateWidgetTab1();
+
+  generateWidgetTab2();
+
+  removeListeners();
+
+  generateWidgetTab3();
+
+  estadoCupon(bool correctSave);
 }

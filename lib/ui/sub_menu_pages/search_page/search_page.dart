@@ -6,9 +6,12 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:guachinches/data/HttpRemoteRepository.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
+import 'package:guachinches/data/cubit/cupones/cupones_cubit.dart';
+import 'package:guachinches/data/cubit/cupones/cupones_state.dart';
 import 'package:guachinches/data/cubit/restaurants/basic/restaurant_cubit.dart';
 import 'package:guachinches/data/cubit/restaurants/basic/restaurant_state.dart';
 import 'package:guachinches/data/model/Category.dart';
+import 'package:guachinches/data/model/CuponesAgrupados.dart';
 import 'package:guachinches/data/model/Municipality.dart';
 import 'package:guachinches/data/model/restaurant.dart';
 import 'package:guachinches/globalMethods.dart';
@@ -17,6 +20,10 @@ import 'package:guachinches/ui/sub_menu_pages/search_page/search_page_presenter.
 import 'package:http/http.dart';
 
 class SearchPage extends StatefulWidget {
+  String userId;
+
+  SearchPage({this.userId});
+
   @override
   _SearchPageState createState() => _SearchPageState();
 }
@@ -29,26 +36,38 @@ class _SearchPageState extends State<SearchPage>
   ScrollController controller1;
   SearchPagePresenter presenter;
   List<Restaurant> restaurants = [];
+  List<Restaurant> restaurantsFilter = [];
+  int maxRestaurants = 9999;
   List<Restaurant> restaurants1 = [];
+  List<CuponesAgrupados> cupones = [];
+  int maxRestaurants1 = 9999;
   List<ModelCategory> categories = [];
   List<Municipality> municipalities = [];
   int numberPagination = 0;
   int numberPagination2 = 0;
   int currentIndex = 0;
+  List<String> municipalitiesId = [];
+  List<String> categoriesId = [];
+  String textValue = "";
 
   Widget tab1;
   Widget tab2;
+  Widget tab3;
   int numero = 0;
   bool isCharging = false;
   bool isChargingInitalRestaurants = true;
   TabController _tabController;
+  var restaurantCubit;
 
   @override
   void initState() {
     remoteRepository = HttpRemoteRepository(Client());
-    final restaurantCubit = context.read<RestaurantCubit>();
-    presenter = SearchPagePresenter(this, restaurantCubit, remoteRepository);
-    if (restaurantCubit.state is RestaurantInitial) {
+    restaurantCubit = context.read<RestaurantCubit>();
+    final cuponesCubit = context.read<CuponesCubit>();
+    presenter = SearchPagePresenter(
+        this, restaurantCubit, cuponesCubit, remoteRepository);
+    if (restaurantCubit.state is RestaurantInitial ||
+        restaurantCubit.state is RestaurantFilter) {
       presenter.getAllRestaurants(numberPagination);
       generateWidgetsTab1();
       generateWidgetsTab2();
@@ -57,12 +76,43 @@ class _SearchPageState extends State<SearchPage>
       generateWidgetsTab2();
       presenter.setCharging();
     }
+    if (cuponesCubit.state is CuponesInitial) {
+      presenter.getAllRestaurants(numberPagination);
+      generateWidgetsTab3();
+    } else if (cuponesCubit.state is CuponesLoaded) {
+      generateWidgetsTab3();
+      presenter.setCharging();
+    }
     presenter.getAllMunicipalitiesAndCategories();
     controller2 = new ScrollController();
     controller1 = new ScrollController();
     _tabController = TabController(length: 3, vsync: this);
     controller2.addListener(_scrollListener2);
     controller1.addListener(_scrollListener1);
+    _tabController.addListener(tabListenerFunction);
+  }
+
+  tabListenerFunction() {
+    if (restaurantCubit.state is RestaurantFilter &&
+        (_tabController.index == 2 || _tabController.index == 0)) {
+      numberPagination = 0;
+      numberPagination2 = 0;
+      presenter.getAllRestaurants(0);
+      generateWidgetsTab1();
+      generateWidgetsTab2();
+      controller2.addListener(_scrollListener2);
+      if (mounted) {
+        setState(() {
+          numero = 0;
+          categoriesId = [];
+          municipalitiesId = [];
+        });
+      }
+    }
+  }
+
+  inputSearchFunction() {
+    _tabController.index = 1;
   }
 
   @override
@@ -77,11 +127,12 @@ class _SearchPageState extends State<SearchPage>
     Widget aux = BlocBuilder<RestaurantCubit, RestaurantState>(
         builder: (context, state) {
       if (state is RestaurantLoaded) {
-        List aux = restaurants1;
-        aux.addAll(state.restaurantResponse.restaurants);
-        restaurants1 = aux;
+        List auxList = restaurants1;
+        auxList.addAll(state.restaurantResponse.restaurants);
+        restaurants1 = auxList;
+        maxRestaurants1 = state.restaurantResponse.count;
         return Wrap(
-            children: aux
+            children: auxList
                 .map((e) => GestureDetector(
                       onTap: () =>
                           GlobalMethods().pushPage(context, Details(e.id)),
@@ -93,8 +144,9 @@ class _SearchPageState extends State<SearchPage>
                             repeat: ImageRepeat.noRepeat,
                             alignment: Alignment.center,
                             fit: BoxFit.fill,
-                            image: NetworkImage(
-                                "https://louvre.s3.fr-par.scw.cloud/guachinches/184954223_928922927895837_779066988885510655_n.jpeg"),
+                            image: e.mainFoto != null
+                                ? NetworkImage(e.mainFoto)
+                                : AssetImage("assets/images/notImage.png"),
                           ),
                         ),
                         child: Center(
@@ -121,18 +173,15 @@ class _SearchPageState extends State<SearchPage>
   }
 
   setListeners1Function() {
+    numberPagination += 15;
     Timer(Duration(milliseconds: 500), () {
-      if (mounted) {
-        setState(() {
-          numberPagination += 15;
-        });
-      }
-      presenter.getAllRestaurants(numberPagination);
-      generateWidgetsTab1();
+      presenter.getAllRestaurantsPag1(numberPagination);
     });
-    Timer(Duration(milliseconds: 2000), () {
-      controller1.addListener(_scrollListener1);
-    });
+    if ((numberPagination + 15) < maxRestaurants1) {
+      Timer(Duration(milliseconds: 2000), () {
+        controller1.addListener(_scrollListener1);
+      });
+    }
   }
 
   _scrollListener1() {
@@ -150,18 +199,15 @@ class _SearchPageState extends State<SearchPage>
   }
 
   setListeners2Function() {
+    numberPagination2 += 15;
     Timer(Duration(milliseconds: 500), () {
-      if (mounted) {
-        setState(() {
-          numberPagination2 += 15;
-        });
-      }
-      presenter.getAllRestaurants(numberPagination2);
-      generateWidgetsTab2();
+      presenter.getAllRestaurantsPag2(numberPagination2);
     });
-    Timer(Duration(milliseconds: 2000), () {
-      controller2.addListener(_scrollListener2);
-    });
+    if ((numberPagination2 + 15) < maxRestaurants) {
+      Timer(Duration(milliseconds: 2000), () {
+        controller2.addListener(_scrollListener2);
+      });
+    }
   }
 
   _scrollListener2() {
@@ -182,17 +228,19 @@ class _SearchPageState extends State<SearchPage>
     Widget aux = BlocBuilder<RestaurantCubit, RestaurantState>(
         builder: (context, state) {
       if (state is RestaurantLoaded) {
-        List aux = restaurants;
-        aux.addAll(state.restaurantResponse.restaurants);
-        restaurants = aux;
+        List auxList = restaurants;
+        auxList.addAll(state.restaurantResponse.restaurants);
+        restaurants = auxList;
+        maxRestaurants = state.restaurantResponse.count;
         return Column(
             mainAxisAlignment: MainAxisAlignment.center,
-            children: aux
+            children: auxList
                 .map((e) => GestureDetector(
                       onTap: () =>
                           GlobalMethods().pushPage(context, Details(e.id)),
                       child: Container(
-                        width: MediaQuery.of(context).size.width * 0.98,
+                        padding: EdgeInsets.symmetric(vertical: 10.0),
+                        width: MediaQuery.of(context).size.width * 0.95,
                         child: Column(
                           children: [
                             Row(
@@ -203,12 +251,15 @@ class _SearchPageState extends State<SearchPage>
                                   width:
                                       MediaQuery.of(context).size.width * 0.30,
                                   decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(10.0),
                                     image: DecorationImage(
                                       repeat: ImageRepeat.noRepeat,
                                       alignment: Alignment.center,
                                       fit: BoxFit.fill,
-                                      image: NetworkImage(
-                                          "https://louvre.s3.fr-par.scw.cloud/guachinches/184954223_928922927895837_779066988885510655_n.jpeg"),
+                                      image: e.mainFoto != null
+                                          ? NetworkImage(e.mainFoto)
+                                          : AssetImage(
+                                              "assets/images/notImage.png"),
                                     ),
                                   ),
                                 ),
@@ -218,6 +269,10 @@ class _SearchPageState extends State<SearchPage>
                                   child: Column(
                                     children: [
                                       Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceBetween,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
                                           Flexible(
                                             child: Container(
@@ -226,6 +281,8 @@ class _SearchPageState extends State<SearchPage>
                                                       .width *
                                                   0.3,
                                               child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
                                                 children: [
                                                   Text(
                                                     e.nombre,
@@ -239,7 +296,7 @@ class _SearchPageState extends State<SearchPage>
                                                     ),
                                                   ),
                                                   Text(
-                                                    e.destacado,
+                                                    e.direccion,
                                                     maxLines: 2,
                                                     overflow:
                                                         TextOverflow.ellipsis,
@@ -249,11 +306,188 @@ class _SearchPageState extends State<SearchPage>
                                                           FontWeight.bold,
                                                     ),
                                                   ),
+                                                  Text(
+                                                    e.open
+                                                        ? 'Abierto'
+                                                        : 'Cerrado',
+                                                    maxLines: 2,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                    style: TextStyle(
+                                                      color: e.open
+                                                          ? Color.fromRGBO(
+                                                              149, 220, 0, 1)
+                                                          : Color.fromRGBO(
+                                                              226, 120, 120, 1),
+                                                      fontSize: 12,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                    ),
+                                                  ),
                                                 ],
                                               ),
                                             ),
                                           ),
-                                          Container(),
+                                          e.avgRating != null
+                                              ? Container(
+                                                  padding: EdgeInsets.symmetric(
+                                                      horizontal: 10.0,
+                                                      vertical: 2.0),
+                                                  decoration: BoxDecoration(
+                                                    color: Color.fromRGBO(
+                                                        149, 194, 55, 1),
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            6.0),
+                                                  ),
+                                                  child: Text(
+                                                    e.avgRating.toString(),
+                                                    style: TextStyle(
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                      fontSize: 18.0,
+                                                      color: Colors.white,
+                                                    ),
+                                                  ),
+                                                )
+                                              : Container(),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            SizedBox(
+                              width: 10,
+                            )
+                          ],
+                        ),
+                      ),
+                    ))
+                .toList());
+      } else if (state is RestaurantFilter) {
+        List auxList = state.filtersRestaurants;
+        restaurantsFilter = auxList;
+        return Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: auxList
+                .map((e) => GestureDetector(
+                      onTap: () =>
+                          GlobalMethods().pushPage(context, Details(e.id)),
+                      child: Container(
+                        padding: EdgeInsets.symmetric(vertical: 10.0),
+                        width: MediaQuery.of(context).size.width * 0.95,
+                        child: Column(
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  height: 110,
+                                  margin: EdgeInsets.only(right: 10),
+                                  width:
+                                      MediaQuery.of(context).size.width * 0.30,
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(10.0),
+                                    image: DecorationImage(
+                                      repeat: ImageRepeat.noRepeat,
+                                      alignment: Alignment.center,
+                                      fit: BoxFit.fill,
+                                      image: e.mainFoto != null
+                                          ? NetworkImage(e.mainFoto)
+                                          : AssetImage(
+                                              "assets/images/notImage.png"),
+                                    ),
+                                  ),
+                                ),
+                                Container(
+                                  width:
+                                      MediaQuery.of(context).size.width * 0.60,
+                                  child: Column(
+                                    children: [
+                                      Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceBetween,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Flexible(
+                                            child: Container(
+                                              width: MediaQuery.of(context)
+                                                      .size
+                                                      .width *
+                                                  0.3,
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    e.nombre,
+                                                    maxLines: 2,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                    style: TextStyle(
+                                                      fontSize: 16,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                    ),
+                                                  ),
+                                                  Text(
+                                                    e.direccion,
+                                                    maxLines: 2,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                    style: TextStyle(
+                                                      fontSize: 12,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                    ),
+                                                  ),
+                                                  Text(
+                                                    e.open
+                                                        ? 'Abierto'
+                                                        : 'Cerrado',
+                                                    maxLines: 2,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                    style: TextStyle(
+                                                      color: e.open
+                                                          ? Color.fromRGBO(
+                                                              149, 220, 0, 1)
+                                                          : Color.fromRGBO(
+                                                              226, 120, 120, 1),
+                                                      fontSize: 12,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                          e.avgRating != null
+                                              ? Container(
+                                                  padding: EdgeInsets.symmetric(
+                                                      horizontal: 10.0,
+                                                      vertical: 2.0),
+                                                  decoration: BoxDecoration(
+                                                    color: Color.fromRGBO(
+                                                        149, 194, 55, 1),
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            6.0),
+                                                  ),
+                                                  child: Text(
+                                                    e.avgRating.toString(),
+                                                    style: TextStyle(
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                      fontSize: 18.0,
+                                                      color: Colors.white,
+                                                    ),
+                                                  ),
+                                                )
+                                              : Container(),
                                         ],
                                       ),
                                     ],
@@ -277,11 +511,166 @@ class _SearchPageState extends State<SearchPage>
     });
   }
 
+  generateWidgetsTab3() {
+    Widget aux =
+        BlocBuilder<CuponesCubit, CuponesState>(builder: (context, state) {
+      if (state is CuponesLoaded) {
+        List aux = state.cuponesAgrupados;
+        cupones = aux;
+        return Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: aux
+                .map((e) => Container(
+                      padding: EdgeInsets.symmetric(vertical: 10.0),
+                      width: MediaQuery.of(context).size.width * 0.95,
+                      child: Column(
+                        children: widgetsTab3(e),
+                      ),
+                    ))
+                .toList());
+      }
+      return Container();
+    });
+    setState(() {
+      tab3 = aux;
+    });
+  }
+
+  widgetsTab3(CuponesAgrupados element) {
+    List<Widget> widgets = [];
+    widgets.add(Text(
+      element.nombre,
+      style: TextStyle(
+        fontWeight: FontWeight.bold,
+        fontSize: 18.0,
+      ),
+    ));
+    widgets.add(SizedBox(
+      height: 10.0,
+    ));
+    element.cupones.forEach((cupon) {
+      widgets.add(Container(
+        padding: EdgeInsets.symmetric(vertical: 10.0),
+        width: MediaQuery.of(context).size.width * 0.95,
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Container(
+                  height: 110,
+                  margin: EdgeInsets.only(right: 10),
+                  width: MediaQuery.of(context).size.width * 0.30,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(10.0),
+                    image: DecorationImage(
+                      repeat: ImageRepeat.noRepeat,
+                      alignment: Alignment.center,
+                      fit: BoxFit.fill,
+                      image: cupon.fotoUrl != null
+                          ? NetworkImage(cupon.fotoUrl)
+                          : AssetImage("assets/images/notImage.png"),
+                    ),
+                  ),
+                ),
+                Flexible(
+                  child: Container(
+                    width: MediaQuery.of(context).size.width * 0.60,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          element.nombre,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          cupon.date,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          "Obtén un descuento del " +
+                              cupon.descuento.toString() +
+                              "%",
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: Color.fromRGBO(149, 220, 0, 1),
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        widget.userId != null
+                            ? GestureDetector(
+                                onTap: () => presenter.saveCupon(
+                                    widget.userId, cupon.id),
+                                child: Container(
+                                  width:
+                                      MediaQuery.of(context).size.width * 0.58,
+                                  height: 30,
+                                  alignment: Alignment.center,
+                                  margin: EdgeInsets.symmetric(
+                                      horizontal: 10.0, vertical: 10),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(8.0),
+                                    border: Border.all(
+                                        width: 2,
+                                        color: Color.fromRGBO(0, 133, 196, 1)),
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      "Guardar cupón",
+                                      style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          color: Color.fromRGBO(0, 133, 196, 1),
+                                          fontSize: 12.0),
+                                    ),
+                                  ),
+                                ),
+                              )
+                            : Container(),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(
+              width: 10,
+            )
+          ],
+        ),
+      ));
+    });
+    widgets.add(SizedBox(
+      height: 5.0,
+    ));
+    widgets.add(Divider(
+      color: Colors.black,
+      endIndent: 2.0,
+      indent: 2.0,
+      height: 2.0,
+    ));
+    widgets.add(SizedBox(
+      height: 5.0,
+    ));
+    return widgets;
+  }
+
   _openBottomSheetWithInfo(BuildContext context) {
     showFlexibleBottomSheet<void>(
       bottomSheetColor: Colors.transparent,
       isExpand: true,
-      initHeight: 0.8,
+      initHeight: 0.7,
       maxHeight: 0.88,
       context: context,
       barrierColor: Colors.transparent,
@@ -293,7 +682,7 @@ class _SearchPageState extends State<SearchPage>
       ),
       builder: (context, controllerModal, offset) {
         return BottomSheet(municipalities, categories, controllerModal, this,
-            presenter, remoteRepository);
+            presenter, remoteRepository, municipalitiesId, categoriesId);
       },
     );
   }
@@ -305,7 +694,10 @@ class _SearchPageState extends State<SearchPage>
           height: 40,
           padding: EdgeInsets.only(right: 10.0),
           child: GestureDetector(
-            onTap: () => _openBottomSheetWithInfo(context),
+            onTap: () {
+              inputSearchFunction();
+              _openBottomSheetWithInfo(context);
+            },
             child: Container(
               width: 100,
               height: 30,
@@ -334,10 +726,25 @@ class _SearchPageState extends State<SearchPage>
           height: 60,
           padding: EdgeInsets.all(10.0),
           child: TextField(
+            onTap: inputSearchFunction,
+            onChanged: (text) {
+              if (mounted) {
+                setState(() {
+                  this.textValue = text;
+                });
+              }
+              if (text.length > 3)
+                presenter.getAllRestaurantsFilters(
+                    categories: categoriesId,
+                    municipalities: municipalitiesId,
+                    text: text,
+                    number: numero);
+            },
             decoration: InputDecoration(
               prefixIcon: Icon(Icons.search),
               hintStyle: TextStyle(color: Color.fromRGBO(0, 133, 196, 1)),
               filled: true,
+              contentPadding: EdgeInsets.only(bottom: 3.0),
               fillColor: Color.fromRGBO(237, 230, 215, 0.42),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.all(Radius.circular(12.0)),
@@ -427,7 +834,25 @@ class _SearchPageState extends State<SearchPage>
                       ],
                     ),
                   ),
-                  Icon(Icons.directions_bike),
+                  SingleChildScrollView(
+                    child: Column(
+                      children: [
+                        tab3,
+                        SizedBox(
+                          height: 10.0,
+                        ),
+                        isCharging == true
+                            ? Center(
+                                child: CircularProgressIndicator(
+                                  backgroundColor: Colors.transparent,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                      Colors.black),
+                                ),
+                              )
+                            : Container(),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -456,12 +881,88 @@ class _SearchPageState extends State<SearchPage>
   }
 
   @override
-  updateNumber(int number) {
+  updateNumber(
+      List<String> categories, List<String> municipalities, int number) {
     if (mounted) {
       setState(() {
         this.numero = number;
+        this.categoriesId = categories;
+        this.municipalitiesId = municipalities;
       });
     }
+  }
+
+  @override
+  generateWidgetTab1() {
+    generateWidgetsTab1();
+  }
+
+  @override
+  generateWidgetTab2() {
+    generateWidgetsTab2();
+  }
+
+  @override
+  generateWidgetTab3() {
+    generateWidgetsTab3();
+  }
+
+  @override
+  estadoCupon(bool correctSave) {
+    showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+              content: Icon(
+                correctSave ? Icons.check_circle_outlined : Icons.error_outline,
+                size: 50,
+                color: correctSave
+                    ? Color.fromRGBO(149, 220, 0, 1)
+                    : Color.fromRGBO(226, 120, 120, 1),
+              ),
+              alignment: Alignment.center,
+              actionsAlignment: MainAxisAlignment.center,
+              actions: [
+                SimpleDialogOption(
+                  onPressed: () => GlobalMethods().popPage(context),
+                  child: (Container(
+                    width: double.infinity,
+                    height: 30,
+                    alignment: Alignment.center,
+                    margin:
+                        EdgeInsets.symmetric(horizontal: 10.0, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: Color.fromRGBO(0, 133, 196, 1),
+                      borderRadius: BorderRadius.circular(8.0),
+                    ),
+                    child: Center(
+                      child: Text(
+                        "Aceptar",
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                            fontSize: 12.0),
+                      ),
+                    ),
+                  )),
+                )
+              ],
+            ),
+        barrierDismissible: false);
+  }
+
+  @override
+  updateFilter() {
+    String aux = textValue.length > 3 ? textValue : "";
+    presenter.getAllRestaurantsFilters(
+        categories: categoriesId,
+        number: numero,
+        text: aux,
+        municipalities: municipalitiesId);
+  }
+
+  @override
+  removeListeners() {
+    controller2.removeListener(_scrollListener2);
   }
 }
 
@@ -470,14 +971,24 @@ class BottomSheet extends StatefulWidget {
   List<Municipality> municipalities;
   final ScrollController controller;
   SearchPageView searPage;
+  List<String> municipalitiesId = [];
+  List<String> categoriesId = [];
   RemoteRepository remoteRepository;
   SearchPagePresenter presenter;
 
-  BottomSheet(this.municipalities, this.categories, this.controller,
-      this.searPage, this.presenter, this.remoteRepository);
+  BottomSheet(
+      this.municipalities,
+      this.categories,
+      this.controller,
+      this.searPage,
+      this.presenter,
+      this.remoteRepository,
+      this.municipalitiesId,
+      this.categoriesId);
 
   @override
-  State<BottomSheet> createState() => _BottomSheetState();
+  State<BottomSheet> createState() =>
+      _BottomSheetState(municipalitiesId, categoriesId);
 }
 
 class _BottomSheetState extends State<BottomSheet> {
@@ -485,13 +996,15 @@ class _BottomSheetState extends State<BottomSheet> {
   List<String> municipalitiesIdParent = [];
   List<String> categoriesId = [];
 
+  _BottomSheetState(this.municipalitiesId, this.categoriesId);
+
   @override
   void initState() {}
 
   @override
   void dispose() {
     super.dispose();
-    // presenter.getAllRestaurantsFilters(categoriesId.join(","), municipalitiesId.join(","),"",true);
+    widget.presenter.updateFilter();
   }
 
   @override
@@ -719,9 +1232,9 @@ class _BottomSheetState extends State<BottomSheet> {
       setState(() {
         municipalitiesId = aux;
       });
-      widget.presenter
-          .updateNumber(municipalitiesId.length + categoriesId.length);
     }
+    widget.presenter.updateNumber(categoriesId, municipalitiesId,
+        (categoriesId.length + municipalitiesId.length));
   }
 
   updateCategoriesId(String id) {
@@ -735,7 +1248,7 @@ class _BottomSheetState extends State<BottomSheet> {
         categoriesId = aux;
       });
     }
-    widget.presenter
-        .updateNumber(municipalitiesId.length + categoriesId.length);
+    widget.presenter.updateNumber(categoriesId, municipalitiesId,
+        (categoriesId.length + municipalitiesId.length));
   }
 }

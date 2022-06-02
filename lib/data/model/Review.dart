@@ -48,7 +48,7 @@ class Review {
     _rating = json["rating"];
     _valoracionesNegocioId = json["ValoracionesNegocioId"];
     _valoracionesUsuarioId = json["ValoracionesUsuarioId"];
-    _usuario = json["usuario"] != null ? User.fromJson(json["usuario"]) : null;
+    _usuario = json["usuarios"] != null ? User.fromJson(json["usuarios"]) : null;
   }
 
   Map<String, dynamic> toJson() {

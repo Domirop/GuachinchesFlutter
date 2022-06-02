@@ -6,6 +6,7 @@ class Cupones {
   String _fotoUrl;
   int _descuento;
   String _restaurantId;
+  String _restaurantName;
 
   Cupones (
       {String id,
@@ -13,7 +14,7 @@ class Cupones {
         int mesasDisponibles,
         int mesasTotales,
         String fotoUrl,
-        int descuento, String restaurantId}) {
+        int descuento, String restaurantId, String restaurantName}) {
     _id = id;
     _date = date;
     _mesasDisponibles = mesasDisponibles;
@@ -21,6 +22,7 @@ class Cupones {
     _fotoUrl = fotoUrl;
     _descuento = descuento;
     _restaurantId = restaurantId;
+    _restaurantName = restaurantName;
   }
 
   Cupones.fromJson(dynamic json) {
@@ -31,12 +33,18 @@ class Cupones {
     _fotoUrl = json["fotoUrl"];
     _descuento = json["descuento"];
     _restaurantId = json["restaurantId"];
+    if(json["restaurant"] != null && json["restaurant"]["nombre"] != null)_restaurantName = json["restaurant"]["nombre"];
   }
 
   String get id => _id;
+  String get restaurantName => _restaurantName;
 
   set descuento(int value) {
     _descuento = value;
+  }
+
+  set restaurantName(String value) {
+    _restaurantName = value;
   }
 
   set fotoUrl(String value) {
