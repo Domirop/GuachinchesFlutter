@@ -38,6 +38,7 @@ class _SearchPageState extends State<SearchPage>
   List<Restaurant> restaurants = [];
   List<Restaurant> restaurantsFilter = [];
   int maxRestaurants = 9999;
+  bool isOpen = false;
   List<Restaurant> restaurants1 = [];
   List<CuponesAgrupados> cupones = [];
   int maxRestaurants1 = 9999;
@@ -368,6 +369,9 @@ class _SearchPageState extends State<SearchPage>
                 .toList());
       } else if (state is RestaurantFilter) {
         List auxList = state.filtersRestaurants;
+        if (isOpen) {
+          auxList = auxList.where((element) => element.open).toList();
+        }
         restaurantsFilter = auxList;
         return Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -681,8 +685,16 @@ class _SearchPageState extends State<SearchPage>
             topRight: Radius.circular(20.0), topLeft: Radius.circular(20.0)),
       ),
       builder: (context, controllerModal, offset) {
-        return BottomSheet(municipalities, categories, controllerModal, this,
-            presenter, remoteRepository, municipalitiesId, categoriesId);
+        return BottomSheet(
+            municipalities,
+            categories,
+            controllerModal,
+            this,
+            presenter,
+            remoteRepository,
+            municipalitiesId,
+            categoriesId,
+            isOpen);
       },
     );
   }
@@ -734,7 +746,7 @@ class _SearchPageState extends State<SearchPage>
                 });
               }
               if (text.length > 3)
-                presenter.getAllRestaurantsFilters(
+                presenter.getAllRestaurantsFilters(isOpen,
                     categories: categoriesId,
                     municipalities: municipalitiesId,
                     text: text,
@@ -881,13 +893,14 @@ class _SearchPageState extends State<SearchPage>
   }
 
   @override
-  updateNumber(
-      List<String> categories, List<String> municipalities, int number) {
+  updateNumber(List<String> categories, List<String> municipalities, int number,
+      bool isOpen) {
     if (mounted) {
       setState(() {
         this.numero = number;
         this.categoriesId = categories;
         this.municipalitiesId = municipalities;
+        this.isOpen = isOpen;
       });
     }
   }
@@ -953,7 +966,7 @@ class _SearchPageState extends State<SearchPage>
   @override
   updateFilter() {
     String aux = textValue.length > 3 ? textValue : "";
-    presenter.getAllRestaurantsFilters(
+    presenter.getAllRestaurantsFilters(isOpen,
         categories: categoriesId,
         number: numero,
         text: aux,
@@ -964,6 +977,15 @@ class _SearchPageState extends State<SearchPage>
   removeListeners() {
     controller2.removeListener(_scrollListener2);
   }
+
+  @override
+  changeTab() {
+    if (mounted) {
+      setState(() {
+        this._tabController.index = 0;
+      });
+    }
+  }
 }
 
 class BottomSheet extends StatefulWidget {
@@ -973,6 +995,7 @@ class BottomSheet extends StatefulWidget {
   SearchPageView searPage;
   List<String> municipalitiesId = [];
   List<String> categoriesId = [];
+  bool isOpen = false;
   RemoteRepository remoteRepository;
   SearchPagePresenter presenter;
 
@@ -984,19 +1007,21 @@ class BottomSheet extends StatefulWidget {
       this.presenter,
       this.remoteRepository,
       this.municipalitiesId,
-      this.categoriesId);
+      this.categoriesId,
+      this.isOpen);
 
   @override
   State<BottomSheet> createState() =>
-      _BottomSheetState(municipalitiesId, categoriesId);
+      _BottomSheetState(municipalitiesId, categoriesId, isOpen);
 }
 
 class _BottomSheetState extends State<BottomSheet> {
   List<String> municipalitiesId = [];
   List<String> municipalitiesIdParent = [];
   List<String> categoriesId = [];
+  bool isOpen = false;
 
-  _BottomSheetState(this.municipalitiesId, this.categoriesId);
+  _BottomSheetState(this.municipalitiesId, this.categoriesId, this.isOpen);
 
   @override
   void initState() {}
@@ -1021,6 +1046,33 @@ class _BottomSheetState extends State<BottomSheet> {
 
   createWidgetList() {
     List<Widget> widgets = [];
+    widgets.add(GestureDetector(
+      onTap: () => updateIsOpen(),
+      child: Container(
+        width: MediaQuery.of(context).size.width / 3,
+        height: 40,
+        padding: EdgeInsets.symmetric(horizontal: 6.0),
+        alignment: Alignment.center,
+        margin: EdgeInsets.symmetric(horizontal: 5.0, vertical: 10),
+        decoration: BoxDecoration(
+            color: isOpen ? Color.fromRGBO(0, 133, 196, 1) : Colors.transparent,
+            borderRadius: BorderRadius.circular(8.0),
+            border: Border.all(
+                color: isOpen ? Colors.black : Color.fromRGBO(0, 133, 196, 1),
+                width: 2)),
+        child: Text(
+          "Abierto",
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: isOpen ? Colors.white : Colors.black,
+            fontSize: 14,
+          ),
+        ),
+      ),
+    ));
+    widgets.add(SizedBox(
+      height: 10,
+    ));
     widgets.add(Container(
       child: Column(
         children: [
@@ -1234,7 +1286,7 @@ class _BottomSheetState extends State<BottomSheet> {
       });
     }
     widget.presenter.updateNumber(categoriesId, municipalitiesId,
-        (categoriesId.length + municipalitiesId.length));
+        (categoriesId.length + municipalitiesId.length), isOpen);
   }
 
   updateCategoriesId(String id) {
@@ -1249,6 +1301,16 @@ class _BottomSheetState extends State<BottomSheet> {
       });
     }
     widget.presenter.updateNumber(categoriesId, municipalitiesId,
-        (categoriesId.length + municipalitiesId.length));
+        (categoriesId.length + municipalitiesId.length), isOpen);
+  }
+
+  updateIsOpen() {
+    if (mounted) {
+      setState(() {
+        this.isOpen = !this.isOpen;
+      });
+    }
+    widget.presenter.updateNumber(categoriesId, municipalitiesId,
+        (categoriesId.length + municipalitiesId.length), isOpen);
   }
 }

@@ -40,6 +40,13 @@ class _HomeState extends State<Home> implements HomeView {
   bool isCorrectSaveCupon;
   Widget restaurantsWidgets;
   String userId;
+  List<String> assets = [
+    "assets/images/firstTop.png",
+    "assets/images/secondTop.png",
+    "assets/images/thirdTop.png",
+    "assets/images/otherTop.png",
+    "assets/images/otherTop.png"
+  ];
   List<CuponesAgrupados> cuponesAgrupados = [];
 
   @override
@@ -158,8 +165,9 @@ class _HomeState extends State<Home> implements HomeView {
                           repeat: ImageRepeat.noRepeat,
                           alignment: Alignment.center,
                           fit: BoxFit.fill,
-                          image: cuponesAgrupados[index].foto != null ? NetworkImage(cuponesAgrupados[index].foto) : AssetImage(
-                              "assets/images/notImage.png"),
+                          image: cuponesAgrupados[index].foto != null
+                              ? NetworkImage(cuponesAgrupados[index].foto)
+                              : AssetImage("assets/images/notImage.png"),
                         ),
                       ),
                     ),
@@ -223,36 +231,54 @@ class _HomeState extends State<Home> implements HomeView {
                                   repeat: ImageRepeat.noRepeat,
                                   alignment: Alignment.center,
                                   fit: BoxFit.fill,
-                                  image: widget.restaurants[index].imagen != null ? NetworkImage(
-                                      widget.restaurants[index].imagen) : AssetImage(
-                                      "assets/images/notImage.png"),
+                                  image:
+                                      widget.restaurants[index].imagen != null
+                                          ? NetworkImage(
+                                              widget.restaurants[index].imagen)
+                                          : AssetImage(
+                                              "assets/images/notImage.png"),
                                 ),
                               ),
                             ),
                             Container(
                               margin: EdgeInsets.only(top: 10),
                               padding: EdgeInsets.symmetric(horizontal: 10),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                              child: Row(
                                 children: [
-                                  Text(
-                                    widget.restaurants[index].nombre,
-                                    softWrap: true,
-                                    maxLines: 2,
-                                    style: TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold),
+                                  Flexible(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          widget.restaurants[index].nombre,
+                                          softWrap: true,
+                                          maxLines: 2,
+                                          style: TextStyle(
+                                              fontSize: 18,
+                                              fontWeight: FontWeight.bold),
+                                        ),
+                                        Text(
+                                          widget.restaurants[index].open
+                                              ? "Abierto"
+                                              : "Cerrado",
+                                          style: TextStyle(
+                                              fontSize: 12,
+                                              color:
+                                                  widget.restaurants[index].open
+                                                      ? Color.fromRGBO(
+                                                          149, 220, 0, 1)
+                                                      : Color.fromRGBO(
+                                                          226, 120, 120, 1)),
+                                        ),
+                                      ],
+                                    ),
                                   ),
-                                  Text(
-                                    widget.restaurants[index].open
-                                        ? "Abierto"
-                                        : "Cerrado",
-                                    style: TextStyle(
-                                        fontSize: 12,
-                                        color: widget.restaurants[index].open
-                                            ? Color.fromRGBO(149, 220, 0, 1)
-                                            : Color.fromRGBO(226, 120, 120, 1)),
-                                  ),
+                                  Container(
+                                      margin: EdgeInsets.only(left: 6),
+                                      child: Image(
+                                          image: AssetImage(assets[index]),
+                                          height: 60)),
                                 ],
                               ),
                             ),

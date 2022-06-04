@@ -142,6 +142,7 @@ class Restaurant {
     _telefono = json["telefono"];
     _destacado = json["destacado"];
     _mainFoto = json["fotos.photoUrl"];
+    if(_mainFoto == null && json["fotos"] != null && json["fotos"].length > 0) _mainFoto = json["fotos"][0]["photoUrl"];
     if (json["avgRating"] != null)
       _avgRating =
           double.parse(double.parse(json["avgRating"]).toStringAsFixed(2));
@@ -177,6 +178,7 @@ class Restaurant {
     }
 
     bool auxOpen = true;
+    bool alwaysOpen = false;
     String auxValue = json["google_horarios"];
     if (auxValue.toLowerCase() == "cerrado" ||
         auxValue.toLowerCase() == "sin horario") {
@@ -186,8 +188,12 @@ class Restaurant {
           .split("\n")[DateTime.now().toUtc().weekday]
           .split(": ")[1];
       if (auxValue2.toLowerCase() == "cerrado") auxOpen = false;
+      if (auxValue2.toLowerCase() == "abierto 24 horas"){
+        auxOpen = true;
+        auxOpen = alwaysOpen = true;
+      }
     }
-    if (auxOpen) {
+    if (auxOpen && !alwaysOpen) {
       List<String> aux = json["google_horarios"]
           .split("\n")[DateTime.now().toUtc().weekday]
           .split(": ")[1]
@@ -217,6 +223,10 @@ class Restaurant {
             dateTimeSecond.microsecond);
         if (actualDate.isBefore(dateTimeFirst) ||
             actualDate.isAfter(dateTimeSecond)) auxOpen = false;
+        else {
+          auxOpen = true;
+          break;
+        }
       }
     }
     _open = auxOpen;

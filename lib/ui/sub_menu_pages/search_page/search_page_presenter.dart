@@ -46,12 +46,20 @@ class SearchPagePresenter {
     _view.changeCharginInitial();
   }
 
-  getAllRestaurantsFilters({List<String> categories, List<String> municipalities, int number, String text}) async {
-    if((categories == null || categories.isEmpty) &&
-        (municipalities == null || municipalities.isEmpty) &&
-        (text == null || text.length <= 3)){
-    }else{
-      await _restaurantCubit.getFilterRestaurants(categories: categories, municipalities: municipalities, text: text);
+  getAllRestaurantsFilters(bool isOpen,
+      {List<String> categories,
+      List<String> municipalities,
+      int number,
+      String text}) async {
+    if (((categories == null || categories.isEmpty) &&
+            (municipalities == null || municipalities.isEmpty) &&
+            (text == null || text.length <= 3)) &&
+        !isOpen) {
+      await _restaurantCubit.getRestaurants(number);
+      _view.changeTab();
+    } else {
+      await _restaurantCubit.getFilterRestaurants(
+          categories: categories, municipalities: municipalities, text: text);
       _view.removeListeners();
     }
   }
@@ -63,11 +71,12 @@ class SearchPagePresenter {
     _view.setMunicipalitiesAndCategories(categories, municipality);
   }
 
-  updateNumber(List<String> categories, List<String> municipalities, int number) async {
-    _view.updateNumber(categories, municipalities, number);
+  updateNumber(List<String> categories, List<String> municipalities, int number,
+      bool isOpen) async {
+    _view.updateNumber(categories, municipalities, number, isOpen);
   }
 
-  updateFilter(){
+  updateFilter() {
     _view.updateFilter();
   }
 }
@@ -78,7 +87,8 @@ abstract class SearchPageView {
   setMunicipalitiesAndCategories(
       List<ModelCategory> categories, List<Municipality> municipality);
 
-  updateNumber(List<String> categories, List<String> municipalities, int number);
+  updateNumber(List<String> categories, List<String> municipalities, int number,
+      bool isOpen);
 
   updateFilter();
 
@@ -87,6 +97,8 @@ abstract class SearchPageView {
   generateWidgetTab2();
 
   removeListeners();
+
+  changeTab();
 
   generateWidgetTab3();
 

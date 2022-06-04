@@ -70,6 +70,7 @@ class HttpRemoteRepository implements RemoteRepository {
       }
       return restaurants;
     } on Exception catch (e) {
+      print(e);
       return [];
     }
   }

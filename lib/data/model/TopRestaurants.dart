@@ -35,22 +35,57 @@ class TopRestaurants {
     _direccion = json["direccion"];
     _counter = json["counter"];
     _imagen = json["max"];
-    bool auxOpen = true;
 
+    bool auxOpen = true;
+    bool alwaysOpen = false;
     String auxValue = json["google_horarios"];
-    if(auxValue.toLowerCase() == "cerrado")auxOpen = false;
-    String auxValue2 = json["google_horarios"].split("\n")[DateTime.now().toUtc().weekday].split(": ")[1];
-    if(auxValue2.toLowerCase() == "cerrado")auxOpen = false;
-    if(auxOpen){
-    List<String> aux = json["google_horarios"].split("\n")[DateTime.now().toUtc().weekday].split(": ")[1].split(", ");
-    DateTime actualDate = DateTime.now();
-      for(var i = 0; i < aux.length; i++){
+    if (auxValue.toLowerCase() == "cerrado" ||
+        auxValue.toLowerCase() == "sin horario") {
+      auxOpen = false;
+    } else {
+      String auxValue2 = json["google_horarios"]
+          .split("\n")[DateTime.now().toUtc().weekday]
+          .split(": ")[1];
+      if (auxValue2.toLowerCase() == "cerrado") auxOpen = false;
+      if (auxValue2.toLowerCase() == "abierto 24 horas"){
+        auxOpen = true;
+        auxOpen = alwaysOpen = true;
+      }
+    }
+    if (auxOpen && !alwaysOpen) {
+      List<String> aux = json["google_horarios"]
+          .split("\n")[DateTime.now().toUtc().weekday]
+          .split(": ")[1]
+          .split(", ");
+      DateTime actualDate = DateTime.now();
+      for (var i = 0; i < aux.length; i++) {
         List<String> auxHours = aux[i].split("–");
         DateTime dateTimeFirst = DateTime.now();
-        dateTimeFirst = DateTime(dateTimeFirst.year, dateTimeFirst.month, dateTimeFirst.day, int.parse(auxHours[0].split(":")[0]), int.parse(auxHours[0].split(":")[1]), dateTimeFirst.second, dateTimeFirst.millisecond, dateTimeFirst.microsecond);
+        dateTimeFirst = DateTime(
+            dateTimeFirst.year,
+            dateTimeFirst.month,
+            dateTimeFirst.day,
+            int.parse(auxHours[0].split(":")[0]),
+            int.parse(auxHours[0].split(":")[1]),
+            dateTimeFirst.second,
+            dateTimeFirst.millisecond,
+            dateTimeFirst.microsecond);
         DateTime dateTimeSecond = DateTime.now();
-        dateTimeSecond = DateTime(dateTimeSecond.year, dateTimeSecond.month, dateTimeSecond.day, int.parse(auxHours[1].split(":")[0]), int.parse(auxHours[1].split(":")[1]), dateTimeSecond.second, dateTimeSecond.millisecond, dateTimeSecond.microsecond);
-        if(actualDate.isBefore(dateTimeFirst) || actualDate.isAfter(dateTimeSecond))auxOpen = false;
+        dateTimeSecond = DateTime(
+            dateTimeSecond.year,
+            dateTimeSecond.month,
+            dateTimeSecond.day,
+            int.parse(auxHours[1].split(":")[0]),
+            int.parse(auxHours[1].split(":")[1]),
+            dateTimeSecond.second,
+            dateTimeSecond.millisecond,
+            dateTimeSecond.microsecond);
+        if (actualDate.isBefore(dateTimeFirst) ||
+            actualDate.isAfter(dateTimeSecond)) auxOpen = false;
+        else {
+          auxOpen = true;
+          break;
+        }
       }
     }
     _open = auxOpen;

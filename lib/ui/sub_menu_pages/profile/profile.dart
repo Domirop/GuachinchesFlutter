@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:guachinches/data/HttpRemoteRepository.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
-import 'package:guachinches/data/cubit/restaurants/basic/restaurant_cubit.dart';
 import 'package:guachinches/data/cubit/user/user_cubit.dart';
 import 'package:guachinches/data/cubit/user/user_state.dart';
 import 'package:guachinches/data/local/restaurant_sql_lite.dart';
@@ -12,6 +11,7 @@ import 'package:guachinches/data/model/fotos.dart';
 import 'package:guachinches/data/model/restaurant.dart';
 import 'package:guachinches/globalMethods.dart';
 import 'package:guachinches/ui/Others/details/details.dart';
+import 'package:guachinches/ui/Others/qr_scanner/qr_full_screen.dart';
 import 'package:guachinches/ui/main/splash_screen/splash_screen.dart';
 import 'package:guachinches/ui/sub_menu_pages/profile/profile_presenter.dart';
 import 'package:http/http.dart';
@@ -64,7 +64,6 @@ class _ProfileState extends State<Profile> implements ProfileView {
   @override
   void initState() {
     final userCubit = context.read<UserCubit>();
-    final restaurantCubit = context.read<RestaurantCubit>();
     remoteRepository = HttpRemoteRepository(Client());
     _presenter = ProfilePresenter(this, userCubit, remoteRepository);
     _presenter.getUserInfo();
@@ -294,75 +293,78 @@ class _ProfileState extends State<Profile> implements ProfileView {
                       shrinkWrap: true,
                       itemCount: cupones.length,
                       itemBuilder: (context, index) {
-                        return Container(
-                          padding: EdgeInsets.symmetric(vertical: 10.0),
-                          width: MediaQuery.of(context).size.width * 0.95,
-                          child: Column(
-                            children: [
-                              Row(
-                                children: [
-                                  Container(
-                                    height: 110,
-                                    margin: EdgeInsets.only(right: 10),
-                                    width: MediaQuery.of(context).size.width * 0.30,
-                                    decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(10.0),
-                                      image: DecorationImage(
-                                        repeat: ImageRepeat.noRepeat,
-                                        alignment: Alignment.center,
-                                        fit: BoxFit.fill,
-                                        image: cupones[index].fotoUrl != null
-                                            ? NetworkImage(cupones[index].fotoUrl)
-                                            : AssetImage("assets/images/notImage.png"),
+                        return GestureDetector(
+                          onTap: () => GlobalMethods().pushPage(context, QrFullScreen(cupones[index], state.user)),
+                          child: Container(
+                            padding: EdgeInsets.symmetric(vertical: 10.0),
+                            width: MediaQuery.of(context).size.width * 0.95,
+                            child: Column(
+                              children: [
+                                Row(
+                                  children: [
+                                    Container(
+                                      height: 110,
+                                      margin: EdgeInsets.only(right: 10),
+                                      width: MediaQuery.of(context).size.width * 0.30,
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(10.0),
+                                        image: DecorationImage(
+                                          repeat: ImageRepeat.noRepeat,
+                                          alignment: Alignment.center,
+                                          fit: BoxFit.fill,
+                                          image: cupones[index].fotoUrl != null
+                                              ? NetworkImage(cupones[index].fotoUrl)
+                                              : AssetImage("assets/images/notImage.png"),
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                  Flexible(
-                                    child: Container(
-                                      width: MediaQuery.of(context).size.width * 0.60,
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            cupones[index].restaurantName,
-                                            maxLines: 2,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: TextStyle(
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.bold,
+                                    Flexible(
+                                      child: Container(
+                                        width: MediaQuery.of(context).size.width * 0.60,
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              cupones[index].restaurantName,
+                                              maxLines: 2,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: TextStyle(
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.bold,
+                                              ),
                                             ),
-                                          ),
-                                          Text(
-                                            cupones[index].date,
-                                            maxLines: 2,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: TextStyle(
-                                              fontSize: 14,
-                                              fontWeight: FontWeight.bold,
+                                            Text(
+                                              cupones[index].date,
+                                              maxLines: 2,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: TextStyle(
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.bold,
+                                              ),
                                             ),
-                                          ),
-                                          Text(
-                                            "Obtén un descuento del " +
-                                                cupones[index].descuento.toString() +
-                                                "%",
-                                            maxLines: 2,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: TextStyle(
-                                              color: Color.fromRGBO(149, 220, 0, 1),
-                                              fontSize: 14,
-                                              fontWeight: FontWeight.bold,
+                                            Text(
+                                              "Obtén un descuento del " +
+                                                  cupones[index].descuento.toString() +
+                                                  "%",
+                                              maxLines: 2,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: TextStyle(
+                                                color: Color.fromRGBO(149, 220, 0, 1),
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.bold,
+                                              ),
                                             ),
-                                          ),
-                                        ],
+                                          ],
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                ],
-                              ),
-                              SizedBox(
-                                width: 10,
-                              )
-                            ],
+                                  ],
+                                ),
+                                SizedBox(
+                                  width: 10,
+                                )
+                              ],
+                            ),
                           ),
                         );
                       }),
