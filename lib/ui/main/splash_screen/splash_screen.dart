@@ -11,15 +11,16 @@ import 'package:guachinches/ui/main/update_app/update_app_screen.dart';
 import 'package:http/http.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-
 class SplashScreen extends StatefulWidget {
   @override
   _SplashScreenState createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> implements SplashScreenView{
+class _SplashScreenState extends State<SplashScreen>
+    implements SplashScreenView {
   RemoteRepository remoteRepository;
   SplashScreenPresenter presenter;
+
   @override
   void initState() {
     final userCubit = context.read<UserCubit>();
@@ -31,12 +32,20 @@ class _SplashScreenState extends State<SplashScreen> implements SplashScreenView
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(body:Container(
-      color: Colors.white,
-      height: MediaQuery.of(context).size.height,
-      width: MediaQuery.of(context).size.width,
-      alignment: Alignment.center,
-      child: Image.asset("assets/images/logo.png", height: 298, width: 293,),
+    return Scaffold(
+        body: SingleChildScrollView(
+      child: Container(
+        color: Colors.white,
+        height: MediaQuery.of(context).size.height,
+        width: MediaQuery.of(context).size.width,
+        padding: EdgeInsets.symmetric(horizontal: 40.0),
+        alignment: Alignment.center,
+        child: Image(
+          image: AssetImage("assets/images/logoGrande.png"),
+          fit: BoxFit.cover,
+          height: MediaQuery.of(context).size.width - 80,
+        ),
+      ),
     ));
   }
 
