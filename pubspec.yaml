@@ -39,7 +39,7 @@ dependencies:
   flutter_bloc: 6.1.1
   path_provider: ^2.0.10
   flutter_svg: ^0.22.0
-  flutter_secure_storage: 3.3.5
+  flutter_secure_storage: 5.0.2
   flutter_rating_bar: ^4.0.0
   pinch_zoom: ^1.0.0
   modal_bottom_sheet: ^2.0.0
@@ -65,7 +65,7 @@ flutter:
 flutter_icons:
   ios: true
   android: true
-  image_path_ios: "assets/launcher/app-icon-initial.jpg"
+  image_path_ios: "assets/launcher/app-icon-initial.png"
   image_path_android: "assets/launcher/app-icon-initial.png"
   adaptive_icon_background: "assets/launcher/bg-icon.png"
   adaptive_icon_foreground: "assets/launcher/content-icon.png"
