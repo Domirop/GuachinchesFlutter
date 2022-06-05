@@ -44,7 +44,7 @@ class TopRestaurants {
       auxOpen = false;
     } else {
       String auxValue2 = json["google_horarios"]
-          .split("\n")[DateTime.now().toUtc().weekday]
+          .split("\n")[DateTime.now().toUtc().weekday-1]
           .split(": ")[1];
       if (auxValue2.toLowerCase() == "cerrado") auxOpen = false;
       if (auxValue2.toLowerCase() == "abierto 24 horas"){
@@ -54,7 +54,7 @@ class TopRestaurants {
     }
     if (auxOpen && !alwaysOpen) {
       List<String> aux = json["google_horarios"]
-          .split("\n")[DateTime.now().toUtc().weekday]
+          .split("\n")[DateTime.now().toUtc().weekday-1]
           .split(": ")[1]
           .split(", ");
       DateTime actualDate = DateTime.now();
