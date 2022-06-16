@@ -6,7 +6,14 @@ import 'SimpleMunicipality.dart';
 class Municipality {
   String _id;
   String _nombre;
+  bool _limitSearch = true;
   List<SimpleMunicipality> _municipalities = [];
+
+  bool get limitSearch => _limitSearch;
+
+  set limitSearch(bool value) {
+    _limitSearch = value;
+  }
 
   String get id => _id;
   String get nombre => _nombre;

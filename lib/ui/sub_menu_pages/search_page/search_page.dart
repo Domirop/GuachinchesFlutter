@@ -13,6 +13,7 @@ import 'package:guachinches/data/cubit/restaurants/basic/restaurant_state.dart';
 import 'package:guachinches/data/model/Category.dart';
 import 'package:guachinches/data/model/CuponesAgrupados.dart';
 import 'package:guachinches/data/model/Municipality.dart';
+import 'package:guachinches/data/model/SimpleMunicipality.dart';
 import 'package:guachinches/data/model/restaurant.dart';
 import 'package:guachinches/globalMethods.dart';
 import 'package:guachinches/ui/Others/details/details.dart';
@@ -671,30 +672,75 @@ class _SearchPageState extends State<SearchPage>
   }
 
   _openBottomSheetWithInfo(BuildContext context) {
-    showFlexibleBottomSheet<void>(
+    showStickyFlexibleBottomSheet<void>(
       bottomSheetColor: Colors.transparent,
       isExpand: true,
       initHeight: 0.7,
       maxHeight: 0.88,
       context: context,
       barrierColor: Colors.transparent,
+      headerHeight: 70,
       keyboardBarrierColor: Colors.transparent,
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.only(
             topRight: Radius.circular(20.0), topLeft: Radius.circular(20.0)),
       ),
-      builder: (context, controllerModal, offset) {
-        return BottomSheet(
-            municipalities,
-            categories,
-            controllerModal,
-            this,
-            presenter,
-            remoteRepository,
-            municipalitiesId,
-            categoriesId,
-            isOpen);
+      headerBuilder: (BuildContext contextModal, double offset) {
+        return Container(
+          width: MediaQuery.of(context).size.width,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(11.0),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              GestureDetector(
+                onTap: () => {
+                  presenter.updateNumber([], [], 0, false),
+                  GlobalMethods().popPage(contextModal)
+                },
+                child: Text(
+                  "Borrar Filtros",
+                  style: TextStyle(
+                    color: Colors.black,
+                    fontWeight: FontWeight.bold,
+                    decoration: TextDecoration.underline,
+                  ),
+                ),
+              ),
+              GestureDetector(
+                onTap: () => GlobalMethods().popPage(contextModal),
+                child: Container(
+                  width: MediaQuery.of(context).size.width / 3,
+                  alignment: Alignment.center,
+                  margin: EdgeInsets.symmetric(vertical: 10.0),
+                  decoration: BoxDecoration(
+                    color: Color.fromRGBO(5, 73, 155, 1),
+                    borderRadius: BorderRadius.circular(20.0),
+                  ),
+                  padding: EdgeInsets.symmetric(vertical: 7.0),
+                  child: Text(
+                    "Ver resultados",
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                        fontSize: 12.0),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+      bodyBuilder: (BuildContext context, double offset) {
+        return SliverChildListDelegate(
+          <Widget>[
+            BottomSheet(municipalities, categories, this, presenter,
+                remoteRepository, municipalitiesId, categoriesId, isOpen)
+          ],
+        );
       },
     );
   }
@@ -991,7 +1037,6 @@ class _SearchPageState extends State<SearchPage>
 class BottomSheet extends StatefulWidget {
   List<ModelCategory> categories;
   List<Municipality> municipalities;
-  final ScrollController controller;
   SearchPageView searPage;
   List<String> municipalitiesId = [];
   List<String> categoriesId = [];
@@ -1002,7 +1047,6 @@ class BottomSheet extends StatefulWidget {
   BottomSheet(
       this.municipalities,
       this.categories,
-      this.controller,
       this.searPage,
       this.presenter,
       this.remoteRepository,
@@ -1020,6 +1064,8 @@ class _BottomSheetState extends State<BottomSheet> {
   List<String> municipalitiesIdParent = [];
   List<String> categoriesId = [];
   bool isOpen = false;
+  bool limitMunicipalities = true;
+  bool limitCategories = true;
 
   _BottomSheetState(this.municipalitiesId, this.categoriesId, this.isOpen);
 
@@ -1036,9 +1082,7 @@ class _BottomSheetState extends State<BottomSheet> {
   Widget build(BuildContext context) {
     return Padding(
       padding: EdgeInsets.all(16.0),
-      child: ListView(
-        controller: widget.controller,
-        shrinkWrap: true,
+      child: Column(
         children: createWidgetList(),
       ),
     );
@@ -1075,76 +1119,70 @@ class _BottomSheetState extends State<BottomSheet> {
     ));
     widgets.add(Container(
       child: Column(
+        mainAxisAlignment: MainAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             "Categorias",
             style: TextStyle(
-                color: Colors.black, fontSize: 18, fontWeight: FontWeight.bold),
+                color: Colors.black, fontSize: 24, fontWeight: FontWeight.bold),
           ),
           Container(
             child: Wrap(
-              children: widget.categories
-                  .map(
-                    (element) => GestureDetector(
-                      onTap: () => updateCategoriesId(element.id),
-                      child: Container(
-                        margin: EdgeInsets.symmetric(
-                            horizontal: 5.0, vertical: 10.0),
-                        height: 120,
-                        width: 110.0,
-                        decoration: BoxDecoration(
-                          color: categoriesId.contains(element.id)
-                              ? Color.fromRGBO(0, 133, 196, 1)
-                              : Colors.white,
-                          boxShadow: [
-                            BoxShadow(
-                                color: Colors.black54,
-                                blurRadius: 2.0,
-                                spreadRadius: 1.0,
-                                offset: Offset(2.0, 3.0))
-                          ],
-                          borderRadius: BorderRadius.circular(17.0),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            SvgPicture.network(
-                              element.iconUrl,
-                              height: 60.0,
-                              width: 60.0,
-                            ),
-                            Container(
-                              margin: EdgeInsets.symmetric(
-                                  vertical: 10.0, horizontal: 1.0),
-                              child: Text(
-                                element.nombre != null ? element.nombre : "",
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  color: Colors.black,
-                                  fontSize: 12.0,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  )
-                  .toList(),
+              children: limitCategories
+                  ? generateListCategories(
+                      widget.categories.getRange(0, 6).toList())
+                  : generateListCategories(widget.categories),
             ),
           ),
+          limitCategories
+              ? GestureDetector(
+                  onTap: () => {
+                    if (mounted)
+                      {
+                        setState(() {
+                          limitCategories = false;
+                        })
+                      }
+                  },
+                  child: Text(
+                    "Ver más",
+                    style: TextStyle(
+                      fontSize: 18,
+                      decoration: TextDecoration.underline,
+                      fontWeight: FontWeight.bold,
+                      color: Color.fromRGBO(149, 194, 55, 1),
+                    ),
+                  ),
+                )
+              : GestureDetector(
+                  onTap: () => {
+                    if (mounted)
+                      {
+                        setState(() {
+                          limitCategories = true;
+                        })
+                      }
+                  },
+                  child: Text(
+                    "Ver menos",
+                    style: TextStyle(
+                      fontSize: 18,
+                      decoration: TextDecoration.underline,
+                      fontWeight: FontWeight.bold,
+                      color: Color.fromRGBO(242, 0, 0, 1),
+                    ),
+                  ),
+                ),
           SizedBox(
-            height: 10.0,
-          ),
-          SizedBox(
-            height: 10.0,
+            height: 20.0,
           ),
         ],
       ),
     ));
     widgets.add(Container(
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Divider(
             height: 2,
@@ -1161,7 +1199,10 @@ class _BottomSheetState extends State<BottomSheet> {
                 color: Colors.black, fontSize: 18, fontWeight: FontWeight.bold),
           ),
           Container(
+            width: MediaQuery.of(context).size.width,
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: widget.municipalities
                   .map((e) => Container(
                         child: Column(
@@ -1200,52 +1241,60 @@ class _BottomSheetState extends State<BottomSheet> {
                               ),
                             ),
                             Wrap(
-                              children: e.municipalities
-                                  .map(
-                                    (seconElement) => GestureDetector(
-                                      onTap: () => updateMunicipaliesId(
-                                          seconElement.id, false),
-                                      child: Container(
-                                        width:
-                                            MediaQuery.of(context).size.width /
-                                                3,
-                                        height: 40,
-                                        padding: EdgeInsets.symmetric(
-                                            horizontal: 6.0),
-                                        alignment: Alignment.center,
-                                        margin: EdgeInsets.symmetric(
-                                            horizontal: 5.0, vertical: 10),
-                                        decoration: BoxDecoration(
-                                            color: municipalitiesId
-                                                    .contains(seconElement.id)
-                                                ? Color.fromRGBO(0, 133, 196, 1)
-                                                : Colors.transparent,
-                                            borderRadius:
-                                                BorderRadius.circular(8.0),
-                                            border: Border.all(
-                                                color:
-                                                    municipalitiesId.contains(
-                                                            seconElement.id)
-                                                        ? Colors.black
-                                                        : Color.fromRGBO(
-                                                            0, 133, 196, 1),
-                                                width: 2)),
-                                        child: Text(
-                                          seconElement.nombre,
-                                          textAlign: TextAlign.center,
-                                          style: TextStyle(
-                                            color: municipalitiesId
-                                                    .contains(seconElement.id)
-                                                ? Colors.white
-                                                : Colors.black,
-                                            fontSize: 14,
-                                          ),
+                              children: e.limitSearch
+                                  ? generateListMunicipalities(
+                                      e.municipalities.getRange(0, 6).toList())
+                                  : generateListMunicipalities(
+                                      e.municipalities),
+                            ),
+                            e.limitSearch
+                                ? Container(
+                                    width: MediaQuery.of(context).size.width,
+                                    padding: EdgeInsets.only(left: 40.0),
+                                    child: GestureDetector(
+                                      onTap: () => {
+                                        if (mounted)
+                                          {
+                                            setState(() {
+                                              e.limitSearch = false;
+                                            })
+                                          }
+                                      },
+                                      child: Text(
+                                        "Ver más",
+                                        style: TextStyle(
+                                          fontSize: 18,
+                                          decoration: TextDecoration.underline,
+                                          fontWeight: FontWeight.bold,
+                                          color:
+                                              Color.fromRGBO(149, 194, 55, 1),
                                         ),
                                       ),
                                     ),
                                   )
-                                  .toList(),
-                            )
+                                : Container(
+                                    width: MediaQuery.of(context).size.width,
+                                    padding: EdgeInsets.only(left: 40.0),
+                                    child: GestureDetector(
+                                      onTap: () => {
+                                        if (mounted)
+                                          {
+                                            setState(() {
+                                              e.limitSearch = true;
+                                            })
+                                          }
+                                      },
+                                      child: Text(
+                                        "Ver menos",
+                                        style: TextStyle(
+                                          fontSize: 18,
+                                          decoration: TextDecoration.underline,
+                                          fontWeight: FontWeight.bold,
+                                          color: Color.fromRGBO(242, 0, 0, 1),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
                           ],
                         ),
                       ))
@@ -1256,6 +1305,94 @@ class _BottomSheetState extends State<BottomSheet> {
       ),
     ));
     return widgets;
+  }
+
+  generateListCategories(List<ModelCategory> categories) {
+    return categories
+        .map(
+          (element) => GestureDetector(
+            onTap: () => updateCategoriesId(element.id),
+            child: Container(
+              margin: EdgeInsets.symmetric(horizontal: 5.0, vertical: 10.0),
+              height: 120,
+              width: 110.0,
+              decoration: BoxDecoration(
+                color: categoriesId.contains(element.id)
+                    ? Color.fromRGBO(0, 133, 196, 1)
+                    : Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                      color: Colors.black54,
+                      blurRadius: 2.0,
+                      spreadRadius: 1.0,
+                      offset: Offset(2.0, 3.0))
+                ],
+                borderRadius: BorderRadius.circular(17.0),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  SvgPicture.network(
+                    element.iconUrl,
+                    height: 60.0,
+                    width: 60.0,
+                  ),
+                  Container(
+                    margin:
+                        EdgeInsets.symmetric(vertical: 10.0, horizontal: 1.0),
+                    child: Text(
+                      element.nombre != null ? element.nombre : "",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.black,
+                        fontSize: 12.0,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        )
+        .toList();
+  }
+
+  generateListMunicipalities(List<SimpleMunicipality> municipalities) {
+    return municipalities
+        .map(
+          (seconElement) => GestureDetector(
+            onTap: () => updateMunicipaliesId(seconElement.id, false),
+            child: Container(
+              width: MediaQuery.of(context).size.width / 3,
+              height: 40,
+              padding: EdgeInsets.symmetric(horizontal: 6.0),
+              alignment: Alignment.center,
+              margin: EdgeInsets.symmetric(horizontal: 5.0, vertical: 10),
+              decoration: BoxDecoration(
+                  color: municipalitiesId.contains(seconElement.id)
+                      ? Color.fromRGBO(0, 133, 196, 1)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(8.0),
+                  border: Border.all(
+                      color: municipalitiesId.contains(seconElement.id)
+                          ? Colors.black
+                          : Color.fromRGBO(0, 133, 196, 1),
+                      width: 2)),
+              child: Text(
+                seconElement.nombre,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: municipalitiesId.contains(seconElement.id)
+                      ? Colors.white
+                      : Colors.black,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+          ),
+        )
+        .toList();
   }
 
   updateMunicipaliesId(String id, bool isParent) {
