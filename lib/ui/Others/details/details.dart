@@ -286,8 +286,17 @@ class _DetailsState extends State<Details> implements DetailView {
                               SizedBox(
                                 height: 5.0,
                               ),
-                              restaurant.avg == "NaN"
-                                  ? Container()
+                              restaurant.avg == "NaN" || restaurant.avgRating ==null
+                                  ? Container(
+                                child:Text(
+                                  'Sin Valoraciones',
+                                  style: TextStyle(
+                                    fontSize: 18.0,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.black,
+                                  ),
+                                ),
+                              )
                                   : Row(
                                       children: [
                                         Text(
@@ -316,7 +325,7 @@ class _DetailsState extends State<Details> implements DetailView {
                                           ),
                                         ),
                                         Text(
-                                          restaurant.valoraciones.length
+                                             restaurant.valoraciones.length
                                                   .toString() +
                                               ' valoraciones',
                                           style: TextStyle(
