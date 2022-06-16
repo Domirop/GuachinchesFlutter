@@ -12,7 +12,8 @@ class _UpdateAppScreenState extends State<UpdateAppScreen> {
     if (Platform.isIOS) {
       launch('https://apps.apple.com/es/app/guachinches-modernos/id1575882373');
     } else {
-      launch('https://play.google.com/store/apps/details?id=com.jonay.guachinches&gl=ES');
+      launch(
+          'https://play.google.com/store/apps/details?id=com.jonay.guachinches&gl=ES');
     }
   }
 
@@ -29,7 +30,7 @@ class _UpdateAppScreenState extends State<UpdateAppScreen> {
             Container(
               margin: EdgeInsets.only(bottom: 20.0),
               decoration: BoxDecoration(
-                color: Color.fromRGBO(230, 73, 90, 1),
+                color: Color.fromRGBO(0, 133, 196, 1),
                 borderRadius: BorderRadius.circular(50.0),
               ),
               child: Icon(
@@ -38,8 +39,12 @@ class _UpdateAppScreenState extends State<UpdateAppScreen> {
                 size: 150,
               ),
             ),
-            Flexible(child: Text("¡Vaya! Han llegado nuevas funcionalidades.", style: TextStyle(fontSize: 14))),
-            Flexible(child: Text("Actualiza tu app y disfrútalas.", style: TextStyle(fontSize: 14))),
+            Flexible(
+                child: Text("¡Vaya! Han llegado nuevas funcionalidades.",
+                    style: TextStyle(fontSize: 14, color: Colors.white))),
+            Flexible(
+                child: Text("Actualiza tu app y disfrútalas.",
+                    style: TextStyle(fontSize: 14, color: Colors.white))),
             Padding(
               padding: EdgeInsets.only(top: 20.0),
               child: GestureDetector(
