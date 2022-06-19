@@ -177,14 +177,19 @@ class Restaurant {
       });
     }
 
+
+    String auxValue = json["google_horarios"];
+    _open = generateOpen(auxValue);
+  }
+
+  static generateOpen(googleHorario){
     bool auxOpen = true;
     bool alwaysOpen = false;
-    String auxValue = json["google_horarios"];
-    if (auxValue.toLowerCase() == "cerrado" ||
-        auxValue.toLowerCase() == "sin horario") {
+    if (googleHorario.toLowerCase() == "cerrado" ||
+        googleHorario.toLowerCase() == "sin horario") {
       auxOpen = false;
     } else {
-      String auxValue2 = json["google_horarios"]
+      String auxValue2 = googleHorario
           .split("\n")[DateTime.now().toUtc().weekday-1]
           .split(": ")[1];
       if (auxValue2.toLowerCase() == "cerrado") auxOpen = false;
@@ -194,7 +199,7 @@ class Restaurant {
       }
     }
     if (auxOpen && !alwaysOpen) {
-      List<String> aux = json["google_horarios"]
+      List<String> aux = googleHorario
           .split("\n")[DateTime.now().toUtc().weekday-1]
           .split(": ")[1]
           .split(", ");
@@ -229,7 +234,7 @@ class Restaurant {
         }
       }
     }
-    _open = auxOpen;
+    return auxOpen;
   }
 
   Map<String, dynamic> toJson() {

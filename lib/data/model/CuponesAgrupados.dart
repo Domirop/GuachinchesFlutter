@@ -1,12 +1,16 @@
 import 'package:guachinches/data/model/Cupones.dart';
+import 'package:guachinches/data/model/restaurant.dart';
 
 class CuponesAgrupados {
   String _id;
   bool _enable;
   String _nombre;
   String _nombreAbrev;
+  String _direccion;
   String _foto;
+  double _avgRating;
   List<Cupones> cupones = [];
+  bool _open;
 
   CuponesAgrupados (
       {String id,
@@ -25,9 +29,13 @@ class CuponesAgrupados {
     _id = json["id"];
     _enable = json["enable"];
     _nombre = json["nombre"];
+    _direccion = json["direccion"];
     _nombreAbrev = _nombre.toLowerCase();
     if(_nombreAbrev.contains("guachinche"))_nombreAbrev = _nombreAbrev.replaceAll("guachinche", "");
     if(_nombreAbrev.length > 10)_nombreAbrev = _nombreAbrev.substring(0,10) + "...";
+    if (json["avgRating"] != null)
+      _avgRating =
+          double.parse(double.parse(json["avgRating"]).toStringAsFixed(2));
     var aux = json["fotos"];
     if(aux != null && aux.length > 0) _foto = aux[0]["photoUrl"];
     if(json["cupones"] != null && json["cupones"].length > 0){
@@ -36,29 +44,16 @@ class CuponesAgrupados {
         cupones.add(cupon);
       });
     }
+    _open = Restaurant.generateOpen(json["google_horarios"]);
   }
 
   String get id => _id;
 
-  set descuento(String value) {
-    _foto = value;
-  }
+  String get direccion => _direccion;
 
-  set nombre(String value) {
-    _nombre = value;
-  }
+  bool get open => _open;
 
-  set nombreAbrev(String value) {
-    _nombreAbrev = value;
-  }
-
-  set date(bool value) {
-    _enable = value;
-  }
-
-  set id(String value) {
-    _id = value;
-  }
+  double get avgRating => _avgRating;
 
   bool get enable => _enable;
 

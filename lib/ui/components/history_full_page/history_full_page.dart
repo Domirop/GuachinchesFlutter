@@ -1,12 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:guachinches/data/HttpRemoteRepository.dart';
-import 'package:guachinches/data/RemoteRepository.dart';
 import 'package:guachinches/data/model/CuponesAgrupados.dart';
 import 'package:guachinches/globalMethods.dart';
 import 'package:guachinches/ui/components/history_full_page/history_full_page_presenter.dart';
-import 'package:http/http.dart';
+import 'package:guachinches/ui/components/history_full_page/pre_save_cupon.dart';
 import 'package:story_view/story_view.dart';
 
 class HistoryFullPage extends StatefulWidget {
@@ -28,15 +26,11 @@ class _HistoryFullPageState extends State<HistoryFullPage>
   String id = "";
   int descuento = 0;
   bool isCorrectSaveCupon;
-  bool firstTime = true;
-  HistoryFullPagePresenter presenter;
-  RemoteRepository remoteRepository;
+
 
   @override
   void initState() {
     super.initState();
-    remoteRepository = HttpRemoteRepository(Client());
-    presenter = HistoryFullPagePresenter(this, remoteRepository);
     controller = StoryController();
     addStoryItems();
     date = widget.cuponesAgrupados.cupones[0].date;
@@ -51,12 +45,10 @@ class _HistoryFullPageState extends State<HistoryFullPage>
   }
 
   void addStoryItems() {
-    for (final story in widget.cuponesAgrupados.cupones) {
-      storyItems.add(StoryItem.pageImage(
-        url: story.fotoUrl,
-        controller: controller,
-      ));
-    }
+    storyItems.add(StoryItem.pageImage(
+      url: widget.cuponesAgrupados.cupones[0].fotoUrl,
+      controller: controller,
+    ));
   }
 
   @override
@@ -71,26 +63,6 @@ class _HistoryFullPageState extends State<HistoryFullPage>
               onVerticalSwipeComplete: (direction) {
                 if (direction == Direction.down) {
                   Navigator.pop(context);
-                }
-              },
-              onStoryShow: (storyItem) {
-                index = storyItems.indexOf(storyItem);
-                if(index == 1){
-                  if (mounted) {
-                    setState(() {
-                      firstTime = false;
-                    });
-                  }
-                }
-                if (!firstTime) {
-                  if (mounted) {
-                    setState(() {
-                      date = widget.cuponesAgrupados.cupones[index].date;
-                      descuento =
-                          widget.cuponesAgrupados.cupones[index].descuento;
-                      id = widget.cuponesAgrupados.cupones[index].id;
-                    });
-                  }
                 }
               },
             ),
@@ -210,7 +182,7 @@ class _HistoryFullPageState extends State<HistoryFullPage>
                   child: Material(
                     type: MaterialType.transparency,
                     child: GestureDetector(
-                      onTap: () => presenter.saveCupon(id, widget.userId),
+                      onTap: () => GlobalMethods().pushPage(context, PreSaveCupon(widget.cuponesAgrupados, this, widget.userId)),
                       child: Container(
                         width: 200,
                         padding: EdgeInsets.symmetric(
@@ -241,35 +213,28 @@ class _HistoryFullPageState extends State<HistoryFullPage>
                   left: (MediaQuery.of(context).size.width / 2) - 100,
                   child: Material(
                     type: MaterialType.transparency,
-                    child: GestureDetector(
-                      onTap: () {
-                        presenter.saveCupon(
-                            widget.cuponesAgrupados.cupones[index].id,
-                            widget.userId);
-                      },
-                      child: Container(
-                        width: 200,
-                        padding: EdgeInsets.symmetric(
-                          vertical: 20,
-                        ),
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          color: Color.fromRGBO(255, 255, 255, 1),
-                          borderRadius: BorderRadius.circular(8.0),
-                        ),
-                        child: Center(
-                            child: isCorrectSaveCupon
-                                ? Icon(
-                                    Icons.check_circle_outlined,
-                                    color: Color.fromRGBO(149, 220, 0, 1),
-                                    size: 40,
-                                  )
-                                : Icon(
-                                    Icons.error_outline,
-                                    color: Color.fromRGBO(226, 120, 120, 1),
-                                    size: 40,
-                                  )),
+                    child: Container(
+                      width: 200,
+                      padding: EdgeInsets.symmetric(
+                        vertical: 20,
                       ),
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: Color.fromRGBO(255, 255, 255, 1),
+                        borderRadius: BorderRadius.circular(8.0),
+                      ),
+                      child: Center(
+                          child: isCorrectSaveCupon
+                              ? Icon(
+                                  Icons.check_circle_outlined,
+                                  color: Color.fromRGBO(149, 220, 0, 1),
+                                  size: 40,
+                                )
+                              : Icon(
+                                  Icons.error_outline,
+                                  color: Color.fromRGBO(226, 120, 120, 1),
+                                  size: 40,
+                                )),
                     ),
                   ),
                 )
@@ -284,7 +249,7 @@ class _HistoryFullPageState extends State<HistoryFullPage>
         this.isCorrectSaveCupon = isCorrect;
       });
     }
-    Timer(Duration(milliseconds: 1000), () {
+    Timer(Duration(milliseconds: 5000), () {
       if (mounted) {
         setState(() {
           this.isCorrectSaveCupon = null;

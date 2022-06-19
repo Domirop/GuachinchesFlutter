@@ -1,6 +1,7 @@
 class Cupones {
   String _id;
   String _date;
+  String _minDate;
   int _mesasDisponibles;
   int _mesasTotales;
   String _fotoUrl;
@@ -28,6 +29,10 @@ class Cupones {
   Cupones.fromJson(dynamic json) {
     _id = json["id"];
     _date = json["date"];
+    if(_date != null){
+      List aux = _date.split("-");
+      _minDate = aux[2] + "/" + aux[1];
+    }
     _mesasDisponibles = json["mesasDisponibles"];
     _mesasTotales = json["mesasTotales"];
     _fotoUrl = json["fotoUrl"];
@@ -72,6 +77,8 @@ class Cupones {
   }
 
   String get date => _date;
+
+  String get minDate => _minDate;
 
   int get descuento => _descuento;
 
