@@ -21,6 +21,7 @@ class DetailPresenter {
 
   getRestaurantById(String id) async {
     Restaurant restaurant = await _remoteRepository.getRestaurantById(id);
+    print(restaurant);
     await getIsFav(id);
     await isUserLogged();
     _view.setRestaurant(restaurant);
