@@ -6,6 +6,7 @@ import 'package:guachinches/data/model/Cupones.dart';
 import 'package:guachinches/data/model/CuponesAgrupados.dart';
 import 'package:guachinches/data/model/Municipality.dart';
 import 'package:guachinches/data/model/TopRestaurants.dart';
+import 'package:guachinches/data/model/Types.dart';
 import 'package:guachinches/data/model/fotoBanner.dart';
 import 'package:guachinches/data/model/restaurant.dart';
 import 'package:guachinches/data/model/restaurant_response.dart';
@@ -53,12 +54,14 @@ class HttpRemoteRepository implements RemoteRepository {
     }
   }
 
-  Future<List<Restaurant>> getFilterRestaurants(String categorias, String municipalities, String nombre) async {
+  Future<List<Restaurant>> getFilterRestaurants(String categorias, String municipalities, String types, String nombre) async {
     try {
       List<Restaurant> restaurants = [];
       String url = dotenv.env['ENDPOINT_V2'] +
           "restaurant/findByFilter/filter?name=";
       if(nombre != null || nombre.isNotEmpty)url += nombre;
+      url += "&businessType=";
+      if(types != null && types.isNotEmpty) url += types;
       if(categorias != null && categorias.isNotEmpty) url += "&categories=" + categorias;
       if(municipalities != null && municipalities.isNotEmpty) url += "&municipalities=" + municipalities;
       var uri = Uri.parse(url);
@@ -297,6 +300,38 @@ class HttpRemoteRepository implements RemoteRepository {
       return cupones;
     } on Exception catch (e) {
       return [];
+    }
+  }
+
+  @override
+  Future<List<Types>> getAllTypes() async {
+    try {
+      List<Types> typesList = [];
+      String url = dotenv.env['ENDPOINT_V2'] +
+          "types";
+      var uri = Uri.parse(url);
+      var response = await _client.get(uri);
+      var data = json.decode(response.body);
+      for (var i = 0; i < data.length; i++) {
+        Types types = Types.fromJson(data[i]);
+        typesList.add(types);
+      }
+      return typesList;
+    } on Exception catch (e) {
+      return [];
+    }
+  }
+
+  @override
+  Future<void> removeCupon(String id) async {
+    try {
+      List<Types> typesList = [];
+      String url = dotenv.env['ENDPOINT_V2'] +
+          "cupones/" + id;
+      var uri = Uri.parse(url);
+      var response = await _client.delete(uri);
+      var data = json.decode(response.body);
+    } on Exception catch (e) {
     }
   }
 

@@ -13,6 +13,7 @@ import 'package:guachinches/data/cubit/user/user_state.dart';
 import 'package:guachinches/data/model/CuponesAgrupados.dart';
 import 'package:guachinches/data/model/TopRestaurants.dart';
 import 'package:guachinches/globalMethods.dart';
+import 'package:flutter_svg/svg.dart';
 import 'package:guachinches/ui/Others/details/details.dart';
 import 'package:guachinches/ui/components/app_Bars/appbar_basic.dart';
 import 'package:guachinches/ui/components/heroSliderComponent.dart';
@@ -92,7 +93,11 @@ class _HomeState extends State<Home> implements HomeView {
             SizedBox(
               height: 20.0,
             ),
-            Text("Cupones descuento"),
+            // SvgPicture.asset(
+            //   'assets/images/logoHome.svg',
+            //   width: 23.0,
+            //   height: 24.0,
+            // ),
             SizedBox(
               height: 10.0,
             ),

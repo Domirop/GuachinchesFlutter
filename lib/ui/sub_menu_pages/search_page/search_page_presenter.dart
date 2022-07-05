@@ -4,6 +4,7 @@ import 'package:guachinches/data/cubit/cupones/cupones_cubit.dart';
 import 'package:guachinches/data/cubit/restaurants/basic/restaurant_cubit.dart';
 import 'package:guachinches/data/model/Category.dart';
 import 'package:guachinches/data/model/Municipality.dart';
+import 'package:guachinches/data/model/Types.dart';
 
 class SearchPagePresenter {
   final SearchPageView _view;
@@ -64,16 +65,18 @@ class SearchPagePresenter {
     }
   }
 
-  getAllMunicipalitiesAndCategories() async {
+  getAllMunicipalitiesCategoriesAndTypes() async {
     List<ModelCategory> categories = await _remoteRepository.getAllCategories();
     List<Municipality> municipality =
         await _remoteRepository.getAllMunicipalities();
-    _view.setMunicipalitiesAndCategories(categories, municipality);
+    List<Types> types =
+    await _remoteRepository.getAllTypes();
+    _view.setMunicipalitiesCategoriesAndTypes(categories, municipality, types);
   }
 
-  updateNumber(List<String> categories, List<String> municipalities, int number,
+  updateNumber(List<String> categories, List<String> municipalities, List<String> types, int number,
       bool isOpen) async {
-    _view.updateNumber(categories, municipalities, number, isOpen);
+    _view.updateNumber(categories, municipalities, types, number, isOpen);
   }
 
   updateFilter() {
@@ -84,10 +87,10 @@ class SearchPagePresenter {
 abstract class SearchPageView {
   changeCharginInitial();
 
-  setMunicipalitiesAndCategories(
-      List<ModelCategory> categories, List<Municipality> municipality);
+  setMunicipalitiesCategoriesAndTypes(
+      List<ModelCategory> categories, List<Municipality> municipality, List<Types> type);
 
-  updateNumber(List<String> categories, List<String> municipalities, int number,
+  updateNumber(List<String> categories, List<String> municipalities, List<String> types, int number,
       bool isOpen);
 
   updateFilter();

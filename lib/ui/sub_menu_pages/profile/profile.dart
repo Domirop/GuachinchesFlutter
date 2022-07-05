@@ -301,6 +301,7 @@ class _ProfileState extends State<Profile> implements ProfileView {
                             child: Column(
                               children: [
                                 Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
                                     Container(
                                       height: 110,
@@ -320,7 +321,7 @@ class _ProfileState extends State<Profile> implements ProfileView {
                                     ),
                                     Flexible(
                                       child: Container(
-                                        width: MediaQuery.of(context).size.width * 0.60,
+                                        width: MediaQuery.of(context).size.width * 0.6,
                                         child: Column(
                                           crossAxisAlignment: CrossAxisAlignment.start,
                                           children: [
@@ -356,6 +357,16 @@ class _ProfileState extends State<Profile> implements ProfileView {
                                             ),
                                           ],
                                         ),
+                                      ),
+                                    ),
+                                    GestureDetector(
+                                      onTap: () {
+                                        _presenter.removeCupon(cupones[index].id);
+                                      },
+                                      child: Icon(
+                                        Icons.delete,
+                                        color: Color.fromRGBO(226, 120, 120, 1),
+                                        size: 30.0,
                                       ),
                                     ),
                                   ],
