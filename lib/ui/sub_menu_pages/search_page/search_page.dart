@@ -799,6 +799,7 @@ class _SearchPageState extends State<SearchPage>
                 presenter.getAllRestaurantsFilters(isOpen,
                     categories: categoriesId,
                     municipalities: municipalitiesId,
+                    types: typesId,
                     text: text,
                     number: numero);
             },
@@ -1020,6 +1021,7 @@ class _SearchPageState extends State<SearchPage>
     String aux = textValue.length > 3 ? textValue : "";
     presenter.getAllRestaurantsFilters(isOpen,
         categories: categoriesId,
+        types: typesId,
         number: numero,
         text: aux,
         municipalities: municipalitiesId);

@@ -50,17 +50,19 @@ class SearchPagePresenter {
   getAllRestaurantsFilters(bool isOpen,
       {List<String> categories,
       List<String> municipalities,
+      List<String> types,
       int number,
       String text}) async {
     if (((categories == null || categories.isEmpty) &&
             (municipalities == null || municipalities.isEmpty) &&
             (text == null || text.length <= 3)) &&
+        (types == null || types.isEmpty) &&
         !isOpen) {
       await _restaurantCubit.getRestaurants(number);
       _view.changeTab();
     } else {
       await _restaurantCubit.getFilterRestaurants(
-          categories: categories, municipalities: municipalities, text: text);
+          categories: categories, municipalities: municipalities, types: types, text: text);
       _view.removeListeners();
     }
   }
@@ -69,13 +71,12 @@ class SearchPagePresenter {
     List<ModelCategory> categories = await _remoteRepository.getAllCategories();
     List<Municipality> municipality =
         await _remoteRepository.getAllMunicipalities();
-    List<Types> types =
-    await _remoteRepository.getAllTypes();
+    List<Types> types = await _remoteRepository.getAllTypes();
     _view.setMunicipalitiesCategoriesAndTypes(categories, municipality, types);
   }
 
-  updateNumber(List<String> categories, List<String> municipalities, List<String> types, int number,
-      bool isOpen) async {
+  updateNumber(List<String> categories, List<String> municipalities,
+      List<String> types, int number, bool isOpen) async {
     _view.updateNumber(categories, municipalities, types, number, isOpen);
   }
 
@@ -87,11 +88,11 @@ class SearchPagePresenter {
 abstract class SearchPageView {
   changeCharginInitial();
 
-  setMunicipalitiesCategoriesAndTypes(
-      List<ModelCategory> categories, List<Municipality> municipality, List<Types> type);
+  setMunicipalitiesCategoriesAndTypes(List<ModelCategory> categories,
+      List<Municipality> municipality, List<Types> type);
 
-  updateNumber(List<String> categories, List<String> municipalities, List<String> types, int number,
-      bool isOpen);
+  updateNumber(List<String> categories, List<String> municipalities,
+      List<String> types, int number, bool isOpen);
 
   updateFilter();
 
