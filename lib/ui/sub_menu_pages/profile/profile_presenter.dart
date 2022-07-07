@@ -22,6 +22,13 @@ class ProfilePresenter{
     _view.updateCupones(cupones);
   }
 
+  removeCupon(String id) async {
+    await _remoteRepository.removeCupon(id);
+    String userId = await storage.read(key: "userId");
+    List<Cupones> cupones = await _remoteRepository.getCuponesUsuario(userId);
+    _view.updateCupones(cupones);
+  }
+
   getRestaurantsFavs() async {
     List<RestaurantSQLLite> restaurantsSql = await sqlLiteLocalRepository.getRestaurants();
     List<Restaurant> restaurants = [];

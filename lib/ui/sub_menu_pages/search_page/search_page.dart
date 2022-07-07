@@ -14,6 +14,7 @@ import 'package:guachinches/data/model/Category.dart';
 import 'package:guachinches/data/model/CuponesAgrupados.dart';
 import 'package:guachinches/data/model/Municipality.dart';
 import 'package:guachinches/data/model/SimpleMunicipality.dart';
+import 'package:guachinches/data/model/Types.dart';
 import 'package:guachinches/data/model/restaurant.dart';
 import 'package:guachinches/globalMethods.dart';
 import 'package:guachinches/ui/Others/details/details.dart';
@@ -45,11 +46,13 @@ class _SearchPageState extends State<SearchPage>
   int maxRestaurants1 = 9999;
   List<ModelCategory> categories = [];
   List<Municipality> municipalities = [];
+  List<Types> types = [];
   int numberPagination = 0;
   int numberPagination2 = 0;
   int currentIndex = 0;
   List<String> municipalitiesId = [];
   List<String> categoriesId = [];
+  List<String> typesId = [];
   String textValue = "";
 
   Widget tab1;
@@ -85,7 +88,7 @@ class _SearchPageState extends State<SearchPage>
       generateWidgetsTab3();
       presenter.setCharging();
     }
-    presenter.getAllMunicipalitiesAndCategories();
+    presenter.getAllMunicipalitiesCategoriesAndTypes();
     controller2 = new ScrollController();
     controller1 = new ScrollController();
     _tabController = TabController(length: 3, vsync: this);
@@ -108,6 +111,7 @@ class _SearchPageState extends State<SearchPage>
           numero = 0;
           categoriesId = [];
           municipalitiesId = [];
+          typesId = [];
         });
       }
     }
@@ -698,7 +702,7 @@ class _SearchPageState extends State<SearchPage>
             children: [
               GestureDetector(
                 onTap: () => {
-                  presenter.updateNumber([], [], 0, false),
+                  presenter.updateNumber([], [], [], 0, false),
                   GlobalMethods().popPage(contextModal)
                 },
                 child: Text(
@@ -738,7 +742,7 @@ class _SearchPageState extends State<SearchPage>
         return SliverChildListDelegate(
           <Widget>[
             BottomSheet(municipalities, categories, this, presenter,
-                remoteRepository, municipalitiesId, categoriesId, isOpen)
+                remoteRepository, municipalitiesId, categoriesId, types, typesId, isOpen)
           ],
         );
       },
@@ -795,6 +799,7 @@ class _SearchPageState extends State<SearchPage>
                 presenter.getAllRestaurantsFilters(isOpen,
                     categories: categoriesId,
                     municipalities: municipalitiesId,
+                    types: typesId,
                     text: text,
                     number: numero);
             },
@@ -928,24 +933,26 @@ class _SearchPageState extends State<SearchPage>
   }
 
   @override
-  setMunicipalitiesAndCategories(
-      List<ModelCategory> categories, List<Municipality> municipality) {
+  setMunicipalitiesCategoriesAndTypes(
+      List<ModelCategory> categories, List<Municipality> municipality, List<Types> types) {
     if (mounted) {
       setState(() {
         this.categories = categories;
         this.municipalities = municipality;
+        this.types = types;
       });
     }
   }
 
   @override
-  updateNumber(List<String> categories, List<String> municipalities, int number,
+  updateNumber(List<String> categories, List<String> municipalities, List<String> types, int number,
       bool isOpen) {
     if (mounted) {
       setState(() {
         this.numero = number;
         this.categoriesId = categories;
         this.municipalitiesId = municipalities;
+        this.typesId = typesId;
         this.isOpen = isOpen;
       });
     }
@@ -1014,6 +1021,7 @@ class _SearchPageState extends State<SearchPage>
     String aux = textValue.length > 3 ? textValue : "";
     presenter.getAllRestaurantsFilters(isOpen,
         categories: categoriesId,
+        types: typesId,
         number: numero,
         text: aux,
         municipalities: municipalitiesId);
@@ -1037,9 +1045,11 @@ class _SearchPageState extends State<SearchPage>
 class BottomSheet extends StatefulWidget {
   List<ModelCategory> categories;
   List<Municipality> municipalities;
+  List<Types> types;
   SearchPageView searPage;
   List<String> municipalitiesId = [];
   List<String> categoriesId = [];
+  List<String> typesId = [];
   bool isOpen = false;
   RemoteRepository remoteRepository;
   SearchPagePresenter presenter;
@@ -1052,22 +1062,26 @@ class BottomSheet extends StatefulWidget {
       this.remoteRepository,
       this.municipalitiesId,
       this.categoriesId,
+      this.types,
+      this.typesId,
       this.isOpen);
 
   @override
   State<BottomSheet> createState() =>
-      _BottomSheetState(municipalitiesId, categoriesId, isOpen);
+      _BottomSheetState(municipalitiesId, categoriesId, isOpen, typesId);
 }
 
 class _BottomSheetState extends State<BottomSheet> {
   List<String> municipalitiesId = [];
   List<String> municipalitiesIdParent = [];
+  List<String> typesId = [];
   List<String> categoriesId = [];
   bool isOpen = false;
   bool limitMunicipalities = true;
+  bool limitType = true;
   bool limitCategories = true;
 
-  _BottomSheetState(this.municipalitiesId, this.categoriesId, this.isOpen);
+  _BottomSheetState(this.municipalitiesId, this.categoriesId, this.isOpen, this.typesId);
 
   @override
   void initState() {}
@@ -1112,6 +1126,72 @@ class _BottomSheetState extends State<BottomSheet> {
             fontSize: 14,
           ),
         ),
+      ),
+    ));
+    widgets.add(SizedBox(
+      height: 10,
+    ));
+    widgets.add(Container(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            "Establecimiento",
+            style: TextStyle(
+                color: Colors.black, fontSize: 24, fontWeight: FontWeight.bold),
+          ),
+          Container(
+            child: Wrap(
+              children: limitType
+                  ? generateListTypes(
+                  widget.types.getRange(0, 6).toList())
+                  : generateListTypes(widget.types),
+            ),
+          ),
+          limitType
+              ? GestureDetector(
+            onTap: () => {
+              if (mounted)
+                {
+                  setState(() {
+                    limitType = false;
+                  })
+                }
+            },
+            child: Text(
+              "Ver más",
+              style: TextStyle(
+                fontSize: 18,
+                decoration: TextDecoration.underline,
+                fontWeight: FontWeight.bold,
+                color: Color.fromRGBO(149, 194, 55, 1),
+              ),
+            ),
+          )
+              : GestureDetector(
+            onTap: () => {
+              if (mounted)
+                {
+                  setState(() {
+                    limitType = true;
+                  })
+                }
+            },
+            child: Text(
+              "Ver menos",
+              style: TextStyle(
+                fontSize: 18,
+                decoration: TextDecoration.underline,
+                fontWeight: FontWeight.bold,
+                color: Color.fromRGBO(242, 0, 0, 1),
+              ),
+            ),
+          ),
+          SizedBox(
+            height: 20.0,
+          ),
+        ],
       ),
     ));
     widgets.add(SizedBox(
@@ -1358,6 +1438,57 @@ class _BottomSheetState extends State<BottomSheet> {
         .toList();
   }
 
+  generateListTypes(List<Types> types) {
+    return types
+        .map(
+          (element) => GestureDetector(
+            onTap: () => updateTypesId(element.id),
+            child: Container(
+              margin: EdgeInsets.symmetric(horizontal: 5.0, vertical: 10.0),
+              height: 120,
+              width: 110.0,
+              decoration: BoxDecoration(
+                color: typesId.contains(element.id)
+                    ? Color.fromRGBO(0, 133, 196, 1)
+                    : Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                      color: Colors.black54,
+                      blurRadius: 2.0,
+                      spreadRadius: 1.0,
+                      offset: Offset(2.0, 3.0))
+                ],
+                borderRadius: BorderRadius.circular(17.0),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  element.iconUrl != null ? SvgPicture.network(
+                    element.iconUrl,
+                    height: 60.0,
+                    width: 60.0,
+                  ) : Container(),
+                  Container(
+                    margin:
+                        EdgeInsets.symmetric(vertical: 10.0, horizontal: 1.0),
+                    child: Text(
+                      element.nombre != null ? element.nombre : "",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.black,
+                        fontSize: 12.0,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        )
+        .toList();
+  }
+
   generateListMunicipalities(List<SimpleMunicipality> municipalities) {
     return municipalities
         .map(
@@ -1422,8 +1553,8 @@ class _BottomSheetState extends State<BottomSheet> {
         municipalitiesId = aux;
       });
     }
-    widget.presenter.updateNumber(categoriesId, municipalitiesId,
-        (categoriesId.length + municipalitiesId.length), isOpen);
+    widget.presenter.updateNumber(categoriesId, municipalitiesId, typesId,
+        (categoriesId.length + municipalitiesId.length + typesId.length), isOpen);
   }
 
   updateCategoriesId(String id) {
@@ -1437,8 +1568,23 @@ class _BottomSheetState extends State<BottomSheet> {
         categoriesId = aux;
       });
     }
-    widget.presenter.updateNumber(categoriesId, municipalitiesId,
-        (categoriesId.length + municipalitiesId.length), isOpen);
+    widget.presenter.updateNumber(categoriesId, municipalitiesId, typesId,
+        (categoriesId.length + municipalitiesId.length + typesId.length), isOpen);
+  }
+
+  updateTypesId(String id) {
+    List<String> aux = typesId;
+    if (aux.contains(id))
+      aux.remove(id);
+    else
+      aux.add(id);
+    if (mounted) {
+      setState(() {
+        typesId = aux;
+      });
+    }
+    widget.presenter.updateNumber(categoriesId, municipalitiesId, typesId,
+        (categoriesId.length + municipalitiesId.length + typesId.length), isOpen);
   }
 
   updateIsOpen() {
@@ -1447,7 +1593,7 @@ class _BottomSheetState extends State<BottomSheet> {
         this.isOpen = !this.isOpen;
       });
     }
-    widget.presenter.updateNumber(categoriesId, municipalitiesId,
-        (categoriesId.length + municipalitiesId.length), isOpen);
+    widget.presenter.updateNumber(categoriesId, municipalitiesId, typesId,
+        (categoriesId.length + municipalitiesId.length + typesId.length), isOpen);
   }
 }
