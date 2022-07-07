@@ -291,7 +291,7 @@ class HttpRemoteRepository implements RemoteRepository {
       var response = await _client.get(uri);
       var data = json.decode(response.body);
       for (var i = 0; i < data["cuponesUsuario"].length; i++) {
-        Cupones cupon = Cupones.fromJson(data["cuponesUsuario"][i]["cupones"]);
+        Cupones cupon = Cupones.fromJson(data["cuponesUsuario"][i]);
         cupones.add(cupon);
       }
       return cupones;

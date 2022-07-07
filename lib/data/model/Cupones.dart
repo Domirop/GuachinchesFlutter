@@ -8,6 +8,8 @@ class Cupones {
   int _descuento;
   String _restaurantId;
   String _restaurantName;
+  String _cuponesUsuarioId;
+  String _turno;
 
   Cupones (
       {String id,
@@ -15,7 +17,7 @@ class Cupones {
         int mesasDisponibles,
         int mesasTotales,
         String fotoUrl,
-        int descuento, String restaurantId, String restaurantName}) {
+        int descuento, String restaurantId, String restaurantName, String cuponesUsuarioId,String turno}) {
     _id = id;
     _date = date;
     _mesasDisponibles = mesasDisponibles;
@@ -23,22 +25,40 @@ class Cupones {
     _fotoUrl = fotoUrl;
     _descuento = descuento;
     _restaurantId = restaurantId;
+    _cuponesUsuarioId = cuponesUsuarioId;
     _restaurantName = restaurantName;
+    _turno = turno;
   }
 
   Cupones.fromJson(dynamic json) {
-    _id = json["id"];
-    _date = json["date"];
+    if(json['cupones']!= null){
+      _id = json["cupones"]["id"];
+      _date = json["cupones"]["date"];
+      _mesasDisponibles = json["cupones"]["mesasDisponibles"];
+
+      _mesasTotales = json["cupones"]["mesasTotales"];
+      _fotoUrl = json["cupones"]["fotoUrl"];
+      _descuento = json["cupones"]["descuento"];
+      _restaurantId = json["cupones"]["restaurantId"];
+      _turno = json["cupones"]["turno"];
+      _cuponesUsuarioId = json["id"];
+      if(json["cupones"]["restaurant"] != null && json["cupones"]["restaurant"]["nombre"] != null)_restaurantName = json["cupones"]["restaurant"]["nombre"];
+
+    } else{
+      _id = json["id"];
+      _date = json["date"];
+      _turno = json["turno"];
+      _mesasDisponibles = json["mesasDisponibles"];
+      _mesasTotales = json["mesasTotales"];
+      _fotoUrl = json["fotoUrl"];
+      _descuento = json["descuento"];
+      _restaurantId = json["restaurantId"];
+      if(json["restaurant"] != null && json["restaurant"]["nombre"] != null)_restaurantName = json["restaurant"]["nombre"];
+    }
     if(_date != null){
       List aux = _date.split("-");
       _minDate = aux[2] + "/" + aux[1];
     }
-    _mesasDisponibles = json["mesasDisponibles"];
-    _mesasTotales = json["mesasTotales"];
-    _fotoUrl = json["fotoUrl"];
-    _descuento = json["descuento"];
-    _restaurantId = json["restaurantId"];
-    if(json["restaurant"] != null && json["restaurant"]["nombre"] != null)_restaurantName = json["restaurant"]["nombre"];
   }
 
   String get id => _id;
@@ -83,10 +103,13 @@ class Cupones {
   int get descuento => _descuento;
 
   String get fotoUrl => _fotoUrl;
+  String get cuponesUsuarioId => _cuponesUsuarioId;
 
   int get mesasTotales => _mesasTotales;
 
   int get mesasDisponibles => _mesasDisponibles;
+
+  String get turno => _turno;
 
   String get restaurantId => _restaurantId;
 

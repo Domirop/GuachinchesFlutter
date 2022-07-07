@@ -21,6 +21,7 @@ class _QrFullScreenState extends State<QrFullScreen> {
 
   @override
   void initState() {
+    print(data.turno);
     super.initState();
   }
 
@@ -54,12 +55,13 @@ class _QrFullScreenState extends State<QrFullScreen> {
               ),
               SizedBox(height: 30,),
               QrImage(
-                data: "https://guachinchesmodernos.com/cupones/check/" + data.id,
+                data: "https://guachinchesmodernos.com/cupones/check/" + data.cuponesUsuarioId,
                 version: QrVersions.auto,
                 size: MediaQuery.of(context).size.width,
                 padding: EdgeInsets.all(20.0),
                 gapless: false,
               ),
+
               Text(
                 "Escanea el código con fecha\n" +
                     data.date +
@@ -70,6 +72,18 @@ class _QrFullScreenState extends State<QrFullScreen> {
                   fontWeight: FontWeight.bold,
                   height: 1.5
                 ),
+
+              ),
+              Text(
+                data.turno =='dia'?'Válido para todo el dia':'Válido para turno'+data.turno,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                    fontSize: 20,
+                    color: data.turno=='dia'?Colors.green:Colors.red,
+                    fontWeight: FontWeight.bold,
+                    height: 1.5
+                ),
+
               ),
             ],
           ),

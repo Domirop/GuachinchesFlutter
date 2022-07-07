@@ -11,13 +11,8 @@ class AppBarBasic {
 
   AppBar createWidget(BuildContext context) {
     return AppBar(
-      leadingWidth: 50.0,
-      leading: Padding(
-        padding: EdgeInsets.only(left: 10.0),
-        child: Image(
-          image: AssetImage('assets/images/logo.png'),
-        ),
-      ),
+      title: Image.asset('assets/images/logo3.png', fit: BoxFit.cover),
+
       actions: [
         Padding(
           padding: EdgeInsets.only(right: 10.0),
@@ -31,7 +26,7 @@ class AppBarBasic {
                   },
                   child: Icon(
                     Icons.search,
-                    color: Colors.black,
+                    color: Colors.white,
                     size: 30.0,
                   ),
                 ),
@@ -42,7 +37,7 @@ class AppBarBasic {
                 },
                 child: Icon(
                   Icons.favorite_border,
-                  color: Colors.black,
+                  color: Colors.white,
                   size: 30.0,
                 ),
               ),
@@ -50,7 +45,7 @@ class AppBarBasic {
           ),
         ),
       ],
-      backgroundColor: Colors.white,
+      backgroundColor: Color.fromRGBO(5, 7, 20, 1),
       elevation: 5.0,
     );
   }
