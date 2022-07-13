@@ -7,11 +7,11 @@ class RegisterPresenter{
   RegisterPresenter(this._remoteRepository, this._view);
 
   register(Map data) async{
-    bool correctInsert = await _remoteRepository.registerUser(data);
-    if(correctInsert){
+    String correctInsert = await _remoteRepository.registerUser(data);
+    if(correctInsert == 'true'){
       _view.correctInsert();
     }else{
-      _view.errorInsert("Error al registrar usuario");
+      _view.errorInsert(correctInsert);
     }
   }
 }

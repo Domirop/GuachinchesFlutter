@@ -20,7 +20,7 @@ abstract class RemoteRepository{
   Future<bool> saveReview(String userId, Restaurant restaurant ,String title, String review, String rating);
   Future<dynamic> loginUser(String login, String password);
   Future<List<FotoBanner>> getGlobalImages();
-  Future<bool> registerUser(Map data);
+  Future<String> registerUser(Map data);
   Future<Version> getVersion();
   Future<List<CuponesAgrupados>> getCuponesHistorias();
   Future<bool> saveCupon(String cuponId, String userId);

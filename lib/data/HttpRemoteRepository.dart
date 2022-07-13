@@ -186,7 +186,7 @@ class HttpRemoteRepository implements RemoteRepository {
   }
 
   @override
-  Future<bool> registerUser(Map data) async {
+  Future<String> registerUser(Map data) async {
     var uri = Uri.parse(endpoint + "register");
     var body;
     body = jsonEncode({
@@ -209,12 +209,12 @@ class HttpRemoteRepository implements RemoteRepository {
           headers: {"Content-Type": "application/json"}, body: body);
       if (json.decode(response.body)["code"] == 200 &&
           json.decode(response.body)["result"] != null) {
-        return true;
+        return "true";
       } else {
-        return false;
+        return "Ha ocurrido un error al crear el usuario";
       }
     } else {
-      return false;
+      return "El email ya pertenece a un usuario existente.";
     }
   }
 
