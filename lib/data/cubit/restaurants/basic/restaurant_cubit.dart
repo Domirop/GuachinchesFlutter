@@ -16,7 +16,7 @@ class RestaurantCubit extends Cubit<RestaurantState> {
   }
 
   Future<void> getFilterRestaurants({List<String> categories, List<String> municipalities, List<String> types, String text}) async {
-    List<Restaurant> restaurants = await _remoteRepository.getFilterRestaurants(categories.join(";"), municipalities.join(";"), municipalities.join(";"), text);
+    List<Restaurant> restaurants = await _remoteRepository.getFilterRestaurants(categories.join(";"), municipalities.join(";"), types.join(";"), text);
     emit(RestaurantFilter(restaurants));
   }
 }

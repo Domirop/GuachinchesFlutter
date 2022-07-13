@@ -1445,42 +1445,26 @@ class _BottomSheetState extends State<BottomSheet> {
             onTap: () => updateTypesId(element.id),
             child: Container(
               margin: EdgeInsets.symmetric(horizontal: 5.0, vertical: 10.0),
-              height: 120,
-              width: 110.0,
+              height: 50,
+              width: 120.0,
               decoration: BoxDecoration(
-                color: typesId.contains(element.id)
-                    ? Color.fromRGBO(0, 133, 196, 1)
-                    : Colors.white,
-                boxShadow: [
-                  BoxShadow(
-                      color: Colors.black54,
-                      blurRadius: 2.0,
-                      spreadRadius: 1.0,
-                      offset: Offset(2.0, 3.0))
-                ],
-                borderRadius: BorderRadius.circular(17.0),
-              ),
+                  color: typesId.contains(element.id) ? Color.fromRGBO(0, 133, 196, 1) : Colors.transparent,
+                  borderRadius: BorderRadius.circular(8.0),
+                  border: Border.all(
+                      color: typesId.contains(element.id) ? Colors.black : Color.fromRGBO(0, 133, 196, 1),
+                      width: 2)),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  element.iconUrl != null ? SvgPicture.network(
-                    element.iconUrl,
-                    height: 60.0,
-                    width: 60.0,
-                  ) : Container(),
-                  Container(
-                    margin:
-                        EdgeInsets.symmetric(vertical: 10.0, horizontal: 1.0),
-                    child: Text(
-                      element.nombre != null ? element.nombre : "",
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Colors.black,
-                        fontSize: 12.0,
-                      ),
-                    ),
-                  ),
+                     Text(
+                       element.nombre != null ? element.nombre : "",
+                       textAlign: TextAlign.center,
+                       style: TextStyle(
+                         color: Colors.black,
+                         fontSize: 12.0,
+                       ),
+                     ),
                 ],
               ),
             ),

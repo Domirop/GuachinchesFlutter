@@ -71,6 +71,8 @@ class HttpRemoteRepository implements RemoteRepository {
         Restaurant restaurant = Restaurant.fromJson(data[i]);
         restaurants.add(restaurant);
       }
+      print(types);
+      print(restaurants.length);
       return restaurants;
     } on Exception catch (e) {
       print(e);
@@ -314,7 +316,9 @@ class HttpRemoteRepository implements RemoteRepository {
       var data = json.decode(response.body);
       for (var i = 0; i < data.length; i++) {
         Types types = Types.fromJson(data[i]);
+        print(types.nombre);
         typesList.add(types);
+
       }
       return typesList;
     } on Exception catch (e) {
@@ -330,6 +334,7 @@ class HttpRemoteRepository implements RemoteRepository {
           "cupones/" + id;
       var uri = Uri.parse(url);
       var response = await _client.delete(uri);
+      print(response);
       var data = json.decode(response.body);
     } on Exception catch (e) {
     }

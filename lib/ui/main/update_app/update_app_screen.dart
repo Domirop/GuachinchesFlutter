@@ -59,7 +59,7 @@ class _UpdateAppScreenState extends State<UpdateAppScreen> {
                   ),
                   padding: EdgeInsets.symmetric(vertical: 15.0),
                   child: Text(
-                    "Iniciar sesión",
+                    "Acutalizar",
                     style: TextStyle(
                         fontWeight: FontWeight.bold,
                         color: Colors.white,
