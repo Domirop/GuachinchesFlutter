@@ -361,7 +361,7 @@ class _ProfileState extends State<Profile> implements ProfileView {
                                     ),
                                     GestureDetector(
                                       onTap: () {
-                                        _presenter.removeCupon(cupones[index].id);
+                                        _presenter.removeCupon(cupones[index].cuponesUsuarioId);
                                       },
                                       child: Icon(
                                         Icons.delete,

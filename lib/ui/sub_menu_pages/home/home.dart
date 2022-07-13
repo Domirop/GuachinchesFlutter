@@ -93,11 +93,11 @@ class _HomeState extends State<Home> implements HomeView {
             SizedBox(
               height: 20.0,
             ),
-            // SvgPicture.asset(
-            //   'assets/images/logoHome.svg',
-            //   width: 23.0,
-            //   height: 24.0,
-            // ),
+            Image.asset(
+              'assets/images/tuscupones.png',
+              width: 200.0,
+              height: 50.0,
+            ),
             SizedBox(
               height: 10.0,
             ),

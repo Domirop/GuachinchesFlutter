@@ -31,8 +31,8 @@ class SplashScreenPresenter {
       versionApp = dotenv.env['GET_ANDROID_VERSION'];
     }
 
-    return versionApp.split(".")[0] != versionBD.split(".")[0] ||
-        versionApp.split(".")[1] != versionBD.split(".")[1];
+    return int.parse(versionApp.split(".")[0]) < int.parse(versionBD.split(".")[0]) ||
+        int.parse(versionApp.split(".")[1]) < int.parse(versionBD.split(".")[1]);
   }
 
   mainFunction() async {

@@ -155,22 +155,6 @@ class _HistoryFullPageState extends State<HistoryFullPage>
                 ((MediaQuery.of(context).size.width * 0.8) / 2),
             child: Material(
               type: MaterialType.transparency,
-              child: Container(
-                padding: EdgeInsets.symmetric(vertical: 10.0, horizontal: 10.0),
-                width: MediaQuery.of(context).size.width * 0.8,
-                decoration: BoxDecoration(
-                  color: Color.fromRGBO(255, 255, 255, 1),
-                  borderRadius: BorderRadius.circular(8.0),
-                ),
-                child: Text(
-                  "Válido para el día " + date,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black,
-                      fontSize: 30.0),
-                ),
-              ),
             ),
           ),
           widget.userId != null &&
@@ -190,7 +174,7 @@ class _HistoryFullPageState extends State<HistoryFullPage>
                         ),
                         alignment: Alignment.center,
                         decoration: BoxDecoration(
-                          color: Color.fromRGBO(0, 133, 196, 0.3),
+                          color: Color.fromRGBO(255, 255, 255, 0.4),
                           borderRadius: BorderRadius.circular(8.0),
                         ),
                         child: Center(

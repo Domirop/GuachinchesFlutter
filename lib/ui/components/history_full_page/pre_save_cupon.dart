@@ -231,7 +231,13 @@ class _PreSaveCuponState extends State<PreSaveCupon> {
                         fontWeight: FontWeight.bold,
                         fontSize: 18,
                       ),
+
                     ),
+
+                  Wrap(
+                  direction: Axis.horizontal,
+                  children: generateButtonTurn(),
+        ),
                   ],
                 ),
               ),
@@ -325,6 +331,36 @@ class _PreSaveCuponState extends State<PreSaveCupon> {
         ),
       ));
     });
+    return widgets;
+  }
+  generateButtonTurn() {
+    List<Widget> widgets = [];
+
+      widgets.add(Container(
+        margin: EdgeInsets.symmetric(horizontal: 4),
+        width: MediaQuery.of(context).size.width / 1,
+        padding: EdgeInsets.symmetric(
+          vertical: 10,
+        ),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          border: Border.all(
+            width: 2,
+            color: Color.fromRGBO(0, 189, 195, 1),
+          ),
+          color: Color.fromRGBO(0, 189, 195, 1),
+          borderRadius: BorderRadius.circular(8.0),
+        ),
+        child: Center(
+          child: Text(
+            'Cupón válido para cualquier turno',
+            style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Colors.white ,
+                fontSize: 14.0),
+          ),
+        ),
+      ));
     return widgets;
   }
 }
