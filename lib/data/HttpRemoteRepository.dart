@@ -18,14 +18,12 @@ import 'RemoteRepository.dart';
 
 class HttpRemoteRepository implements RemoteRepository {
   final Client _client;
-  final String endpoint = "http://163.172.183.16:32683/";
-  final String endpointV2 = "http://163.172.183.16:32432/";
 
   HttpRemoteRepository(this._client);
 
   @override
   Future<UserInfo> getUserInfo(String userId) async {
-    var uri = Uri.parse(endpoint + "user/" + userId);
+    var uri = Uri.parse(dotenv.env['ENDPOINT_V1'] + "user/" + userId);
     var response = await _client.get(uri);
 
     var data = json.decode(response.body)['result'];
@@ -97,7 +95,7 @@ class HttpRemoteRepository implements RemoteRepository {
 
   @override
   Future<List<ModelCategory>> getAllCategories() async {
-    var uri = Uri.parse(endpoint + "restaurant/category");
+    var uri = Uri.parse(dotenv.env['ENDPOINT_V1'] + "restaurant/category");
     var response = await _client.get(uri);
     List<dynamic> data = json.decode(response.body)['result'];
     List<ModelCategory> categories = [];
@@ -111,7 +109,7 @@ class HttpRemoteRepository implements RemoteRepository {
 
   @override
   Future<List<Municipality>> getAllMunicipalities() async {
-    var uri = Uri.parse(endpoint + "municipality");
+    var uri = Uri.parse(dotenv.env['ENDPOINT_V1'] + "municipality");
     var response = await _client.get(uri);
     List<dynamic> data = json.decode(response.body)['result'];
     List<Municipality> municipalities = [];
@@ -125,7 +123,7 @@ class HttpRemoteRepository implements RemoteRepository {
   @override
   Future<bool> updateReview(String userId, String reviewId, String title,
       String rating, String review) async {
-    var uri = Uri.parse(endpoint + "user/" + userId + "/review/" + reviewId);
+    var uri = Uri.parse(dotenv.env['ENDPOINT_V1'] + "user/" + userId + "/review/" + reviewId);
 
     var body;
     body = jsonEncode({"title": title, "review": review, "rating": rating});
@@ -137,7 +135,7 @@ class HttpRemoteRepository implements RemoteRepository {
   @override
   Future<bool> saveReview(String userId, Restaurant restaurant, String title,
       String review, String rating) async {
-    var uri = Uri.parse(endpoint + "user/" + userId + "/review");
+    var uri = Uri.parse(dotenv.env['ENDPOINT_V1'] + "user/" + userId + "/review");
     var body;
     body = jsonEncode({
       "title": title,
@@ -156,7 +154,7 @@ class HttpRemoteRepository implements RemoteRepository {
 
   @override
   Future<dynamic> loginUser(String login, String password) async {
-    var uri = Uri.parse(endpoint + "login");
+    var uri = Uri.parse(dotenv.env['ENDPOINT_V1'] + "login");
 
     var body;
     body = jsonEncode({
@@ -189,7 +187,7 @@ class HttpRemoteRepository implements RemoteRepository {
 
   @override
   Future<String> registerUser(Map data) async {
-    var uri = Uri.parse(endpoint + "register");
+    var uri = Uri.parse(dotenv.env['ENDPOINT_V1'] + "register");
     var body;
     body = jsonEncode({
       "email": data["email"],
@@ -199,7 +197,7 @@ class HttpRemoteRepository implements RemoteRepository {
         headers: {"Content-Type": "application/json"}, body: body);
     String id = json.decode(response.body)["result"];
     if (json.decode(response.body)["code"] == 200 && id != null) {
-      uri = Uri.parse(endpoint + "user");
+      uri = Uri.parse(dotenv.env['ENDPOINT_V1'] + "user");
       body = jsonEncode({
         "id": id,
         "nombre": data["nombre"],
@@ -337,6 +335,18 @@ class HttpRemoteRepository implements RemoteRepository {
       print(response);
       var data = json.decode(response.body);
     } on Exception catch (e) {
+    }
+  }
+
+  @override
+  Future<void> deleteUser(String id) async {
+    var uri = Uri.parse(dotenv.env['ENDPOINT_V1'] + "user/" + id);
+    var response = await _client.delete(uri);
+
+    var data = json.decode(response.body)['result'];
+
+    if (data['id'] == null) {
+      throw Error();
     }
   }
 

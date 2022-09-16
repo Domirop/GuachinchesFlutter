@@ -29,4 +29,5 @@ abstract class RemoteRepository{
   Future<List<Cupones>> getCuponesUsuario(String id);
   Future<List<Types>> getAllTypes();
   Future<void> removeCupon(String id);
+  Future<void> deleteUser(String id);
 }

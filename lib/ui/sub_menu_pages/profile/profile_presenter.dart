@@ -48,6 +48,16 @@ class ProfilePresenter{
 
     _view.goSplashScreen();
   }
+
+  deleteAccount() async {
+    await storage.delete(key: "userId");
+    await storage.delete(key: "accessToken");
+    await storage.delete(key: "refreshToken");
+
+    _view.goSplashScreen();
+    String userId = await storage.read(key: "userId");
+    await _remoteRepository.deleteUser(userId);
+  }
 }
 
 abstract class ProfileView{

@@ -197,6 +197,38 @@ class _ProfileState extends State<Profile> implements ProfileView {
                       ),
                     ),
                   ),
+                  Container(
+                    margin: EdgeInsets.symmetric(horizontal: 45.0),
+                    width: double.infinity,
+                    child: RaisedButton(
+                      onPressed: () => _presenter.deleteAccount(),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(7.0),
+                      ),
+                      color: Color.fromRGBO(242, 62, 74, 1),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Container(
+                            margin: EdgeInsets.only(right: 10.0),
+                            child: Icon(
+                              Icons.delete,
+                              color: Colors.white,
+                              size: 25.0,
+                            ),
+                          ),
+                          Text(
+                            "Eliminar usuario",
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16.0,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                   SizedBox(
                     height: 30.0,
                   ),
