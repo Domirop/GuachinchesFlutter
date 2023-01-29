@@ -10,7 +10,7 @@ class TopRestaurantCubit extends Cubit<TopRestaurantState> {
 
   Future<void> getTopRestaurants() async {
     List<TopRestaurants> restaurants = await _remoteRepository.getTopRestaurants();
-
+    print(restaurants);
     emit(TopRestaurantLoaded(restaurants));
   }
 

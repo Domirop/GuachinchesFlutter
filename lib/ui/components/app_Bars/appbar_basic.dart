@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:guachinches/globalMethods.dart';
-import 'package:guachinches/ui/main/menu/menu.dart';
-import 'package:guachinches/ui/sub_menu_pages/home/home.dart';
+import 'package:guachinches/ui/pages/menu/menu.dart';
+import 'package:guachinches/ui/pages/home/home.dart';
+
 
 class AppBarBasic {
   Home home;

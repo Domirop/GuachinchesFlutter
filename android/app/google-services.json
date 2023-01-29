@@ -1,0 +1,46 @@
+{
+  "project_info": {
+    "project_number": "218112446669",
+    "project_id": "guachinches-39542",
+    "storage_bucket": "guachinches-39542.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:218112446669:android:7fb3e1b04dcf8ec6ec1984",
+        "android_client_info": {
+          "package_name": "com.jonay.guachinches"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "218112446669-bqq4kc8o1fidn7t72hg609mgnlm0v0uj.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCZcP-vJo5O9gr7BWeGS6wngWZdqwl5BLs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "218112446669-bqq4kc8o1fidn7t72hg609mgnlm0v0uj.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "218112446669-6ijc4522puin088n9q2o6i4si24es4rd.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.jonay.guachinches"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

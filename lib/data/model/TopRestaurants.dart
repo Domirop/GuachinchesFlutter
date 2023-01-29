@@ -1,3 +1,5 @@
+import 'package:guachinches/globalMethods.dart';
+
 class TopRestaurants {
   String _id;
   String _nombre;
@@ -6,6 +8,8 @@ class TopRestaurants {
   String _counter;
   String _imagen;
   String _cerrado;
+  String _municipio;
+  double _avg;
   bool _open;
 
   String get id => _id;
@@ -16,8 +20,9 @@ class TopRestaurants {
   String get imagen => _imagen;
   String get cerrado => _cerrado;
   bool get open => _open;
-
-  TopRestaurants({String id, String nombre, String horarios, String direccion, String counter, String imagen, String cerrado, bool open}){
+  String get municipio => _municipio;
+  double get avg => _avg;
+  TopRestaurants({String id, String nombre, String horarios, String direccion, String counter, String imagen, String cerrado, bool open, String municipio, double avg}){
     _id = id;
     _nombre = nombre;
     _horarios = horarios;
@@ -26,16 +31,19 @@ class TopRestaurants {
     _imagen = imagen;
     _cerrado = cerrado;
     _open = open;
+    _municipio = municipio;
+    _avg = avg;
   }
 
   TopRestaurants.fromJson(dynamic json) {
     _id = json["id"];
-    _nombre = json["nombre"];
+    _nombre = json["nombre"].toString().capitalize();
     _horarios = json["horarios"];
     _direccion = json["direccion"];
     _counter = json["counter"];
     _imagen = json["max"];
-
+    _avg = double.parse(json["avg"]);
+    _municipio = json['municipio'].toString().capitalize();
     bool auxOpen = true;
     bool alwaysOpen = false;
     String auxValue = json["google_horarios"];

@@ -23,7 +23,7 @@ class _HeroSliderComponentState extends State<HeroSliderComponent> {
     imageSliders = banners
         .map((item) => Container(
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(20.0),
+                borderRadius: BorderRadius.circular(8),
                 image: DecorationImage(
                   repeat: ImageRepeat.noRepeat,
                   alignment: Alignment.center,

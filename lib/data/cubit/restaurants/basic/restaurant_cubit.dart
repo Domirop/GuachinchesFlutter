@@ -10,13 +10,32 @@ class RestaurantCubit extends Cubit<RestaurantState> {
 
   RestaurantCubit(this._remoteRepository) : super(RestaurantInitial());
 
-  Future<void> getRestaurants(int number) async {
-    RestaurantResponse restaurantResponse = await _remoteRepository.getAllRestaurants(number);
+  Future<void> getRestaurants(int number,String islandId) async {
+    RestaurantResponse restaurantResponse = await _remoteRepository.getAllRestaurants(number,islandId);
     emit(RestaurantLoaded(restaurantResponse));
   }
+  Future<void> getAllRestaurants(int number) async {
+    RestaurantResponse allRestaurants = await _remoteRepository.getAllRestaurants(0);
+    bool condition = true;
+    int index= 1;
+    while(condition){
+      RestaurantResponse restaurantResponse = await _remoteRepository.getAllRestaurants(index*15);
+      if(restaurantResponse.restaurants.length>0){
+        restaurantResponse.restaurants.forEach((element) {
+          allRestaurants.restaurants.add(element);
+        });
+      }
+      else{
+        condition = false;
+      }
+      index++;
+    }
 
-  Future<void> getFilterRestaurants({List<String> categories, List<String> municipalities, List<String> types, String text}) async {
-    List<Restaurant> restaurants = await _remoteRepository.getFilterRestaurants(categories.join(";"), municipalities.join(";"), types.join(";"), text);
+    emit(AllRestaurantLoaded(allRestaurants));
+
+  }
+  Future<void> getFilterRestaurants({List<String> categories, List<String> municipalities, List<String> types, String text,String islandId}) async {
+     List<Restaurant> restaurants = await _remoteRepository. getFilterRestaurants(categories.join(";"), municipalities.join(";"), types.join(";"), text,islandId);
     emit(RestaurantFilter(restaurants));
   }
 }

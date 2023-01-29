@@ -31,7 +31,7 @@ class Restaurant {
   String _updatedAt;
   List<Fotos> _fotos = [];
   String _negocioMunicipioId;
-  MunicipioRestaurant _municipio;
+  String _municipio;
   List<Menu> _menus = [];
   List<CategoryRestaurant> _categoriaRestaurantes = [];
   List<Review> _valoraciones = [];
@@ -39,6 +39,13 @@ class Restaurant {
   String _googleHorarios;
   double _avgRating;
   String _mainFoto;
+
+  set valoraciones(List<Review> value) {
+    _valoraciones = value;
+  }
+
+  String _area;
+  String _type;
 
 
   set id(String value) {
@@ -56,6 +63,10 @@ class Restaurant {
   bool get enable => _enable;
 
   String get nombre => _nombre;
+
+  String get type => _type;
+
+  String get area => _area;
 
   String get direccion => _direccion;
 
@@ -77,7 +88,7 @@ class Restaurant {
 
   List<Fotos> get fotos => _fotos;
 
-  MunicipioRestaurant get municipio => _municipio;
+  String get municipio => _municipio;
 
   List<Menu> get menus => _menus;
 
@@ -103,13 +114,13 @@ class Restaurant {
       String createdAt,
       String updatedAt,
       String negocioMunicipioId,
-      MunicipioRestaurant municipio,
+      String municipio,
       List<Menu> menus,
       List<CategoryRestaurant> categoriaRestaurantes,
       List<Review> valoraciones,
       String googleHorarios,
       bool open,
-      double avgRating, String mainFoto}) {
+      double avgRating, String mainFoto,String area,String type}) {
     _id = id;
     _enable = enable;
     _horarios = horarios;
@@ -129,7 +140,10 @@ class Restaurant {
     _open = open;
     _googleHorarios = googleHorarios;
     _avgRating = avgRating;
+
     _mainFoto = mainFoto;
+    _area = area;
+    _type= type;
   }
 
   Restaurant.fromJson(dynamic json) {
@@ -143,15 +157,24 @@ class Restaurant {
     _destacado = json["destacado"];
     _mainFoto = json["fotos.photoUrl"];
     if(_mainFoto == null && json["fotos"] != null && json["fotos"].length > 0) _mainFoto = json["fotos"][0]["photoUrl"];
-    if (json["avgRating"] != null)
+    if (json["avgRating"] != null) {
       _avgRating =
           double.parse(double.parse(json["avgRating"]).toStringAsFixed(2));
+    }
     _createdAt = json["createdAt"];
     _updatedAt = json["updatedAt"];
     _negocioMunicipioId = json["NegocioMunicipioId"];
-    _municipio = json["municipio"] != null
-        ? MunicipioRestaurant.fromJson(json["municipio"])
-        : null;
+    _municipio =  json["municipios.Nombre"];
+    if(_municipio==null){
+      try{
+        _municipio =json["municipios"]["Nombre"];
+
+      }catch(e){
+
+      }
+    }
+    _area = json["municipios.area_municipiosId"];
+    _type = json["restaurantTypeId"];
     if (json["menus"] != null) {
       _menus = [];
       json["menus"].forEach((v) {
@@ -176,8 +199,6 @@ class Restaurant {
         _valoraciones.add(Review.fromJson(v));
       });
     }
-
-
     String auxValue = json["google_horarios"];
     _open = generateOpen(auxValue);
   }
@@ -252,7 +273,7 @@ class Restaurant {
     map["updatedAt"] = _updatedAt;
     map["NegocioMunicipioId"] = _negocioMunicipioId;
     if (_municipio != null) {
-      map["municipio"] = _municipio.toJson();
+      map["municipio"] = _municipio;
     }
     if (_categoriaRestaurantes != null) {
       map["menus"] = _menus.map((v) => v.toJson()).toList();

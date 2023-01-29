@@ -1,3 +1,4 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -9,16 +10,18 @@ import 'package:guachinches/data/cubit/cupones/cupones_cubit.dart';
 import 'package:guachinches/data/cubit/restaurants/top/top_restaurants_cubit.dart';
 import 'package:guachinches/data/cubit/user/user_cubit.dart';
 import 'package:guachinches/data/local/db_provider.dart';
-import 'package:guachinches/ui/main/splash_screen/splash_screen.dart';
 import 'package:http/http.dart';
 import 'data/cubit/restaurants/basic/restaurant_cubit.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+
+import 'ui/pages/splash_screen/splash_screen.dart';
 
 const bool _kReleaseMode = const bool.fromEnvironment("dart.vm.product");
 
 Future<void> main() async{
   String file = _kReleaseMode == true ? 'env_files/release.env' : 'env_files/debug.env';
   await dotenv.load(fileName: file);
+  await Firebase.initializeApp();
   runApp(MyApp());
 }
 
@@ -67,6 +70,7 @@ class _MyAppState extends State<MyApp> {
           buttonTheme: ButtonThemeData(minWidth: 5),
           dividerColor: Colors.black,
           primarySwatch: Colors.blue,
+          errorColor: Colors.amber,
           splashColor: Colors.transparent,
           highlightColor: Colors.transparent,
         ),

@@ -7,7 +7,9 @@ import 'package:guachinches/data/model/CuponesAgrupados.dart';
 import 'package:guachinches/data/model/Municipality.dart';
 import 'package:guachinches/data/model/TopRestaurants.dart';
 import 'package:guachinches/data/model/Types.dart';
+import 'package:guachinches/data/model/block_user.dart';
 import 'package:guachinches/data/model/fotoBanner.dart';
+import 'package:guachinches/data/model/report_review.dart';
 import 'package:guachinches/data/model/restaurant.dart';
 import 'package:guachinches/data/model/restaurant_response.dart';
 import 'package:guachinches/data/model/user_info.dart';
@@ -37,22 +39,25 @@ class HttpRemoteRepository implements RemoteRepository {
   }
 
   @override
-  Future<RestaurantResponse> getAllRestaurants(int number) async {
+  Future<RestaurantResponse> getAllRestaurants(int number,[String islandId]) async {
     try {
+      String islandQuery = islandId == null ?'':'&island='+islandId;
       String url = dotenv.env['ENDPOINT_V2'] +
           "restaurant/pagination?from=" +
-          number.toString();
+          number.toString()+islandQuery;
+
       var uri = Uri.parse(url);
       var response = await _client.get(uri);
       RestaurantResponse restaurantResponse =
           RestaurantResponse.fromJson(json.decode(response.body));
+      print('restaurantes'+ restaurantResponse.restaurants.toString());
       return restaurantResponse;
     } on Exception catch (e) {
       return null;
     }
   }
 
-  Future<List<Restaurant>> getFilterRestaurants(String categorias, String municipalities, String types, String nombre) async {
+  Future<List<Restaurant>> getFilterRestaurants(String categorias, String municipalities, String types, String nombre, String islandId) async {
     try {
       List<Restaurant> restaurants = [];
       String url = dotenv.env['ENDPOINT_V2'] +
@@ -62,6 +67,9 @@ class HttpRemoteRepository implements RemoteRepository {
       if(types != null && types.isNotEmpty) url += types;
       if(categorias != null && categorias.isNotEmpty) url += "&categories=" + categorias;
       if(municipalities != null && municipalities.isNotEmpty) url += "&municipalities=" + municipalities;
+      if(islandId != null) url += "&island=" + islandId;
+      print('url:'+url);
+      print('url:'+islandId);
       var uri = Uri.parse(url);
       var response = await _client.get(uri);
       List<dynamic> data = json.decode(response.body);
@@ -69,8 +77,6 @@ class HttpRemoteRepository implements RemoteRepository {
         Restaurant restaurant = Restaurant.fromJson(data[i]);
         restaurants.add(restaurant);
       }
-      print(types);
-      print(restaurants.length);
       return restaurants;
     } on Exception catch (e) {
       print(e);
@@ -107,10 +113,12 @@ class HttpRemoteRepository implements RemoteRepository {
     return categories;
   }
 
+
   @override
   Future<List<Municipality>> getAllMunicipalities() async {
     var uri = Uri.parse(dotenv.env['ENDPOINT_V1'] + "municipality");
     var response = await _client.get(uri);
+    print(response);
     List<dynamic> data = json.decode(response.body)['result'];
     List<Municipality> municipalities = [];
     for (var i = 0; i < data.length; i++) {
@@ -119,6 +127,21 @@ class HttpRemoteRepository implements RemoteRepository {
     }
     return municipalities;
   }
+
+  @override
+  Future<List<Municipality>> getAllMunicipalitiesFiltered(String islandId) async {
+    var uri = Uri.parse(dotenv.env['ENDPOINT_V2'] + "areas/islands/"+islandId);
+    var response = await _client.get(uri);
+    List<dynamic> data = json.decode(response.body);
+    print(data.length.toString());
+    List<Municipality> municipalities = [];
+    for (var i = 0; i < data.length; i++) {
+      Municipality municipality = Municipality.fromJson(data[i]);
+      municipalities.add(municipality);
+    }
+    return municipalities;
+  }
+
 
   @override
   Future<bool> updateReview(String userId, String reviewId, String title,
@@ -221,7 +244,7 @@ class HttpRemoteRepository implements RemoteRepository {
   @override
   Future<List<TopRestaurants>> getTopRestaurants() async {
     try {
-      String url = dotenv.env['ENDPOINT_V2'] + "restaurant/top";
+      String url = dotenv.env['ENDPOINT_V2'] + "restaurant/top/all";
       var uri = Uri.parse(url);
       var response = await _client.get(uri);
       List<dynamic> data = json.decode(response.body);
@@ -232,7 +255,6 @@ class HttpRemoteRepository implements RemoteRepository {
       }
       return restaurants;
     } on Exception catch (e) {
-      print("hola");
       print(e);
       return [];
     }
@@ -349,5 +371,68 @@ class HttpRemoteRepository implements RemoteRepository {
       throw Error();
     }
   }
+
+  @override
+  Future<bool> blockUser(String userId,String userIdToBlock) async {
+    String url = dotenv.env['ENDPOINT_V2'] +
+        "block";
+    var uri = Uri.parse(url);
+    var body;
+    body = jsonEncode({
+      "user_id": userId,
+      "user_blocked_id": userIdToBlock
+    });
+    var response = await _client.post(uri,
+        headers: {"Content-Type": "application/json"}, body: body);
+
+    return true;
+  }
+
+  @override
+  Future<List<BlockUser>> getBlockUser(String userId) async {
+    String url = dotenv.env['ENDPOINT_V2'] +
+        "block/"+userId;
+    var uri = Uri.parse(url);
+    List<BlockUser> userBlock = [];
+    var response = await _client.get(uri);
+    var data = json.decode(response.body);
+    for (var i = 0; i < data.length; i++) {
+      BlockUser blockUser = BlockUser.fromJson(data[i]);
+      userBlock.add(blockUser);
+
+    }
+    return userBlock;
+  }
+
+  @override
+  Future<bool> reportReview(String userId, String reviewId) async {
+    String url = dotenv.env['ENDPOINT_V2'] +
+        "report-review";
+    var uri = Uri.parse(url);
+    var body;
+    body = jsonEncode({
+      "user_id": userId,
+      "valoraciones_id": reviewId
+    });
+    var response = await _client.post(uri,
+        headers: {"Content-Type": "application/json"}, body: body);
+    return true;
+  }
+
+  @override
+  Future<List<ReportReview>> getReviewReported(String userId) async {
+    String url = dotenv.env['ENDPOINT_V2'] +
+        "report-review/user/"+userId;
+    var uri = Uri.parse(url);
+    List<ReportReview> userBlock = [];
+    var response = await _client.get(uri);
+    var data = json.decode(response.body);
+    for (var i = 0; i < data.length; i++) {
+      ReportReview reportReview = ReportReview.fromJson(data[i]);
+      userBlock.add(reportReview);
+    }
+    return userBlock;
+  }
+
 
 }

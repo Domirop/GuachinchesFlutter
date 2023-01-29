@@ -42,3 +42,17 @@ class RestaurantLoaded extends RestaurantState {
   @override
   int get hashCode => restaurantResponse.hashCode;
 }
+class AllRestaurantLoaded extends RestaurantState {
+  final RestaurantResponse restaurantResponse;
+  const AllRestaurantLoaded(this.restaurantResponse);
+
+  @override
+  bool operator ==(Object o) {
+    if (identical(this, o)) return true;
+
+    return o is AllRestaurantLoaded && o.restaurantResponse == restaurantResponse;
+  }
+
+  @override
+  int get hashCode => restaurantResponse.hashCode;
+}
