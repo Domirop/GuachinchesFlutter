@@ -1,5 +1,4 @@
 import 'dart:async';
-
 import 'package:bottom_sheet/bottom_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -64,7 +63,7 @@ class _SearchPageState extends State<SearchPage>
   Widget tab1;
   Widget tab2;
   Widget tab3;
-  int numero = 0;
+  int activeFilterNumber = 0;
   bool isCharging = false;
   bool isChargingInitalRestaurants = true;
   TabController _tabController;
@@ -76,31 +75,14 @@ class _SearchPageState extends State<SearchPage>
 
     remoteRepository = HttpRemoteRepository(Client());
     restaurantCubit = context.read<RestaurantCubit>();
-    getIsland();
     final cuponesCubit = context.read<CuponesCubit>();
+    generateWidgetsTab1(restaurants);
+    generateWidgetsTab2(restaurants);
+    generateWidgetsTab3();
 
     presenter = SearchPagePresenter(
         this, restaurantCubit, cuponesCubit, remoteRepository);
-    if (restaurantCubit.state is RestaurantInitial ||
-        restaurantCubit.state is RestaurantFilter || restaurantCubit.state is AllRestaurantLoaded) {
-
-      generateWidgetsTab1();
-      generateWidgetsTab2();
-    } else if (restaurantCubit.state is RestaurantLoaded) {
-      generateWidgetsTab1();
-      generateWidgetsTab2();
-      presenter.setCharging();
-    }
-    if (cuponesCubit.state is CuponesInitial) {
-      if(island.id.length>0){
-        if(island.id.length>0) {
-          presenter.getAllRestaurants(numberPagination, island.id);
-        }
-      }      generateWidgetsTab3();
-    } else if (cuponesCubit.state is CuponesLoaded) {
-      generateWidgetsTab3();
-      presenter.setCharging();
-    }
+    getIsland();
     presenter.getAllMunicipalitiesCategoriesAndTypes('76ac0bec-4bc1-41a5-bc60-e528e0c12f4d');
     controller2 = new ScrollController();
     controller1 = new ScrollController();
@@ -112,14 +94,18 @@ class _SearchPageState extends State<SearchPage>
 
   getIsland() async {
     String value = await storage.read(key: 'islandId');
+
     if(value==null){
       String defaultIsland = '76ac0bec-4bc1-41a5-bc60-e528e0c12f4d';
       await storage.write(key: 'islandId', value: defaultIsland);
       value = defaultIsland;
     }
     presenter.getAllMunicipalitiesCategoriesAndTypes(AllIsland().getIslandById(value).id);
-    presenter.getAllRestaurants(numberPagination,AllIsland().getIslandById(value).id);
-
+    if(island.id != value){
+      numberPagination = 0;
+      restaurants = [];
+      presenter.getAllRestaurantsPag1(0);
+    }
     setState(() {
         island = AllIsland().getIslandById(value);
     });
@@ -135,12 +121,12 @@ class _SearchPageState extends State<SearchPage>
       numberPagination = 0;
       numberPagination2 = 0;
       presenter.getAllRestaurants(0,island.id);
-      generateWidgetsTab1();
-      generateWidgetsTab2();
+      generateWidgetsTab1(restaurants);
+      generateWidgetsTab2(restaurants);
       controller2.addListener(_scrollListener2);
       if (mounted) {
         setState(() {
-          numero = 0;
+          activeFilterNumber = 0;
           categoriesId = [];
           municipalitiesId = [];
           typesId = [];
@@ -161,17 +147,10 @@ class _SearchPageState extends State<SearchPage>
     _tabController.dispose();
   }
 
-  generateWidgetsTab1() {
-    Widget aux = BlocBuilder<RestaurantCubit, RestaurantState>(
-        builder: (context, state) {
-          if (state is AllRestaurantLoaded){
-            presenter.getAllRestaurants(0, island.id);
-          }
-      if (state is RestaurantLoaded ) {
-        List auxList = state.restaurantResponse!=null ?state.restaurantResponse.restaurants:[];
-        restaurants1 = auxList;
-        maxRestaurants1 = state.restaurantResponse.count;
-        return Wrap(
+  generateWidgetsTab1(List<Restaurant> restaurantsParam) {
+    restaurants.addAll(restaurantsParam);
+    List<Restaurant> auxList = restaurants;
+    Widget aux = Wrap(
             children:auxList.length>0? auxList
                 .map((e) => GestureDetector(
                       onTap: () =>
@@ -198,18 +177,17 @@ class _SearchPageState extends State<SearchPage>
                   )
         ]
         );
-      }
-      return Container();
-    });
+
     setState(() {
       tab1 = aux;
     });
+
   }
 
   setListeners1Function() {
     numberPagination += 15;
     Timer(Duration(milliseconds: 500), () {
-      presenter.getAllRestaurantsPag1(numberPagination,island.id);
+      presenter.getAllRestaurantsPag1(numberPagination);
     });
     if ((numberPagination + 15) < maxRestaurants1) {
       Timer(Duration(milliseconds: 2000), () {
@@ -233,9 +211,9 @@ class _SearchPageState extends State<SearchPage>
   }
 
   setListeners2Function() {
-    numberPagination2 += 15;
+    numberPagination+= 15;
     Timer(Duration(milliseconds: 500), () {
-      presenter.getAllRestaurantsPag2(numberPagination2,island.id);
+      presenter.getAllRestaurantsPag1(numberPagination);
     });
     if ((numberPagination2 + 15) < maxRestaurants) {
       Timer(Duration(milliseconds: 2000), () {
@@ -258,35 +236,29 @@ class _SearchPageState extends State<SearchPage>
     }
   }
 
-  generateWidgetsTab2() {
-    Widget aux = BlocBuilder<RestaurantCubit, RestaurantState>(
-        builder: (context, state) {
-      if (state is RestaurantLoaded) {
-        List auxList = state.restaurantResponse.restaurants;
-        restaurants = auxList;
-        maxRestaurants = state.restaurantResponse.count;
-        return Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children:auxList.length>0?auxList
-                  .map((e) => RestaurantListCard(e)).toList():Container()),
-        );
-      } else if (state is RestaurantFilter) {
-        List auxList = state.filtersRestaurants;
-        if (isOpen) {
-          auxList = auxList.where((element) => element.open).toList();
-        }
-        restaurantsFilter = auxList;
-        return Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: auxList
-                .map((e) => RestaurantListCard(e)).toList());
-      }
-      return Container();
-    });
+  generateWidgetsTab2(List<Restaurant> restaurantsParams) async {
+    List auxList = [];
+    print(activeFilterNumber);
+    if(activeFilterNumber>0 || textValue.length>2){
+      auxList = restaurantsParams;
+
+    }else{
+      auxList = restaurants;
+    }
+    if (isOpen) {
+      auxList = auxList.where((element) => element.open).toList();
+    }
+    Widget widget = Padding(
+      padding: const EdgeInsets.all(8.0),
+      child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children:auxList.length>0?auxList
+              .map((e) => RestaurantListCard(e)).toList():[Text('Vaya!Parece que no hay resultados')],),
+    );
+    await Future.delayed(Duration(milliseconds: 500));
+
     setState(() {
-      tab2 = aux;
+      tab2 = widget;
     });
   }
 
@@ -491,8 +463,8 @@ class _SearchPageState extends State<SearchPage>
                   alignment: Alignment.center,
                   margin: EdgeInsets.symmetric(vertical: 10.0),
                   decoration: BoxDecoration(
-                    color: Color.fromRGBO(5, 73, 155, 1),
-                    borderRadius: BorderRadius.circular(20.0),
+                    color: Color.fromRGBO(0, 133, 196, 1),
+                    borderRadius: BorderRadius.circular(12.0),
                   ),
                   padding: EdgeInsets.symmetric(vertical: 7.0),
                   child: Text(
@@ -548,13 +520,12 @@ class _SearchPageState extends State<SearchPage>
                               this.textValue = text;
                             });
                           }
-                          if (text.length > 3)
                             presenter.getAllRestaurantsFilters(isOpen,
                                 categories: categoriesId,
                                 municipalities: municipalitiesId,
                                 types: typesId,
                                 text: text,
-                                number: numero,
+                                number: activeFilterNumber,
                                 islandId: island.id
 
                             );
@@ -594,7 +565,7 @@ class _SearchPageState extends State<SearchPage>
                           ),
                           child: Center(
                             child: Text(
-                              "Filtros - " + numero.toString(),
+                              "Filtros - " + activeFilterNumber.toString(),
                               style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   color: Colors.white,
@@ -708,7 +679,7 @@ class _SearchPageState extends State<SearchPage>
                                 child: CircularProgressIndicator(
                                   backgroundColor: Colors.transparent,
                                   valueColor: AlwaysStoppedAnimation<Color>(
-                                      Colors.black),
+                                      Colors.blue),
                                 ),
                               )
                             : Container(),
@@ -767,7 +738,7 @@ class _SearchPageState extends State<SearchPage>
       bool isOpen) {
     if (mounted) {
       setState(() {
-        this.numero = number;
+        this.activeFilterNumber = number;
         this.categoriesId = categories;
         this.municipalitiesId = municipalities;
         this.typesId = typesId;
@@ -777,13 +748,14 @@ class _SearchPageState extends State<SearchPage>
   }
 
   @override
-  generateWidgetTab1() {
-    generateWidgetsTab1();
+  generateWidgetTab1(List<Restaurant> restaurants) {
+    generateWidgetsTab1(restaurants);
+    generateWidgetsTab2(restaurants);
   }
 
   @override
-  generateWidgetTab2() {
-    generateWidgetsTab2();
+  generateWidgetTab2(List<Restaurant> restaurants) {
+    generateWidgetsTab2(restaurants);
   }
 
   @override
@@ -840,7 +812,7 @@ class _SearchPageState extends State<SearchPage>
     presenter.getAllRestaurantsFilters(isOpen,
         categories: categoriesId,
         types: typesId,
-        number: numero,
+        number: activeFilterNumber,
         text: aux,
         islandId:island.id,
         municipalities: municipalitiesId);
@@ -914,7 +886,7 @@ class _BottomSheetState extends State<BottomSheet> {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.all(16.0),
+      padding: EdgeInsets.all(8.0),
       child: Column(
         children: createWidgetList(),
       ),
@@ -951,6 +923,7 @@ class _BottomSheetState extends State<BottomSheet> {
       height: 10,
     ));
     widgets.add(Container(
+      width: MediaQuery.of(context).size.width,
       child: Column(
         mainAxisAlignment: MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -960,12 +933,17 @@ class _BottomSheetState extends State<BottomSheet> {
             style: TextStyle(
                 color: Colors.black, fontSize: 24, fontWeight: FontWeight.bold),
           ),
-          Container(
-            child: Wrap(
-              children: limitType
-                  ? generateListTypes(
-                  widget.types.getRange(0, 6).toList())
-                  : generateListTypes(widget.types),
+          SizedBox(
+            height: 10,
+          ),
+          Center(
+            child: Container(
+              child: Wrap(
+                children: limitType
+                    ? generateListTypes(
+                    widget.types.getRange(0, 6).toList())
+                    : generateListTypes(widget.types),
+              ),
             ),
           ),
           limitType
@@ -978,13 +956,15 @@ class _BottomSheetState extends State<BottomSheet> {
                   })
                 }
             },
-            child: Text(
-              "Ver más",
-              style: TextStyle(
-                fontSize: 18,
-                decoration: TextDecoration.underline,
-                fontWeight: FontWeight.bold,
-                color: Color.fromRGBO(149, 194, 55, 1),
+            child: Center(
+              child: Text(
+                "Ver más",
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 16,
+                  decoration: TextDecoration.underline,
+                  color: Color.fromRGBO(0, 189, 195, 1),
+                ),
               ),
             ),
           )
@@ -997,13 +977,14 @@ class _BottomSheetState extends State<BottomSheet> {
                   })
                 }
             },
-            child: Text(
-              "Ver menos",
-              style: TextStyle(
-                fontSize: 18,
-                decoration: TextDecoration.underline,
-                fontWeight: FontWeight.bold,
-                color: Color.fromRGBO(242, 0, 0, 1),
+            child: Center(
+              child: Text(
+                "Ver menos",
+                style: TextStyle(
+                  fontSize: 16,
+                  decoration: TextDecoration.underline,
+                  color: Colors.black,
+                ),
               ),
             ),
           ),
@@ -1044,13 +1025,14 @@ class _BottomSheetState extends State<BottomSheet> {
                         })
                       }
                   },
-                  child: Text(
-                    "Ver más",
-                    style: TextStyle(
-                      fontSize: 18,
-                      decoration: TextDecoration.underline,
-                      fontWeight: FontWeight.bold,
-                      color: Color.fromRGBO(149, 194, 55, 1),
+                  child: Center(
+                    child: Text(
+                      "Ver más",
+                      style: TextStyle(
+                        fontSize: 16,
+                        decoration: TextDecoration.underline,
+                        color: Color.fromRGBO(0, 189, 195, 1),
+                      ),
                     ),
                   ),
                 )
@@ -1063,13 +1045,14 @@ class _BottomSheetState extends State<BottomSheet> {
                         })
                       }
                   },
-                  child: Text(
-                    "Ver menos",
-                    style: TextStyle(
-                      fontSize: 18,
-                      decoration: TextDecoration.underline,
-                      fontWeight: FontWeight.bold,
-                      color: Color.fromRGBO(242, 0, 0, 1),
+                  child: Center(
+                    child: Text(
+                      "Ver menos",
+                      style: TextStyle(
+                        fontSize: 16,
+                        decoration: TextDecoration.underline,
+                        color: Colors.black,
+                      ),
                     ),
                   ),
                 ),
@@ -1095,7 +1078,7 @@ class _BottomSheetState extends State<BottomSheet> {
           Text(
             "Localización",
             style: TextStyle(
-                color: Colors.black, fontSize: 18, fontWeight: FontWeight.bold),
+                color: Colors.black, fontSize: 24, fontWeight: FontWeight.bold),
           ),
           Container(
             width: MediaQuery.of(context).size.width,
@@ -1152,7 +1135,6 @@ class _BottomSheetState extends State<BottomSheet> {
                             e.limitSearch
                                 ? Container(
                                     width: MediaQuery.of(context).size.width,
-                                    padding: EdgeInsets.only(left: 40.0),
                                     child: GestureDetector(
                                       onTap: () => {
                                         if (mounted)
@@ -1162,21 +1144,21 @@ class _BottomSheetState extends State<BottomSheet> {
                                             })
                                           }
                                       },
-                                      child: Text(
-                                        "Ver más",
-                                        style: TextStyle(
-                                          fontSize: 18,
-                                          decoration: TextDecoration.underline,
-                                          fontWeight: FontWeight.bold,
-                                          color:
-                                              Color.fromRGBO(149, 194, 55, 1),
+                                      child: Center(
+                                        child: Text(
+                                          "Ver más",
+                                          style: TextStyle(
+                                            fontSize: 16,
+                                            decoration: TextDecoration.underline,
+                                            color: Color.fromRGBO(0, 189, 195, 1),
+
+                                          ),
                                         ),
                                       ),
                                     ),
                                   )
                                 : Container(
                                     width: MediaQuery.of(context).size.width,
-                                    padding: EdgeInsets.only(left: 40.0),
                                     child: GestureDetector(
                                       onTap: () => {
                                         if (mounted)
@@ -1186,13 +1168,14 @@ class _BottomSheetState extends State<BottomSheet> {
                                             })
                                           }
                                       },
-                                      child: Text(
-                                        "Ver menos",
-                                        style: TextStyle(
-                                          fontSize: 18,
-                                          decoration: TextDecoration.underline,
-                                          fontWeight: FontWeight.bold,
-                                          color: Color.fromRGBO(242, 0, 0, 1),
+                                      child: Center(
+                                        child: Text(
+                                          "Ver menos",
+                                          style: TextStyle(
+                                            fontSize: 16,
+                                            decoration: TextDecoration.underline,
+                                            color: Colors.black,
+                                          ),
                                         ),
                                       ),
                                     ),
@@ -1222,13 +1205,7 @@ class _BottomSheetState extends State<BottomSheet> {
                 color: categoriesId.contains(element.id)
                     ? Color.fromRGBO(0, 133, 196, 1)
                     : Colors.white,
-                boxShadow: [
-                  BoxShadow(
-                      color: Colors.black54,
-                      blurRadius: 2.0,
-                      spreadRadius: 1.0,
-                      offset: Offset(2.0, 3.0))
-                ],
+                border: Border.all(color:Color.fromRGBO(0, 133, 196, 1),width: 2.0),
                 borderRadius: BorderRadius.circular(17.0),
               ),
               child: Column(
@@ -1247,7 +1224,8 @@ class _BottomSheetState extends State<BottomSheet> {
                       element.nombre != null ? element.nombre : "",
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        color: Colors.black,
+                        color: categoriesId.contains(element.id)
+                            ?Colors.white:Colors.black,
                         fontSize: 12.0,
                       ),
                     ),
@@ -1273,7 +1251,7 @@ class _BottomSheetState extends State<BottomSheet> {
                   color: typesId.contains(element.id) ? Color.fromRGBO(0, 133, 196, 1) : Colors.transparent,
                   borderRadius: BorderRadius.circular(8.0),
                   border: Border.all(
-                      color: typesId.contains(element.id) ? Colors.black : Color.fromRGBO(0, 133, 196, 1),
+                      color: typesId.contains(element.id) ? Color.fromRGBO(0, 133, 196, 1) : Color.fromRGBO(0, 133, 196, 1),
                       width: 2)),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.center,
@@ -1283,7 +1261,7 @@ class _BottomSheetState extends State<BottomSheet> {
                        element.nombre != null ? element.nombre : "",
                        textAlign: TextAlign.center,
                        style: TextStyle(
-                         color: Colors.black,
+                         color: typesId.contains(element.id) ? Colors.white:Colors.black,
                          fontSize: 12.0,
                        ),
                      ),
@@ -1313,7 +1291,7 @@ class _BottomSheetState extends State<BottomSheet> {
                   borderRadius: BorderRadius.circular(8.0),
                   border: Border.all(
                       color: municipalitiesId.contains(seconElement.id)
-                          ? Colors.black
+                          ? Color.fromRGBO(0, 133, 196, 1)
                           : Color.fromRGBO(0, 133, 196, 1),
                       width: 2)),
               child: Text(

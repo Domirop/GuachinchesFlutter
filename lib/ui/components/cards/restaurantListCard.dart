@@ -48,7 +48,6 @@ class RestaurantListCard extends StatelessWidget {
                   ),
                 ),
                 SizedBox(width: 12), // give it width
-
                 Container(
                   width: 140,
                   height: 110,

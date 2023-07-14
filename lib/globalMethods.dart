@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:guachinches/data/model/CuponesUser.dart';
 extension StringExtension on String {
   String capitalize() {
     return "${this[0].toUpperCase()}${this.substring(1).toLowerCase()}";
@@ -14,6 +15,19 @@ class GlobalMethods {
     Navigator.of(context).push(
       MaterialPageRoute<void>(builder: (_) => page),
     );
+  }
+  List<CuponesUser> getOnlyValidCouponUser(List<CuponesUser> cupones){
+    List<CuponesUser> validCupones =[];
+    for(int i = 0 ;i<cupones.length;i++){
+      DateTime couponDate = DateTime.parse( cupones[i].cupon.date);
+      couponDate.add(Duration( hours: 23,minutes: 59));
+      DateTime today = DateTime.now();
+      if(couponDate.isAfter(today)){
+        validCupones.add(cupones[i]);
+      }
+    }
+    return validCupones;
+
   }
 
   void pushAndReplacement(BuildContext context, Widget widget) {

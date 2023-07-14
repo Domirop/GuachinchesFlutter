@@ -22,7 +22,6 @@ class RestaurantResponse {
 
   RestaurantResponse.fromJson(dynamic json) {
     _count = json["count"];
-    print('restaurantes'+ json.toString());
     if (json["rows"] != null) {
       json["rows"].forEach((v) {
         _restaurants.add(Restaurant.fromJson(v));

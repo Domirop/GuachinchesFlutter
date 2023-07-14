@@ -1,6 +1,7 @@
 import 'package:guachinches/data/model/Category.dart';
 import 'package:guachinches/data/model/Cupones.dart';
 import 'package:guachinches/data/model/CuponesAgrupados.dart';
+import 'package:guachinches/data/model/CuponesUser.dart';
 import 'package:guachinches/data/model/Municipality.dart';
 import 'package:guachinches/data/model/TopRestaurants.dart';
 import 'package:guachinches/data/model/Types.dart';
@@ -26,11 +27,13 @@ abstract class RemoteRepository{
   Future<String> registerUser(Map data);
   Future<Version> getVersion();
   Future<List<CuponesAgrupados>> getCuponesHistorias();
-  Future<bool> saveCupon(String cuponId, String userId);
+  Future<String> saveCupon(String cuponId, String userId);
   Future<Restaurant> getRestaurantById(String id);
   Future<List<Restaurant>> getFilterRestaurants(String categorias, String municipalities, String types, String nombre,String islandId);
   Future<List<Cupones>> getCuponesUsuario(String id);
   Future<List<Types>> getAllTypes();
+  Future<CuponesUser> getOneCupon(String userId,String id);
+  //fbb5b284-511d-45d0-9cc4-980404f6b11e
   Future<void> removeCupon(String id);
   Future<void> deleteUser(String id);
   Future<bool> blockUser(String userId,String userIdToBlock);

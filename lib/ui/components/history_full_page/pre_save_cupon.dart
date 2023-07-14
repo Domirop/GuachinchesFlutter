@@ -1,33 +1,37 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
+import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
 import 'package:guachinches/data/model/CuponesAgrupados.dart';
 import 'package:guachinches/globalMethods.dart';
-import 'package:guachinches/ui/components/history_full_page/history_full_page_presenter.dart';
+import 'package:guachinches/ui/components/history_full_page/cupon_details.dart';
+import 'package:guachinches/ui/components/history_full_page/pre_save_cupon_presenter.dart';
 import 'package:http/http.dart';
 import 'package:guachinches/data/HttpRemoteRepository.dart';
 
 class PreSaveCupon extends StatefulWidget {
   CuponesAgrupados cuponesAgrupados;
-  HistoryFullPageView view;
   String userId;
 
-  PreSaveCupon(this.cuponesAgrupados, this.view, this.userId);
+  PreSaveCupon(this.cuponesAgrupados, this.userId);
 
   @override
   State<PreSaveCupon> createState() => _PreSaveCuponState();
 }
 
-class _PreSaveCuponState extends State<PreSaveCupon> {
-  HistoryFullPagePresenter presenter;
+class _PreSaveCuponState extends State<PreSaveCupon>
+    implements PreSaveCuponView {
+  PreSaveCuponPresenter presenter;
   RemoteRepository remoteRepository;
   String id = "";
+  bool isLoading = false;
+  bool isError = false;
 
   @override
   void initState() {
     super.initState();
     remoteRepository = HttpRemoteRepository(Client());
-    presenter = HistoryFullPagePresenter(widget.view, remoteRepository);
+    presenter = PreSaveCuponPresenter(this, remoteRepository);
   }
 
   @override
@@ -57,11 +61,6 @@ class _PreSaveCuponState extends State<PreSaveCupon> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          Image(
-                            image: AssetImage('assets/images/logoGrande.png'),
-                            width: 79,
-                            height: 71,
-                          ),
                           Text(
                             "Cupón -" +
                                 widget.cuponesAgrupados.cupones[0].descuento
@@ -231,58 +230,84 @@ class _PreSaveCuponState extends State<PreSaveCupon> {
                         fontWeight: FontWeight.bold,
                         fontSize: 18,
                       ),
-
                     ),
-
-                  Wrap(
-                  direction: Axis.horizontal,
-                  children: generateButtonTurn(),
-        ),
+                    Wrap(
+                      direction: Axis.horizontal,
+                      children: generateButtonTurn(),
+                    ),
                   ],
                 ),
               ),
               SizedBox(
                 height: 20.0,
               ),
-              GestureDetector(
-                onTap: () => {
-                  GlobalMethods().popPage(context),
-                  presenter.saveCupon(id, widget.userId)
-                },
-                child: Container(
-                  width: double.infinity,
-                  alignment: Alignment.center,
-                  margin: EdgeInsets.symmetric(horizontal: 40.0),
-                  decoration: BoxDecoration(
-                    color: Color.fromRGBO(28, 195, 137, 1),
-                    borderRadius: BorderRadius.circular(11.0),
-                  ),
-                  padding: EdgeInsets.symmetric(vertical: 15.0),
-                  child: Text(
-                    "Confirmar",
-                    style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                        fontSize: 16.0),
-                  ),
-                ),
-              ),
-              SizedBox(
-                height: 10.0,
-              ),
-              GestureDetector(
-                onTap: () => {
-                  GlobalMethods().popPage(context),
-                },
-                child: Text(
-                  "Cancelar",
-                  style: TextStyle(
-                    color: Color.fromRGBO(242, 62, 74, 1),
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
+              !isLoading
+                  ? Column(
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.only(
+                            bottom: 18.0,
+                          ),
+                          child: isError?Text(
+                            'Error en la reserva, vuelva a intentarlo',
+                            style: TextStyle(color: Colors.red),
+                          ):Container(),
+                        ),
+                        GestureDetector(
+                          onTap: () => {
+                            GlobalMethods().popPage(context),
+                            setState(() {
+                              isLoading = true;
+                            }),
+                            presenter.saveCupon(id, widget.userId)
+                          },
+                          child: Container(
+                            width: double.infinity,
+                            alignment: Alignment.center,
+                            margin: EdgeInsets.symmetric(horizontal: 40.0),
+                            decoration: BoxDecoration(
+                              color: Color.fromRGBO(28, 195, 137, 1),
+                              borderRadius: BorderRadius.circular(11.0),
+                            ),
+                            padding: EdgeInsets.symmetric(vertical: 15.0),
+                            child: Text(
+                              "Confirmar",
+                              style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                  fontSize: 16.0),
+                            ),
+                          ),
+                        ),
+                        SizedBox(
+                          height: 10.0,
+                        ),
+                        GestureDetector(
+                          onTap: () => {
+                            GlobalMethods().popPage(context),
+                          },
+                          child: Text(
+                            "Cancelar",
+                            style: TextStyle(
+                              color: Color.fromRGBO(242, 62, 74, 1),
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    )
+                  : Column(
+                      children: [
+                        SpinKitRing(
+                          color: Colors.blue,
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.only(top: 12.0),
+                          child: Text('Confirmando cupón'),
+                        )
+                      ],
+                    ),
             ],
           ),
         ),
@@ -292,6 +317,9 @@ class _PreSaveCuponState extends State<PreSaveCupon> {
 
   generateButtonDate() {
     List<Widget> widgets = [];
+    if(id.length==0){
+      this.id = widget.cuponesAgrupados.cupones[0].id;
+    }
     widget.cuponesAgrupados.cupones.forEach((element) {
       widgets.add(GestureDetector(
         onTap: () => {
@@ -333,34 +361,48 @@ class _PreSaveCuponState extends State<PreSaveCupon> {
     });
     return widgets;
   }
+
   generateButtonTurn() {
     List<Widget> widgets = [];
 
-      widgets.add(Container(
-        margin: EdgeInsets.symmetric(horizontal: 4),
-        width: MediaQuery.of(context).size.width / 1,
-        padding: EdgeInsets.symmetric(
-          vertical: 10,
-        ),
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          border: Border.all(
-            width: 2,
-            color: Color.fromRGBO(0, 189, 195, 1),
-          ),
+    widgets.add(Container(
+      margin: EdgeInsets.symmetric(horizontal: 4),
+      width: MediaQuery.of(context).size.width / 1,
+      padding: EdgeInsets.symmetric(
+        vertical: 10,
+      ),
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        border: Border.all(
+          width: 2,
           color: Color.fromRGBO(0, 189, 195, 1),
-          borderRadius: BorderRadius.circular(8.0),
         ),
-        child: Center(
-          child: Text(
-            'Cupón válido para cualquier turno',
-            style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: Colors.white ,
-                fontSize: 14.0),
-          ),
+        color: Color.fromRGBO(0, 189, 195, 1),
+        borderRadius: BorderRadius.circular(8.0),
+      ),
+      child: Center(
+        child: Text(
+          widget.cuponesAgrupados.cupones[0].turno == 'día'
+              ? 'Cupón válido para cualquier turno'
+              : 'Cupón valido para turno' +
+                  widget.cuponesAgrupados.cupones[0].turno,
+          style: TextStyle(
+              fontWeight: FontWeight.bold, color: Colors.white, fontSize: 14.0),
         ),
-      ));
+      ),
+    ));
     return widgets;
+  }
+
+  @override
+  saveCuponState(String isCorrect) {
+    if (isCorrect.length>0) {
+      GlobalMethods().removePagesAndGoToNewScreen(context, CuponDetails(isCorrect, widget.userId));
+    } else {
+      setState(() {
+        isError = true;
+      });
+    }
+
   }
 }

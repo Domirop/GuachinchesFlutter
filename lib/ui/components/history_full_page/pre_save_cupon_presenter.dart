@@ -5,17 +5,17 @@ import 'package:guachinches/data/cubit/cupones/cupones_cubit.dart';
 import 'package:guachinches/data/cubit/restaurants/top/top_restaurants_cubit.dart';
 import 'package:guachinches/data/model/TopRestaurants.dart';
 
-class HistoryFullPagePresenter{
-  final HistoryFullPageView _view;
+class PreSaveCuponPresenter{
+  final PreSaveCuponView _view;
   final RemoteRepository repository;
 
-  HistoryFullPagePresenter(this._view, this.repository);
+  PreSaveCuponPresenter(this._view, this.repository);
 
   saveCupon(String cuponId, String userId) async {
-    bool aux = await repository.saveCupon(cuponId, userId);
+    String aux = await repository.saveCupon(cuponId, userId);
     _view.saveCuponState(aux);
   }
 }
-abstract class HistoryFullPageView{
-  saveCuponState(bool isCorrect);
+abstract class PreSaveCuponView{
+  saveCuponState(String isCorrect);
 }

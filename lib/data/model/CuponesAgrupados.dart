@@ -26,6 +26,7 @@ class CuponesAgrupados {
   }
 
   CuponesAgrupados.fromJson(dynamic json) {
+    print('test03');
     _id = json["id"];
     _enable = json["enable"];
     _nombre = json["nombre"];
@@ -37,10 +38,15 @@ class CuponesAgrupados {
       _avgRating =
           double.parse(double.parse(json["avgRating"]).toStringAsFixed(2));
     var aux = json["fotos"];
-    if(aux != null && aux.length > 0) _foto = aux[0]["photoUrl"];
+    if(aux != null && aux.length > 0) {
+      _foto = aux[0]["photoUrl"];
+    };
     if(json["cupones"] != null && json["cupones"].length > 0){
       json["cupones"].forEach((element) {
+
+        element['fotoUrl'] = json['fotos'][0]['photoUrl'];
         Cupones cupon = Cupones.fromJson(element);
+        cupon.fotoUrl= json['fotos'][0]['photoUrl'];
         cupones.add(cupon);
       });
     }

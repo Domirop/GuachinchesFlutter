@@ -31,11 +31,14 @@ class Cupones {
   }
 
   Cupones.fromJson(dynamic json) {
+    print('Cupones');
+    print(json);
+
     if(json['cupones']!= null){
       _id = json["cupones"]["id"];
       _date = json["cupones"]["date"];
       _mesasDisponibles = json["cupones"]["mesasDisponibles"];
-
+      _fotoUrl = json['fotoUrl'];
       _mesasTotales = json["cupones"]["mesasTotales"];
       _fotoUrl = json["cupones"]["fotoUrl"];
       _descuento = json["cupones"]["descuento"];

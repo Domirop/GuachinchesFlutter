@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:flutter/material.dart';
 import 'package:guachinches/data/model/fotoBanner.dart';
@@ -28,7 +29,7 @@ class _HeroSliderComponentState extends State<HeroSliderComponent> {
                   repeat: ImageRepeat.noRepeat,
                   alignment: Alignment.center,
                   fit: BoxFit.fill,
-                  image: item.fotoUrl != null ? NetworkImage(item.fotoUrl) : AssetImage(
+                  image: item.fotoUrl != null ? CachedNetworkImageProvider(item.fotoUrl) : AssetImage(
                       "assets/images/notImage.png"),
                 ),
               ),

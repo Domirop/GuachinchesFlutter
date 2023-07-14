@@ -21,7 +21,6 @@ class _QrFullScreenState extends State<QrFullScreen> {
 
   @override
   void initState() {
-    print(data.turno);
     super.initState();
   }
 

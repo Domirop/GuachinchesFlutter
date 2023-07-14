@@ -7,10 +7,10 @@ import 'package:guachinches/data/cubit/restaurants/basic/restaurant_cubit.dart';
 import 'package:guachinches/data/cubit/restaurants/top/top_restaurants_cubit.dart';
 import 'package:guachinches/data/cubit/user/user_cubit.dart';
 import 'package:guachinches/data/cubit/user/user_state.dart';
+import 'package:guachinches/data/model/CuponesAgrupados.dart';
 import 'package:guachinches/data/model/TopRestaurants.dart';
 import 'package:guachinches/ui/pages/login/login.dart';
 import 'package:guachinches/ui/pages/search_page/search_page.dart';
-
 import '../profile/profile.dart';
 import '../valoraciones/valoraciones.dart';
 import 'home.dart';
@@ -35,8 +35,8 @@ class HomePresenter{
   getAllRestaurants() async{
 
     await _restaurantCubit.getAllRestaurants(0);
-
   }
+
 
   getScreens() async {
     final storage = new FlutterSecureStorage();
@@ -74,11 +74,14 @@ class HomePresenter{
   }
 
   getCupones() async {
-    await _cuponesCubit.getCuponesHistorias();
+    List<CuponesAgrupados> cupones= await repository.getCuponesHistorias();
+    _view.setCupones(cupones);
   }
 
   getUserInfo() async {
     String userId = await storage.read(key: "userId");
+    print('userId');
+    print(userId);
     _view.setUserId(userId);
   }
 
@@ -96,4 +99,5 @@ abstract class HomeView{
   setUserId(String id);
   setScreens(List<Widget> screens);
   changeScreen(widget);
+  setCupones(List<CuponesAgrupados>cuponesAgrupadosParam);
 }

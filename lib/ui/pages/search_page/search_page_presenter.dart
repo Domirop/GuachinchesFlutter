@@ -5,6 +5,8 @@ import 'package:guachinches/data/cubit/restaurants/basic/restaurant_cubit.dart';
 import 'package:guachinches/data/model/Category.dart';
 import 'package:guachinches/data/model/Municipality.dart';
 import 'package:guachinches/data/model/Types.dart';
+import 'package:guachinches/data/model/restaurant.dart';
+import 'package:guachinches/data/model/restaurant_response.dart';
 
 class SearchPagePresenter {
   final SearchPageView _view;
@@ -18,28 +20,28 @@ class SearchPagePresenter {
       this._remoteRepository);
 
   getAllRestaurants(number,islandId) async {
-    await _restaurantCubit.getRestaurants(number,islandId);
-    _view.changeCharginInitial();
+    await _remoteRepository.getAllRestaurants(number,islandId);
   }
 
   saveCupon(String userId, String cuponId) async {
-    bool aux = await _remoteRepository.saveCupon(cuponId, userId);
+    String aux = await _remoteRepository.saveCupon(cuponId, userId);
     await _cuponesCubit.getCuponesHistorias();
-    _view.estadoCupon(aux);
+    _view.estadoCupon(aux.length>0);
     _view.generateWidgetTab3();
   }
 
-  getAllRestaurantsPag1(number,islandId) async {
-    await getAllRestaurants(number,islandId);
-    _view.generateWidgetTab1();
+  getAllRestaurantsPag1(number) async {
+    String islandId = await storage.read(key: 'islandId');
+
+    RestaurantResponse response =  await _remoteRepository.getAllRestaurants(number,islandId);
+    List<Restaurant> restaurants = response.restaurants;
+
+    _view.generateWidgetTab1(restaurants);
+    _view.changeCharginInitial();
+
   }
 
-  getAllRestaurantsPag2(number,islandId) async {
-    print('numero2: '+ number.toString());
 
-    await getAllRestaurants(number,islandId);
-    _view.generateWidgetTab2();
-  }
 
   getAllCupones() async {
     await _cuponesCubit.getCuponesHistorias();
@@ -59,14 +61,21 @@ class SearchPagePresenter {
 
     if (((categories == null || categories.isEmpty) &&
             (municipalities == null || municipalities.isEmpty) &&
-            (text == null || text.length <= 3)) &&
+            (text == null || text.length < 3)) &&
         (types == null || types.isEmpty) &&
         !isOpen) {
-      await _restaurantCubit.getRestaurants(number,islandId);
-      _view.changeTab();
+      print('test1');
+      // await getAllRestaurantsPag1(0);
+      await Future.delayed(Duration(milliseconds: 100));
+
+      _view.generateWidgetTab2([]);
+      if(text.length ==0){
+        _view.changeTab();
+
+      }
     } else {
-      await _restaurantCubit.getFilterRestaurants(
-          categories: categories, municipalities: municipalities, types: types, text: text,islandId: islandId);
+      List<Restaurant> restaurants = await _remoteRepository. getFilterRestaurants(categories.join(";"), municipalities.join(";"), types.join(";"), text,islandId);
+      _view.generateWidgetTab2(restaurants);
       _view.removeListeners();
     }
   }
@@ -100,9 +109,9 @@ abstract class SearchPageView {
 
   updateFilter();
 
-  generateWidgetTab1();
+  generateWidgetTab1(List<Restaurant> restaurants);
 
-  generateWidgetTab2();
+  generateWidgetTab2(List<Restaurant> restaurants);
 
   removeListeners();
 

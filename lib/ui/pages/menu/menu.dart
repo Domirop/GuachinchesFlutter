@@ -30,6 +30,8 @@ class _ProfileState extends State<Menu>{
   @override
   Widget build(BuildContext context) {
     double width = MediaQuery.of(context).size.width;
+
+
     return screens.length == 0
         ? SpinKitPulse(
             color: Colors.black,
@@ -47,35 +49,33 @@ class _ProfileState extends State<Menu>{
                     ),
               ),
               child: BottomNavigationBar(
+                selectedItemColor: Colors.blue,
+
                   type: BottomNavigationBarType.fixed,
                   items: [
                     BottomNavigationBarItem(
                       icon: Icon(
                         Icons.home,
-                        color: Colors.black,
                       ),
-                      label: "",
+                      label: "Home",
                     ),
                     BottomNavigationBarItem(
                       icon: Icon(
                         Icons.search,
-                        color: Colors.black,
                       ),
-                      label: "",
+                      label: "Buscar",
                     ),
                     BottomNavigationBarItem(
                       icon: Icon(
                         Icons.star_half,
-                        color: Colors.black,
                       ),
-                      label: "",
+                      label: "Valoraciones",
                     ),
                     BottomNavigationBarItem(
                       icon: Icon(
                         Icons.account_circle_outlined,
-                        color: Colors.black,
                       ),
-                      label: "",
+                      label: "Mi perfil",
                     ),
                   ],
                   currentIndex: selectedItem,

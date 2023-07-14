@@ -87,7 +87,6 @@ class SplashScreenPresenter {
       String key = await storage.read(key: 'onBoardingFinished') ;
       // await storage.write(key: 'onBoardingFinished',value: 'false');
 
-      print(key);
       if(key==null){
         await storage.write(key: 'onBoardingFinished',value: 'false');
       }else{

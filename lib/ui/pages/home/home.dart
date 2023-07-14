@@ -1,7 +1,4 @@
-import 'package:avatar_glow/avatar_glow.dart';
-import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 import 'package:guachinches/data/HttpRemoteRepository.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -22,8 +19,8 @@ import 'package:guachinches/globalMethods.dart';
 import 'package:guachinches/ui/components/app_Bars/appbar_basic.dart';
 import 'package:guachinches/ui/components/cards/topRestaurantCard.dart';
 import 'package:guachinches/ui/components/cards/restaurantOpenCard.dart';
+import 'package:guachinches/ui/components/cupones/cupones_list.dart';
 import 'package:guachinches/ui/components/heroSliderComponent.dart';
-import 'package:guachinches/ui/components/history_full_page/history_full_page.dart';
 import 'package:guachinches/ui/pages/home/home_presenter.dart';
 import 'package:guachinches/ui/pages/restaurantsShowMore/restaurantsShowMore.dart';
 import 'package:guachinches/ui/pages/restaurantsShowMore/restaurantsShowMoreGuachinches.dart';
@@ -61,7 +58,7 @@ class _HomeState extends State<Home> implements HomeView {
     "assets/images/otherTop.png"
   ];
   List<CuponesAgrupados> cuponesAgrupados = [];
-
+  bool userIdSearched = false;
   @override
   void initState() {
 
@@ -75,6 +72,7 @@ class _HomeState extends State<Home> implements HomeView {
     presenter = HomePresenter(this, topRestaurantCubit, bannersCubit,
         cuponesCubit, userCubit, remoteRepository,restaurantsCubit);
     presenter.getUserInfo();
+    presenter.getCupones();
     if (bannersCubit.state is BannersInitial) {
       presenter.getAllBanner();
     }
@@ -86,9 +84,6 @@ class _HomeState extends State<Home> implements HomeView {
       presenter.getScreens();
     } else if (userCubit.state is UserLoaded) {
       presenter.getScreens();
-    }
-    if (cuponesCubit.state is CuponesInitial) {
-      presenter.getCupones();
     }
     if (topRestaurantCubit.state is TopRestaurantInitial) {
       presenter.getTopRestaurants();
@@ -113,29 +108,16 @@ class _HomeState extends State<Home> implements HomeView {
             SizedBox(
               height: 20.0,
             ),
-            Padding(
+            cuponesAgrupados.length<0?Padding(
               padding: const EdgeInsets.only(left:8.0),
               child: Text('Cupones descuento',style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
                   foreground: Paint()..shader = linearGradient
-
               ),),
-            ),
+            ):Container(),
             SizedBox(
               height: 20.0,
-            ),
-            Container(
-              height: 100,
-              child: BlocBuilder<CuponesCubit, CuponesState>(
-                  builder: (context, state) {
-                if (state is CuponesLoaded) {
-                  cuponesAgrupados = state.cuponesAgrupados;
-                  return historyPreviewWidget();
-                } else {
-                  return Container();
-                }
-              }),
             ),
             SizedBox(
               height: 20.0,
@@ -151,7 +133,38 @@ class _HomeState extends State<Home> implements HomeView {
               height: 20.0,
             ),
             Container(
-              child: createMenuForRestaurants(),
+              child:cuponesAgrupados.length>0&&userIdSearched? Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(left:8.0),
+                    child: Text('Cupones',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        foreground: Paint()..shader = linearGradient
+                    ),),
+                  ),
+                  CuponesList(cuponesAgrupados,userId)
+                ],
+              ):Container(),
+            ),
+            Container(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(left:8.0),
+                    child: Text('Sugerencias',style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        foreground: Paint()..shader = linearGradient
+
+                    ),),
+                  ),
+                  createMenuForRestaurants()
+                ],
+              ),
             ),
             SizedBox(
               height: 10.0,
@@ -179,7 +192,7 @@ class _HomeState extends State<Home> implements HomeView {
                       mainAxisAlignment: MainAxisAlignment.end,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Guachinches tenerife norte', style:TextStyle(
+                        Text('Guachinches Tenerife norte', style:TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.bold,
                             fontSize: 32
@@ -187,7 +200,6 @@ class _HomeState extends State<Home> implements HomeView {
                         ElevatedButton(
                             style: ElevatedButton.styleFrom(
                               primary: Colors.white,
-
                             ),onPressed: ()=>{
                               GlobalMethods().pushPage(context, RestaurantShowMoreGuachinches('GuachinchesNorteTF'))
                         }, child: Text(
@@ -211,52 +223,6 @@ class _HomeState extends State<Home> implements HomeView {
     );
   }
 
-  historyPreviewWidget() {
-    Widget preview = ListView.builder(
-        shrinkWrap: true,
-        primary: false,
-        itemCount: cuponesAgrupados.length,
-        scrollDirection: Axis.horizontal,
-        itemBuilder: (context, index) {
-          return Wrap(
-            children: [
-              GestureDetector(
-                onTap: () => GlobalMethods().pushPage(
-                    context, HistoryFullPage(cuponesAgrupados[index], userId)),
-                child: Column(
-                  children: [
-                    Container(
-                      height: 75,
-                      width: 90,
-                      padding: EdgeInsets.all(2),
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          width: 2,
-                          color: Color.fromRGBO(0, 133, 196, 1),
-                        ),
-                        image: DecorationImage(
-                          repeat: ImageRepeat.noRepeat,
-                          alignment: Alignment.center,
-                          fit: BoxFit.fill,
-                          image: cuponesAgrupados[index].foto != null
-                              ? NetworkImage(cuponesAgrupados[index].foto)
-                              : AssetImage("assets/images/notImage.png"),
-                        ),
-                      ),
-                    ),
-                    Text(
-                      cuponesAgrupados[index].nombreAbrev,
-                      style: TextStyle(color: Colors.black, fontSize: 12),
-                    )
-                  ],
-                ),
-              )
-            ],
-          );
-        });
-    return preview;
-  }
     createMenuForRestaurants(){
     return Container(
       height: 48,
@@ -474,6 +440,7 @@ class _HomeState extends State<Home> implements HomeView {
     if (mounted) {
       setState(() {
         userId = id;
+        userIdSearched = true;
       });
     }
   }
@@ -485,6 +452,13 @@ class _HomeState extends State<Home> implements HomeView {
         this.screens = screens;
       });
     }
+  }
+
+  @override
+  setCupones(List<CuponesAgrupados> cuponesAgrupadosParam) {
+    setState(() {
+      cuponesAgrupados = cuponesAgrupadosParam;
+    });
   }
 
 

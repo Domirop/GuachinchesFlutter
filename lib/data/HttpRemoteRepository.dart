@@ -4,6 +4,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:guachinches/data/model/Category.dart';
 import 'package:guachinches/data/model/Cupones.dart';
 import 'package:guachinches/data/model/CuponesAgrupados.dart';
+import 'package:guachinches/data/model/CuponesUser.dart';
 import 'package:guachinches/data/model/Municipality.dart';
 import 'package:guachinches/data/model/TopRestaurants.dart';
 import 'package:guachinches/data/model/Types.dart';
@@ -50,7 +51,6 @@ class HttpRemoteRepository implements RemoteRepository {
       var response = await _client.get(uri);
       RestaurantResponse restaurantResponse =
           RestaurantResponse.fromJson(json.decode(response.body));
-      print('restaurantes'+ restaurantResponse.restaurants.toString());
       return restaurantResponse;
     } on Exception catch (e) {
       return null;
@@ -68,8 +68,6 @@ class HttpRemoteRepository implements RemoteRepository {
       if(categorias != null && categorias.isNotEmpty) url += "&categories=" + categorias;
       if(municipalities != null && municipalities.isNotEmpty) url += "&municipalities=" + municipalities;
       if(islandId != null) url += "&island=" + islandId;
-      print('url:'+url);
-      print('url:'+islandId);
       var uri = Uri.parse(url);
       var response = await _client.get(uri);
       List<dynamic> data = json.decode(response.body);
@@ -118,7 +116,6 @@ class HttpRemoteRepository implements RemoteRepository {
   Future<List<Municipality>> getAllMunicipalities() async {
     var uri = Uri.parse(dotenv.env['ENDPOINT_V1'] + "municipality");
     var response = await _client.get(uri);
-    print(response);
     List<dynamic> data = json.decode(response.body)['result'];
     List<Municipality> municipalities = [];
     for (var i = 0; i < data.length; i++) {
@@ -133,7 +130,6 @@ class HttpRemoteRepository implements RemoteRepository {
     var uri = Uri.parse(dotenv.env['ENDPOINT_V2'] + "areas/islands/"+islandId);
     var response = await _client.get(uri);
     List<dynamic> data = json.decode(response.body);
-    print(data.length.toString());
     List<Municipality> municipalities = [];
     for (var i = 0; i < data.length; i++) {
       Municipality municipality = Municipality.fromJson(data[i]);
@@ -253,9 +249,9 @@ class HttpRemoteRepository implements RemoteRepository {
         TopRestaurants restaurant = TopRestaurants.fromJson(data[i]);
         restaurants.add(restaurant);
       }
+      print('test02');
       return restaurants;
     } on Exception catch (e) {
-      print(e);
       return [];
     }
   }
@@ -292,9 +288,10 @@ class HttpRemoteRepository implements RemoteRepository {
   }
 
   @override
-  Future<bool> saveCupon(String cuponId, String userId) async {
+  Future<String> saveCupon(String cuponId, String userId) async {
     String url = dotenv.env['ENDPOINT_V2'] + "cupones/book";
     var uri = Uri.parse(url);
+    String couponId = '';
     var body;
     body = jsonEncode({
       "cuponesId": cuponId,
@@ -302,9 +299,15 @@ class HttpRemoteRepository implements RemoteRepository {
     });
     var response = await _client.post(uri,
         headers: {"Content-Type": "application/json"}, body: body);
+    print('response');
+    print(response);
     var x = json.decode(response.body);
-    if(x["statusCode"] != null && x["statusCode"] == 500)return false;
-    else return true;
+    print('cuponId');
+    print(x['id']);
+    couponId = x['id'];
+
+    if(x["statusCode"] != null && x["statusCode"] == 500)return '';
+    else return couponId;
   }
 
   Future<List<Cupones>> getCuponesUsuario(String id) async {
@@ -324,7 +327,22 @@ class HttpRemoteRepository implements RemoteRepository {
       return [];
     }
   }
+  Future<CuponesUser> getOneCupon(String userId,String id) async {
+    try{
+      CuponesUser cupon;
+      String url = dotenv.env['ENDPOINT_V2'] +
+          "users/" + userId + "/cupones/"+id;
+      var uri = Uri.parse(url);
+      var response = await _client.get(uri);
+      var data = json.decode(response.body);
+      print('data');
+      print(data);
+      cupon = CuponesUser.fromJson(data);
+      return cupon;
+    }catch(e){
 
+    }
+  }
   @override
   Future<List<Types>> getAllTypes() async {
     try {
@@ -336,7 +354,6 @@ class HttpRemoteRepository implements RemoteRepository {
       var data = json.decode(response.body);
       for (var i = 0; i < data.length; i++) {
         Types types = Types.fromJson(data[i]);
-        print(types.nombre);
         typesList.add(types);
 
       }
@@ -354,7 +371,6 @@ class HttpRemoteRepository implements RemoteRepository {
           "cupones/" + id;
       var uri = Uri.parse(url);
       var response = await _client.delete(uri);
-      print(response);
       var data = json.decode(response.body);
     } on Exception catch (e) {
     }

@@ -34,7 +34,6 @@ class DetailPresenter {
         });
     await getIsFav(id);
     String userId = await isUserLogged();
-    print(restaurant);
     if (userId != null) {
       List<BlockUser> userBlocked =
           await _remoteRepository.getBlockUser(userId);
