@@ -72,6 +72,7 @@ class SplashScreenPresenter {
 
   getUserInfo() async {
     Version version = await _remoteRepository.getVersion();
+
     String versionBD = "1.0.0";
 
     if (Platform.isIOS == true) {
@@ -86,9 +87,9 @@ class SplashScreenPresenter {
     else {
       String key = await storage.read(key: 'onBoardingFinished') ;
       // await storage.write(key: 'onBoardingFinished',value: 'false');
-
       if(key==null){
         await storage.write(key: 'onBoardingFinished',value: 'false');
+        _view.goToOnBoarding();
       }else{
         if(key == 'true'){
           mainFunction();

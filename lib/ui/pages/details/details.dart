@@ -390,7 +390,7 @@ class _DetailsState extends State<Details> implements DetailView {
                       color: Colors.white,
                       boxShadow: [
                         BoxShadow(
-                            color: Colors.black54,
+                            color: Colors.grey[100],
                             blurRadius: 5.0,
                             spreadRadius: 1.0,
                             offset: Offset(2.0, 4.0))

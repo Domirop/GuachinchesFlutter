@@ -50,7 +50,6 @@ class _ProfileState extends State<Menu>{
               ),
               child: BottomNavigationBar(
                 selectedItemColor: Colors.blue,
-
                   type: BottomNavigationBarType.fixed,
                   items: [
                     BottomNavigationBarItem(

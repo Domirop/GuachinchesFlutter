@@ -28,7 +28,6 @@ class _PhotoFullScreenState extends State<PhotoFullScreen> {
         resetDuration: const Duration(milliseconds: 100),
       child: Container(
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(20.0),
                   image: DecorationImage(
                     repeat: ImageRepeat.noRepeat,
                     alignment: Alignment.center,
@@ -47,42 +46,21 @@ class _PhotoFullScreenState extends State<PhotoFullScreen> {
   Widget build(BuildContext context) {
 
     return Scaffold(
-        backgroundColor: Colors.black,
+        backgroundColor: Colors.white,
+        appBar: AppBar(
+          backgroundColor: Colors.white,
+          elevation: 0,
+          leading: IconButton(
+            icon: Icon(Icons.arrow_back_ios,color: Colors.black,),
+            onPressed: () => GlobalMethods().popPage(context),
+          ),
+          title: Text(restaurant.nombre,style: TextStyle(color: Colors.black),),
+        ),
         body: Container(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.start,
             children: [
-              Container(
-                height: 279,
-                width: double.infinity,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    Container(
-                      child: GestureDetector(
-                        onTap: () => GlobalMethods().popPage(context),
-                        child: Container(
-                          width: 40.0,
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(12.0),
-                          ),
-                          child: Icon(
-                            Icons.chevron_left,
-                            size: 40.0,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                    ),
-                    Center(child: Text("Fotos\n"+restaurant.nombre,textAlign: TextAlign.center, style: TextStyle(
-                        color: Colors.white
-                    ),))
-                  ],
-                ),
-              ),
               CarouselSlider(
                   items: imageSlider,
                   options: CarouselOptions(
@@ -90,9 +68,8 @@ class _PhotoFullScreenState extends State<PhotoFullScreen> {
                     initialPage: selectedIndex,
                     viewportFraction: 1,
                     enlargeCenterPage: true,
-                    aspectRatio: 4 / 4,
+                    aspectRatio: 0.65,
                   )),
-
             ],
           ),
         ));

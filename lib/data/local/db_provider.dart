@@ -21,7 +21,7 @@ class DBProvider {
   initDB() async {
     Directory documentsDirectory = await getApplicationDocumentsDirectory();
     String path = join(documentsDirectory.path, "Guachinches.db");
-    return await openDatabase(path, version: 1 , onOpen: (db) {
+    return await openDatabase(path, version: 2 , onOpen: (db) {
     }, onCreate: (Database db, int version) async {
       await db.execute("CREATE TABLE fav ("
           "Id INTEGER PRIMARY KEY AUTOINCREMENT,"

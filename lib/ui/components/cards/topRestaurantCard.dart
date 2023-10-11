@@ -26,7 +26,7 @@ class TopRestaurantCard extends StatelessWidget {
               color: Color(0xffffffff),
               boxShadow: <BoxShadow>[
                 BoxShadow(
-                  color: Colors.grey,
+                  color: Colors.grey[100],
                   offset: Offset(0.0, 1.0),
                   blurRadius: 0.8,
                 ),

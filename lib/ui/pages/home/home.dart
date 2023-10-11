@@ -5,7 +5,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:guachinches/data/cubit/banners/banners_cubit.dart';
 import 'package:guachinches/data/cubit/banners/banners_state.dart';
 import 'package:guachinches/data/cubit/cupones/cupones_cubit.dart';
-import 'package:guachinches/data/cubit/cupones/cupones_state.dart';
 import 'package:guachinches/data/cubit/restaurants/basic/restaurant_cubit.dart';
 import 'package:guachinches/data/cubit/restaurants/basic/restaurant_state.dart';
 import 'package:guachinches/data/cubit/restaurants/top/top_restaurant_state.dart';
@@ -155,13 +154,14 @@ class _HomeState extends State<Home> implements HomeView {
                 children: [
                   Padding(
                     padding: const EdgeInsets.only(left:8.0),
-                    child: Text('Sugerencias',style: TextStyle(
+                    child: Text('DESTACADOS',style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                         foreground: Paint()..shader = linearGradient
 
                     ),),
                   ),
+
                   createMenuForRestaurants()
                 ],
               ),
@@ -174,7 +174,7 @@ class _HomeState extends State<Home> implements HomeView {
             ),
             Padding(
               padding: const EdgeInsets.only(left:8.0),
-              child: Text('Novedades',style: TextStyle(
+              child: Text('NOVEDADES',style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
                   foreground: Paint()..shader = linearGradient
@@ -192,7 +192,8 @@ class _HomeState extends State<Home> implements HomeView {
                       mainAxisAlignment: MainAxisAlignment.end,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Guachinches Tenerife norte', style:TextStyle(
+                        Text('Guachinches Tenerife norte',
+                          style:TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.bold,
                             fontSize: 32
@@ -224,46 +225,49 @@ class _HomeState extends State<Home> implements HomeView {
   }
 
     createMenuForRestaurants(){
-    return Container(
-      height: 48,
-      width: double.infinity,
-      child: Center(
-        child: ListView.builder(
-            shrinkWrap: true,
-            primary: false,
-            scrollDirection: Axis.horizontal,
-            itemCount: menuOptions.length,
-            itemBuilder: (context, index){
-        return  Wrap(
-            children: [
-              GestureDetector(
-                onTap: ()=>{
-                  menuHandle(index),
-                },
-                child: Container(
-                  margin: const EdgeInsets.all(10.0),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.all(Radius.circular(10)),
-                      border: Border.all(color:Colors.blue,width: 1),
-                      color: menuRestaurantSelected==index?Colors.blue:Colors.white
-                  ),
-                  height: 32,
-                  child: Center(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 10.0),
-                      child: Text(
-                          menuOptions[index],
-                          style:TextStyle(
-                            color: menuRestaurantSelected==index?Colors.white:Colors.blue
-                          )
+    return Padding(
+      padding: const EdgeInsets.only(top:24.0),
+      child: Container(
+        height: 48,
+        width: double.infinity,
+        child: Center(
+          child: ListView.builder(
+              shrinkWrap: true,
+              primary: false,
+              scrollDirection: Axis.horizontal,
+              itemCount: menuOptions.length,
+              itemBuilder: (context, index){
+          return  Wrap(
+              children: [
+                GestureDetector(
+                  onTap: ()=>{
+                    menuHandle(index),
+                  },
+                  child: Container(
+                    margin: const EdgeInsets.all(10.0),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.all(Radius.circular(10)),
+                        border: Border.all(color:Colors.blue,width: 1),
+                        color: menuRestaurantSelected==index?Colors.blue:Colors.white
+                    ),
+                    height: 32,
+                    child: Center(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 10.0),
+                        child: Text(
+                            menuOptions[index],
+                            style:TextStyle(
+                              color: menuRestaurantSelected==index?Colors.white:Colors.blue
+                            )
+                        ),
                       ),
                     ),
                   ),
-                ),
-              )
-            ],
-          );
-        }),
+                )
+              ],
+            );
+          }),
+        ),
       ),
     );
     }
@@ -299,7 +303,7 @@ class _HomeState extends State<Home> implements HomeView {
                               color: Colors.blue,
                               boxShadow: <BoxShadow>[
                                 BoxShadow(
-                                  color: Colors.grey,
+                                  color: Colors.white,
                                   offset: Offset(0.0, 1.0),
                                   blurRadius: 0.8,
                                 ),
@@ -370,7 +374,7 @@ class _HomeState extends State<Home> implements HomeView {
                            color: Colors.blue,
                            boxShadow: <BoxShadow>[
                              BoxShadow(
-                               color: Colors.grey,
+                               color: Colors.white,
                                offset: Offset(0.0, 1.0),
                                blurRadius: 0.8,
                              ),

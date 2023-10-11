@@ -14,7 +14,23 @@ class GlobalMethods {
   void pushPage(BuildContext context, Widget page) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(builder: (_) => page),
+
     );
+
+  }
+  void pushPageWithFocus(BuildContext context, Widget page) {
+    Navigator.push(
+      context,
+      PageRouteBuilder(
+        pageBuilder: (_, __, ___) => page,
+        transitionDuration: Duration(milliseconds: 180),
+        transitionsBuilder: (_, a, __, c) => FadeTransition(opacity: a, child: c),
+      ),
+
+
+    )
+    ;
+
   }
   List<CuponesUser> getOnlyValidCouponUser(List<CuponesUser> cupones){
     List<CuponesUser> validCupones =[];

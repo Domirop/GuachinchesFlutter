@@ -13,7 +13,7 @@ class RestaurantOpenCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Wrap(
-      alignment: WrapAlignment.end,
+      alignment: WrapAlignment.start,
       children: [
         GestureDetector(
           onTap: () => GlobalMethods().pushPage(
@@ -27,7 +27,7 @@ class RestaurantOpenCard extends StatelessWidget {
               color: Color(0xffffffff),
               boxShadow: <BoxShadow>[
                 BoxShadow(
-                  color: Colors.grey,
+                  color: Colors.grey[100],
                   offset: Offset(0.0, 1.0),
                   blurRadius: 0.8,
                 ),

@@ -4,6 +4,7 @@ import 'package:guachinches/data/cubit/restaurants/basic/restaurant_cubit.dart';
 import 'package:guachinches/data/cubit/restaurants/basic/restaurant_state.dart';
 import 'package:guachinches/data/cubit/restaurants/top/top_restaurant_state.dart';
 import 'package:guachinches/data/cubit/restaurants/top/top_restaurants_cubit.dart';
+import 'package:guachinches/data/model/TopRestaurants.dart';
 import 'package:guachinches/data/model/restaurant.dart';
 import 'package:guachinches/ui/components/cards/topRestaurantCard.dart';
 import 'package:guachinches/ui/components/cards/TopRestaurantListCard.dart';
@@ -18,8 +19,8 @@ class RestaurantShowMoreGuachinches extends StatefulWidget {
 }
 
 class _RestaurantShowMoreGuachinchesState extends State<RestaurantShowMoreGuachinches> {
-  _RestaurantShowMoreText top = new _RestaurantShowMoreText('Guachinches norte TF','Te '
-      'mostramos la selección de mejores restaurantes de nuestra app, mediante nuestro algoritmo que tiene encuenta visitas, puntuaciones y número de valoraciones');
+  _RestaurantShowMoreText top = new _RestaurantShowMoreText('Guachinches norte TF',
+      'Un guachinche es un establecimiento de comida típica canaria, que se caracteriza por ser un lugar familiar, con comida casera y vino de cosecha propia. Te mostramos los guachinches locales del norte tenerife desde los más tradicionales a los más modernos, para que puedas disfrutar de la gastronomía canaria en su máxima expresión. ');
 
   @override
   Widget build(BuildContext context) {
@@ -38,12 +39,33 @@ class _RestaurantShowMoreGuachinchesState extends State<RestaurantShowMoreGuachi
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(top.title,style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 20
+            Text('¿Qué es un guachinche?',style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 20
             ),),
             SizedBox(
-              height: 10.0,
+              height: 16.0,
+            ),
+            Padding(
+              padding: const EdgeInsets.only(right: 16.0),
+              child: Text(top.subtitle,
+               textAlign: TextAlign.justify,
+                style: TextStyle(
+                  fontWeight: FontWeight.w300,
+                  fontSize: 16
+              ),),
+            ),
+            SizedBox(
+              height: 16.0,
+            ),
+            Padding(
+              padding: const EdgeInsets.only(right: 16.0),
+              child: Divider(
+                color: Colors.black,
+                thickness: 0.1,),
+            ),
+            SizedBox(
+              height: 8.0,
             ),
             BlocBuilder<RestaurantCubit, RestaurantState>(
             builder: (context, state) {
@@ -74,7 +96,11 @@ class _RestaurantShowMoreGuachinchesState extends State<RestaurantShowMoreGuachi
                     itemCount: restaurants.length,
                     scrollDirection: Axis.vertical,
                     itemBuilder: (context, index) {
-                      return RestaurantOpenCard(restaurants[index]);
+                      TopRestaurants topRestaurant = new TopRestaurants(
+                          nombre: restaurants[index].nombre,
+                          open: restaurants[index].open,
+                          id:restaurants[index].id,horarios: restaurants[index].horarios,direccion: restaurants[index].direccion,counter: restaurants[index].avgRating.toString(),imagen: restaurants[index].mainFoto,cerrado: restaurants[index].open.toString(),municipio: restaurants[index].municipio,avg: restaurants[index].avgRating);
+                      return TopRestaurantListCard(topRestaurant);
                     }),
               );
               }

@@ -56,21 +56,7 @@ class TopRestaurantListCard extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
                       Container(child: Text( restaurant.nombre,)),
-                      RatingBar.builder(
-                        ignoreGestures: true,
-                        initialRating: restaurant.avg,
-                        minRating: 1,
-                        direction: Axis.horizontal,
-                        allowHalfRating: true,
-                        itemCount: 5,
-                        itemSize: 12,
-                        glowColor: Colors.white,
-                        onRatingUpdate: (rating) => {},
-                        itemBuilder: (context, _) => Icon(
-                          Icons.star,
-                          color: Color.fromRGBO(0, 189, 195, 1),
-                        ),
-                      ),
+
                       SizedBox(height: 6), // give it width
                       Text(restaurant.open
                           ? "Abierto"
@@ -107,7 +93,7 @@ class TopRestaurantListCard extends StatelessWidget {
 
                           ),
                           padding: EdgeInsets.symmetric(horizontal: 10,vertical: 6),
-                          child: Text(restaurant.avg.toStringAsFixed(2),style: TextStyle(color: Colors.white,fontWeight: FontWeight.w600),),
+                          child: Text(restaurant.avg!=null?restaurant.avg.toStringAsFixed(2):'nd',style: TextStyle(color: Colors.white,fontWeight: FontWeight.w600),),
                         ),
                       ],
                     ),
