@@ -21,8 +21,8 @@ class PreSaveCupon extends StatefulWidget {
 
 class _PreSaveCuponState extends State<PreSaveCupon>
     implements PreSaveCuponView {
-  PreSaveCuponPresenter presenter;
-  RemoteRepository remoteRepository;
+  late PreSaveCuponPresenter presenter;
+  late RemoteRepository remoteRepository;
   String id = "";
   bool isLoading = false;
   bool isError = false;

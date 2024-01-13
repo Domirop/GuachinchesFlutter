@@ -37,12 +37,9 @@ class RestaurantListCard extends StatelessWidget {
                         repeat: ImageRepeat.noRepeat,
                         alignment: Alignment.center,
                         fit: BoxFit.fill,
-                        image:
-                        restaurant.mainFoto != null
-                            ? NetworkImage(
-                            restaurant.mainFoto)
-                            : AssetImage(
-                            "assets/images/notImage.png"),
+                        image: restaurant.mainFoto.isNotEmpty
+                            ? NetworkImage(restaurant.mainFoto)
+                            : AssetImage("assets/images/notImage.png") as ImageProvider,
                       ),
                     ),
                   ),

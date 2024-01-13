@@ -4,6 +4,7 @@ import 'package:guachinches/data/RemoteRepository.dart';
 import 'package:guachinches/data/cubit/user/user_cubit.dart';
 import 'package:guachinches/ui/pages/home/home.dart';
 import 'package:guachinches/ui/pages/profile/profile.dart';
+import 'package:guachinches/ui/pages/profile/profile_v2.dart';
 import 'package:guachinches/ui/pages/search_page/search_page.dart';
 import 'package:guachinches/ui/pages/valoraciones/valoraciones.dart';
 
@@ -18,7 +19,7 @@ class LoginPresenter{
   login(String email, String password) async{
     try{
     var userId = await _remoteRepository.loginUser(email,password);
-    List<Widget> screens = [Home(), SearchPage(), Valoraciones(), Profile()];
+    List<Widget> screens = [Home(), SearchPage(), Valoraciones(), Profilev2()];
 
     if (userId != null){
       await storage.write(key: "userId", value: userId["id"]);

@@ -5,8 +5,8 @@ import 'package:guachinches/data/model/CuponesAgrupados.dart';
 import 'package:guachinches/data/model/restaurant.dart';
 
 class CuponesCubit extends Cubit<CuponesState> {
-  final RemoteRepository _remoteRepository;
-  Restaurant restaurant;
+  late final RemoteRepository _remoteRepository;
+  late Restaurant restaurant;
 
   CuponesCubit(this._remoteRepository) : super(CuponesInitial());
 

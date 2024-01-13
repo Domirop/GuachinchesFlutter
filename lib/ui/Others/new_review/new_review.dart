@@ -28,8 +28,8 @@ class _NewReviewState extends State<NewReview> implements NewReviewView {
   var reviewController;
   bool error = false;
   var tittleController;
-  NewReviewPresenter _presenter;
-  RemoteRepository remoteRepository;
+  late NewReviewPresenter _presenter;
+  late RemoteRepository remoteRepository;
   bool reviewLoading = false;
 
   @override
@@ -77,7 +77,7 @@ class _NewReviewState extends State<NewReview> implements NewReviewView {
                         borderRadius: BorderRadius.circular(12.0),
                         image: DecorationImage(
                           image: widget._mainPhoto != null ? NetworkImage(widget._mainPhoto) : AssetImage(
-                              "assets/images/notImage.png"),
+                              "assets/images/notImage.png") as ImageProvider,
                         )),
                   ),
                   Expanded(
@@ -210,7 +210,7 @@ class _NewReviewState extends State<NewReview> implements NewReviewView {
                       Text("Estamos publicando tu valoración. Muchas Gracias!")
                     ],
                   )
-                  : RaisedButton(
+                  : ElevatedButton(
                       onPressed: () => {
                       setState(() {
                         reviewLoading = true;
@@ -222,10 +222,12 @@ class _NewReviewState extends State<NewReview> implements NewReviewView {
                             reviewController.text,
                             rating)
                       },
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(7.0),
+                      style: ElevatedButton.styleFrom(
+                        primary: Color.fromRGBO(222, 99, 44, 1),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10.0),
+                        ),
                       ),
-                      color: Color.fromRGBO(222, 99, 44, 1),
                       child: Text(
                         "Publicar",
                         style: TextStyle(

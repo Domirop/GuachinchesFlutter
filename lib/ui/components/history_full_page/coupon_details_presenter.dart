@@ -9,8 +9,6 @@ class CouponDetailsPresenter{
 
   getCoupon(String userId,String id) async {
     CuponesUser coupon = await _remoteRepository.getOneCupon(userId, id);
-    print('API COUPON ID');
-    print(coupon.id);
     _view.setCouponData(coupon);
   }
 }

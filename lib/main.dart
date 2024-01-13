@@ -7,6 +7,8 @@ import 'package:guachinches/data/HttpRemoteRepository.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
 import 'package:guachinches/data/cubit/banners/banners_cubit.dart';
 import 'package:guachinches/data/cubit/cupones/cupones_cubit.dart';
+import 'package:guachinches/data/cubit/filter/filter_cubit.dart';
+import 'package:guachinches/data/cubit/menu/menu_cubit.dart';
 import 'package:guachinches/data/cubit/restaurants/top/top_restaurants_cubit.dart';
 import 'package:guachinches/data/cubit/user/user_cubit.dart';
 import 'package:guachinches/data/local/db_provider.dart';
@@ -51,6 +53,9 @@ class _MyAppState extends State<MyApp> {
           create: ((context) => RestaurantCubit(remoteRepository)),
         ),
         BlocProvider(
+          create: ((context) => FilterCubit()),
+        ),
+        BlocProvider(
           create: ((context) => CuponesCubit(remoteRepository)),
         ),
         BlocProvider(
@@ -61,6 +66,9 @@ class _MyAppState extends State<MyApp> {
         ),
         BlocProvider(
           create: ((context) => BannersCubit(remoteRepository)),
+        ) ,
+        BlocProvider(
+          create: ((context) => MenuCubit()),
         )
       ],
       child: MaterialApp(

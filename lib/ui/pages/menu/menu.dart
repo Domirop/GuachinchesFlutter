@@ -1,36 +1,37 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_spinkit/flutter_spinkit.dart';
-import 'package:guachinches/data/cubit/user/user_cubit.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_spinkit/flutter_spinkit.dart';
+import 'package:guachinches/data/cubit/menu/menu_cubit.dart';
+import 'package:guachinches/data/cubit/user/user_cubit.dart';
 
 class Menu extends StatefulWidget {
   List<Widget> screens;
-  int selectedItem;
+  late int selectedItem;
 
-  Menu(this.screens, {this.selectedItem});
+  Menu(this.screens, {required this.selectedItem});
 
   @override
   _ProfileState createState() => _ProfileState(screens);
 }
 
-class _ProfileState extends State<Menu>{
+class _ProfileState extends State<Menu> {
   int selectedItem = 0;
-  int aux;
-  List<Widget> screens;
+  late int aux;
+  List<Widget> screens = [];
 
   _ProfileState(this.screens);
 
   @override
   void initState() {
-    if(widget.selectedItem != null) selectedItem = widget.selectedItem;
+    if (widget.selectedItem != null) selectedItem = widget.selectedItem;
     final userCubit = context.read<UserCubit>();
+
     super.initState();
   }
 
   @override
   Widget build(BuildContext context) {
     double width = MediaQuery.of(context).size.width;
-
 
     return screens.length == 0
         ? SpinKitPulse(
@@ -49,7 +50,7 @@ class _ProfileState extends State<Menu>{
                     ),
               ),
               child: BottomNavigationBar(
-                selectedItemColor: Colors.blue,
+                  selectedItemColor: Colors.blue,
                   type: BottomNavigationBarType.fixed,
                   items: [
                     BottomNavigationBarItem(
@@ -68,7 +69,7 @@ class _ProfileState extends State<Menu>{
                       icon: Icon(
                         Icons.star_half,
                       ),
-                      label: "Valoraciones",
+                      label: "Videos",
                     ),
                     BottomNavigationBarItem(
                       icon: Icon(
@@ -84,6 +85,7 @@ class _ProfileState extends State<Menu>{
   }
 
   showScreen(int index) {
+    context.read<MenuCubit>().updateSelectedIndex(index);
     setState(() {
       selectedItem = index;
     });

@@ -6,33 +6,34 @@
 /// menu_restauranteId : "31db2882-293d-4d2d-98ba-4939578de349"
 
 class Menu {
-  String _id;
-  String _plato;
-  String _descripcion;
-  String _precio;
-  String _fotoUrl;
-  String _alergenos;
-  int _descuento;
-  String _menuRestauranteId;
+  String? _id;
+  String? _plato;
+  String? _descripcion;
+  String? _precio;
+  String? _fotoUrl;
+  String? _alergenos;
+  int? _descuento;
+  String? _menuRestauranteId;
 
-  String get id => _id;
-  String get descripcion => _descripcion;
-  String get plato => _plato;
-  String get alergenos => _alergenos;
-  String get precio => _precio;
-  String get fotoUrl => _fotoUrl;
-  int get descuento => _descuento;
-  String get menuRestauranteId => _menuRestauranteId;
+  String? get id => _id;
+  String? get descripcion => _descripcion;
+  String? get plato => _plato;
+  String? get alergenos => _alergenos;
+  String? get precio => _precio;
+  String? get fotoUrl => _fotoUrl;
+  int? get descuento => _descuento;
+  String? get menuRestauranteId => _menuRestauranteId;
 
   Menu({
-    String id,
-    String plato,
-    String descripcion,
-    String alergenos,
-    String precio,
-    String fotoUrl,
-    int descuento,
-    String menuRestauranteId}){
+    String? id,
+    String? plato,
+    String? descripcion,
+    String? alergenos,
+    String? precio,
+    String? fotoUrl,
+    int? descuento,
+    String? menuRestauranteId,
+  }) {
     _id = id;
     _plato = plato;
     _alergenos = alergenos;
@@ -71,5 +72,4 @@ class Menu {
     map["menu_restauranteId"] = _menuRestauranteId;
     return map;
   }
-
 }

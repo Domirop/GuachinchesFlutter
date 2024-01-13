@@ -16,17 +16,23 @@ class ProfilePresenter{
 
 
   getUserInfo() async {
-    String userId = await storage.read(key: "userId");
-    await _userCubit.getUserInfo(userId);
-    List<Cupones> cupones = await _remoteRepository.getCuponesUsuario(userId);
-    _view.updateCupones(cupones);
+    String? userId = await storage.read(key: "userId");
+    if (userId != null) {
+      await _userCubit.getUserInfo(userId);
+      List<Cupones> cupones = await _remoteRepository.getCuponesUsuario(userId);
+      _view.updateCupones(cupones);
+    }
+
   }
 
   removeCupon(String id) async {
     await _remoteRepository.removeCupon(id);
-    String userId = await storage.read(key: "userId");
-    List<Cupones> cupones = await _remoteRepository.getCuponesUsuario(userId);
-    _view.updateCupones(cupones);
+    String? userId = await storage.read(key: "userId");
+    if (userId != null) {
+      List<Cupones> cupones = await _remoteRepository.getCuponesUsuario(userId);
+      _view.updateCupones(cupones);
+    }
+
   }
 
   getRestaurantsFavs() async {
@@ -55,8 +61,11 @@ class ProfilePresenter{
     await storage.delete(key: "refreshToken");
 
     _view.goSplashScreen();
-    String userId = await storage.read(key: "userId");
-    await _remoteRepository.deleteUser(userId);
+    String? userId = await storage.read(key: "userId");
+    if (userId != null){
+      await _remoteRepository.deleteUser(userId);
+
+    }
   }
 }
 

@@ -1,11 +1,8 @@
 import 'SimpleMunicipality.dart';
 
-/// Id : "1111a92f-45c8-4760-a5cb-9c7dc9555193"
-/// Nombre : "La Victoria de Acentejo"
-
 class Municipality {
-  String _id;
-  String _nombre;
+  String _id= "";
+  String _nombre = "";
   bool _limitSearch = true;
   List<SimpleMunicipality> _municipalities = [];
 
@@ -20,13 +17,14 @@ class Municipality {
   List<SimpleMunicipality> get municipalities => _municipalities;
 
   Municipality({
-    String id,
-    String nombre, List<SimpleMunicipality> municipalities}){
+    required String id,
+    required String nombre,
+    List<SimpleMunicipality> municipalities = const [],
+  }) {
     _id = id;
     _nombre = nombre;
     _municipalities = municipalities;
   }
-
 
   set id(String value) {
     _id = value;

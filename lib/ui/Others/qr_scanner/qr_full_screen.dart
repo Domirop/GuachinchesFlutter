@@ -53,13 +53,7 @@ class _QrFullScreenState extends State<QrFullScreen> {
                 ),
               ),
               SizedBox(height: 30,),
-              QrImage(
-                data: "https://guachinchesmodernos.com/cupones/check/" + data.cuponesUsuarioId,
-                version: QrVersions.auto,
-                size: MediaQuery.of(context).size.width,
-                padding: EdgeInsets.all(20.0),
-                gapless: false,
-              ),
+
 
               Text(
                 "Escanea el código con fecha\n" +

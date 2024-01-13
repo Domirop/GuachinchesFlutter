@@ -1,24 +1,26 @@
-class SimpleMunicipality{
-  String _id;
-  String _nombre;
-  String _areaMunicipioId;
+class SimpleMunicipality {
+  late String _id;
+  late String _nombre;
+  late String _areaMunicipioId;
 
   String get id => _id;
   String get nombre => _nombre;
   String get areaMunicipioId => _areaMunicipioId;
 
   SimpleMunicipality({
-  String id,
-  String nombre, String areaMunicipioId}){
-  _id = id;
-  _nombre = nombre;
-  _areaMunicipioId = areaMunicipioId;
+    String? id,
+    String? nombre,
+    String? areaMunicipioId,
+  }) {
+    _id = id ?? "";
+    _nombre = nombre ?? "";
+    _areaMunicipioId = areaMunicipioId ?? "";
   }
 
   SimpleMunicipality.fromJson(dynamic json) {
-    _id = json["Id"];
-    _nombre = json["Nombre"];
-    _areaMunicipioId = json["area_municipiosId"];
+    _id = json["Id"] ?? "";
+    _nombre = json["Nombre"] ?? "";
+    _areaMunicipioId = json["area_municipiosId"] ?? "";
   }
 
   set nombre(String value) {

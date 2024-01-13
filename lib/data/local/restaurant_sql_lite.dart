@@ -1,6 +1,6 @@
 class RestaurantSQLLite {
-  String _id;
-  String _restaurantId;
+  late String _id;
+  late String _restaurantId;
 
   String get restaurantId => _restaurantId;
 
@@ -8,11 +8,10 @@ class RestaurantSQLLite {
     _restaurantId = value;
   }
 
-  RestaurantSQLLite.fromMap(dynamic mapa) {
-    _id = mapa["id"];
-    _restaurantId = mapa["restaurantId"];
+  RestaurantSQLLite.fromMap(Map<String, dynamic> mapa) {
+    _id = mapa["id"] as String;
+    _restaurantId = mapa["restaurantId"] as String;
   }
-
 
   @override
   String toString() {

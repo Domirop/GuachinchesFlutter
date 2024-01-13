@@ -1,18 +1,19 @@
 class Fotos {
-  String _id;
-  String _type;
-  String _photoUrl;
-  String _createdAt;
-  String _updatedAt;
-  String _fotoRestauranteId;
+  String? _id;
+  String? _type;
+  String? _photoUrl;
+  String? _createdAt;
+  String? _updatedAt;
+  String? _fotoRestauranteId;
 
-  Fotos(
-      {String id,
-      String type,
-      String photoUrl,
-      String createdAt,
-      String updatedAt,
-      String fotoRestauranteId}) {
+  Fotos({
+    String? id,
+    String? type,
+    String? photoUrl,
+    String? createdAt,
+    String? updatedAt,
+    String? fotoRestauranteId,
+  }) {
     _id = id;
     _type = type;
     _photoUrl = photoUrl;
@@ -46,39 +47,39 @@ class Fotos {
     return map;
   }
 
-  String get id => _id;
+  String? get id => _id;
 
-  set fotoRestauranteId(String value) {
+  set fotoRestauranteId(String? value) {
     _fotoRestauranteId = value;
   }
 
-  set updatedAt(String value) {
+  set updatedAt(String? value) {
     _updatedAt = value;
   }
 
-  set createdAt(String value) {
+  set createdAt(String? value) {
     _createdAt = value;
   }
 
-  set photoUrl(String value) {
+  set photoUrl(String? value) {
     _photoUrl = value;
   }
 
-  set type(String value) {
+  set type(String? value) {
     _type = value;
   }
 
-  set id(String value) {
+  set id(String? value) {
     _id = value;
   }
 
-  String get type => _type;
+  String? get type => _type;
 
-  String get fotoRestauranteId => _fotoRestauranteId;
+  String? get fotoRestauranteId => _fotoRestauranteId;
 
-  String get updatedAt => _updatedAt;
+  String? get updatedAt => _updatedAt;
 
-  String get createdAt => _createdAt;
+  String? get createdAt => _createdAt;
 
-  String get photoUrl => _photoUrl;
+  String? get photoUrl => _photoUrl;
 }

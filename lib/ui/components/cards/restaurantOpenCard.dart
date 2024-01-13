@@ -27,7 +27,7 @@ class RestaurantOpenCard extends StatelessWidget {
               color: Color(0xffffffff),
               boxShadow: <BoxShadow>[
                 BoxShadow(
-                  color: Colors.grey[100],
+                  color: Colors.grey[100]!,
                   offset: Offset(0.0, 1.0),
                   blurRadius: 0.8,
                 ),
@@ -52,7 +52,7 @@ class RestaurantOpenCard extends StatelessWidget {
                             ? NetworkImage(
                             restaurant.mainFoto)
                             : AssetImage(
-                            "assets/images/notImage.png"),
+                            "assets/images/notImage.png") as  ImageProvider,
                       ),
                     ),
                   ),

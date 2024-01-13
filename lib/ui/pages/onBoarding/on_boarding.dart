@@ -7,7 +7,7 @@ import 'package:guachinches/ui/pages/register/register.dart';
 import 'package:guachinches/ui/pages/splash_screen/splash_screen.dart';
 
 class OnBoarding extends StatefulWidget {
-  const OnBoarding({Key key}) : super(key: key);
+  const OnBoarding({Key? key}) : super(key: key);
 
   @override
   _OnBoardingState createState() => _OnBoardingState();

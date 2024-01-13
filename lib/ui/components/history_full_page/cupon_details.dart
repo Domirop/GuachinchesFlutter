@@ -20,9 +20,9 @@ class CuponDetails extends StatefulWidget {
 }
 
 class _CuponDetailsState extends State<CuponDetails> implements CouponDetailsView{
-  CuponesUser cuponUser;
-  CouponDetailsPresenter presenter;
-  RemoteRepository remoteRepository;
+  late CuponesUser cuponUser;
+  late CouponDetailsPresenter presenter;
+  late RemoteRepository remoteRepository;
 
   @override
   void initState() {
@@ -98,7 +98,7 @@ class _CuponDetailsState extends State<CuponDetails> implements CouponDetailsVie
                                   alignment: Alignment.center,
                                   fit: BoxFit.cover,
                                   image: NetworkImage(
-                                      cuponUser.cupon.fotoUrl),
+                                      cuponUser.cupon!.fotoUrl),
                                 ),
                                 borderRadius: BorderRadius.circular(10.0),
                               ),
@@ -113,7 +113,7 @@ class _CuponDetailsState extends State<CuponDetails> implements CouponDetailsVie
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
                                     Text(
-                                      cuponUser.cupon.restaurantName,
+                                      cuponUser.cupon!.restaurantName,
                                       style: TextStyle(
                                         fontSize: 16,
                                       ),
@@ -169,13 +169,7 @@ class _CuponDetailsState extends State<CuponDetails> implements CouponDetailsVie
                         fontWeight: FontWeight.bold
                       ),),
                       Center(
-                        child: QrImage(
-                          data: "https://guachinchesmodernos.com/cupones/check/" + cuponUser.id,
-                          version: QrVersions.auto,
-                          size: MediaQuery.of(context).size.width*0.6,
-                          padding: EdgeInsets.only(top:12.0),
-                          gapless: true,
-                        ),
+
                       ),
                       Center(
                         child: Padding(
@@ -192,12 +186,12 @@ class _CuponDetailsState extends State<CuponDetails> implements CouponDetailsVie
                       ),
 
                       Text(
-                          'Descuento: -'+cuponUser.cupon.descuento.toString()+'%',
+                          'Descuento: -'+cuponUser.cupon!.descuento.toString()+'%',
                         style: TextStyle(fontSize: 16,fontWeight: FontWeight.bold),
 
                       ),
                       Text(
-                        'Fecha: '+cuponUser.cupon.minDate,
+                        'Fecha: '+cuponUser.cupon!.minDate,
                         style: TextStyle(fontSize: 16,fontWeight: FontWeight.bold),
 
                       ),

@@ -2,7 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 class MyCoupons extends StatefulWidget {
-  const MyCoupons({Key key}) : super(key: key);
+  const MyCoupons({Key? key}) : super(key: key);
 
   @override
   State<MyCoupons> createState() => _MyCouponsState();
@@ -78,7 +78,7 @@ class _MyCouponsState extends State<MyCoupons> {
 
 class CouponListItem extends StatelessWidget {
   const CouponListItem({
-    Key key,
+    Key? key,
   }) : super(key: key);
 
   @override

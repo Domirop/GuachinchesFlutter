@@ -6,7 +6,7 @@ extension StringExtension on String {
   }
 }
 class GlobalMethods {
-  BuildContext context;
+  late BuildContext context;
 
 
 
@@ -35,7 +35,7 @@ class GlobalMethods {
   List<CuponesUser> getOnlyValidCouponUser(List<CuponesUser> cupones){
     List<CuponesUser> validCupones =[];
     for(int i = 0 ;i<cupones.length;i++){
-      DateTime couponDate = DateTime.parse( cupones[i].cupon.date);
+      DateTime couponDate = DateTime.parse( cupones[i].cupon!.date);
       couponDate.add(Duration( hours: 23,minutes: 59));
       DateTime today = DateTime.now();
       if(couponDate.isAfter(today)){

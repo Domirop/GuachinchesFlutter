@@ -58,8 +58,8 @@ class _ProfileState extends State<Profile> implements ProfileView {
 
   List<RestaurantSQLLite> restaurantSql = [];
 
-  RemoteRepository remoteRepository;
-  ProfilePresenter _presenter;
+  late RemoteRepository remoteRepository;
+  late ProfilePresenter _presenter;
 
   @override
   void initState() {
@@ -168,12 +168,14 @@ class _ProfileState extends State<Profile> implements ProfileView {
                   Container(
                     margin: EdgeInsets.symmetric(horizontal: 45.0),
                     width: double.infinity,
-                    child: RaisedButton(
+                    child: ElevatedButton(
                       onPressed: () => _presenter.logOut(),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(7.0),
+                      style: ElevatedButton.styleFrom(
+                        primary: Color.fromRGBO(242, 62, 74, 1),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(7.0),
+                        ),
                       ),
-                      color: Color.fromRGBO(222, 99, 44, 1),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
@@ -200,12 +202,14 @@ class _ProfileState extends State<Profile> implements ProfileView {
                   Container(
                     margin: EdgeInsets.symmetric(horizontal: 45.0),
                     width: double.infinity,
-                    child: RaisedButton(
+                    child: ElevatedButton(
                       onPressed: () => _presenter.deleteAccount(),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(7.0),
+                      style: ElevatedButton.styleFrom(
+                        primary: Color.fromRGBO(242, 62, 74, 1),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(7.0),
+                        ),
                       ),
-                      color: Color.fromRGBO(242, 62, 74, 1),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
@@ -262,7 +266,7 @@ class _ProfileState extends State<Profile> implements ProfileView {
                       ) : Container(),
                       GestureDetector(
                         onTap: () => {
-                          Scrollable.ensureVisible(levelKey.currentContext),
+                          Scrollable.ensureVisible(levelKey.currentContext!),
                           changeSectionIndex(1),
                         },
                         child: Container(
@@ -287,7 +291,7 @@ class _ProfileState extends State<Profile> implements ProfileView {
                       ),
                       GestureDetector(
                         onTap: () => {
-                          Scrollable.ensureVisible(favKey.currentContext),
+                          Scrollable.ensureVisible(favKey.currentContext!),
                           changeSectionIndex(2),
                         },
                         child: Container(
@@ -347,7 +351,7 @@ class _ProfileState extends State<Profile> implements ProfileView {
                                           fit: BoxFit.fill,
                                           image: cupones[index].fotoUrl != null
                                               ? NetworkImage(cupones[index].fotoUrl)
-                                              : AssetImage("assets/images/notImage.png"),
+                                              : AssetImage("assets/images/notImage.png") as ImageProvider,
                                         ),
                                       ),
                                     ),
@@ -482,8 +486,7 @@ class _ProfileState extends State<Profile> implements ProfileView {
                       ? Column(
                           children: favs.map((e) {
                             Fotos foto = e.fotos.firstWhere(
-                                (element) => element.type == "principal",
-                                orElse: () => null);
+                                (element) => element.type == "principal");
                             return GestureDetector(
                               onTap: () => GlobalMethods().pushPage(context, Details(e.id)),
                               child: Container(
@@ -504,9 +507,9 @@ class _ProfileState extends State<Profile> implements ProfileView {
                                           alignment: Alignment.center,
                                           fit: BoxFit.contain,
                                           image: foto.photoUrl != null
-                                              ? NetworkImage(foto.photoUrl)
+                                              ? NetworkImage(foto.photoUrl!)
                                               : AssetImage(
-                                                  "assets/images/notImage.png"),
+                                                  "assets/images/notImage.png") as ImageProvider,
                                         ),
                                       ),
                                     ),
@@ -690,8 +693,7 @@ class _ProfileState extends State<Profile> implements ProfileView {
     List<Restaurant> aux = [];
     restaurantSql.forEach((element) {
       Restaurant restaurant = restaurants.firstWhere(
-          (rest) => rest.id == element.restaurantId,
-          orElse: () => null);
+          (rest) => rest.id == element.restaurantId);
       if (restaurant != null) {
         aux.add(restaurant);
       }

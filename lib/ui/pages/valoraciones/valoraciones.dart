@@ -17,8 +17,8 @@ class Valoraciones extends StatefulWidget {
 }
 
 class _ValoracionesState extends State<Valoraciones> implements ValoracionesView{
-  RemoteRepository _remoteRepository;
-  ValoracionesPresenter _presenter;
+  late RemoteRepository _remoteRepository;
+  late ValoracionesPresenter _presenter;
   @override
   void initState() {
     _remoteRepository = HttpRemoteRepository(Client());
@@ -67,7 +67,7 @@ class _ValoracionesState extends State<Valoraciones> implements ValoracionesView
                         color: Colors.white,
                         boxShadow: [
                           BoxShadow(
-                              color: Colors.grey[100],
+                              color: Colors.grey[100]!,
                               blurRadius: 5.0,
                               spreadRadius: 1.0,
                               offset: Offset(2.0, 1.0))
@@ -132,7 +132,7 @@ class _ValoracionesState extends State<Valoraciones> implements ValoracionesView
                                       height: 5.0,
                                     ),
                                     Text(
-                                      e.restaurantes.nombre,
+                                      e.restaurantes!.nombre,
                                       style: TextStyle(
                                         color: Colors.black,
                                         fontSize: 14.0,

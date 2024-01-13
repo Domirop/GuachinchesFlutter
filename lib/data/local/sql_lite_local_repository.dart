@@ -27,8 +27,9 @@ class SqlLiteLocalRepository implements LocalRepository {
     final db = await DBProvider.db.database;
     String query = "select * from fav where restaurantId='" + restaurantId + "'";
     var res = await db.rawQuery(query);
-    if(res.isEmpty) return null;
-    else return RestaurantSQLLite.fromMap(res[0]);
+    if(res.isEmpty) {
+      return RestaurantSQLLite.fromMap({});
+    } else return RestaurantSQLLite.fromMap(res[0]);
   }
 
   @override

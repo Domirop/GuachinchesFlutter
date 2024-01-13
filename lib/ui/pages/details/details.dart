@@ -27,20 +27,19 @@ class Details extends StatefulWidget {
 }
 
 class _DetailsState extends State<Details> implements DetailView {
-  String userId;
-  _DetailsState();
+  late String userId;
   String id ='';
   bool isFav = false;
-  Restaurant restaurant;
+  late Restaurant restaurant;
   int indexCarta = 0;
   int indexValoraciones = 0;
   int indexSection = 0;
-  DetailPresenter presenter;
-  RemoteRepository remoteRepository;
+  late DetailPresenter presenter;
+  late RemoteRepository remoteRepository;
   final cardKey = GlobalKey();
   final detailsKey = GlobalKey();
   final reviewsKey = GlobalKey();
-  Fotos mainFoto;
+  late Fotos mainFoto;
   bool isChargin = true;
 
   @override
@@ -94,7 +93,7 @@ class _DetailsState extends State<Details> implements DetailView {
                       fit: BoxFit.cover,
                       image: mainFoto == null
                           ? AssetImage('assets/images/bigNotImage.png')
-                          : NetworkImage(mainFoto.photoUrl),
+                          : NetworkImage(mainFoto.photoUrl!) as ImageProvider,
                     ),
                   ),
                 ),
@@ -150,7 +149,7 @@ class _DetailsState extends State<Details> implements DetailView {
                 GestureDetector(
                   onTap: () =>
                   {
-                    Scrollable.ensureVisible(detailsKey.currentContext),
+                    Scrollable.ensureVisible(detailsKey.currentContext!),
                     changeSectionIndex(0),
                   },
                   child: Container(
@@ -177,7 +176,7 @@ class _DetailsState extends State<Details> implements DetailView {
                 GestureDetector(
                   onTap: () =>
                   {
-                    Scrollable.ensureVisible(cardKey.currentContext),
+                    Scrollable.ensureVisible(cardKey.currentContext!),
                     changeSectionIndex(1),
                   },
                   child: Container(
@@ -204,7 +203,7 @@ class _DetailsState extends State<Details> implements DetailView {
                 GestureDetector(
                   onTap: () =>
                   {
-                    Scrollable.ensureVisible(reviewsKey.currentContext),
+                    Scrollable.ensureVisible(reviewsKey.currentContext!),
                     changeSectionIndex(2),
                   },
                   child: Container(
@@ -358,10 +357,8 @@ class _DetailsState extends State<Details> implements DetailView {
                         SizedBox(
                           height: 5.0,
                         ),
-                        Text(
-                          restaurant.destacado == null
-                              ? ""
-                              : restaurant.destacado,
+                        Text( ""
+,
                           style: TextStyle(
                             fontSize: 12.0,
                             color: Colors.black,
@@ -378,11 +375,13 @@ class _DetailsState extends State<Details> implements DetailView {
                           ),
                         ),
                         SizedBox(
-                          height: 5.0,
+                          height: 12.0,
                         ),
+
                       ],
                     ),
                   ),
+
                   Container(
                     width: 55.0,
                     height: 55.0,
@@ -390,7 +389,7 @@ class _DetailsState extends State<Details> implements DetailView {
                       color: Colors.white,
                       boxShadow: [
                         BoxShadow(
-                            color: Colors.grey[100],
+                            color: Colors.grey[100]!,
                             blurRadius: 5.0,
                             spreadRadius: 1.0,
                             offset: Offset(2.0, 4.0))
@@ -416,15 +415,46 @@ class _DetailsState extends State<Details> implements DetailView {
                             ),
                           ),
                         ],
+
                       ),
                     ),
                   ),
+
                 ],
               ),
             ),
             SizedBox(
               height: 15.0,
             ),
+            Padding(
+              padding: const EdgeInsets.only(left: 12.0),
+              child: Text('Servicios'),
+            ),
+            Container(
+              height: 60.0,
+              margin: EdgeInsets.symmetric(horizontal: 10.0),
+              child: ListView.builder(
+                  shrinkWrap: true,
+                  primary: false,
+                  itemCount: restaurant.categoriaRestaurantes.length,
+                  scrollDirection: Axis.horizontal,
+                  itemBuilder: (context, index) {
+                    return Container(
+                      margin: EdgeInsets.all(8.0),
+                      padding: EdgeInsets.all(12.0),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12.0),
+                        border: Border.all(color: Colors.grey),
+                      ),
+                      child: SvgPicture.network(
+                        restaurant.categoriaRestaurantes[index].categorias.iconUrl,
+                        width: 20.0,
+                        height: 20.0,
+                      ),
+                    );
+                  }),
+            ),
+
             restaurant.fotos.isNotEmpty
                 ? Column(
               children: [
@@ -474,9 +504,9 @@ class _DetailsState extends State<Details> implements DetailView {
                                 fit: BoxFit.cover,
                                 image: restaurant.fotos[index].photoUrl != null
                                     ? NetworkImage(restaurant
-                                    .fotos[index].photoUrl)
+                                    .fotos[index].photoUrl!)
                                     : AssetImage(
-                                    "assets/images/notImage.png"),
+                                    "assets/images/notImage.png") as ImageProvider,
                               ),
                             ),
                           ),
@@ -597,11 +627,11 @@ class _DetailsState extends State<Details> implements DetailView {
                                     .fotoUrl ==
                                     null ||
                                     restaurant.menus[index]
-                                        .fotoUrl.isEmpty
+                                        .fotoUrl!.isEmpty
                                     ? AssetImage(
                                     'assets/images/notImage.png')
                                     : NetworkImage(restaurant
-                                    .menus[index].fotoUrl),
+                                    .menus[index].fotoUrl!) as ImageProvider,
                               ),
                             ),
                           ),
@@ -614,11 +644,11 @@ class _DetailsState extends State<Details> implements DetailView {
                               CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  restaurant.menus[index].plato ==
+                                  restaurant.menus[index].plato! ==
                                       null
                                       ? ""
                                       : restaurant
-                                      .menus[index].plato,
+                                      .menus[index].plato!,
                                   style: TextStyle(
                                     fontSize: 18.0,
                                     fontWeight: FontWeight.bold,
@@ -630,11 +660,11 @@ class _DetailsState extends State<Details> implements DetailView {
                                 ),
                                 Text(
                                   restaurant.menus[index]
-                                      .descripcion ==
+                                      .descripcion! ==
                                       null
                                       ? ""
                                       : restaurant
-                                      .menus[index].descripcion,
+                                      .menus[index].descripcion!,
                                   style: TextStyle(
                                     fontSize: 12.0,
                                     color: Colors.black,
@@ -645,11 +675,11 @@ class _DetailsState extends State<Details> implements DetailView {
                                 ),
                                 Text(
                                   restaurant.menus[index]
-                                      .alergenos ==
+                                      .alergenos! ==
                                       null
                                       ? ""
                                       : restaurant
-                                      .menus[index].alergenos,
+                                      .menus[index].alergenos!,
                                   style: TextStyle(
                                     fontSize: 8.0,
                                     color: Colors.black,
@@ -664,7 +694,7 @@ class _DetailsState extends State<Details> implements DetailView {
                           Text(
                             restaurant.menus[index].precio == null
                                 ? ""
-                                : restaurant.menus[index].precio +
+                                : restaurant.menus[index].precio! +
                                 "€",
                             style: TextStyle(
                               fontSize: 18.0,
@@ -696,7 +726,7 @@ class _DetailsState extends State<Details> implements DetailView {
                 GlobalMethods().pushPage(
                     context,
                     NewReview(
-                        restaurant, userId, mainFoto.photoUrl))
+                        restaurant, userId, mainFoto.photoUrl!))
               },
               child: Container(
                 margin: EdgeInsets.only(left: 210.0, right: 20.0),
@@ -881,7 +911,7 @@ class _DetailsState extends State<Details> implements DetailView {
                                       Text(
                                         e.usuario == null
                                             ? ''
-                                            : e.usuario.nombre,
+                                            : e.usuario!.nombre,
                                         style: TextStyle(
                                           color: Colors.black,
                                           fontSize: 14.0,
@@ -894,7 +924,7 @@ class _DetailsState extends State<Details> implements DetailView {
                                               builder: (context) =>
                                               value == 'block user'?
                                               AlertDialog(
-                                                title: Text('¿Quieres bloquear a '+ e.usuario.nombre+'?'),
+                                                title: Text('¿Quieres bloquear a '+ e.usuario!.nombre+'?'),
                                                 content: Text('No se te mostrarán los comentarios de este usuario'),
                                                 actions: [
                                                   OutlinedButton(
@@ -904,7 +934,7 @@ class _DetailsState extends State<Details> implements DetailView {
                                                       ),
                                                       child: Text("No, cancelar",style: TextStyle(color: Colors.red),)),
                                                   ElevatedButton(
-                                                      onPressed: ()=>presenter.blockUser(userId,e.usuario.id), child: Text("Si, bloquear"))
+                                                      onPressed: ()=>presenter.blockUser(userId,e.usuario!.id), child: Text("Si, bloquear"))
                                                 ],
                                               ):AlertDialog(
                                                 title: Text('¿Quieres reportar este comentario ?'),
@@ -1017,10 +1047,10 @@ class _DetailsState extends State<Details> implements DetailView {
 
   @override
   setRestaurant(Restaurant restaurant) {
-    if (mounted) {
+      if (mounted) {
       Fotos foto = restaurant.fotos.firstWhere(
-              (element) => element.type == "principal",
-          orElse: () => null);
+              (element) => element.type == "principal",);
+
       setState(() {
         this.mainFoto = foto;
         this.restaurant = restaurant;

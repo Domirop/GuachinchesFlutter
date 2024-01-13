@@ -12,42 +12,22 @@ class AppBarBasic {
 
   AppBar createWidget(BuildContext context) {
     return AppBar(
-      title: Image.asset('assets/images/logo3.png', fit: BoxFit.cover),
-
-      actions: [
-        Padding(
-          padding: EdgeInsets.only(right: 10.0),
-          child: Row(
-            children: [
-              Container(
-                margin: EdgeInsets.only(right: 10.0),
-                child: GestureDetector(
-                  onTap: () {
-                    GlobalMethods().pushAndReplacement(context, Menu(screens, selectedItem: 1));
-                  },
-                  child: Icon(
-                    Icons.search,
-                    color: Colors.white,
-                    size: 30.0,
-                  ),
-                ),
-              ),
-              GestureDetector(
-                onTap: () {
-                  GlobalMethods().pushAndReplacement(context, Menu(screens, selectedItem: 3));
-                },
-                child: Icon(
-                  Icons.favorite_border,
-                  color: Colors.white,
-                  size: 30.0,
-                ),
-              ),
-            ],
+      title: Row(
+        children: [
+          Icon(Icons.location_on,color: Color.fromRGBO(23, 23, 23, 1),size: 22),
+          SizedBox(width: 8,),
+          Text('Nueva york, 40',style: TextStyle(
+            fontSize: 16,
+          fontWeight: FontWeight.bold,
+          color: Color.fromRGBO(23, 23, 23, 1),)
           ),
-        ),
-      ],
-      backgroundColor: Color.fromRGBO(5, 7, 20, 1),
-      elevation: 5.0,
+          SizedBox(width: 4,),
+          Icon(Icons.keyboard_arrow_down,color: Color.fromRGBO(23, 23, 23, 1),size: 22),
+        ],
+      ),
+
+      backgroundColor: Colors.white,
+      elevation: 0,
     );
   }
 

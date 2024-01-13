@@ -19,8 +19,8 @@ class SplashScreen extends StatefulWidget {
 
 class _SplashScreenState extends State<SplashScreen>
     implements SplashScreenView {
-  RemoteRepository remoteRepository;
-  SplashScreenPresenter presenter;
+  late RemoteRepository remoteRepository;
+  late SplashScreenPresenter presenter;
 
 
   @override
@@ -54,7 +54,7 @@ class _SplashScreenState extends State<SplashScreen>
 
   @override
   goToMenu(List<Widget> screens) {
-    GlobalMethods().pushAndReplacement(context, Menu(screens));
+    GlobalMethods().pushAndReplacement(context, Menu(screens,selectedItem: 0,));
   }
 
   @override

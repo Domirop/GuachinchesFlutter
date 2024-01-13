@@ -13,7 +13,7 @@ class ValoracionesPresenter{
   ValoracionesPresenter(this._view, this._remoteRepository, this._userCubit);
 
   isUserLogged() async {
-    String userId = await storage.read(key: "userId");
+    String? userId = await storage.read(key: "userId");
     if (userId == null){
       _view.goToLogin();
     }else{

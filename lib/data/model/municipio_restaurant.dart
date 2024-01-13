@@ -1,12 +1,13 @@
 class MunicipioRestaurant {
-  String _id;
-  String _nombre;
-  String _areaMunicipioId;
+  String _id = "";
+  String _nombre = "";
+  String _areaMunicipioId ="";
 
   MunicipioRestaurant({
-    String id,
-    String nombre,
-    String areaMunicipioId}){
+    required String id,
+    required String nombre,
+    required String areaMunicipioId,
+  }) {
     _id = id;
     _nombre = nombre;
     _areaMunicipioId = areaMunicipioId;
@@ -18,7 +19,6 @@ class MunicipioRestaurant {
     _areaMunicipioId = json["area_municipiosId"];
   }
 
-
   Map<String, dynamic> toJson() {
     var map = <String, dynamic>{};
     map["id"] = _id;
@@ -26,7 +26,6 @@ class MunicipioRestaurant {
     map["area_municipiosId"] = _areaMunicipioId;
     return map;
   }
-
 
   String get id => _id;
 
@@ -45,6 +44,4 @@ class MunicipioRestaurant {
   set nombre(String value) {
     _nombre = value;
   }
-
-
 }

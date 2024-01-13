@@ -31,11 +31,10 @@ class SearchPagePresenter {
   }
 
   getAllRestaurantsPag1(number) async {
-    String islandId = await storage.read(key: 'islandId');
-
-    RestaurantResponse response =  await _remoteRepository.getAllRestaurants(number,islandId);
+    //No funciona
+    String? islandId = await storage.read(key: 'islandId');
+    RestaurantResponse response =  await _remoteRepository.getAllRestaurants(number,islandId!);
     List<Restaurant> restaurants = response.restaurants;
-
     _view.generateWidgetTab1(restaurants);
     _view.changeCharginInitial();
 
@@ -52,29 +51,28 @@ class SearchPagePresenter {
   }
 
   getAllRestaurantsFilters(bool isOpen,
-      {List<String> categories,
-      List<String> municipalities,
-      List<String> types,
-      int number,
-        String islandId,
-      String text}) async {
+      {List<String>? categories,
+      List<String>? municipalities,
+      List<String>? types,
+      int? number,
+        String? islandId,
+      String? text}) async {
 
     if (((categories == null || categories.isEmpty) &&
             (municipalities == null || municipalities.isEmpty) &&
             (text == null || text.length < 3)) &&
         (types == null || types.isEmpty) &&
         !isOpen) {
-      print('test1');
       // await getAllRestaurantsPag1(0);
       await Future.delayed(Duration(milliseconds: 100));
 
       _view.generateWidgetTab2([]);
-      if(text.length ==0){
+      if(text!.length ==0){
         _view.changeTab();
 
       }
     } else {
-      List<Restaurant> restaurants = await _remoteRepository. getFilterRestaurants(categories.join(";"), municipalities.join(";"), types.join(";"), text,islandId);
+      List<Restaurant> restaurants = await _remoteRepository. getFilterRestaurants(categories!.join(";"), municipalities!.join(";"), types!.join(";"), text!,islandId!);
       _view.generateWidgetTab2(restaurants);
       _view.removeListeners();
     }

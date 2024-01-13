@@ -17,7 +17,7 @@ class DetailPresenter {
   DetailPresenter(this._remoteRepository, this._view);
 
   isUserLogged() async {
-    String userId = await storage.read(key: "userId");
+    String? userId = await storage.read(key: "userId");
     if (userId != null) {
       _view.setUserId(userId);
     }
@@ -32,7 +32,7 @@ class DetailPresenter {
           'id': '${restaurant.id}',
           'name': '${restaurant.nombre}'
         });
-    await getIsFav(id);
+    // await getIsFav(id);
     String userId = await isUserLogged();
     if (userId != null) {
       List<BlockUser> userBlocked =
@@ -43,11 +43,10 @@ class DetailPresenter {
       for (var i = 0; i < restaurant.valoraciones.length; i++) {
         var condition = true;
         for (var y = 0; y < userBlocked.length; y++) {
-          if (userBlocked[y].userBlockedId ==
-              restaurant.valoraciones[i].usuario.id) {
+          print('userBlocked ' + restaurant.valoraciones[i].usuario.toString());
+          if (userBlocked[y].userBlockedId == restaurant.valoraciones[i].usuario!.id) {
             condition = false;
           }
-
         }
         for (var y = 0; y < reportReview.length; y++) {
           if (reportReview[y].valoracionesId ==
@@ -61,6 +60,7 @@ class DetailPresenter {
       }
       restaurant.valoraciones = valoracionesBlocked;
     }
+    print('restaurant'+restaurant.toString());
     _view.setRestaurant(restaurant);
   }
 

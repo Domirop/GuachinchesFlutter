@@ -5,7 +5,7 @@ import 'package:guachinches/data/model/user_info.dart';
 
 class UserCubit extends Cubit<UserState> {
   final RemoteRepository _remoteRepository;
-  UserInfo user;
+  late UserInfo user;
 
   UserCubit(this._remoteRepository) : super(UserInitial());
 

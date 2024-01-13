@@ -1,35 +1,35 @@
-/// id : "76e52d7a-8c9b-4b2e-a74a-bcd74af4d4f5"
-/// nombre : "Ternera"
-
 class ModelCategory {
-  String _id;
-  String _nombre;
-  String _iconUrl;
+  String id;
+  String nombre;
+  String iconUrl;
 
-  String get id => _id;
-  String get nombre => _nombre;
-  String get iconUrl => _iconUrl;
   ModelCategory({
-    String id,
-    String nombre,
-  String iconUrl}){
-    _id = id;
-    _nombre = nombre;
-    _iconUrl = iconUrl;
+    required this.id,
+    required this.nombre,
+    required this.iconUrl,
+  });
+
+  factory ModelCategory.fromMap(Map<String, dynamic> map) {
+    return ModelCategory(
+      id: map["id"] ?? "",
+      nombre: map["nombre"] ?? "",
+      iconUrl: map["iconUrl"] ?? "",
+    );
   }
 
-  ModelCategory.fromJson(dynamic json) {
-    _id = json["id"];
-    _nombre = json["nombre"];
-    _iconUrl = json["iconUrl"];
+  factory ModelCategory.fromJson(Map<String, dynamic> json) {
+    return ModelCategory(
+      id: json["id"] ?? "",
+      nombre: json["nombre"] ?? "",
+      iconUrl: json["iconUrl"] ?? "",
+    );
   }
 
   Map<String, dynamic> toJson() {
-    var map = <String, dynamic>{};
-    map["id"] = _id;
-    map["nombre"] = _nombre;
-    map["iconUrl"] = _iconUrl;
-    return map;
+    return {
+      "id": id,
+      "nombre": nombre,
+      "iconUrl": iconUrl,
+    };
   }
-
 }

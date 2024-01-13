@@ -5,8 +5,8 @@ import 'package:guachinches/data/model/restaurant.dart';
 import 'package:guachinches/data/model/restaurant_response.dart';
 
 class RestaurantCubit extends Cubit<RestaurantState> {
-  final RemoteRepository _remoteRepository;
-  Restaurant restaurant;
+  late final RemoteRepository _remoteRepository;
+  late Restaurant restaurant;
 
   RestaurantCubit(this._remoteRepository) : super(RestaurantInitial());
 
@@ -34,8 +34,11 @@ class RestaurantCubit extends Cubit<RestaurantState> {
     emit(AllRestaurantLoaded(allRestaurants));
 
   }
-  Future<void> getFilterRestaurants({List<String> categories, List<String> municipalities, List<String> types, String text,String islandId}) async {
-     List<Restaurant> restaurants = await _remoteRepository. getFilterRestaurants(categories.join(";"), municipalities.join(";"), types.join(";"), text,islandId);
-    emit(RestaurantFilter(restaurants));
+  Future<void> getFilterRestaurants({List<String>? categories, List<String>? municipalities, List<String>? types, String? text,String? islandId,bool isOpen=false}) async {
+     List<Restaurant> restaurants = await _remoteRepository. getFilterRestaurants(categories!.join(";"), municipalities!.join(";"), types!.join(";"), text!,islandId!);
+     if (isOpen) {
+       restaurants = restaurants.where((element) => element.open).toList();
+     }
+     emit(RestaurantFilter(restaurants));
   }
 }

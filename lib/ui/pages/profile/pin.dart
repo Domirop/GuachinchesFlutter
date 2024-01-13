@@ -8,7 +8,7 @@ class PinDetail extends StatefulWidget {
   final String title;
   final String asset;
   final String description;
-  const PinDetail({Key key, this.title, this.asset, this.description})
+  const PinDetail({Key? key, required this.title, required this.asset, required this.description})
       : super(key: key);
 
   @override

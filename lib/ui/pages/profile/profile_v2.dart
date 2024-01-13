@@ -112,16 +112,16 @@ class _Profilev2State extends State<Profilev2> {
 class MenuOption extends StatelessWidget {
   final String title;
   final String asset;
-  final Widget page;
+  final Widget? page;
 
   const MenuOption({
-    Key key,this.asset,this.title,this.page
+    Key? key,required this.asset,required this.title, this.page
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: ()=> GlobalMethods().pushPage(context, page),
+      onTap: ()=> GlobalMethods().pushPage(context, page!),
       child: Container(
         height: 48,
         child: Column(
@@ -167,7 +167,7 @@ class Pin extends StatelessWidget {
   final String title; // Declarar la variable wod como un parámetro
   final String asset; // Declarar la variable wod como un parámetro
 
-  const Pin({Key key, this.title,this.asset}) : super(key: key);
+  const Pin({Key? key, required this.title,required this.asset}) : super(key: key);
 
 
   @override

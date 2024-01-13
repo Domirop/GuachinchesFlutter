@@ -29,8 +29,8 @@ class _HeroSliderComponentState extends State<HeroSliderComponent> {
                   repeat: ImageRepeat.noRepeat,
                   alignment: Alignment.center,
                   fit: BoxFit.fill,
-                  image: item.fotoUrl != null ? CachedNetworkImageProvider(item.fotoUrl) : AssetImage(
-                      "assets/images/notImage.png"),
+                  image: item.fotoUrl != null ? CachedNetworkImageProvider(item.fotoUrl!) : AssetImage(
+                      "assets/images/notImage.png") as ImageProvider
                 ),
               ),
             ))
@@ -48,7 +48,7 @@ class _HeroSliderComponentState extends State<HeroSliderComponent> {
               autoPlay: true,
               viewportFraction: 0.9,
               enlargeCenterPage: true,
-              aspectRatio: 12 / 6,
+              aspectRatio: 12 / 4,
               onPageChanged: (index, reason) {
                 setState(() {
                   _current = index;

@@ -24,8 +24,8 @@ class _RegisterState extends State<Register> implements RegisterView{
   final TextEditingController _apellidos = TextEditingController();
   final TextEditingController _email = TextEditingController();
   final TextEditingController _telefono = TextEditingController();
-  RegisterPresenter presenter;
-  RemoteRepository _remoteRepository;
+  late RegisterPresenter presenter;
+  late RemoteRepository _remoteRepository;
   String errorText = "";
   bool checkedValue = false;
   bool showErrorText = false;
@@ -65,7 +65,7 @@ class _RegisterState extends State<Register> implements RegisterView{
                         SearchPage(),
                         Login("Para ver tus valoraciones debes iniciar sesión."),
                         Login("Para ver tu perfíl debes iniciar sesión.")
-                      ])),
+                      ],selectedItem: 0,)),
                   child: Container(
                     alignment: Alignment.centerRight,
                     child: Icon(
@@ -366,7 +366,7 @@ class _RegisterState extends State<Register> implements RegisterView{
                         value: checkedValue,
                         onChanged: (newValue) {
                           setState(() {
-                            checkedValue = newValue;
+                            checkedValue = newValue!;
                             showErrorText = !newValue;
                           });
                         },
@@ -411,7 +411,7 @@ class _RegisterState extends State<Register> implements RegisterView{
                         showErrorText = true;
                       });
                     }
-                    if (_formKey.currentState.validate()&&checkedValue) {
+                    if (_formKey.currentState!.validate()&&checkedValue) {
                       Map data = Map<String, String>();
                       data.putIfAbsent("nombre", () => _nombre.text);
                       data.putIfAbsent("apellidos", () => _apellidos.text);

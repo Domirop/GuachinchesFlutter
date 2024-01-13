@@ -5,6 +5,7 @@ import 'package:guachinches/data/model/CuponesUser.dart';
 import 'package:guachinches/data/model/Municipality.dart';
 import 'package:guachinches/data/model/TopRestaurants.dart';
 import 'package:guachinches/data/model/Types.dart';
+import 'package:guachinches/data/model/Video.dart';
 import 'package:guachinches/data/model/block_user.dart';
 import 'package:guachinches/data/model/fotoBanner.dart';
 import 'package:guachinches/data/model/report_review.dart';
@@ -33,11 +34,11 @@ abstract class RemoteRepository{
   Future<List<Cupones>> getCuponesUsuario(String id);
   Future<List<Types>> getAllTypes();
   Future<CuponesUser> getOneCupon(String userId,String id);
-  //fbb5b284-511d-45d0-9cc4-980404f6b11e
   Future<void> removeCupon(String id);
   Future<void> deleteUser(String id);
   Future<bool> blockUser(String userId,String userIdToBlock);
   Future<List<BlockUser>> getBlockUser(String userId);
   Future<List<ReportReview>> getReviewReported(String userId);
   Future<bool> reportReview(String userId,String reviewId);
+  Future<List<Video>> getAllVideos();
 }

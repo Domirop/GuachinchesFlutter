@@ -1,11 +1,13 @@
 class FotoBanner {
-  String _id;
-  String _restaurantId;
-  String _fotoUrl;
+  String? _id;
+  String? _restaurantId;
+  String? _fotoUrl;
 
-  FotoBanner(
-      {String id,String restaurantId,String fotoUrl
-     }) {
+  FotoBanner({
+    String? id,
+    String? restaurantId,
+    String? fotoUrl,
+  }) {
     _id = id;
     _restaurantId = restaurantId;
     _fotoUrl = fotoUrl;
@@ -30,8 +32,7 @@ class FotoBanner {
     return map;
   }
 
-  String get restaurantId => _restaurantId;
-  String get id => _id;
-  String get fotoUrl => _fotoUrl;
-
+  String? get restaurantId => _restaurantId;
+  String? get id => _id;
+  String? get fotoUrl => _fotoUrl;
 }

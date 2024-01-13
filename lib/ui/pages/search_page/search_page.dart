@@ -22,11 +22,12 @@ import 'package:guachinches/globalMethods.dart';
 import 'package:guachinches/ui/components/cards/restaurantListCard.dart';
 import 'package:guachinches/ui/pages/changeIsland/change_island.dart';
 import 'package:guachinches/ui/pages/details/details.dart';
+import 'package:guachinches/ui/pages/map/map_search.dart';
 import 'package:guachinches/ui/pages/search_page/search_page_presenter.dart';
 import 'package:http/http.dart';
 
 class SearchPage extends StatefulWidget {
-  String userId;
+  String? userId;
 
   SearchPage({this.userId});
 
@@ -37,10 +38,10 @@ class SearchPage extends StatefulWidget {
 class _SearchPageState extends State<SearchPage>
     with SingleTickerProviderStateMixin
     implements SearchPageView {
-  RemoteRepository remoteRepository;
-  ScrollController controller2;
-  ScrollController controller1;
-  SearchPagePresenter presenter;
+  late RemoteRepository remoteRepository;
+  late ScrollController controller2;
+  late ScrollController controller1;
+  late SearchPagePresenter presenter;
   List<Restaurant> restaurants = [];
   List<Restaurant> restaurantsFilter = [];
   int maxRestaurants = 9999;
@@ -60,13 +61,13 @@ class _SearchPageState extends State<SearchPage>
   String textValue = "";
   final storage = new FlutterSecureStorage();
   Island island = new Island('', '', '');
-  Widget tab1;
-  Widget tab2;
-  Widget tab3;
+  late Widget tab1;
+  late Widget tab2;
+  late Widget tab3;
   int activeFilterNumber = 0;
   bool isCharging = false;
   bool isChargingInitalRestaurants = true;
-  TabController _tabController;
+  late TabController _tabController;
   var restaurantCubit;
 
 
@@ -93,7 +94,7 @@ class _SearchPageState extends State<SearchPage>
   }
 
   getIsland() async {
-    String value = await storage.read(key: 'islandId');
+    String? value = await storage.read(key: 'islandId');
 
     if(value==null){
       String defaultIsland = '76ac0bec-4bc1-41a5-bc60-e528e0c12f4d';
@@ -107,7 +108,7 @@ class _SearchPageState extends State<SearchPage>
       presenter.getAllRestaurantsPag1(0);
     }
     setState(() {
-        island = AllIsland().getIslandById(value);
+        island = AllIsland().getIslandById(value!);
     });
 
   }
@@ -165,7 +166,7 @@ class _SearchPageState extends State<SearchPage>
                             fit: BoxFit.fill,
                             image: e.mainFoto != null
                                 ? NetworkImage(e.mainFoto)
-                                : AssetImage("assets/images/notImage.png"),
+                                : AssetImage("assets/images/notImage.png") as ImageProvider,
                           ),
                         ),
                       ),
@@ -263,25 +264,9 @@ class _SearchPageState extends State<SearchPage>
   }
 
   generateWidgetsTab3() {
-    Widget aux =
-        BlocBuilder<CuponesCubit, CuponesState>(builder: (context, state) {
-      if (state is CuponesLoaded) {
-        List aux = state.cuponesAgrupados;
-        cupones = aux;
-        return Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: aux
-                .map((e) => Container(
-                      padding: EdgeInsets.symmetric(vertical: 10.0),
-                      width: MediaQuery.of(context).size.width * 0.95,
-                      child: Column(
-                        children: widgetsTab3(e),
-                      ),
-                    ))
-                .toList());
-      }
-      return Container();
-    });
+    Widget aux = TextButton(
+      child:Text( 'Abrir mapa'),
+      onPressed: () => GlobalMethods().pushPage(context, MapSearch()),);
     setState(() {
       tab3 = aux;
     });
@@ -319,7 +304,7 @@ class _SearchPageState extends State<SearchPage>
                       fit: BoxFit.fill,
                       image: cupon.fotoUrl != null
                           ? NetworkImage(cupon.fotoUrl)
-                          : AssetImage("assets/images/notImage.png"),
+                          : AssetImage("assets/images/notImage.png") as ImageProvider,
                     ),
                   ),
                 ),
@@ -362,7 +347,7 @@ class _SearchPageState extends State<SearchPage>
                         widget.userId != null
                             ? GestureDetector(
                                 onTap: () => presenter.saveCupon(
-                                    widget.userId, cupon.id),
+                                    widget.userId!, cupon.id),
                                 child: Container(
                                   width:
                                       MediaQuery.of(context).size.width * 0.58,
@@ -615,7 +600,7 @@ class _SearchPageState extends State<SearchPage>
         tabs: [
           Tab(text: "Destacado"),
           Tab(text: "Restaurantes"),
-          Tab(text: "Cupones"),
+          Tab(text: "Mapa"),
         ],
       ),
       backgroundColor: Colors.white,

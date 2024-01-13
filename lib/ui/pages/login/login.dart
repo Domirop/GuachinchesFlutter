@@ -24,8 +24,8 @@ class Login extends StatefulWidget {
 class _LoginState extends State<Login> implements LoginView {
   TextEditingController emailController = TextEditingController();
   TextEditingController passwordController = TextEditingController();
-  LoginPresenter _presenter;
-  RemoteRepository _remoteRepository;
+  late LoginPresenter _presenter;
+  late RemoteRepository _remoteRepository;
   bool dataError = false;
 
   @override
@@ -65,7 +65,7 @@ class _LoginState extends State<Login> implements LoginView {
                     SearchPage(),
                     Login("Para ver tus valoraciones debes iniciar sesión."),
                     Login("Para ver tu perfíl debes iniciar sesión.")
-                  ])),
+                  ],selectedItem:0)),
               child: Container(
                 alignment: Alignment.centerRight,
                 child: Icon(
@@ -237,6 +237,6 @@ class _LoginState extends State<Login> implements LoginView {
 
   @override
   loginSuccess(List<Widget> screens) {
-    GlobalMethods().removePagesAndGoToNewScreen(context, Menu(screens));
+    GlobalMethods().removePagesAndGoToNewScreen(context, Menu(screens,selectedItem:0));
   }
 }

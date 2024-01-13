@@ -17,8 +17,8 @@ class Categorias extends StatefulWidget {
 class _CategoriasState extends State<Categorias> implements CategoriasView {
   TextEditingController textFieldBuscar = new TextEditingController();
   List<ModelCategory> categories = [];
-  CategoriasPresenter presenter;
-  RemoteRepository remoteRepository;
+  late CategoriasPresenter presenter;
+  late RemoteRepository remoteRepository;
   String filterCategory = "";
 
   @override

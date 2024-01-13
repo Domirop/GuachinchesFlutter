@@ -41,7 +41,7 @@ class TopRestaurantListCard extends StatelessWidget {
                             ? NetworkImage(
                             restaurant.imagen)
                             : AssetImage(
-                            "assets/images/notImage.png"),
+                            "assets/images/notImage.png") as ImageProvider,
                       ),
                     ),
                   ),

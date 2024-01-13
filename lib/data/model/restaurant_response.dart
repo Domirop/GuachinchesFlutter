@@ -1,22 +1,20 @@
-import 'package:guachinches/data/model/restaurant.dart';
-
+import 'restaurant.dart';
 
 class RestaurantResponse {
-  int _count;
+  int? _count;
   List<Restaurant> _restaurants = [];
 
-  int get count => _count;
+  int? get count => _count;
   List<Restaurant> get restaurants => _restaurants;
 
   RestaurantResponse({
-    int count,
-    List<Restaurant> restaurants}){
-    _count = count;
+    int? count,
+    List<Restaurant> restaurants = const [],
+  }) : _count = count {
     _restaurants = restaurants;
   }
 
-
-  set count(int value) {
+  set count(int? value) {
     _count = value;
   }
 
