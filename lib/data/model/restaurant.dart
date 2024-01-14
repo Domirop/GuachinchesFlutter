@@ -49,7 +49,7 @@ class Restaurant {
         List<CategoryRestaurant>? categoriaRestaurantes,
         List<Review>? valoraciones,
         String? googleHorarios,
-        bool? open,
+        bool? open = false,
         double? avgRating,
         String? mainFoto,
         String? area,
@@ -109,7 +109,13 @@ class Restaurant {
       lon = resultado;
     }
     if (json["fotos"] is List) {
-      mainFoto = json["fotos"][0]["photoUrl"];
+      try{
+        mainFoto = json["fotos"][0]["photoUrl"];
+
+      }catch(e) {
+        mainFoto = '';
+        print(e);
+      }
     }else {
       if (json["fotos.photoUrl"] != null) {
         mainFoto = json["fotos.photoUrl"];
@@ -177,6 +183,7 @@ class Restaurant {
     }
     if (json["google_horarios"] != null) {
       String auxValue = json["google_horarios"];
+      open = false;
       open = generateOpen(auxValue);
     }
   }
@@ -184,7 +191,7 @@ class Restaurant {
     bool auxOpen = true;
     bool alwaysOpen = false;
     if (googleHorario.toLowerCase() == "cerrado" ||
-        googleHorario.toLowerCase() == "sin horario") {
+        googleHorario.toLowerCase() == "sin horario"||googleHorario == null) {
       auxOpen = false;
     } else {
       String auxValue2 = googleHorario

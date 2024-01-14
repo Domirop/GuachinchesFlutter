@@ -9,19 +9,22 @@ import 'package:guachinches/data/model/Category.dart';
 import 'package:guachinches/data/model/Municipality.dart';
 import 'package:guachinches/data/model/SimpleMunicipality.dart';
 import 'package:guachinches/data/model/Types.dart';
+import 'package:guachinches/globalMethods.dart';
+import 'package:guachinches/ui/pages/map/search_text.dart';
 
 class FilterBar extends StatefulWidget {
   final bool showCategoryChip;
   final List<ModelCategory> categories;
   final List<Municipality> municipalities;
   final List<Types> types;
+  final bool withSearchBar;
 
   const FilterBar(
       {required this.showCategoryChip,
       required this.categories,
       required this.municipalities,
-      required this.types
-      });
+      required this.types,
+      this.withSearchBar = false});
 
   @override
   State<FilterBar> createState() => _FilterBarState();
@@ -34,6 +37,7 @@ class _FilterBarState extends State<FilterBar> {
   List<String> selectedMunicipalities = [];
   List<String> typesSelected = [];
   late FilterCubit filterCubit;
+  String text = '';
   List<SimpleMunicipality> municipalitiesFilter = [];
 
   @override
@@ -44,76 +48,139 @@ class _FilterBarState extends State<FilterBar> {
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      scrollDirection: Axis.horizontal,
+    return Column(
       children: [
-        widget.showCategoryChip
-            ? GestureDetector(
-                onTap: () => {showCategoryFilterModal(context)},
+        widget.withSearchBar
+            ? Padding(
+                padding:
+                    const EdgeInsets.only(right: 8.0, bottom: 16),
+                child: GestureDetector(
+                  onTap: ()=>GlobalMethods().pushPage(context, SearchText()),
+                  child: BlocBuilder<FilterCubit, FilterState>(
+                      builder: (context, state) {
+                        if(state is FilterCategory){
+                          text = state.text;
+                        }
+
+                      return Container(
+                        height: 48,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(18.0),
+                          // Ajusta el radio según tus necesidades
+                          border: Border.all(
+                            color: Colors.grey,
+                            // Puedes ajustar el color del borde según tus necesidades
+                            width:
+                                1.0, // Puedes ajustar el ancho del borde según tus necesidades
+                          ),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12.0),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(Icons.search,
+                                      color: Color.fromRGBO(97, 97, 97, 1)),
+                                  Text(text.isEmpty?'Buscar':text,style: TextStyle(color: Color.fromRGBO(97, 97, 97, 1)),)
+                                ],
+                              ),
+                              Icon(
+                                Icons.close,
+                                color: Color.fromRGBO(97, 97, 97, 1),
+                              )
+                            ],
+                          ),
+                        ),
+                      );
+                    }
+                  ),
+                ),
+              )
+            : Container(),
+        Container(
+          height: 30,
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            children: [
+              widget.showCategoryChip
+                  ? GestureDetector(
+                      onTap: () => {showCategoryFilterModal(context)},
+                      child: Chip(
+                        backgroundColor: Color.fromRGBO(231, 231, 231, 1),
+                        label: Text(
+                          selectedCategories.isEmpty
+                              ? 'Categoria'
+                              : 'Categorias +' +
+                                  selectedCategories.length.toString(),
+                          style:
+                              TextStyle(color: Color.fromRGBO(23, 23, 23, 1)),
+                        ),
+                      ),
+                    )
+                  : Container(),
+              widget.showCategoryChip
+                  ? SizedBox(
+                      width: 8,
+                    )
+                  : Container(),
+              GestureDetector(
+                onTap: () => handleIsOpenFilter(),
+                child: openFilter
+                    ? Chip(
+                        backgroundColor: Color.fromRGBO(23, 23, 23, 1),
+                        label: Text(
+                          'Abierto',
+                          style: TextStyle(color: Colors.white),
+                        ),
+                      )
+                    : Chip(
+                        backgroundColor: Color.fromRGBO(231, 231, 231, 1),
+                        label: Text(
+                          'Abierto',
+                          style:
+                              TextStyle(color: Color.fromRGBO(23, 23, 23, 1)),
+                        ),
+                      ),
+              ),
+              SizedBox(
+                width: 8,
+              ),
+              GestureDetector(
+                onTap: () => {showMunicipalityFilterModal(context)},
                 child: Chip(
                   backgroundColor: Color.fromRGBO(231, 231, 231, 1),
                   label: Text(
-                    selectedCategories.isEmpty
-                        ? 'Categoria'
-                        : 'Categorias +' + selectedCategories.length.toString(),
+                    selectedMunicipalities.isEmpty
+                        ? 'Municipio'
+                        : 'Municipio +' +
+                            selectedMunicipalities.length.toString(),
                     style: TextStyle(color: Color.fromRGBO(23, 23, 23, 1)),
                   ),
                 ),
-              )
-            : Container(),
-        widget.showCategoryChip
-            ? SizedBox(
+              ),
+              SizedBox(
                 width: 8,
-              )
-            : Container(),
-        GestureDetector(
-          onTap: () => handleIsOpenFilter(),
-          child: openFilter
-              ? Chip(
-                  backgroundColor: Color.fromRGBO(23, 23, 23, 1),
-                  label: Text(
-                    'Abierto',
-                    style: TextStyle(color: Colors.white),
-                  ),
-                )
-              : Chip(
+              ),
+              // Chip(
+              //   label: Text('Valoración'),
+              //   backgroundColor: Color.fromRGBO(231, 231, 231, 1),
+              // ),
+              // SizedBox(
+              //   width: 8,
+              // ),
+              GestureDetector(
+                onTap: () {
+                  showTypeFilterModal(context);
+                },
+                child: Chip(
+                  label: Text('Tipo'),
                   backgroundColor: Color.fromRGBO(231, 231, 231, 1),
-                  label: Text(
-                    'Abierto',
-                    style: TextStyle(color: Color.fromRGBO(23, 23, 23, 1)),
-                  ),
                 ),
-        ),
-        SizedBox(
-          width: 8,
-        ),
-        GestureDetector(
-          onTap: () => {showMunicipalityFilterModal(context)},
-          child: Chip(
-            backgroundColor: Color.fromRGBO(231, 231, 231, 1),
-            label: Text(
-              'Municipio',
-              style: TextStyle(color: Color.fromRGBO(23, 23, 23, 1)),
-            ),
-          ),
-        ),
-        SizedBox(
-          width: 8,
-        ),
-        // Chip(
-        //   label: Text('Valoración'),
-        //   backgroundColor: Color.fromRGBO(231, 231, 231, 1),
-        // ),
-        // SizedBox(
-        //   width: 8,
-        // ),
-        GestureDetector(
-          onTap: (){
-            showTypeFilterModal(context);
-          },
-          child: Chip(
-            label: Text('Tipo'),
-            backgroundColor: Color.fromRGBO(231, 231, 231, 1),
+              ),
+            ],
           ),
         ),
       ],
@@ -155,6 +222,7 @@ class _FilterBarState extends State<FilterBar> {
                       builder: (context, state) {
                     if (state is FilterCategory) {
                       selectedCategories = state.categorySelected;
+
                     }
                     return Container(
                       height: 400,
@@ -182,7 +250,9 @@ class _FilterBarState extends State<FilterBar> {
                                       .add(widget.categories[index].id);
                                 }
                                 filterCubit.handleFilterChange(
-                                    selectedCategories, selectedMunicipalities,typesSelected);
+                                    selectedCategories,
+                                    selectedMunicipalities,
+                                    typesSelected,'');
                                 this.selectedCategories = selectedCategoriesAux;
                               })
                             },
@@ -236,8 +306,8 @@ class _FilterBarState extends State<FilterBar> {
                             onPressed: () => {
                               restaurantsCubit.getFilterRestaurants(
                                 categories: selectedCategories,
-                                municipalities: [],
-                                text: '',
+                                municipalities: selectedMunicipalities,
+                                text: text,
                                 types: typesSelected,
                                 islandId:
                                     '76ac0bec-4bc1-41a5-bc60-e528e0c12f4d',
@@ -307,9 +377,6 @@ class _FilterBarState extends State<FilterBar> {
   showMunicipalityFilterModal(context) {
     TextEditingController _textController = TextEditingController();
 
-
-
-
     showModalBottomSheet(
       backgroundColor: Colors.transparent,
       context: context,
@@ -346,10 +413,17 @@ class _FilterBarState extends State<FilterBar> {
                       onChanged: (text) {
                         List<SimpleMunicipality> auxmunicipalitiesFilter = [];
                         for (int i = 0; i < widget.municipalities.length; i++) {
-                          for (int y = 0; y < widget.municipalities[i].municipalities.length; y++) {
-                            if(widget.municipalities[i].municipalities[y].nombre.contains(text.toUpperCase())){
+                          for (int y = 0;
+                              y <
+                                  widget
+                                      .municipalities[i].municipalities.length;
+                              y++) {
+                            if (widget
+                                .municipalities[i].municipalities[y].nombre
+                                .contains(text.toUpperCase())) {
                               print(widget.municipalities[i].municipalities[y]);
-                              auxmunicipalitiesFilter.add(widget.municipalities[i].municipalities[y]);
+                              auxmunicipalitiesFilter.add(
+                                  widget.municipalities[i].municipalities[y]);
                             }
                           }
                         }
@@ -387,7 +461,9 @@ class _FilterBarState extends State<FilterBar> {
                       }
                       return ListView.builder(
                           shrinkWrap: true,
-                          itemCount:_textController.text.length>0?1: widget.municipalities.length,
+                          itemCount: _textController.text.length > 0
+                              ? 1
+                              : widget.municipalities.length,
                           itemBuilder: (context, index) {
                             return Padding(
                               padding: const EdgeInsets.only(
@@ -396,7 +472,9 @@ class _FilterBarState extends State<FilterBar> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    _textController.text.length>0?'Resultados':widget.municipalities[index].nombre,
+                                    _textController.text.length > 0
+                                        ? 'Resultados'
+                                        : widget.municipalities[index].nombre,
                                     style: TextStyle(
                                         color: Color.fromRGBO(23, 23, 23, 1),
                                         fontWeight: FontWeight.w500),
@@ -405,32 +483,32 @@ class _FilterBarState extends State<FilterBar> {
                                       shrinkWrap: true,
                                       primary: false,
                                       physics: ClampingScrollPhysics(),
-                                      itemCount: _textController.text.length>0?
-                                          municipalitiesFilter.length
-                                          :widget.municipalities[index]
-                                          .municipalities.length,
+                                      itemCount: _textController.text.length > 0
+                                          ? municipalitiesFilter.length
+                                          : widget.municipalities[index]
+                                              .municipalities.length,
                                       itemBuilder: (context, index2) {
-                                        SimpleMunicipality municipality = _textController.text.length>0?
-                                        municipalitiesFilter[index2]:widget
-                                            .municipalities[index]
-                                            .municipalities[index2];
-                                        bool isCheck = selectedMunicipalities.contains(municipality
-                                                .id);
+                                        SimpleMunicipality municipality =
+                                            _textController.text.length > 0
+                                                ? municipalitiesFilter[index2]
+                                                : widget.municipalities[index]
+                                                    .municipalities[index2];
+                                        bool isCheck = selectedMunicipalities
+                                            .contains(municipality.id);
                                         return GestureDetector(
                                           onTap: () {
                                             setState(() {
                                               if (isCheck) {
-                                                selectedMunicipalities.remove(
-                                                    municipality
-                                                        .id);
+                                                selectedMunicipalities
+                                                    .remove(municipality.id);
                                               } else {
-                                                selectedMunicipalities.add(
-                                                    municipality
-                                                        .id);
+                                                selectedMunicipalities
+                                                    .add(municipality.id);
                                               }
                                               filterCubit.handleFilterChange(
                                                   selectedCategories,
-                                                  selectedMunicipalities,typesSelected);
+                                                  selectedMunicipalities,
+                                                  typesSelected,'');
                                             });
                                           },
                                           child: Padding(
@@ -489,7 +567,7 @@ class _FilterBarState extends State<FilterBar> {
                               restaurantsCubit.getFilterRestaurants(
                                 categories: selectedCategories,
                                 municipalities: selectedMunicipalities,
-                                text: '',
+                                text: text,
                                 types: typesSelected,
                                 islandId:
                                     '76ac0bec-4bc1-41a5-bc60-e528e0c12f4d',
@@ -557,7 +635,6 @@ class _FilterBarState extends State<FilterBar> {
   }
 
   showTypeFilterModal(context) {
-
     showModalBottomSheet(
       backgroundColor: Colors.transparent,
       context: context,
@@ -595,58 +672,51 @@ class _FilterBarState extends State<FilterBar> {
                       if (state is FilterCategory) {
                         selectedMunicipalities = state.municipalitesSelected;
                       }
-                      return
-                        ListView.builder(
+                      return ListView.builder(
                           shrinkWrap: true,
                           primary: false,
                           physics: ClampingScrollPhysics(),
                           itemCount: widget.types.length,
                           itemBuilder: (context, index) {
                             Types type = widget.types[index];
-                            bool isCheck = typesSelected.contains(type
-                                .id);
+                            bool isCheck = typesSelected.contains(type.id);
                             return GestureDetector(
                               onTap: () {
                                 setState(() {
                                   if (isCheck) {
-                                    typesSelected.remove(
-                                        type
-                                            .id);
+                                    typesSelected.remove(type.id);
                                   } else {
-                                    typesSelected.add(
-                                        type
-                                            .id);
+                                    typesSelected.add(type.id);
                                   }
                                   filterCubit.handleFilterChange(
                                       selectedCategories,
-                                      selectedMunicipalities,typesSelected);
+                                      selectedMunicipalities,
+                                      typesSelected,'');
                                 });
                               },
                               child: Padding(
-                                padding: const EdgeInsets.only(
-                                    top: 24.0, left: 12),
+                                padding:
+                                    const EdgeInsets.only(top: 24.0, left: 12),
                                 child: Row(
                                   mainAxisAlignment:
-                                  MainAxisAlignment
-                                      .spaceBetween,
+                                      MainAxisAlignment.spaceBetween,
                                   children: [
                                     Expanded(
                                       child: Text(
                                         type.nombre,
                                         key: Key(type.id),
                                         style: TextStyle(
-                                            color: Color.fromRGBO(
-                                                23, 23, 23, 1),
-                                            fontWeight:
-                                            FontWeight.w500),
+                                            color:
+                                                Color.fromRGBO(23, 23, 23, 1),
+                                            fontWeight: FontWeight.w500),
                                       ),
                                     ),
                                     isCheck
                                         ? Icon(
-                                      Icons.check,
-                                      color: Color.fromRGBO(
-                                          231, 231, 231, 1),
-                                    )
+                                            Icons.check,
+                                            color: Color.fromRGBO(
+                                                231, 231, 231, 1),
+                                          )
                                         : Container()
                                   ],
                                 ),
@@ -671,7 +741,7 @@ class _FilterBarState extends State<FilterBar> {
                               restaurantsCubit.getFilterRestaurants(
                                 categories: selectedCategories,
                                 municipalities: selectedMunicipalities,
-                                text: '',
+                                text: text,
                                 types: typesSelected,
                                 islandId:
                                     '76ac0bec-4bc1-41a5-bc60-e528e0c12f4d',
@@ -742,7 +812,7 @@ class _FilterBarState extends State<FilterBar> {
     restaurantsCubit.getFilterRestaurants(
         categories: selectedCategories,
         municipalities: selectedMunicipalities,
-        text: '',
+        text: text,
         types: typesSelected,
         islandId: '76ac0bec-4bc1-41a5-bc60-e528e0c12f4d',
         isOpen: !openFilter);

@@ -2,13 +2,20 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:guachinches/data/HttpRemoteRepository.dart';
+import 'package:guachinches/data/RemoteRepository.dart';
 import 'package:guachinches/data/cubit/restaurants/basic/restaurant_cubit.dart';
 import 'package:guachinches/data/cubit/restaurants/basic/restaurant_state.dart';
+import 'package:guachinches/data/model/Category.dart';
+import 'package:guachinches/data/model/Municipality.dart';
 import 'package:guachinches/data/model/TopRestaurants.dart';
+import 'package:guachinches/data/model/Types.dart';
 import 'package:guachinches/data/model/restaurant.dart';
 import 'package:guachinches/ui/components/cards/TopRestaurantListCard.dart';
 import 'package:guachinches/ui/components/cards/restaurantMainCard.dart';
 import 'package:guachinches/ui/components/filters/filterBar.dart';
+import 'package:guachinches/ui/pages/map/map_search_presenter.dart';
+import 'package:http/http.dart';
 import 'package:location/location.dart';
 
 class MapSearch extends StatefulWidget {
@@ -18,7 +25,7 @@ class MapSearch extends StatefulWidget {
   State<MapSearch> createState() => MapSearchState();
 }
 
-class MapSearchState extends State<MapSearch> {
+class MapSearchState extends State<MapSearch> implements MapSearchView{
   final Completer<GoogleMapController> _controller =
       Completer<GoogleMapController>();
   String lastMarkerId = "";
@@ -32,13 +39,28 @@ class MapSearchState extends State<MapSearch> {
   Set<Marker> markers = {};
   bool isFirst = true;
   List<Restaurant> visibleRestaurants = [];
-
+  late RemoteRepository remoteRepository;
+  late RestaurantCubit restaurantsCubit;
+  List<ModelCategory> categories = [];
+  List<Municipality> municipalities = [];
+  List<Types> types = [];
   // Variable para mantener el estado de la tarjeta
   String _cardTitle = "Tarjeta por defecto";
+  late MapSearchPresenter presenter;
 
   @override
   void initState() {
+    remoteRepository = HttpRemoteRepository(Client());
+    restaurantsCubit = context.read<RestaurantCubit>();
+    presenter = MapSearchPresenter(
+      this,
+      remoteRepository,
+      restaurantsCubit
+    );
     super.initState();
+    presenter.getAllTypes();
+    presenter.getAllMunicipalities('76ac0bec-4bc1-41a5-bc60-e528e0c12f4d');
+    presenter.getAllCategories();
     _getLocation();
   }
 
@@ -121,8 +143,9 @@ class MapSearchState extends State<MapSearch> {
             getVisibleMarkers(restaurants);
             isFirst = false;
           }
-        }else if(state is RestaurantFilter){
-
+        }
+        if(state is RestaurantFilter){
+          print('Filter '+state.filtersRestaurants.length.toString());
           restaurants = state.filtersRestaurants;
           state.filtersRestaurants.forEach((element) {
             aux.add(Marker(
@@ -132,6 +155,7 @@ class MapSearchState extends State<MapSearch> {
               onTap: () => _onMarkerTapped(element.id.toString()),
             ));
           });
+          print('aux '+aux.length.toString());
           markers = aux;
           if (isFirst) {
             getVisibleMarkers(restaurants);
@@ -158,14 +182,12 @@ class MapSearchState extends State<MapSearch> {
             ),
             Padding(
               padding: const EdgeInsets.only(top: 64.0, left: 8),
-              child: Container(
-                height: 30,
-                child: FilterBar(
-                  categories: [],
-                  showCategoryChip: true,
-                  municipalities: [],
-                  types: [],
-                ),
+              child: FilterBar(
+                categories: categories,
+                showCategoryChip: true,
+                withSearchBar: true,
+                municipalities: municipalities,
+                types: types,
               ),
             ),
             Positioned(
@@ -313,7 +335,6 @@ class MapSearchState extends State<MapSearch> {
 
   Future<void> getVisibleMarkers(List<Restaurant> restaurants) async {
     final GoogleMapController controller = await _controller.future;
-
     LatLngBounds bounds = await controller.getVisibleRegion();
 
     List<Marker> visibleMarkers = markers.where((marker) {
@@ -336,5 +357,36 @@ class MapSearchState extends State<MapSearch> {
     setState(() {
       _cardTitle = title;
     });
+  }
+
+  @override
+  setCategories(List<ModelCategory> categories) {
+    setState(() {
+      this.categories = categories;
+    });
+  }
+
+  @override
+  setMunicipalities(List<Municipality> municipalities) {
+    setState(() {
+      this.municipalities = municipalities;
+    });
+  }
+
+  @override
+  setTypes(List<Types> types) {
+    setState(() {
+      this.types = types;
+    });
+  }
+  Future<void> _zoomToMarker(LatLng markerLocation) async {
+    print('zoom');
+    final GoogleMapController mapController = await _controller.future;
+    mapController.animateCamera(
+      CameraUpdate.newLatLngZoom(
+        markerLocation,
+        10.0, // Ajusta el nivel de zoom según sea necesario
+      ),
+    );
   }
 }

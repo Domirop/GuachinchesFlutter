@@ -203,7 +203,7 @@ class _HomeState extends State<Home> implements HomeView {
                                         categories[index].id);
                                   }
                                   filterCubit.handleFilterChange(
-                                      selectedCategories, [], typesSelected);
+                                      selectedCategories, [], typesSelected,'');
                                   this.selectedCategories =
                                       selectedCategoriesAux;
                                 }),

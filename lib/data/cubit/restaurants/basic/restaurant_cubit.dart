@@ -35,7 +35,7 @@ class RestaurantCubit extends Cubit<RestaurantState> {
 
   }
   Future<void> getFilterRestaurants({List<String>? categories, List<String>? municipalities, List<String>? types, String? text,String? islandId,bool isOpen=false}) async {
-     List<Restaurant> restaurants = await _remoteRepository. getFilterRestaurants(categories!.join(";"), municipalities!.join(";"), types!.join(";"), text!,islandId!);
+     List<Restaurant> restaurants = await _remoteRepository.getFilterRestaurants(categories!.join(";"), municipalities!.join(";"), types!.join(";"), text!,islandId!);
      if (isOpen) {
        restaurants = restaurants.where((element) => element.open).toList();
      }
