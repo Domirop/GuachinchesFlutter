@@ -39,30 +39,20 @@ class _MyCouponsState extends State<MyCoupons> {
                   SizedBox(
                     height: 20,
                   ),
-                  Text(
-                    'SIN CANJEAR',
-                    style: TextStyle(
+                  Text('SIN CANJEAR', style: TextStyle(
                         color: Colors.black,
                         fontSize: 16,
                         fontWeight: FontWeight.normal,
                         decoration: TextDecoration.none),
                   ),
-                  SizedBox(
-                    height: 16,
-                  ),
-
+                  SizedBox(height: 16,),
                   CouponListItem(),
                   Divider(thickness:0.2,color: Color.fromRGBO(118, 118, 118, 1),),
                   CouponListItem(),
                   Divider(thickness:0.2,color: Color.fromRGBO(118, 118, 118, 1),),
-
                   CouponListItem(),
-                  SizedBox(
-                    height: 16,
-                  ),
-                  Text(
-                    'CANJEAR',
-                    style: TextStyle(
+                  SizedBox(height: 16,),
+                  Text('CANJEAR', style: TextStyle(
                         color: Colors.black,
                         fontSize: 16,
                         fontWeight: FontWeight.normal,

@@ -254,7 +254,10 @@ class _SearchPageState extends State<SearchPage>
       child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children:auxList.length>0?auxList
-              .map((e) => RestaurantListCard(e)).toList():[Text('Vaya!Parece que no hay resultados')],),
+              .map((e) => Padding(
+                padding: const EdgeInsets.all(12.0),
+                child: RestaurantListCard(e),
+              )).toList():[Text('Vaya!Parece que no hay resultados')],),
     );
     await Future.delayed(Duration(milliseconds: 500));
 
@@ -448,7 +451,7 @@ class _SearchPageState extends State<SearchPage>
                   alignment: Alignment.center,
                   margin: EdgeInsets.symmetric(vertical: 10.0),
                   decoration: BoxDecoration(
-                    color: Color.fromRGBO(0, 133, 196, 1),
+                    color: GlobalMethods.blueColor,
                     borderRadius: BorderRadius.circular(12.0),
                   ),
                   padding: EdgeInsets.symmetric(vertical: 7.0),
@@ -457,6 +460,7 @@ class _SearchPageState extends State<SearchPage>
                     style: TextStyle(
                         fontWeight: FontWeight.bold,
                         color: Colors.white,
+                        fontFamily: 'SF Pro Display',
                         fontSize: 12.0),
                   ),
                 ),

@@ -90,12 +90,12 @@ class SplashScreenPresenter {
     else {
       String? key = await storage.read(key: 'onBoardingFinished') ;
       // await storage.write(key: 'onBoardingFinished',value: 'false');
-      if(key==null){
+      if(key==null|| key.length==0){
         await storage.write(key: 'onBoardingFinished',value: 'false');
         _view.goToOnBoarding();
       }else{
         if(key == 'true'){
-          mainFunction();
+          mainFunction(); 
         }else{
           _view.goToOnBoarding();
         }

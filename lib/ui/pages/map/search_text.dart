@@ -6,6 +6,7 @@ import 'package:guachinches/data/RemoteRepository.dart';
 import 'package:guachinches/data/cubit/filter/filter_cubit.dart';
 import 'package:guachinches/data/cubit/filter/filter_state.dart';
 import 'package:guachinches/data/cubit/restaurants/basic/restaurant_cubit.dart';
+import 'package:guachinches/data/cubit/restaurants/map/restaurant_map_cubit.dart';
 import 'package:guachinches/data/model/Municipality.dart';
 import 'package:guachinches/data/model/Types.dart';
 import 'package:guachinches/data/model/restaurant.dart';
@@ -16,7 +17,11 @@ import 'package:guachinches/ui/pages/map/search_text_presenter.dart';
 import 'package:http/http.dart';
 
 class SearchText extends StatefulWidget {
-  const SearchText();
+  final Function? zoomOut ;
+
+  const SearchText({
+    this.zoomOut
+});
 
   @override
   State<SearchText> createState() => _SearchTextState();
@@ -27,19 +32,26 @@ class _SearchTextState extends State<SearchText> implements SearchTextView{
   TextEditingController _textEditingController = TextEditingController();
   late RemoteRepository remoteRepository;
   late SearchTextPresenter presenter;
-  late RestaurantCubit restaurantsCubit;
+  late RestaurantMapCubit restaurantsCubit;
   List<Restaurant> restaurants = [];
   late FilterCubit filterCubit;
 
   @override
   void initState() {
     remoteRepository = HttpRemoteRepository(Client());
-    restaurantsCubit = context.read<RestaurantCubit>();
+    restaurantsCubit = context.read<RestaurantMapCubit>();
     presenter = SearchTextPresenter(this, remoteRepository, restaurantsCubit);
     super.initState();
     _focusNode = FocusNode();
     filterCubit = context.read<FilterCubit>();
     _focusNode.requestFocus();
+
+    if(filterCubit.state is FilterCategory){
+      FilterCategory filterCategory = filterCubit.state as FilterCategory;
+      _textEditingController.text = filterCategory.text;
+
+      presenter.getAllRestaurantsFilterByText(filterCategory.text);
+    }
   }
 
   @override
@@ -59,10 +71,10 @@ class _SearchTextState extends State<SearchText> implements SearchTextView{
     return Scaffold(
       appBar: AppBar(
         elevation: 0,
-        backgroundColor: Colors.white,
+        backgroundColor: GlobalMethods.bgColor,
         title: Text(
-          'Busqueda en mapa',
-          style: TextStyle(color: Color.fromRGBO(23, 23, 23, 1)),
+          'Búsqueda en mapa',
+          style: TextStyle(color: Colors.white, fontSize: 20.0, fontFamily: 'SF Pro Display'),
         ),
       ),
       body: SingleChildScrollView(
@@ -79,25 +91,25 @@ class _SearchTextState extends State<SearchText> implements SearchTextView{
                     municipalities = state.municipalitesSelected;
                     categories = state.categorySelected;
                     types = state.typesSelected;
-
                 }
               return TextField(
+
                 onChanged: (value){
-
                   presenter.getAllRestaurantsFilterByText(value);
-
                 },
-                onEditingComplete: (){
-                  restaurantsCubit.getFilterRestaurants(
+                onSubmitted: (value){
+                  restaurantsCubit.getFilterMapRestaurants(
                       categories: categories,
                       municipalities:municipalities,
-                      isOpen:true,
                       islandId:
                       '76ac0bec-4bc1-41a5-bc60-e528e0c12f4d',
                       types: types,
-                      text: _textEditingController.text
+                      text: value
                   );
-                  filterCubit.handleFilterChange(categories, municipalities, types, _textEditingController.text);
+                  filterCubit.handleFilterChange(categories, municipalities, types, value);
+                  if(widget.zoomOut != null){
+                    widget.zoomOut!();
+                  }
                   Navigator.pop(context);
                 },
                 controller: _textEditingController,

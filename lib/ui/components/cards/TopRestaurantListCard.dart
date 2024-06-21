@@ -55,12 +55,18 @@ class TopRestaurantListCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
-                      Container(child: Text( restaurant.nombre,)),
-
+                      Container(child: Text( restaurant.nombre,
+                      style: TextStyle(
+                        fontFamily: 'SF Pro Display',
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      )
+                      )),
                       SizedBox(height: 6), // give it width
                       Text(restaurant.open
                           ? "Abierto"
                           : "Cerrado",style: TextStyle(
+                        fontFamily: 'SF Pro Display',
                           fontSize: 12,
                           color:
                           restaurant.open
@@ -72,6 +78,7 @@ class TopRestaurantListCard extends StatelessWidget {
                       SizedBox(height: 6), // give it width
                       Text(restaurant.municipio
                         ,style: TextStyle(
+                          fontFamily: 'SF Pro Display',
                           fontSize: 12,
                         ),
                       )
@@ -93,7 +100,7 @@ class TopRestaurantListCard extends StatelessWidget {
 
                           ),
                           padding: EdgeInsets.symmetric(horizontal: 10,vertical: 6),
-                          child: Text(restaurant.avg!=null?restaurant.avg.toStringAsFixed(2):'nd',style: TextStyle(color: Colors.white,fontWeight: FontWeight.w600),),
+                          child: Text(restaurant.avg!=null?restaurant.avg.toStringAsFixed(2):'nd',style: TextStyle(color: Colors.white,fontWeight: FontWeight.w600,fontFamily: 'SF Pro Display',fontSize: 16),),
                         ),
                       ],
                     ),

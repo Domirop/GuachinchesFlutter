@@ -6,6 +6,10 @@ class UserInfo {
   late String _telefono;
   late List<Valoraciones> _valoraciones;
 
+  set nombre(String value) {
+    _nombre = value;
+  }
+
   String get id => _id;
   String get nombre => _nombre;
   String get apellidos => _apellidos;

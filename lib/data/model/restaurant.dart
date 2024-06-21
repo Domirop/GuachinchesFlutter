@@ -185,6 +185,8 @@ class Restaurant {
       String auxValue = json["google_horarios"];
       open = false;
       open = generateOpen(auxValue);
+    }else{
+      open = false;
     }
   }
   static generateOpen(googleHorario){

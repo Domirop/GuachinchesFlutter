@@ -9,7 +9,9 @@ class GlobalMethods {
   late BuildContext context;
 
 
+  static Color bgColor = Color.fromRGBO(25, 27, 32, 1);
 
+  static Color blueColor = Color.fromRGBO(0, 133, 196, 1);
 
   void pushPage(BuildContext context, Widget page) {
     Navigator.of(context).push(

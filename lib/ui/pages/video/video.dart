@@ -32,7 +32,7 @@ class _VideoScreenState extends State<VideoScreen>
   List<String> videoUrls = [];
 
   List<Video> videos =[];
-
+  int actualIndex = 0;
   @override
   void initState() {
     remoteRepository = HttpRemoteRepository(Client());
@@ -53,31 +53,6 @@ class _VideoScreenState extends State<VideoScreen>
       home: Scaffold(
         body: videoUrls.length > 0
             ? BlocBuilder<MenuCubit, MenuState>(builder: (context, menuState) {
-                if (menuState.selectedIndex == 2) {
-                  WidgetsBinding.instance?.addPostFrameCallback((_) {
-                    ScaffoldMessenger.of(this.context).showSnackBar(SnackBar(
-                      elevation: 0,
-                      backgroundColor: Colors.transparent,
-                      content: SizedBox(
-                        height: 30,
-                        width: 20, // Ajusta este valor según tus necesidades
-                        child: Container(
-                          color: Colors.black,
-                          child: Center(
-                            child: Text(
-                              "Desliza para ver más videos",
-                              style: TextStyle(color: Colors.white),
-                            ),
-                          ),
-                        ),
-                      ),
-                      duration: Duration(seconds: 3),
-                      behavior: SnackBarBehavior.floating,
-                      margin: EdgeInsets.symmetric(
-                          vertical: MediaQuery.of(context).size.height * 0.45),
-                    ));
-                  });
-                }
                 return TikTokStyleFullPageScroller(
                   contentSize: videoUrls.length,
                   swipePositionThreshold: 0.3,
@@ -85,6 +60,7 @@ class _VideoScreenState extends State<VideoScreen>
                   animationDuration: const Duration(milliseconds: 400),
                   controller: controller,
                   builder: (BuildContext context, int index) {
+                    print(index);
                     return Stack(
                       children: [
                         Positioned(
@@ -94,7 +70,7 @@ class _VideoScreenState extends State<VideoScreen>
                           bottom: 0,
                           child: VideoPlayerWidget(
                             videoUrl: videoUrls[index],
-                            index: widget.index,
+                            index: index, currentIndex: actualIndex,
                           ),
                         ),
                         Positioned(
@@ -156,7 +132,10 @@ class _VideoScreenState extends State<VideoScreen>
   }
 
   void _handleCallbackEvent(ScrollDirection direction, ScrollSuccess success, {int? currentIndex}) {
-        print("Scroll callback received with data: {direction: $direction, success: $success and index: ${currentIndex ?? 'not given'}}");
+    setState(() {
+      actualIndex = currentIndex!;
+    });
+      print("Scroll callback received with data: {direction: $direction, success: $success and index: ${currentIndex ?? 'not given'}}");
   }
 
   @override
@@ -170,10 +149,14 @@ class _VideoScreenState extends State<VideoScreen>
 
 class VideoPlayerWidget extends StatefulWidget {
   final String videoUrl;
-
   final int index;
+  final int currentIndex;
 
-  VideoPlayerWidget({required this.videoUrl, required this.index});
+  VideoPlayerWidget({
+    required this.videoUrl,
+    required this.index,
+    required this.currentIndex,
+  });
 
   @override
   _VideoPlayerWidgetState createState() => _VideoPlayerWidgetState();
@@ -188,8 +171,6 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
     super.initState();
     _videoPlayerController = VideoPlayerController.network(widget.videoUrl);
     _initializeVideoPlayerFuture = _videoPlayerController.initialize();
-    // Play the video when initialization is complete
-
     _videoPlayerController.setLooping(true);
   }
 
@@ -202,35 +183,41 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<MenuCubit, MenuState>(builder: (context, menuState) {
-      if (menuState.selectedIndex == 2) {
+      // print('Current index: '+widget.currentIndex.toString()+'index: ' + widget.index.toString() + 'menu index'+menuState.selectedIndex.toString());
+      if (widget.index == widget.currentIndex && menuState.selectedIndex == 2) {
+
         _videoPlayerController.play();
-      } else {
+
+      }else{
         _videoPlayerController.pause();
       }
-
-      return FutureBuilder(
-        future: _initializeVideoPlayerFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.done) {
-            return AspectRatio(
-              aspectRatio: _videoPlayerController.value.aspectRatio,
-              child: GestureDetector(
+        return FutureBuilder(
+          future: _initializeVideoPlayerFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.done) {
+              return AspectRatio(
+                aspectRatio: _videoPlayerController.value.aspectRatio,
+                child: GestureDetector(
                   onTap: () {
-                    if (_videoPlayerController.value.isPlaying) {
-                      _videoPlayerController.pause();
-                    } else {
-                      _videoPlayerController.play();
+                    if (widget.index == widget.currentIndex) {
+                      if (_videoPlayerController.value.isPlaying) {
+                        _videoPlayerController.pause();
+                      } else {
+                        _videoPlayerController.play();
+                      }
                     }
                   },
-                  child: VideoPlayer(_videoPlayerController)),
-            );
-          } else {
-            return Center(
-              child: CircularProgressIndicator(),
-            );
-          }
-        },
-      );
-    });
+                  child: VideoPlayer(_videoPlayerController),
+                ),
+              );
+            } else {
+              return Center(
+                child: CircularProgressIndicator(),
+              );
+            }
+          },
+        );
+      }
+    );
   }
 }

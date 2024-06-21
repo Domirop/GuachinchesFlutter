@@ -7,12 +7,15 @@ import 'package:guachinches/data/model/TopRestaurants.dart';
 import 'package:guachinches/data/model/Types.dart';
 import 'package:guachinches/data/model/Video.dart';
 import 'package:guachinches/data/model/block_user.dart';
+import 'package:guachinches/data/model/blog_post.dart';
 import 'package:guachinches/data/model/fotoBanner.dart';
+import 'package:guachinches/data/model/fotos.dart';
 import 'package:guachinches/data/model/report_review.dart';
 import 'package:guachinches/data/model/restaurant.dart';
 import 'package:guachinches/data/model/restaurant_response.dart';
 import 'package:guachinches/data/model/user_info.dart';
 import 'package:guachinches/data/model/version.dart';
+import 'package:video_compress/video_compress.dart';
 
 abstract class RemoteRepository{
   Future<List<ModelCategory>> getAllCategories();
@@ -41,4 +44,16 @@ abstract class RemoteRepository{
   Future<List<ReportReview>> getReviewReported(String userId);
   Future<bool> reportReview(String userId,String reviewId);
   Future<List<Video>> getAllVideos();
+  //insert Photo restaurant
+  Future<bool> insertPhotoRestaurant(String restaurantId,String base64Image);
+  //get photos
+  Future<List<Fotos>> getPhotosRestaurant(String restaurantId);
+  Future<List<Video>> getVideosRestaurant(String restaurantId);
+
+  //Videos
+  Future<bool> uploadVideo(MediaInfo video, String title, String restaurantId,String thumbnail);
+  Future<bool> deleteVideo(String videoId);
+  //BlogPost
+  Future<List<BlogPost>> getAllBlogPosts();
+
 }

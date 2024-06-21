@@ -4,12 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:guachinches/data/model/fotoBanner.dart';
 
 class HeroSliderComponent extends StatefulWidget {
-  List<FotoBanner> banners;
+  final List<FotoBanner> banners;
 
   HeroSliderComponent(this.banners);
 
   @override
-  _HeroSliderComponentState createState() => _HeroSliderComponentState(this.banners);
+  _HeroSliderComponentState createState() =>
+      _HeroSliderComponentState(this.banners);
 }
 
 class _HeroSliderComponentState extends State<HeroSliderComponent> {
@@ -22,57 +23,69 @@ class _HeroSliderComponentState extends State<HeroSliderComponent> {
   @override
   void initState() {
     imageSliders = banners
-        .map((item) => Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8),
-                image: DecorationImage(
-                  repeat: ImageRepeat.noRepeat,
-                  alignment: Alignment.center,
-                  fit: BoxFit.fill,
-                  image: item.fotoUrl != null ? CachedNetworkImageProvider(item.fotoUrl!) : AssetImage(
-                      "assets/images/notImage.png") as ImageProvider
-                ),
-              ),
-            ))
+        .map((item) => Stack(
+      children: [
+        Container(
+          decoration: BoxDecoration(
+            image: DecorationImage(
+              repeat: ImageRepeat.noRepeat,
+              alignment: Alignment.center,
+              fit: BoxFit.fill,
+              image: item.fotoUrl != null
+                  ? CachedNetworkImageProvider(item.fotoUrl!)
+                  : AssetImage("assets/images/notImage.png")
+              as ImageProvider,
+            ),
+          ),
+        ),
+        Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.center,
+              end: Alignment.bottomCenter,
+              colors: [
+                Colors.transparent,
+                Colors.black.withOpacity(0.6),
+              ],
+            ),
+          ),
+        ),
+      ],
+    ))
         .toList();
     super.initState();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        CarouselSlider(
-          items: imageSliders,
-          options: CarouselOptions(
-              autoPlay: true,
-              viewportFraction: 0.9,
-              enlargeCenterPage: true,
-              aspectRatio: 12 / 4,
-              onPageChanged: (index, reason) {
-                setState(() {
-                  _current = index;
-                });
-              }),
-        ),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
+    return Stack(alignment: Alignment.topCenter, children: [
+      CarouselSlider(
+        items: imageSliders,
+        options: CarouselOptions(
+            autoPlay: true,
+            viewportFraction: 1,
+            animateToClosest: true,
+            aspectRatio: 12 / 6,
+            onPageChanged: (index, reason) {
+              setState(() {
+                _current = index;
+              });
+            }),
+      ),
+      Positioned(
+        top: 182,
+        child: Row(
           children: imageSliders.map((url) {
             int index = imageSliders.indexOf(url);
             return Container(
-              width: 8.0,
-              height: 8.0,
-              margin: EdgeInsets.symmetric(vertical: 10.0, horizontal: 2.0),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: _current == index
-                    ? Colors.black
-                    : Color.fromRGBO(196, 196, 196, 1),
-              ),
+              height: 4,
+              width: _current == index ? 48 : 18,
+              margin: EdgeInsets.symmetric(horizontal: 2.0),
+              color: _current == index ? Colors.white : Colors.white.withOpacity(0.6),
             );
           }).toList(),
         ),
-      ],
-    );;
+      ),
+    ]);
   }
 }

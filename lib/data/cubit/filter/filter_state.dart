@@ -20,7 +20,7 @@ class FilterCategory extends FilterState {
   @override
   bool operator == (Object o) {
     if (identical(this, o)) return true;
-    return o is FilterCategory && o.categorySelected == categorySelected;
+    return o is FilterCategory && o.text == text&& o.categorySelected ==categorySelected&&o.typesSelected == typesSelected &&o.municipalitesSelected==municipalitesSelected;
   }
 
 }

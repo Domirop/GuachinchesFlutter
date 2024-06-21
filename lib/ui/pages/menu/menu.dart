@@ -25,63 +25,72 @@ class _ProfileState extends State<Menu> {
   void initState() {
     if (widget.selectedItem != null) selectedItem = widget.selectedItem;
     final userCubit = context.read<UserCubit>();
-
     super.initState();
+
   }
 
   @override
   Widget build(BuildContext context) {
     double width = MediaQuery.of(context).size.width;
+    Color bgColor = Color.fromRGBO(25, 27, 32, 1);
 
     return screens.length == 0
         ? SpinKitPulse(
             color: Colors.black,
           )
-        : Scaffold(
-            body: IndexedStack(
-              children: screens,
-              index: selectedItem,
-            ),
-            bottomNavigationBar: Theme(
-              data: Theme.of(context).copyWith(
-                canvasColor: Colors.white,
-                textTheme: Theme.of(context).textTheme.copyWith(
-                      caption: TextStyle(color: Colors.white),
-                    ),
-              ),
-              child: BottomNavigationBar(
-                  selectedItemColor: Colors.blue,
-                  type: BottomNavigationBarType.fixed,
-                  items: [
-                    BottomNavigationBarItem(
-                      icon: Icon(
-                        Icons.home,
-                      ),
-                      label: "Home",
-                    ),
-                    BottomNavigationBarItem(
-                      icon: Icon(
-                        Icons.search,
-                      ),
-                      label: "Buscar",
-                    ),
-                    BottomNavigationBarItem(
-                      icon: Icon(
-                        Icons.star_half,
-                      ),
-                      label: "Videos",
-                    ),
-                    BottomNavigationBarItem(
-                      icon: Icon(
-                        Icons.account_circle_outlined,
-                      ),
-                      label: "Mi perfil",
-                    ),
-                  ],
-                  currentIndex: selectedItem,
-                  onTap: showScreen),
-            ),
-          );
+        : BlocBuilder<MenuCubit, MenuState>(builder: (context, menuState) {
+            return Scaffold(
+                body: IndexedStack(
+                  children: screens,
+                  index: menuState.selectedIndex,
+                ),
+                bottomNavigationBar: Theme(
+                  data: Theme.of(context).copyWith(
+                    canvasColor: bgColor,
+
+                    textTheme: Theme.of(context).textTheme.copyWith(
+
+                          caption: TextStyle(color: Colors.white),
+                        ),
+                  ),
+                  child: BottomNavigationBar(
+                    selectedItemColor: Colors.white,  // Color del ítem seleccionado
+                      unselectedItemColor: Colors.white70,  // Color del ítem no seleccionado
+                      backgroundColor: bgColor,
+                      type: BottomNavigationBarType.fixed,
+                      items: [
+                        BottomNavigationBarItem(
+                          icon: Icon(
+                            Icons.home,
+                            color: Colors.white,
+                          ),
+                          label: "Home",
+                        ),
+                        BottomNavigationBarItem(
+                          icon: Icon(
+                            Icons.search,
+                          ),
+                          label: "Buscar",
+                        ),
+                        BottomNavigationBarItem(
+                          icon: Icon(
+                            Icons.star_half,
+                          ),
+                          label: "Videos",
+                        ),
+                        BottomNavigationBarItem(
+                          icon: Icon(
+                            Icons.account_circle_outlined,
+                          ),
+                          label: "Mi perfil",
+                        ),
+                      ],
+                      currentIndex: menuState.selectedIndex,
+                      onTap: showScreen),
+                ),
+              );
+          }
+        );
   }
 
   showScreen(int index) {

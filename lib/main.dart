@@ -8,7 +8,9 @@ import 'package:guachinches/data/RemoteRepository.dart';
 import 'package:guachinches/data/cubit/banners/banners_cubit.dart';
 import 'package:guachinches/data/cubit/cupones/cupones_cubit.dart';
 import 'package:guachinches/data/cubit/filter/filter_cubit.dart';
+import 'package:guachinches/data/cubit/filter/filter_map_cubit.dart';
 import 'package:guachinches/data/cubit/menu/menu_cubit.dart';
+import 'package:guachinches/data/cubit/restaurants/map/restaurant_map_cubit.dart';
 import 'package:guachinches/data/cubit/restaurants/top/top_restaurants_cubit.dart';
 import 'package:guachinches/data/cubit/user/user_cubit.dart';
 import 'package:guachinches/data/local/db_provider.dart';
@@ -53,7 +55,13 @@ class _MyAppState extends State<MyApp> {
           create: ((context) => RestaurantCubit(remoteRepository)),
         ),
         BlocProvider(
+          create: ((context) => RestaurantMapCubit(remoteRepository)),
+        ),
+        BlocProvider(
           create: ((context) => FilterCubit()),
+        ),
+        BlocProvider(
+          create: ((context) => FilterCubitMap()),
         ),
         BlocProvider(
           create: ((context) => CuponesCubit(remoteRepository)),
@@ -75,6 +83,22 @@ class _MyAppState extends State<MyApp> {
         title: 'Guachinches',
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
+          fontFamily: 'Times New Roman',
+          textTheme: TextTheme(
+            displayLarge: TextStyle(color: Colors.white),
+            displayMedium: TextStyle(color: Colors.white,fontFamily: 'SF Pro Display',fontSize: 18),
+            displaySmall: TextStyle(color: Colors.white,fontFamily: 'SF Pro Display'),
+            bodyLarge: TextStyle(color: Colors.white),
+            bodyMedium: TextStyle(color: Colors.white,fontSize: 20,fontWeight: FontWeight.bold),
+            bodySmall: TextStyle(color: Colors.white,fontFamily: 'SF Pro Display',fontSize:12),
+          ),
+          appBarTheme: AppBarTheme(
+            color: Color.fromRGBO(25, 27, 32, 1),
+            elevation: 0,
+            iconTheme: IconThemeData(color: Colors.white),
+            actionsIconTheme: IconThemeData(color: Colors.white),
+          ),
+          scaffoldBackgroundColor:  Color.fromRGBO(25, 27, 32, 1),
           buttonTheme: ButtonThemeData(minWidth: 5),
           dividerColor: Colors.black,
           primarySwatch: Colors.blue,
@@ -86,6 +110,4 @@ class _MyAppState extends State<MyApp> {
       ),
     );
   }
-
-
 }

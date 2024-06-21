@@ -52,12 +52,9 @@ class _ProfileState extends State<Profile> implements ProfileView {
       "requisitos": "6"
     }
   ];
-
   List<Restaurant> favs = [];
   List<Cupones> cupones = [];
-
   List<RestaurantSQLLite> restaurantSql = [];
-
   late RemoteRepository remoteRepository;
   late ProfilePresenter _presenter;
 

@@ -19,7 +19,7 @@ class RestaurantListCard extends StatelessWidget {
           onTap: () => GlobalMethods().pushPage(
               context, Details(restaurant.id)),
           child: Container(
-            height: 120,
+            height: 96,
             margin: EdgeInsets.fromLTRB(0,8,0,0),
             width: double.infinity,
             child: Row(
@@ -29,8 +29,8 @@ class RestaurantListCard extends StatelessWidget {
                 Padding(
                   padding: const EdgeInsets.only(left: 0),
                   child: Container(
-                    width: 110,
-                    height: 110,
+                    width: 96,
+                    height: 96,
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.all(Radius.circular(10)),
                       image: DecorationImage(
@@ -45,71 +45,73 @@ class RestaurantListCard extends StatelessWidget {
                   ),
                 ),
                 SizedBox(width: 12), // give it width
-                Container(
-                  width: 140,
-                  height: 110,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      Container(child: Text( restaurant.nombre,)),
-                      restaurant.avgRating ==null?
-                          Text('Sin valoraciones')
-                          :RatingBar.builder(
-                        ignoreGestures: true,
-                        initialRating: restaurant.avgRating,
-                        minRating: 1,
-                        direction: Axis.horizontal,
-                        allowHalfRating: true,
-                        itemCount: 5,
-                        itemSize: 12,
-                        glowColor: Colors.white,
-                        onRatingUpdate: (rating) => {},
-                        itemBuilder: (context, _) => Icon(
-                          Icons.star,
-                          color: Color.fromRGBO(0, 189, 195, 1),
-                        ),
-                      ),
-                      SizedBox(height: 6), // give it width
-                      Text(restaurant.open
-                          ? "Abierto"
-                          : "Cerrado",style: TextStyle(
-                          fontSize: 12,
-                          color:
-                          restaurant.open
-                              ? Color.fromRGBO(
-                              149, 220, 0, 1)
-                              : Color.fromRGBO(
-                              226, 120, 120, 1)),
-                      )      ,
-                      SizedBox(height: 6), // give it width
-                      Text(restaurant.municipio==null?'':restaurant.municipio
-                        ,style: TextStyle(
-                          fontSize: 12,
-                        ),
-                      )
-                    ],
-                  ),
-                ),
                 Expanded(
                   child: Container(
-                    height: double.infinity,
-                    margin: EdgeInsets.fromLTRB(0,10,10,0),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
+                    width: 140,
+                    height: 110,
+                    child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
-                        Container(
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.all(Radius.circular(6)),
-                            color: Color.fromRGBO(28, 195, 137, 1),
-
+                        Container(child: Text( restaurant.nombre, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, fontFamily: 'SF Pro Display'),)),
+                        restaurant.avgRating ==null?
+                            Text('Sin valoraciones')
+                            :RatingBar.builder(
+                          ignoreGestures: true,
+                          initialRating: restaurant.avgRating,
+                          minRating: 1,
+                          direction: Axis.horizontal,
+                          allowHalfRating: true,
+                          itemCount: 5,
+                          itemSize: 12,
+                          glowColor: Colors.white,
+                          unratedColor: Colors.white38,
+                          onRatingUpdate: (rating) => {},
+                          itemBuilder: (context, _) => Icon(
+                            Icons.star,
+                            color: GlobalMethods.blueColor,
                           ),
-                          padding: EdgeInsets.symmetric(horizontal: 10,vertical: 6),
-                          child: Text(restaurant.avgRating==null?'n/d' :restaurant.avgRating.toStringAsFixed(2),style: TextStyle(color: Colors.white,fontWeight: FontWeight.w600),),
                         ),
+                        SizedBox(height: 6), // give it width
+                        Text(restaurant.open
+                            ? "Abierto"
+                            : "Cerrado",style: TextStyle(
+                            fontSize: 12,
+                            color:
+                            restaurant.open
+                                ? Color.fromRGBO(
+                                149, 220, 0, 1)
+                                : Color.fromRGBO(
+                                226, 120, 120, 1)),
+                        )      ,
+                        SizedBox(height: 6), // give it width
+                        Text(restaurant.municipio==null?'':restaurant.municipio
+                          ,style: TextStyle(
+                            fontSize: 12,
+                            fontFamily: 'SF Pro Display',
+                            fontWeight: FontWeight.normal,
+                          ),
+                        )
                       ],
                     ),
+                  ),
+                ),
+                Container(
+                  height: double.infinity,
+                  margin: EdgeInsets.fromLTRB(0,10,10,0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.all(Radius.circular(6)),
+                          color: Color.fromRGBO(28, 195, 137, 1),
+                        ),
+                        padding: EdgeInsets.symmetric(horizontal: 12,vertical: 6),
+                        child: Text(restaurant.avg==null?'n/d' :restaurant.avgRating.toStringAsFixed(2),style: TextStyle(color: Colors.white,fontWeight: FontWeight.w600, fontFamily: 'SF Pro Display', fontSize: 16),),
+                      ),
+                    ],
                   ),
                 )
               ],

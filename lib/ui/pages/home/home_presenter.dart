@@ -13,8 +13,11 @@ import 'package:guachinches/data/model/Municipality.dart';
 import 'package:guachinches/data/model/TopRestaurants.dart';
 import 'package:guachinches/data/model/Types.dart';
 import 'package:guachinches/data/model/Video.dart';
+import 'package:guachinches/data/model/blog_post.dart';
+import 'package:guachinches/data/model/restaurant.dart';
 import 'package:guachinches/ui/pages/login/login.dart';
 import 'package:guachinches/ui/pages/map/map_search.dart';
+import 'package:guachinches/ui/pages/profile/profile_v2.dart';
 import 'package:guachinches/ui/pages/search_page/search_page.dart';
 import '../../../data/model/Category.dart';
 import '../profile/profile.dart';
@@ -43,8 +46,16 @@ class HomePresenter{
 
     await _restaurantCubit.getAllRestaurants(0);
   }
-
-
+  getAllBlogPosts() async {
+    List<BlogPost> blogPosts = await  repository.getAllBlogPosts();
+    _view.setBlogPosts(blogPosts);
+  }
+  getRestaurantsFilterByCategory(String categoryId) async {
+    print('getRestaurantsFilterByCategory');
+    List<Restaurant> filteredRestaurants1 = await repository.getFilterRestaurants(categoryId, '', '', '', "76ac0bec-4bc1-41a5-bc60-e528e0c12f4d");
+    List<Restaurant> filteredRestaurants2 = await repository.getFilterRestaurants('de73bfc5-641f-4796-960b-ae75583b8d24', '', '', '', "76ac0bec-4bc1-41a5-bc60-e528e0c12f4d");
+    _view.setRestaurantsFiltered(filteredRestaurants1,filteredRestaurants2);
+  }
 
   getAllVideos() async {
     List<Video> videos = await repository.getAllVideos();
@@ -78,12 +89,12 @@ class HomePresenter{
         if (_userCubit.state is UserInitial) {
           var response = await _userCubit.getUserInfo(userId);
           if (response == true) {
-            screens = [Home(), SearchPage(userId: userId), VideoScreen(index: 0), Profile()];
+            screens = [Home(), SearchPage(userId: userId), VideoScreen(index: 0), Profilev2()];
           } else {
             await storage.delete(key: "userId");
           }
         }else if(_userCubit.state is UserLoaded){
-          screens = [Home(), SearchPage(userId: userId), VideoScreen(index:0), Profile()];
+          screens = [Home(), SearchPage(userId: userId), VideoScreen(index:0),  Profilev2()];
         }
       } else {
         screens = [
@@ -123,6 +134,7 @@ abstract class HomeView{
   setTopRestaurants(List<TopRestaurants> restaurants);
   changeCharginInitial();
   setUserId(String id);
+  setRestaurantsFiltered(List<Restaurant> restaurantsFiltered1,List<Restaurant> restaurantsFiltered2);
   setScreens(List<Widget> screens);
   changeScreen(widget);
   setAllVideos(List<Video> videos);
@@ -130,4 +142,5 @@ abstract class HomeView{
   setTypes(List<Types> types);
   setMunicipalities(List<Municipality> municipalities);
   setCupones(List<CuponesAgrupados>cuponesAgrupadosParam);
+  setBlogPosts(List<BlogPost> blogPosts) {}
 }

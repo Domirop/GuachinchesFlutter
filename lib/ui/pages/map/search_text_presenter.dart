@@ -1,13 +1,11 @@
 import 'package:guachinches/data/RemoteRepository.dart';
-import 'package:guachinches/data/cubit/restaurants/basic/restaurant_cubit.dart';
-import 'package:guachinches/data/model/Category.dart';
-import 'package:guachinches/data/model/Types.dart';
+import 'package:guachinches/data/cubit/restaurants/map/restaurant_map_cubit.dart';
 import 'package:guachinches/data/model/restaurant.dart';
 
 class SearchTextPresenter{
   final SearchTextView _view;
   final RemoteRepository repository;
-  RestaurantCubit _restaurantCubit;
+  RestaurantMapCubit _restaurantCubit;
 
   SearchTextPresenter(this._view, this.repository, this._restaurantCubit);
 
