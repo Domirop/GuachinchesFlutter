@@ -30,7 +30,7 @@ import 'package:guachinches/ui/components/cards/topRestaurantCard.dart';
 import 'package:guachinches/ui/components/cards/restaurantOpenCard.dart';
 import 'package:guachinches/ui/components/filters/filterBar.dart';
 import 'package:guachinches/ui/components/heroSliderComponent.dart';
-import 'package:guachinches/ui/pages/BlogPostDetail/blogPostDetail.dart';
+import 'package:guachinches/ui/pages/changeIsland/change_island.dart';
 import 'package:guachinches/ui/pages/home/home_presenter.dart';
 import 'package:guachinches/ui/pages/restaurantList/restaurant_list.dart';
 import 'package:guachinches/ui/pages/restaurantsShowMore/restaurantsShowMore.dart';
@@ -48,6 +48,7 @@ class Home extends StatefulWidget {
 class _HomeState extends State<Home> implements HomeView {
   late AppBarBasic appBarBasic;
   List<String> selectedCategories = [];
+  late String islandId = '';
   List<String> selectedMunicipalities = [];
   List<Restaurant> restaurantsFilteredGuachinches = [];
   List<Restaurant> restaurantsFilteredGuachinchesByViews = [];
@@ -84,6 +85,7 @@ class _HomeState extends State<Home> implements HomeView {
 
   List<BlogPost> blogPosts = [];
 
+
   @override
   void initState() {
     super.initState();
@@ -98,13 +100,12 @@ class _HomeState extends State<Home> implements HomeView {
         cuponesCubit, userCubit, remoteRepository, restaurantsCubit);
     presenter.getUserInfo();
     presenter.getCupones();
-
+    presenter.getIsland();
     presenter.getAllVideos();
-    presenter
-        .getRestaurantsFilterByCategory('11a5f3a4-3ce3-48bb-9749-03eac640e23e');
+
+
     presenter.getAllCategories();
     presenter.getAllTypes();
-    presenter.getAllMunicipalities('76ac0bec-4bc1-41a5-bc60-e528e0c12f4d');
     presenter.getAllBlogPosts();
 
     _scrollController.addListener(_onScroll);
@@ -113,7 +114,6 @@ class _HomeState extends State<Home> implements HomeView {
     }
     if (restaurantsCubit.state is RestaurantInitial ||
         restaurantsCubit.state is RestaurantLoaded) {
-      presenter.getAllRestaurants();
       createOpenListWidget();
     }
     if (userCubit.state is UserInitial) {
@@ -161,20 +161,30 @@ class _HomeState extends State<Home> implements HomeView {
               centerTitle: false,
               titlePadding: EdgeInsets.only(left: 24, bottom: 16),
               // Establecer todos los lados a 0
-              title: Row(
-                children: [
-                  Icon(
-                    Icons.location_on,
-                    color: Colors.white,
-                    size: 20,
-                  ),
-                  Text(
-                    'Tenerife',
-                    style: Theme.of(context).textTheme.displayMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                  ),
-                ],
+              title: GestureDetector(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => ChangeIsland(),
+                    ),
+                  );
+                },
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.location_on,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                    Text(
+                      GlobalMethods().getIslandName(islandId),
+                      style: Theme.of(context).textTheme.displayMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -223,14 +233,19 @@ class _HomeState extends State<Home> implements HomeView {
                                 selectedCategories, [], typesSelected, '');
                             this.selectedCategories = selectedCategoriesAux;
                           }),
-                          restaurantsCubit.getFilterRestaurants(
-                            categories: selectedCategories,
-                            municipalities: selectedMunicipalities,
-                            text: '',
-                            types: [],
-                            islandId: '76ac0bec-4bc1-41a5-bc60-e528e0c12f4d',
-                            isOpen: false,
-                          ),
+                          if (selectedCategories.isNotEmpty ||
+                              selectedMunicipalities.isNotEmpty ||
+                              typesSelected.isNotEmpty)
+                            {
+                              restaurantsCubit.getFilterRestaurants(
+                                categories: selectedCategories,
+                                municipalities: selectedMunicipalities,
+                                text: '',
+                                types: typesSelected,
+                                islandId: islandId,
+                                isOpen: false,
+                              ),
+                            },
                         },
                         child: Padding(
                           padding: const EdgeInsets.only(right: 8.0),
@@ -315,6 +330,7 @@ class _HomeState extends State<Home> implements HomeView {
                           filterMap: false,
                           municipalities: municipalities,
                           types: types,
+                          islandId: islandId,
                         ),
                       ),
                       isFiltering
@@ -372,6 +388,7 @@ class _HomeState extends State<Home> implements HomeView {
                 children: [
                   BlocBuilder<FilterCubit, FilterState>(
                       builder: (context, state) {
+                        print('estado '+state.toString()  );
                     if (state is FilterCategory) {
                       return Container(
                         color: Color.fromRGBO(25, 27, 32, 1),
@@ -381,8 +398,7 @@ class _HomeState extends State<Home> implements HomeView {
                             Padding(
                               padding:
                                   const EdgeInsets.symmetric(horizontal: 14.0),
-                              child:
-                                  BlocBuilder<RestaurantCubit, RestaurantState>(
+                              child: BlocBuilder<RestaurantCubit, RestaurantState>(
                                       builder: (context, state) {
                                 final ScrollController _scrollController =
                                     new ScrollController();
@@ -412,7 +428,6 @@ class _HomeState extends State<Home> implements HomeView {
                                         state.restaurantResponse.restaurants
                                             .length
                                             .toDouble(),
-                                    // Assuming 264 is the height of each item
                                     child: Column(
                                       children: state
                                           .restaurantResponse.restaurants
@@ -1015,6 +1030,17 @@ class _HomeState extends State<Home> implements HomeView {
     setState(() {
       this.blogPosts = blogPosts;
     });
+  }
+
+  @override
+  setIsland(String islandId) {
+    setState(() {
+      this.islandId = islandId;
+    });
+    presenter
+        .getRestaurantsFilterByCategory('11a5f3a4-3ce3-48bb-9749-03eac640e23e',islandId);
+    presenter.getAllMunicipalities(islandId);
+    presenter.getAllRestaurants(islandId);
   }
 }
 

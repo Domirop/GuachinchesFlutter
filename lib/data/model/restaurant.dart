@@ -20,7 +20,7 @@ class Restaurant {
   late String updatedAt;
   late List<Fotos> fotos = [];
   late String negocioMunicipioId;
-  late String municipio;
+  late String municipio = '';
   late List<Menu> menus = [];
   late List<CategoryRestaurant> categoriaRestaurantes = [];
   late List<Review> valoraciones = [];

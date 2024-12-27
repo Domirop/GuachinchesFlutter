@@ -39,6 +39,7 @@ class _SearchPageState extends State<SearchPage>
     with SingleTickerProviderStateMixin
     implements SearchPageView {
   late RemoteRepository remoteRepository;
+  String islandId = '';
   late ScrollController controller2;
   late ScrollController controller1;
   late SearchPagePresenter presenter;
@@ -84,7 +85,7 @@ class _SearchPageState extends State<SearchPage>
     presenter = SearchPagePresenter(
         this, restaurantCubit, cuponesCubit, remoteRepository);
     getIsland();
-    presenter.getAllMunicipalitiesCategoriesAndTypes('76ac0bec-4bc1-41a5-bc60-e528e0c12f4d');
+    presenter.getIsland();
     controller2 = new ScrollController();
     controller1 = new ScrollController();
     _tabController = TabController(length: 3, vsync: this);
@@ -819,6 +820,16 @@ class _SearchPageState extends State<SearchPage>
         this._tabController.index = 0;
       });
     }
+  }
+
+  @override
+  setIsland(String islandId) {
+    if (mounted) {
+      setState(() {
+        this.islandId = islandId;
+      });
+    }
+    presenter.getAllMunicipalitiesCategoriesAndTypes(islandId);
   }
 }
 

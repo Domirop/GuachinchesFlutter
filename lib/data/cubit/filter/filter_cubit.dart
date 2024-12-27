@@ -7,6 +7,7 @@ class FilterCubit extends Cubit<FilterState> {
 
   Future<void> handleFilterChange(List<String> filterCategoryIds,List<String> municipalities, List<String> selectedTypes,String text) async {
     if(filterCategoryIds.isEmpty&&municipalities.isEmpty&& selectedTypes.isEmpty && text.isEmpty){
+      print('Todo vacio');
       emit(FilterInitial());
     }else {
       emit(FilterCategory(filterCategoryIds, municipalities, selectedTypes,text));

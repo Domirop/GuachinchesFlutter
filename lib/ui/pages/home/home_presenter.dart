@@ -20,7 +20,6 @@ import 'package:guachinches/ui/pages/map/map_search.dart';
 import 'package:guachinches/ui/pages/profile/profile_v2.dart';
 import 'package:guachinches/ui/pages/search_page/search_page.dart';
 import '../../../data/model/Category.dart';
-import '../profile/profile.dart';
 import '../video/video.dart';
 import 'home.dart';
 
@@ -42,18 +41,21 @@ class HomePresenter{
     await _topRestaurantCubit.getTopRestaurants();
     _view.changeCharginInitial();
   }
-  getAllRestaurants() async{
+  getIsland() async {
+    String islandId = await storage.read(key: 'islandId') ?? '76ac0bec-4bc1-41a5-bc60-e528e0c12f4d';
+    _view.setIsland(islandId);
+  }
+  getAllRestaurants(String islandId) async {
 
-    await _restaurantCubit.getAllRestaurants(0);
+    await _restaurantCubit.getAllRestaurants(0,islandId);
   }
   getAllBlogPosts() async {
     List<BlogPost> blogPosts = await  repository.getAllBlogPosts();
     _view.setBlogPosts(blogPosts);
   }
-  getRestaurantsFilterByCategory(String categoryId) async {
-    print('getRestaurantsFilterByCategory');
-    List<Restaurant> filteredRestaurants1 = await repository.getFilterRestaurants(categoryId, '', '', '', "76ac0bec-4bc1-41a5-bc60-e528e0c12f4d");
-    List<Restaurant> filteredRestaurants2 = await repository.getFilterRestaurants('de73bfc5-641f-4796-960b-ae75583b8d24', '', '', '', "76ac0bec-4bc1-41a5-bc60-e528e0c12f4d");
+  getRestaurantsFilterByCategory(String categoryId, String islandId) async {
+    List<Restaurant> filteredRestaurants1 = await repository.getFilterRestaurants(categoryId, '', '', '', islandId);
+    List<Restaurant> filteredRestaurants2 = await repository.getFilterRestaurants('de73bfc5-641f-4796-960b-ae75583b8d24', '', '', '', islandId);
     _view.setRestaurantsFiltered(filteredRestaurants1,filteredRestaurants2);
   }
 
@@ -143,4 +145,5 @@ abstract class HomeView{
   setMunicipalities(List<Municipality> municipalities);
   setCupones(List<CuponesAgrupados>cuponesAgrupadosParam);
   setBlogPosts(List<BlogPost> blogPosts) {}
+  setIsland(String islandId) {}
 }

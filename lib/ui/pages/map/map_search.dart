@@ -51,7 +51,7 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
   bool isFirstMap = true;
   List<Municipality> municipalities = [];
   List<Types> types = [];
-
+  String islandId = "";
   // Variable para mantener el estado de la tarjeta
   String _cardTitle = "Tarjeta por defecto";
   late MapSearchPresenter presenter;
@@ -65,7 +65,7 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
     restaurantsCubit = context.read<RestaurantMapCubit>();
     presenter = MapSearchPresenter(this, remoteRepository, restaurantsCubit);
     super.initState();
-    presenter.getAllRestaurants();
+    presenter.getIsland();
     presenter.getAllTypes();
     presenter.getAllMunicipalities('76ac0bec-4bc1-41a5-bc60-e528e0c12f4d');
     presenter.getAllCategories();
@@ -316,7 +316,7 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
                                     );
                                   },
                                   child: Padding(
-                                    padding: const EdgeInsets.only(top: 8.0),
+                                    padding: const EdgeInsets.only(top: 4.0),
                                     child: Text(
                                       'Mostrar la lista de Restaurantes',
                                       style: TextStyle(
@@ -477,5 +477,13 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
         9.5, // Ajusta el nivel de zoom según sea necesario
       ),
     );
+  }
+
+  @override
+  setIsland(String islandId) {
+    setState(() {
+      this.islandId = islandId;
+    });
+    presenter.getAllRestaurants(islandId);
   }
 }

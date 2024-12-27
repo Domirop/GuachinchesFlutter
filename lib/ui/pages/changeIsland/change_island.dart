@@ -5,6 +5,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:guachinches/data/defaultData/allIsland.dart';
 import 'package:guachinches/data/model/Island.dart';
 import 'package:guachinches/globalMethods.dart';
+import 'package:guachinches/ui/pages/splash_screen/splash_screen.dart';
 
 class ChangeIsland extends StatefulWidget {
   const ChangeIsland() : super();
@@ -121,10 +122,10 @@ class _ChangeIslandState extends State<ChangeIsland> {
                     child: ElevatedButton(
                       onPressed: () async =>{
                         await storage.write(key: 'islandId', value:  AllIsland().getIslandById(islandSlider[_current].id).id),
-                        GlobalMethods().popPage(context)
+                        GlobalMethods().pushAndRemoveAll(context,SplashScreen())
                       },
                       style: ButtonStyle(
-                        backgroundColor: MaterialStateProperty.all(Color.fromRGBO(28, 195, 137, 1)),
+                        backgroundColor: MaterialStateProperty.all(GlobalMethods.blueColor),
                         shape: MaterialStateProperty.all(
                             RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(10.0))),
@@ -132,6 +133,8 @@ class _ChangeIslandState extends State<ChangeIsland> {
                       child: Padding(
                         padding: const EdgeInsets.symmetric(vertical: 10.0),
                         child: Text('Confirmar',style: TextStyle(
+                            fontSize: 18,
+                          fontFamily: 'Sf Pro Display',
                           color: Colors.white
                         ),),
                       ),),

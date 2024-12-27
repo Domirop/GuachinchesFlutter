@@ -1,5 +1,5 @@
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
-import 'package:guachinches/data/cubit/restaurants/basic/restaurant_cubit.dart';
 import 'package:guachinches/data/cubit/restaurants/map/restaurant_map_cubit.dart';
 import 'package:guachinches/data/model/Category.dart';
 import 'package:guachinches/data/model/Municipality.dart';
@@ -9,6 +9,7 @@ class MapSearchPresenter{
   final MapSearchView _view;
   final RemoteRepository repository;
   RestaurantMapCubit _restaurantCubit;
+  final storage = new FlutterSecureStorage();
 
   MapSearchPresenter(this._view, this.repository, this._restaurantCubit);
 
@@ -24,8 +25,14 @@ class MapSearchPresenter{
     List<Types> types = await repository.getAllTypes();
     _view.setTypes(types);
   }
-  getAllRestaurants() async{
-    _restaurantCubit.getAllRestaurants(0);
+  getAllRestaurants(String islandId) async{
+    _restaurantCubit.getAllRestaurants(0,islandId);
+  }
+
+  //get islandId from local storage
+  getIsland() async {
+    String islandId = await storage.read(key: 'islandId') ?? '76ac0bec-4bc1-41a5-bc60-e528e0c12f4d';
+    _view.setIsland(islandId);
   }
 }
 
@@ -33,5 +40,5 @@ abstract class MapSearchView{
   setMunicipalities(List<Municipality> municipalities);
   setCategories(List<ModelCategory> categories);
   setTypes(List<Types> types);
-
+  setIsland(String islandId);
 }

@@ -49,9 +49,9 @@ class _ProfileState extends State<Menu> {
                     canvasColor: bgColor,
 
                     textTheme: Theme.of(context).textTheme.copyWith(
+                      bodyMedium: TextStyle(color: Colors.white,fontFamily: 'SF Pro Display'),
 
-                          caption: TextStyle(color: Colors.white),
-                        ),
+                    ),
                   ),
                   child: BottomNavigationBar(
                     selectedItemColor: Colors.white,  // Color del ítem seleccionado
@@ -65,6 +65,7 @@ class _ProfileState extends State<Menu> {
                             color: Colors.white,
                           ),
                           label: "Home",
+
                         ),
                         BottomNavigationBarItem(
                           icon: Icon(

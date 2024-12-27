@@ -65,7 +65,10 @@ class _RestaurantMainCardState extends State<RestaurantMainCard> {
               ],
             ),
             SizedBox(height: 4),
-            Text(widget.restaurant.municipio, style: Theme.of(context).textTheme.bodySmall)
+            Text(
+                widget.restaurant.municipio,
+                style: Theme.of(context).textTheme.bodySmall
+            )
           ],
         ),
       ),

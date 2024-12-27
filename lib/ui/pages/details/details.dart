@@ -134,6 +134,7 @@ _showBottomSheet(context);
     }
 
     return Scaffold(
+      backgroundColor: bgColor,
       bottomNavigationBar: BottomAppBar(
         color: bgColor,
         child: Padding(
@@ -486,9 +487,8 @@ _showBottomSheet(context);
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Videos de nuestros verificadores:',
-                            style: TextStyle(
-                            ),
+                            'Videos de nuestros verificadores',
+                            style: TextStyle(fontSize: 18.0,fontWeight: FontWeight.bold,fontFamily: 'SF Pro Display',color: Colors.white),
                           ),
                           SizedBox(height: 12.0),
                       SingleChildScrollView(
@@ -535,7 +535,7 @@ _showBottomSheet(context);
 
                     Padding(
                       padding: const EdgeInsets.only(left: 12.0),
-                      child: Text('Categorias',style: TextStyle(fontSize: 18.0,fontWeight: FontWeight.bold,fontFamily: 'SF Pro Display'),),
+                      child: Text('Categorias',style: TextStyle(fontSize: 18.0,fontWeight: FontWeight.bold,fontFamily: 'SF Pro Display',color: Colors.white),),
                     ),
                     SizedBox(
                       height: 8.0,
@@ -571,6 +571,7 @@ _showBottomSheet(context);
                                     fontSize: 16.0,
                                     fontFamily: 'SF Pro Display',
                                     fontWeight: FontWeight.bold,
+                                    color: Colors.white
                                   ),), // Mostrar el nombre de la categoría
                                 ],
                               ),
@@ -1115,11 +1116,14 @@ Widget buildThumbnailColumn(
           child: Row(
             children: [
               Text(
-                title,
+                title.length > 16 ? "${title.substring(0, 16)}..." : title,
+                overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   fontSize: 16.0,
+                  color: Colors.white,
                 ),
               ),
+
               IconButton(
                   onPressed: (){
                     showDialog(context: context, builder: (context){

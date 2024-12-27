@@ -21,7 +21,7 @@ class FilterBar extends StatefulWidget {
   final bool withSearchBar;
   final bool filterMap;
   final Function? zoomOut;
-
+  final String islandId;
   FilterBar(
       {required this.showCategoryChip,
       required this.categories,
@@ -29,7 +29,7 @@ class FilterBar extends StatefulWidget {
       required this.types,
       required this.filterMap,
       this.withSearchBar = false,
-      this.zoomOut});
+      this.zoomOut, required this.islandId});
 
   @override
   State<FilterBar> createState() => _FilterBarState();
@@ -367,7 +367,7 @@ class _FilterBarState extends State<FilterBar> {
                                 text: text,
                                 types: typesSelected,
                                 islandId:
-                                '76ac0bec-4bc1-41a5-bc60-e528e0c12f4d',
+                                widget.islandId,
                               ),
                               Navigator.pop(context)
                             },
@@ -653,7 +653,7 @@ class _FilterBarState extends State<FilterBar> {
                                 text: text,
                                 types: typesSelected,
                                 islandId:
-                                '76ac0bec-4bc1-41a5-bc60-e528e0c12f4d',
+                                widget.islandId,
                               );
 
                               Navigator.pop(context);
@@ -846,7 +846,7 @@ class _FilterBarState extends State<FilterBar> {
                                 text: text,
                                 types: typesSelected,
                                 islandId:
-                                '76ac0bec-4bc1-41a5-bc60-e528e0c12f4d',
+                                widget.islandId,
                               );
                               Navigator.pop(context);
                             },
@@ -924,7 +924,7 @@ class _FilterBarState extends State<FilterBar> {
         text: text,
         types: typesSelected,
         isOpen: openFilter,
-        islandId: '76ac0bec-4bc1-41a5-bc60-e528e0c12f4d',
+        islandId: widget.islandId,
       );
     } else {
       restaurantsCubit.getFilterRestaurants(
@@ -933,7 +933,7 @@ class _FilterBarState extends State<FilterBar> {
         text: text,
         types: typesSelected,
         isOpen: openFilter,
-        islandId: '76ac0bec-4bc1-41a5-bc60-e528e0c12f4d',
+        islandId: widget.islandId,
       );
     }
     setState(() {

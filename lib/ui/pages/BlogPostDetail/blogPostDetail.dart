@@ -11,6 +11,12 @@ class BlogPostDetail extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      extendBodyBehindAppBar: true,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        iconTheme: IconThemeData(color: Colors.white),
+      ),
       body: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -53,7 +59,6 @@ class BlogPostDetail extends StatelessWidget {
                           ),
                         ),
                         SizedBox(height: 8),
-
                       ],
                     ),
                   ),
@@ -63,7 +68,6 @@ class BlogPostDetail extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24.0),
               child: Container(
-
                 height: 0.1,
                 width: double.infinity,
                 color: Color.fromRGBO(208, 221, 255, 1),
@@ -101,4 +105,3 @@ class BlogPostDetail extends StatelessWidget {
     );
   }
 }
-

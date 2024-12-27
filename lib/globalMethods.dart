@@ -20,6 +20,17 @@ class GlobalMethods {
     );
 
   }
+  //return island name from island id
+  String getIslandName(String id){
+    switch(id){
+      case '76ac0bec-4bc1-41a5-bc60-e528e0c12f4d':
+        return "Tenerife";
+      case '6f91d60f-0996-4dde-9088-167aab83a21a':
+        return "Gran Canaria";
+      default:
+        return "Tenerife";
+    }
+  }
   void pushPageWithFocus(BuildContext context, Widget page) {
     Navigator.push(
       context,
@@ -56,10 +67,20 @@ class GlobalMethods {
         transitionDuration: Duration(milliseconds: 180),
         transitionsBuilder: (_, a, __, c) => FadeTransition(opacity: a, child: c),
       ),
-
-
     )
     ;
+  }
+
+  void pushAndRemoveAll(BuildContext context, Widget widget) {
+    Navigator.pushAndRemoveUntil(
+      context,
+      PageRouteBuilder(
+        pageBuilder: (_, __, ___) => widget,
+        transitionDuration: Duration(milliseconds: 180),
+        transitionsBuilder: (_, a, __, c) => FadeTransition(opacity: a, child: c),
+      ),
+          (Route<dynamic> route) => false, // Esta condición asegura que todas las rutas anteriores sean eliminadas.
+    );
   }
 
   void popPage(BuildContext page) {

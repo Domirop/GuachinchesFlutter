@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:guachinches/data/model/Category.dart';
 import 'package:guachinches/data/model/Cupones.dart';
@@ -22,7 +21,6 @@ import 'package:guachinches/data/model/version.dart';
 import 'package:http/http.dart';
 import 'package:video_compress/src/media/media_info.dart';
 import 'package:http/http.dart' as http;
-
 import 'RemoteRepository.dart';
 
 class HttpRemoteRepository implements RemoteRepository {
@@ -72,6 +70,7 @@ class HttpRemoteRepository implements RemoteRepository {
       String nombre,
       String islandId) async {
     try {
+      print("esta es 1");
       List<Restaurant> restaurants = [];
       String url =
           dotenv.env['ENDPOINT_V2']! + "restaurant/findByFilter/filter?name=";

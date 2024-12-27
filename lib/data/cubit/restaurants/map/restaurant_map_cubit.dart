@@ -14,12 +14,12 @@ class RestaurantMapCubit extends Cubit<RestaurantMapState> {
     RestaurantResponse restaurantResponse = await _remoteRepository.getAllRestaurants(number,islandId);
     emit(RestaurantMapLoaded(restaurantResponse));
   }
-  Future<void> getAllRestaurants(int number) async {
-    RestaurantResponse allRestaurants = await _remoteRepository.getAllRestaurants(0);
+  Future<void> getAllRestaurants(int number,String islandId) async {
+    RestaurantResponse allRestaurants = await _remoteRepository.getAllRestaurants(0,islandId);
     bool condition = true;
     int index= 1;
     while(condition){
-      RestaurantResponse restaurantResponse = await _remoteRepository.getAllRestaurants(index*15);
+      RestaurantResponse restaurantResponse = await _remoteRepository.getAllRestaurants(index*15,islandId);
       if(restaurantResponse.restaurants.length>0){
         restaurantResponse.restaurants.forEach((element) {
           allRestaurants.restaurants.add(element);

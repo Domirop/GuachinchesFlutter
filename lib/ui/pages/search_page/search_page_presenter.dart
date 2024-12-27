@@ -23,6 +23,11 @@ class SearchPagePresenter {
     await _remoteRepository.getAllRestaurants(number,islandId);
   }
 
+  getIsland() async {
+    String islandId = await storage.read(key: 'islandId') ?? '76ac0bec-4bc1-41a5-bc60-e528e0c12f4d';
+    _view.setIsland(islandId);
+  }
+
   saveCupon(String userId, String cuponId) async {
     String aux = await _remoteRepository.saveCupon(cuponId, userId);
     await _cuponesCubit.getCuponesHistorias();
@@ -118,4 +123,5 @@ abstract class SearchPageView {
   generateWidgetTab3();
 
   estadoCupon(bool correctSave);
+  setIsland(String islandId);
 }

@@ -12,14 +12,19 @@ class RestaurantCubit extends Cubit<RestaurantState> {
 
   Future<void> getRestaurants(int number,String islandId) async {
     RestaurantResponse restaurantResponse = await _remoteRepository.getAllRestaurants(number,islandId);
+    print('EMITTING RESTAURANT 0');
+    print('EMITTING RESTAURANT 0');
+    print('EMITTING RESTAURANT 0');
+    print('EMITTING RESTAURANT 0');
+
     emit(RestaurantLoaded(restaurantResponse));
   }
-  Future<void> getAllRestaurants(int number) async {
-    RestaurantResponse allRestaurants = await _remoteRepository.getAllRestaurants(0);
+  Future<void> getAllRestaurants(int number,String islandId) async {
+    RestaurantResponse allRestaurants = await _remoteRepository.getAllRestaurants(0,islandId);
     bool condition = true;
     int index= 1;
     while(condition){
-      RestaurantResponse restaurantResponse = await _remoteRepository.getAllRestaurants(index*15);
+      RestaurantResponse restaurantResponse = await _remoteRepository.getAllRestaurants(index*15,islandId);
       if(restaurantResponse.restaurants.length>0){
         restaurantResponse.restaurants.forEach((element) {
           allRestaurants.restaurants.add(element);
@@ -30,7 +35,9 @@ class RestaurantCubit extends Cubit<RestaurantState> {
       }
       index++;
     }
-
+    print('EMITTING RESTAURANT 0');
+    print('EMITTING RESTAURANT 0');
+    print('EMITTING RESTAURANT 0');
     emit(AllRestaurantLoaded(allRestaurants));
 
   }
@@ -39,6 +46,9 @@ class RestaurantCubit extends Cubit<RestaurantState> {
      if (isOpen) {
        restaurants = restaurants.where((element) => element.open).toList();
      }
+     print('EMITTING RESTAURANT 2');
+     print('EMITTING RESTAURANT 2');
+     print('EMITTING RESTAURANT 2');
      emit(RestaurantFilter(restaurants));
   }
 }

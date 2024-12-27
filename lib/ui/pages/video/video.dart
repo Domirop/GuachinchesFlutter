@@ -169,55 +169,76 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
   @override
   void initState() {
     super.initState();
+    _initializeVideoController();
+  }
+
+  @override
+  void didUpdateWidget(VideoPlayerWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.videoUrl != widget.videoUrl) {
+      // Cambia el controlador si la URL del video es diferente
+      _disposeController();
+      _initializeVideoController();
+    }
+  }
+
+  void _initializeVideoController() {
     _videoPlayerController = VideoPlayerController.network(widget.videoUrl);
     _initializeVideoPlayerFuture = _videoPlayerController.initialize();
     _videoPlayerController.setLooping(true);
+
+    // Inicia la reproducción si corresponde al video actual
+    if (widget.index == widget.currentIndex) {
+      _videoPlayerController.play();
+    }
+  }
+
+  void _disposeController() {
+    _videoPlayerController.pause();
+    _videoPlayerController.dispose();
   }
 
   @override
   void dispose() {
-    _videoPlayerController.dispose();
+    _disposeController();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<MenuCubit, MenuState>(builder: (context, menuState) {
-      // print('Current index: '+widget.currentIndex.toString()+'index: ' + widget.index.toString() + 'menu index'+menuState.selectedIndex.toString());
       if (widget.index == widget.currentIndex && menuState.selectedIndex == 2) {
-
         _videoPlayerController.play();
-
-      }else{
+      } else {
         _videoPlayerController.pause();
       }
-        return FutureBuilder(
-          future: _initializeVideoPlayerFuture,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.done) {
-              return AspectRatio(
-                aspectRatio: _videoPlayerController.value.aspectRatio,
-                child: GestureDetector(
-                  onTap: () {
-                    if (widget.index == widget.currentIndex) {
-                      if (_videoPlayerController.value.isPlaying) {
-                        _videoPlayerController.pause();
-                      } else {
-                        _videoPlayerController.play();
-                      }
+
+      return FutureBuilder(
+        future: _initializeVideoPlayerFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.done) {
+            return AspectRatio(
+              aspectRatio: _videoPlayerController.value.aspectRatio,
+              child: GestureDetector(
+                onTap: () {
+                  if (widget.index == widget.currentIndex) {
+                    if (_videoPlayerController.value.isPlaying) {
+                      _videoPlayerController.pause();
+                    } else {
+                      _videoPlayerController.play();
                     }
-                  },
-                  child: VideoPlayer(_videoPlayerController),
-                ),
-              );
-            } else {
-              return Center(
-                child: CircularProgressIndicator(),
-              );
-            }
-          },
-        );
-      }
-    );
+                  }
+                },
+                child: VideoPlayer(_videoPlayerController),
+              ),
+            );
+          } else {
+            return Center(
+              child: CircularProgressIndicator(),
+            );
+          }
+        },
+      );
+    });
   }
 }
