@@ -43,7 +43,7 @@ class TopRestaurants {
     _imagen = imagen ?? "";
     _cerrado = cerrado ?? "";
     _open = open ?? false;
-    _municipio = municipio?.capitalize() ?? "";
+    _municipio = municipio??municipio?.capitalize() ?? "";
     _avg = avg ?? 0.0;
   }
 
@@ -56,24 +56,34 @@ class TopRestaurants {
     _imagen = json["max"] ?? "";
     _avg = double.parse(json["avg"] ?? "0.0");
     _municipio = (json['municipio'] as String?)?.capitalize() ?? "";
-
+print(_nombre);
     bool auxOpen = true;
     bool alwaysOpen = false;
     String auxValue = json["google_horarios"] ?? "";
-
+    print("HORARIO ${nombre.toUpperCase()} -> líneas detectadas: ${auxValue.split('\n').length}");
+    print("Texto bruto:\n$auxValue");
     if (auxValue.toLowerCase() == "cerrado" || auxValue.toLowerCase() == "sin horario") {
       auxOpen = false;
     } else {
-      String auxValue2 = auxValue
-          .split("\n")[DateTime.now().toUtc().weekday - 1]
-          .split(": ")[1];
-      if (auxValue2.toLowerCase() == "cerrado") auxOpen = false;
-      if (auxValue2.toLowerCase() == "abierto 24 horas") {
-        auxOpen = true;
-        auxOpen = alwaysOpen = true;
+      try {
+        String auxValue2 = auxValue
+            .split("\n")[DateTime
+            .now()
+            .toUtc()
+            .weekday - 1]
+            .split(": ")[1];
+        if (auxValue2.toLowerCase() == "cerrado") auxOpen = false;
+        if (auxValue2.toLowerCase() == "abierto 24 horas") {
+          auxOpen = true;
+          auxOpen = alwaysOpen = true;
+        }
+      }catch(e){
+        print("ERROR HORARIO");
+        print(nombre);
       }
     }
     if (auxOpen && !alwaysOpen) {
+      try{
       List<String> aux = auxValue
           .split("\n")[DateTime.now().toUtc().weekday - 1]
           .split(": ")[1]
@@ -109,6 +119,9 @@ class TopRestaurants {
           break;
         }
       }
+      }on Exception catch (e) {
+        print("ERROR restaurante: "+nombre +" "+ e.toString());
+    }
     }
     _open = auxOpen;
   }

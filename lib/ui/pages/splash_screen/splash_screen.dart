@@ -8,6 +8,8 @@ import 'package:guachinches/globalMethods.dart';
 import 'package:guachinches/ui/pages/menu/menu.dart';
 import 'package:guachinches/ui/pages/onBoarding/on_boarding.dart';
 import 'package:guachinches/ui/pages/splash_screen/splash_screen_presenter.dart';
+import 'package:guachinches/ui/pages/surveyDetails/surveyDetails.dart';
+import 'package:guachinches/ui/pages/survey_onboarding/surveyOnboarding.dart';
 import 'package:guachinches/ui/pages/update_app/update_app_screen.dart';
 import 'package:http/http.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -63,6 +65,6 @@ class _SplashScreenState extends State<SplashScreen>
   }
   @override
   goToOnBoarding() {
-    GlobalMethods().pushAndReplacement(context, OnBoarding());
+    GlobalMethods().pushAndReplacement(context, SurveyOnboarding());
   }
 }

@@ -13,7 +13,7 @@ class _UpdateAppScreenState extends State<UpdateAppScreen> {
       launch('https://apps.apple.com/es/app/guachinches-modernos/id1575882373');
     } else {
       launch(
-          'https://play.google.com/store/apps/details?id=com.jonay.guachinches&gl=ES');
+          'https://play.google.com/store/apps/details?id=com.jonay.guachinches&hl=es');
     }
   }
 

@@ -18,6 +18,7 @@ import 'package:guachinches/data/model/restaurant.dart';
 import 'package:guachinches/data/model/restaurant_response.dart';
 import 'package:guachinches/data/model/user_info.dart';
 import 'package:guachinches/data/model/version.dart';
+import 'package:guachinches/ui/components/SurveyResults/SurveyResults.dart';
 import 'package:http/http.dart';
 import 'package:video_compress/src/media/media_info.dart';
 import 'package:http/http.dart' as http;
@@ -42,6 +43,27 @@ class HttpRemoteRepository implements RemoteRepository {
 
     return user;
   }
+  @override
+  Future<List<SurveyResult>> getSurveyResults(int surveyId, String surveyName,List<Restaurant> allRestaurants) async {
+    try {
+      final String encodedName = Uri.encodeComponent(surveyName);
+      final String url = dotenv.env['ENDPOINT_V2']! +
+          "surveys/results/$surveyId/$encodedName";
+      print('url survey: $url');
+
+      final uri = Uri.parse(url);
+      final response = await _client.get(uri);
+      if (response.statusCode == 200) {
+        final List<dynamic> jsonData = json.decode(response.body);
+        return jsonData.map((e) => SurveyResult.fromJsonWithRestaurants(e,allRestaurants)).toList();
+      } else {
+        throw Exception('Error al obtener resultados de la encuesta: ${response.statusCode}');
+      }
+    } on Exception catch (e) {
+      throw e;
+    }
+  }
+
 
   @override
   Future<RestaurantResponse> getAllRestaurants(int number,
@@ -114,11 +136,36 @@ class HttpRemoteRepository implements RemoteRepository {
     }
   }
 
+  Future<List<String>> getVotedRestaurantsByUser(String surveySchemaId, String userId) async {
+    try {
+      String baseUrl = dotenv.env['ENDPOINT_V2']!;
+      String url = dotenv.env['ENDPOINT_V2']! + "surveys/results/$surveySchemaId/$userId/voted-restaurants";
+
+      print("URL: $url");
+
+      var uri = Uri.parse(url);
+      var response = await _client.get(uri);
+
+      print('Response: ${response.body}');
+
+      if (response.statusCode == 200) {
+        List<dynamic> data = json.decode(response.body);
+        return data.map<String>((item) => item.toString()).toList();
+      } else {
+        throw Exception('Error al obtener los restaurantes votados: ${response.statusCode}');
+      }
+    } catch (e) {
+      throw Exception('Error en la petición: $e');
+    }
+  }
+
   @override
   Future<List<ModelCategory>> getAllCategories() async {
-    var uri = Uri.parse(dotenv.env['ENDPOINT_V1']! + "restaurant/category");
+    var uri = Uri.parse(dotenv.env['ENDPOINT_V2']! + "categorias");
     var response = await _client.get(uri);
-    List<dynamic> data = json.decode(response.body)['result'];
+    List<dynamic> data = json.decode(response.body);
+    print("categorias");
+    print(data);
     List<ModelCategory> categories = [];
     for (var i = 0; i < data.length; i++) {
       ModelCategory category = ModelCategory.fromJson(data[i]);
@@ -265,12 +312,21 @@ class HttpRemoteRepository implements RemoteRepository {
       List<dynamic> data = json.decode(response.body);
       List<TopRestaurants> restaurants = [];
       for (var i = 0; i < data.length; i++) {
-        TopRestaurants restaurant = TopRestaurants.fromJson(data[i]);
-        restaurants.add(restaurant);
+        try {
+          TopRestaurants restaurant = TopRestaurants.fromJson(data[i]);
+          restaurants.add(restaurant);
+          print(restaurant);
+        } catch (e, stackTrace) {
+          print("ERROR restaurante: ${data[i].toString()}");
+          print("EXCEPCIÓN: $e");
+          print("STACK TRACE: $stackTrace");
+        }
+
       }
       print('test02');
       return restaurants;
     } on Exception catch (e) {
+      print("ERROR GRAVE "+e.toString());
       return [];
     }
   }
@@ -506,8 +562,9 @@ class HttpRemoteRepository implements RemoteRepository {
       }
       return fotos;
     });
-
   }
+
+
 
   @override
   Future<List<Video>> getVideosRestaurant(String restaurantId) {
@@ -584,5 +641,45 @@ class HttpRemoteRepository implements RemoteRepository {
       print('blogPosts: $blogPosts');
       return blogPosts;
     });
+  }
+
+  @override
+  Future<bool> checkUserSurveyStatus(String userId) {
+
+    String url = dotenv.env['ENDPOINT_V2']! + "surveys/results/1/" + userId+ "/completed";
+    print(url);
+    var uri = Uri.parse(url);
+    return _client.get(uri).then((response) {
+      var data = json.decode(response.body);
+      return data["completed"];
+    });
+  }
+
+
+  @override
+  Future<List<Restaurant>> getAllSurveyRestaurants(String surveyId) async {
+    try {
+      String url = dotenv.env['ENDPOINT_V2']! + "category-restaurants/1/"+surveyId;
+      var uri = Uri.parse(url);
+      final response = await http.get(uri);
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        final List<Restaurant> restaurants = [];
+
+        for (var item in data) {
+          if (item["restaurant"] != null) {
+            restaurants.add(Restaurant.fromJson(item["restaurant"]));
+          }
+        }
+
+        return restaurants;
+      } else {
+        throw Exception("Error al cargar los restaurantes: ${response.statusCode}");
+      }
+    } catch (e) {
+      print("Error en getAllSurveyRestaurants: $e");
+      throw Exception("Fallo al obtener restaurantes de encuesta");
+    }
   }
 }

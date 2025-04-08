@@ -4,11 +4,13 @@ import 'package:guachinches/data/HttpRemoteRepository.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
 import 'package:guachinches/globalMethods.dart';
 import 'package:guachinches/ui/pages/login/login.dart';
+import 'package:guachinches/ui/pages/map/map_search.dart';
 import 'package:guachinches/ui/pages/menu/menu.dart';
 import 'package:guachinches/ui/pages/home/home.dart';
 import 'package:guachinches/ui/pages/register/register_presenter.dart';
 import 'package:guachinches/ui/pages/search_page/search_page.dart';
 import 'package:guachinches/ui/pages/splash_screen/splash_screen.dart';
+import 'package:guachinches/ui/pages/video/video.dart';
 import 'package:http/http.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -62,8 +64,8 @@ class _RegisterState extends State<Register> implements RegisterView{
                       context,
                       Menu([
                         Home(),
-                        SearchPage(),
-                        Login("Para ver tus valoraciones debes iniciar sesión."),
+                        MapSearch(),
+                        VideoScreen(index: 0),
                         Login("Para ver tu perfíl debes iniciar sesión.")
                       ],selectedItem: 0,)),
                   child: Container(

@@ -15,6 +15,7 @@ import 'package:guachinches/data/model/restaurant.dart';
 import 'package:guachinches/data/model/restaurant_response.dart';
 import 'package:guachinches/data/model/user_info.dart';
 import 'package:guachinches/data/model/version.dart';
+import 'package:guachinches/ui/components/SurveyResults/SurveyResults.dart';
 import 'package:video_compress/video_compress.dart';
 
 abstract class RemoteRepository{
@@ -55,5 +56,9 @@ abstract class RemoteRepository{
   Future<bool> deleteVideo(String videoId);
   //BlogPost
   Future<List<BlogPost>> getAllBlogPosts();
-
-}
+  //Survey
+  Future<bool> checkUserSurveyStatus(String userId);
+  Future<List<SurveyResult>> getSurveyResults(int surveyId, String surveyName,List<Restaurant> allRestaurants);
+  Future<List<String>> getVotedRestaurantsByUser(String surveySchemaId, String userId);
+  Future<List<Restaurant>> getAllSurveyRestaurants(String surveyId);
+  }

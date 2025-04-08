@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:guachinches/Categorias/categorias.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
 import 'package:guachinches/data/cubit/banners/banners_cubit.dart';
 import 'package:guachinches/data/cubit/cupones/cupones_cubit.dart';
@@ -15,6 +14,7 @@ import 'package:guachinches/data/model/Types.dart';
 import 'package:guachinches/data/model/Video.dart';
 import 'package:guachinches/data/model/blog_post.dart';
 import 'package:guachinches/data/model/restaurant.dart';
+import 'package:guachinches/ui/components/SurveyResults/SurveyResults.dart';
 import 'package:guachinches/ui/pages/login/login.dart';
 import 'package:guachinches/ui/pages/map/map_search.dart';
 import 'package:guachinches/ui/pages/profile/profile_v2.dart';
@@ -32,19 +32,66 @@ class HomePresenter{
   BannersCubit _bannersCubit;
   RestaurantCubit _restaurantCubit;
 
-
   final storage = new FlutterSecureStorage();
 
   HomePresenter(this._view, this._topRestaurantCubit, this._bannersCubit, this._cuponesCubit, this._userCubit, this.repository,this._restaurantCubit);
 
   getTopRestaurants() async {
-    await _topRestaurantCubit.getTopRestaurants();
-    _view.changeCharginInitial();
+    List<TopRestaurants> topRestaurants = await repository.getTopRestaurants();
+    print(topRestaurants.length);
+    _view.setTopRestaurants(topRestaurants);
   }
+  getSurveyRestaurants() async {
+    List<Restaurant> restaurantsGuachinchesModernos =
+    await repository.getAllSurveyRestaurants("Mejor-Guachinche-Moderno");
+
+    List<Restaurant> restaurantsGuachinchesTradicionales =
+    await repository.getAllSurveyRestaurants("Mejor-Guachinche-Tradicional");
+
+    List<Restaurant> allSurveyRestaurants = restaurantsGuachinchesModernos + restaurantsGuachinchesTradicionales;
+
+    _view.setSurveyRestaurants(allSurveyRestaurants);
+  }
+
   getIsland() async {
     String islandId = await storage.read(key: 'islandId') ?? '76ac0bec-4bc1-41a5-bc60-e528e0c12f4d';
     _view.setIsland(islandId);
   }
+  Future<void> getSurveyResults(List<Restaurant> allRestaurants) async {
+    // 1. Obtener los resultados
+    List<SurveyResult> guachinchesModernos =
+    await repository.getSurveyResults(1, "Mejor-Guachinche-Moderno", allRestaurants);
+
+    List<SurveyResult> guachinchesTradicionales =
+    await repository.getSurveyResults(1, "Mejor-Guachinche-Tradicional", allRestaurants);
+
+    // 2. Obtener la lista de restaurantes votados por el usuario
+    List<String> usersRestaurantsVoted = await getRestaurantsVotedByUser();
+
+    // 3. Marcar los votados en ambas listas
+    for (final result in guachinchesModernos) {
+      if (usersRestaurantsVoted.contains(result.restaurantId)) {
+        result.markVotedRestaurants();
+      }
+    }
+
+    for (final result in guachinchesTradicionales) {
+      if (usersRestaurantsVoted.contains(result.restaurantId)) {
+        result.markVotedRestaurants();
+      }
+    }
+    // 4. Enviar los resultados a la vista
+    print("Survey "+ guachinchesModernos.toString());
+
+    _view.setSurveyResults(guachinchesModernos, guachinchesTradicionales);
+  }
+  Future<List<String>> getRestaurantsVotedByUser() async {
+    String? surveyUserId = await storage.read(key: "surveyUserId");
+
+    List<String> restaurantsVoted = await repository.getVotedRestaurantsByUser("1", surveyUserId!);
+    return restaurantsVoted;
+  }
+
   getAllRestaurants(String islandId) async {
 
     await _restaurantCubit.getAllRestaurants(0,islandId);
@@ -67,6 +114,7 @@ class HomePresenter{
     List<ModelCategory> categories = await repository.getAllCategories();
     _view.setCategories(categories);
   }
+
   getAllTypes() async {
     List<Types> types = await repository.getAllTypes();
     print('types '+types.length.toString());
@@ -81,11 +129,12 @@ class HomePresenter{
     List<Widget> screens = [
       Home(),
       MapSearch(),
-      Login("Para ver tus valoraciones debes iniciar sesión."),
+      VideoScreen(index: 0),
       Login("Para ver tu perfíl debes iniciar sesión.")
     ];
     try {
-      String? userId = await storage.read(key: "userId");
+      String? userId = await storage
+          .read(key: "userId");
 
       if (userId != null) {
         if (_userCubit.state is UserInitial) {
@@ -146,4 +195,6 @@ abstract class HomeView{
   setCupones(List<CuponesAgrupados>cuponesAgrupadosParam);
   setBlogPosts(List<BlogPost> blogPosts) {}
   setIsland(String islandId) {}
+  setSurveyResults(List<SurveyResult> guachinchesModernos,List<SurveyResult> guachinchesTradicionales);
+  setSurveyRestaurants(List<Restaurant> restaurants);
 }

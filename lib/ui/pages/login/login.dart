@@ -4,18 +4,22 @@ import 'package:guachinches/data/HttpRemoteRepository.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
 import 'package:guachinches/data/cubit/user/user_cubit.dart';
 import 'package:guachinches/globalMethods.dart';
+import 'package:guachinches/ui/pages/map/map_search.dart';
 import 'package:guachinches/ui/pages/menu/menu.dart';
 import 'package:guachinches/ui/pages/home/home.dart';
 import 'package:guachinches/ui/pages/login/login_presenter.dart';
 import 'package:guachinches/ui/pages/register/register.dart';
 import 'package:guachinches/ui/pages/search_page/search_page.dart';
+import 'package:guachinches/ui/pages/surveyDetails/surveyDetails.dart';
+import 'package:guachinches/ui/pages/video/video.dart';
 import 'package:http/http.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 class Login extends StatefulWidget {
   final String mainText;
 
-  Login(this.mainText);
+  bool isModal = false;
+  Login(this.mainText, {this.isModal = false});
 
   @override
   _LoginState createState() => _LoginState();
@@ -62,8 +66,8 @@ class _LoginState extends State<Login> implements LoginView {
                   context,
                   Menu([
                     Home(),
-                    SearchPage(),
-                    Login("Para ver tus valoraciones debes iniciar sesión."),
+                    MapSearch(),
+                    VideoScreen(index: 0),
                     Login("Para ver tu perfíl debes iniciar sesión.")
                   ],selectedItem:0)),
               child: Container(
@@ -238,5 +242,8 @@ class _LoginState extends State<Login> implements LoginView {
   @override
   loginSuccess(List<Widget> screens) {
     GlobalMethods().removePagesAndGoToNewScreen(context, Menu(screens,selectedItem:0));
+    if(widget.isModal) {
+      GlobalMethods().pushPage(context, SurveyDetails());
+    }
   }
 }

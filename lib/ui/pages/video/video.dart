@@ -15,7 +15,6 @@ import 'package:video_player/video_player.dart';
 import 'package:tiktoklikescroller/tiktoklikescroller.dart';
 
 class VideoScreen extends StatefulWidget {
-  //recibe index para saber que video mostrar
   final int index;
 
   const VideoScreen({Key? key, required this.index}) : super(key: key);
@@ -25,20 +24,56 @@ class VideoScreen extends StatefulWidget {
 }
 
 class _VideoScreenState extends State<VideoScreen>
+    with WidgetsBindingObserver
     implements VideoPresenterView {
   late VideoPresenter presenter;
-
   late RemoteRepository remoteRepository;
   List<String> videoUrls = [];
+  List<Video> videos = [];
+  Map<String, Restaurant> restaurantCache = {}; // Cache de restaurantes
+  int actualIndex = 0; // Cambiar de -1 a 0 para reproducir el primer video
 
-  List<Video> videos =[];
-  int actualIndex = 0;
   @override
   void initState() {
-    remoteRepository = HttpRemoteRepository(Client());
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    remoteRepository = HttpRemoteRepository(Client());
     presenter = VideoPresenter(this, remoteRepository);
     presenter.getAllVideos();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.inactive || state == AppLifecycleState.paused) {
+      _pauseAllVideos();
+    } else if (state == AppLifecycleState.resumed) {
+      if (context.read<MenuCubit>().state.selectedIndex == 2) {
+        setState(() {
+          actualIndex = actualIndex == -1 && videoUrls.isNotEmpty ? 0 : actualIndex;
+        });
+        _resumeVideoIfInView();
+      }
+    }
+
+  }
+
+  void _pauseAllVideos() {
+    setState(() {
+      actualIndex = -1; // Pausa todos los videos
+    });
+  }
+
+  void _resumeVideoIfInView() {
+    setState(() {
+      if (actualIndex != -1) {
+        actualIndex = actualIndex; // Mantiene el índice actual activo
+      }
+    });
   }
 
   @override
@@ -51,91 +86,86 @@ class _VideoScreenState extends State<VideoScreen>
 
     return MaterialApp(
       home: Scaffold(
-        body: videoUrls.length > 0
+        body: videoUrls.isNotEmpty
             ? BlocBuilder<MenuCubit, MenuState>(builder: (context, menuState) {
-                return TikTokStyleFullPageScroller(
-                  contentSize: videoUrls.length,
-                  swipePositionThreshold: 0.3,
-                  swipeVelocityThreshold: 1000,
-                  animationDuration: const Duration(milliseconds: 400),
-                  controller: controller,
-                  builder: (BuildContext context, int index) {
-                    print(index);
-                    return Stack(
-                      children: [
-                        Positioned(
-                          top: 0,
-                          left: 0,
-                          right: 0,
-                          bottom: 0,
-                          child: VideoPlayerWidget(
-                            videoUrl: videoUrls[index],
-                            index: index, currentIndex: actualIndex,
+          TopRestaurants? topRestaurant;
+          print("CURRENT INDEX");
+          print(actualIndex);
+          if (actualIndex >= 0 &&
+              actualIndex < videos.length &&
+              restaurantCache.containsKey(videos[actualIndex].restaurant.id)) {
+            final restaurant = restaurantCache[videos[actualIndex].restaurant.id]!;
+            topRestaurant = TopRestaurants(
+              nombre: restaurant.nombre,
+              open: restaurant.open,
+              id: restaurant.id,
+              horarios: restaurant.horarios,
+              direccion: restaurant.direccion,
+              counter: restaurant.avgRating.toString(),
+              imagen: restaurant.mainFoto,
+              cerrado: restaurant.open.toString(),
+              municipio: restaurant.municipio,
+              avg: restaurant.avgRating,
+            );
+          }
+
+
+          return TikTokStyleFullPageScroller(
+            contentSize: videoUrls.length,
+            swipePositionThreshold: 0.3,
+            swipeVelocityThreshold: 1000,
+            animationDuration: const Duration(milliseconds: 400),
+            controller: controller,
+            builder: (BuildContext context, int index) {
+              if (!restaurantCache.containsKey(videos[index].restaurant.id)) {
+                presenter.getRestaurantDetails(videos[index].restaurant.id);
+              }
+
+              return Stack(
+                children: [
+                  Positioned.fill(
+                    child: VideoPlayerWidget(
+                      videoUrl: videoUrls[index],
+                      index: index,
+                      currentIndex: actualIndex,
+                    ),
+                  ),
+                  if (topRestaurant != null)
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      child: Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12.0),
                           ),
-                        ),
-                        Positioned(
-                          left: 0,
-                          right: 0,
-                          bottom: 0,
                           child: Padding(
                             padding: const EdgeInsets.all(8.0),
-                            child:
-                                BlocBuilder<RestaurantCubit, RestaurantState>(
-                                    builder: (context, state) {
-                              String restaurantId =videos[index].restaurantId;
-                              late Restaurant restaurant;
-                              if (state is AllRestaurantLoaded) {
-                                state.restaurantResponse.restaurants
-                                    .forEach((element) {
-                                  if (element.id == restaurantId) {
-                                    restaurant = element;
-                                  }
-                                });
-                                TopRestaurants topRestaurant =
-                                    new TopRestaurants(
-                                  nombre: restaurant.nombre,
-                                  open: restaurant.open,
-                                  id: restaurant.id,
-                                  horarios: restaurant.horarios,
-                                  direccion: restaurant.direccion,
-                                  counter: restaurant.avgRating.toString(),
-                                  imagen: restaurant.mainFoto,
-                                  cerrado: restaurant.open.toString(),
-                                  municipio: restaurant.municipio,
-                                  avg: restaurant.avgRating,
-                                );
-                                return Container(
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(
-                                      12.0,
-                                    ),
-                                  ),
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(8.0),
-                                    child: TopRestaurantListCard(topRestaurant),
-                                  ),
-                                );
-                              }
-                              return Container();
-                            }),
+                            child: TopRestaurantListCard(topRestaurant),
                           ),
                         ),
-                      ],
-                    );
-                  },
-                );
-              })
+                      ),
+                    ),
+                ],
+              );
+            },
+          );
+        })
             : Container(),
       ),
     );
   }
 
-  void _handleCallbackEvent(ScrollDirection direction, ScrollSuccess success, {int? currentIndex}) {
+  void _handleCallbackEvent(ScrollDirection direction, ScrollSuccess success,
+      {int? currentIndex}) {
     setState(() {
-      actualIndex = currentIndex!;
+      actualIndex = currentIndex ?? 0; // Maneja el primer índice de manera predeterminada
     });
-      print("Scroll callback received with data: {direction: $direction, success: $success and index: ${currentIndex ?? 'not given'}}");
+    print(
+        "Scroll callback received with data: {direction: $direction, success: $success and index: ${currentIndex ?? 'not given'}}");
   }
 
   @override
@@ -145,6 +175,13 @@ class _VideoScreenState extends State<VideoScreen>
       this.videos = videos;
     });
   }
+
+  @override
+  setRestaurant(Restaurant restaurant) {
+    setState(() {
+      restaurantCache[restaurant.id] = restaurant;
+    });
+  }
 }
 
 class VideoPlayerWidget extends StatefulWidget {
@@ -152,7 +189,7 @@ class VideoPlayerWidget extends StatefulWidget {
   final int index;
   final int currentIndex;
 
-  VideoPlayerWidget({
+  const VideoPlayerWidget({
     required this.videoUrl,
     required this.index,
     required this.currentIndex,
@@ -175,10 +212,14 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
   @override
   void didUpdateWidget(VideoPlayerWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.videoUrl != widget.videoUrl) {
-      // Cambia el controlador si la URL del video es diferente
+    if (oldWidget.videoUrl != widget.videoUrl ||
+        oldWidget.currentIndex != widget.currentIndex) {
       _disposeController();
       _initializeVideoController();
+    } else {
+      if (widget.index != widget.currentIndex) {
+        _videoPlayerController.pause();
+      }
     }
   }
 
@@ -187,7 +228,6 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
     _initializeVideoPlayerFuture = _videoPlayerController.initialize();
     _videoPlayerController.setLooping(true);
 
-    // Inicia la reproducción si corresponde al video actual
     if (widget.index == widget.currentIndex) {
       _videoPlayerController.play();
     }
@@ -206,39 +246,44 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<MenuCubit, MenuState>(builder: (context, menuState) {
-      if (widget.index == widget.currentIndex && menuState.selectedIndex == 2) {
-        _videoPlayerController.play();
-      } else {
-        _videoPlayerController.pause();
-      }
-
-      return FutureBuilder(
-        future: _initializeVideoPlayerFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.done) {
-            return AspectRatio(
-              aspectRatio: _videoPlayerController.value.aspectRatio,
-              child: GestureDetector(
-                onTap: () {
-                  if (widget.index == widget.currentIndex) {
-                    if (_videoPlayerController.value.isPlaying) {
-                      _videoPlayerController.pause();
-                    } else {
-                      _videoPlayerController.play();
-                    }
-                  }
-                },
-                child: VideoPlayer(_videoPlayerController),
-              ),
-            );
-          } else {
-            return Center(
-              child: CircularProgressIndicator(),
-            );
+    return BlocBuilder<MenuCubit, MenuState>(
+      builder: (context, menuState) {
+        if (widget.index == widget.currentIndex && menuState.selectedIndex == 2) {
+          if (!_videoPlayerController.value.isPlaying) {
+            _videoPlayerController.play();
           }
-        },
-      );
-    });
+        } else {
+          _videoPlayerController.pause();
+        }
+
+        return FutureBuilder(
+          future: _initializeVideoPlayerFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.done) {
+              return AspectRatio(
+                aspectRatio: _videoPlayerController.value.aspectRatio,
+                child: GestureDetector(
+                  onTap: () {
+                    if (widget.index == widget.currentIndex &&
+                        menuState.selectedIndex == 2) {
+                      if (_videoPlayerController.value.isPlaying) {
+                        _videoPlayerController.pause();
+                      } else {
+                        _videoPlayerController.play();
+                      }
+                    }
+                  },
+                  child: VideoPlayer(_videoPlayerController),
+                ),
+              );
+            } else {
+              return Center(
+                child: CircularProgressIndicator(),
+              );
+            }
+          },
+        );
+      },
+    );
   }
 }

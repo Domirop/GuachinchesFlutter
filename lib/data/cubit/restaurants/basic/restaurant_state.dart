@@ -27,7 +27,22 @@ class RestaurantFilter extends RestaurantState {
   @override
   int get hashCode => filtersRestaurants.hashCode;
 }
+class RestaurantLoading extends RestaurantState {}
 
+class RestaurantFilterAdvanced extends RestaurantState {
+  final List<Restaurant> restaurantFilterAdvanced;
+  const RestaurantFilterAdvanced(this.restaurantFilterAdvanced);
+
+  @override
+  bool operator ==(Object o) {
+    if (identical(this, o)) return true;
+
+    return o is RestaurantFilterAdvanced && o.restaurantFilterAdvanced == restaurantFilterAdvanced;
+  }
+
+  @override
+  int get hashCode => restaurantFilterAdvanced.hashCode;
+}
 class RestaurantLoaded extends RestaurantState {
   final RestaurantResponse restaurantResponse;
   const RestaurantLoaded(this.restaurantResponse);

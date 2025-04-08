@@ -13,6 +13,7 @@ import 'package:guachinches/ui/pages/profile/profile.dart';
 import 'package:guachinches/ui/pages/profile/profile_v2.dart';
 import 'package:guachinches/ui/pages/search_page/search_page.dart';
 import 'package:guachinches/ui/pages/valoraciones/valoraciones.dart';
+import 'package:uuid/uuid.dart';
 
 import '../video/video.dart';
 
@@ -38,45 +39,79 @@ class SplashScreenPresenter {
         int.parse(versionApp.split(".")[1]) < int.parse(versionBD.split(".")[1]);
   }
 
+
   mainFunction() async {
     List<Widget> screens = [
       Home(),
       MapSearch(),
-      Login("Para ver tus valoraciones debes iniciar sesión."),
-      Login("Para ver tu perfíl debes iniciar sesión.")
+      VideoScreen(index: 0),
+      Login("Para ver tu perfíl debes iniciar sesión."),
     ];
+
     try {
+      String? surveyUserId = await storage.read(key: "surveyUserId");
+
+      if (surveyUserId == null) {
+        // No existe surveyUserId, revisamos userId
+        String? userId = await storage.read(key: "userId");
+
+        if (userId != null) {
+          await storage.write(key: "surveyUserId", value: userId);
+        } else {
+          // No hay userId, generamos un UUID4
+          var uuid = const Uuid().v4();
+          await storage.write(key: "surveyUserId", value: uuid);
+        }
+      }
+
+      // Ahora seguimos con el flujo de usuario
       String? userId = await storage.read(key: "userId");
 
       if (userId != null) {
         if (_userCubit.state is UserInitial) {
           var response = await _userCubit.getUserInfo(userId);
           if (response == true) {
-            screens = [Home(),MapSearch(),VideoScreen(index: 0), Profilev2()];
+            screens = [Home(), MapSearch(), VideoScreen(index: 0), Profilev2()];
           } else {
             await storage.delete(key: "userId");
           }
-        }else if(_userCubit.state is UserLoaded){
-          screens = [Home(),MapSearch(), VideoScreen(index: 0), Profilev2()];
+        } else if (_userCubit.state is UserLoaded) {
+          screens = [Home(), MapSearch(), VideoScreen(index: 0), Profilev2()];
         }
       } else {
         screens = [
           Home(),
           MapSearch(),
-          Login("Para ver tus valoraciones debes iniciar sesión."),
-          Login("Para ver tu perfíl debes iniciar sesión.")
+          VideoScreen(index: 0),
+          Login("Para ver tu perfíl debes iniciar sesión."),
         ];
       }
+
       _view.goToMenu(screens);
     } catch (e) {
       _view.goToMenu(screens);
     }
   }
 
+
   getUserInfo() async {
     Version version = await _remoteRepository.getVersion();
 
     String versionBD = "1.0.0";
+    String? surveyUserId = await storage.read(key: "surveyUserId");
+
+    if (surveyUserId == null || surveyUserId == '69a54c41-5ae3-5445-bea3-4e16ec8092fa') {
+      // No existe surveyUserId, revisamos userId
+      String? userId = await storage.read(key: "userId");
+
+      if (userId != null) {
+        await storage.write(key: "surveyUserId", value: userId);
+      } else {
+        // No hay userId, generamos un UUID4
+        var uuid = const Uuid().v4();
+        await storage.write(key: "surveyUserId", value: uuid);
+      }
+    }
 
     if (Platform.isIOS == true) {
       versionBD = version.iosVersion;

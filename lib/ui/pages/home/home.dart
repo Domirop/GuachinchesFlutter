@@ -1,5 +1,6 @@
+import 'dart:ffi';
+
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/svg.dart';
 import 'package:guachinches/data/HttpRemoteRepository.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -23,22 +24,25 @@ import 'package:guachinches/data/model/Video.dart';
 import 'package:guachinches/data/model/blog_post.dart';
 import 'package:guachinches/data/model/restaurant.dart';
 import 'package:guachinches/globalMethods.dart';
+import 'package:guachinches/ui/components/SurveyResults/SurveyResults.dart';
 import 'package:guachinches/ui/components/app_Bars/appbar_basic.dart';
 import 'package:guachinches/ui/components/blog_post/blog_post_component.dart';
 import 'package:guachinches/ui/components/cards/restaurantMainCard.dart';
+import 'package:guachinches/ui/components/cards/surveyCard.dart';
 import 'package:guachinches/ui/components/cards/topRestaurantCard.dart';
 import 'package:guachinches/ui/components/cards/restaurantOpenCard.dart';
-import 'package:guachinches/ui/components/filters/filterBar.dart';
+import 'package:guachinches/ui/components/categories/CategoryImageCard.dart';
 import 'package:guachinches/ui/components/heroSliderComponent.dart';
+import 'package:guachinches/ui/components/rankingList.dart';
+import 'package:guachinches/ui/pages/advance_search/advanced_search.dart';
 import 'package:guachinches/ui/pages/changeIsland/change_island.dart';
 import 'package:guachinches/ui/pages/home/home_presenter.dart';
 import 'package:guachinches/ui/pages/restaurantList/restaurant_list.dart';
-import 'package:guachinches/ui/pages/restaurantsShowMore/restaurantsShowMore.dart';
 import 'package:guachinches/ui/pages/restaurantsShowMore/restaurantsShowMoreGuachinches.dart';
+import 'package:guachinches/ui/pages/surveyRanking/surveyRanking.dart';
 import 'package:http/http.dart';
 
 class Home extends StatefulWidget {
-  List<TopRestaurants> restaurants = [];
   bool isChargingInitalRestaurants = true;
 
   @override
@@ -49,6 +53,7 @@ class _HomeState extends State<Home> implements HomeView {
   late AppBarBasic appBarBasic;
   List<String> selectedCategories = [];
   late String islandId = '';
+  final PageController _pageController = PageController(viewportFraction: 0.90);
   List<String> selectedMunicipalities = [];
   List<Restaurant> restaurantsFilteredGuachinches = [];
   List<Restaurant> restaurantsFilteredGuachinchesByViews = [];
@@ -68,6 +73,9 @@ class _HomeState extends State<Home> implements HomeView {
   late Widget restaurantsWidgets;
   late Widget openRestaurantsWidgets;
   late Widget menuRestaurants;
+  late List<Restaurant> allSurveyRestaurants = [];
+  SurveyRanking? surveyRanking;
+
   late String userId;
   List<String> assets = [
     "assets/images/firstTop.png",
@@ -77,14 +85,18 @@ class _HomeState extends State<Home> implements HomeView {
     "assets/images/otherTop.png"
   ];
   List<CuponesAgrupados> cuponesAgrupados = [];
+  List<TopRestaurants> topRestaurants = [];
   bool userIdSearched = false;
   final ScrollController _scrollController = new ScrollController();
   bool showCategoryChip = false;
   late FilterCubit filterCubit;
   late RestaurantCubit restaurantsCubit;
 
-  List<BlogPost> blogPosts = [];
+  List<SurveyResult> surveyGuachinchesModernos = [];
+  List<SurveyResult> surveyGuachinchesTradicionales = [];
 
+  List<BlogPost> blogPosts = [];
+  Color _appBarBackgroundColor = Colors.transparent;
 
   @override
   void initState() {
@@ -102,13 +114,34 @@ class _HomeState extends State<Home> implements HomeView {
     presenter.getCupones();
     presenter.getIsland();
     presenter.getAllVideos();
-
-
     presenter.getAllCategories();
     presenter.getAllTypes();
     presenter.getAllBlogPosts();
+    presenter.getTopRestaurants();
+    presenter.getSurveyRestaurants();
+    // Escucha el desplazamiento del scroll para cambiar el fondo de la app bar
+    _scrollController.addListener(() {
+      if (_scrollController.offset > 50) {
+        // Cambiar a color de fondo sólido si se desplaza hacia arriba
+        setState(() {
+          _appBarBackgroundColor = GlobalMethods.bgColor.withOpacity(0.96);
+        });
+      } else {
+        // Mantener el fondo transparente si está en la parte superior
+        setState(() {
+          _appBarBackgroundColor = Colors.transparent;
+        });
+      }
+    });
 
-    _scrollController.addListener(_onScroll);
+    // context.read<RestaurantCubit>().stream.listen((state) {
+    //   if (state is AllRestaurantLoaded) {
+    //     setState(() {
+    //       allRestaurants = state.restaurantResponse.restaurants;
+    //     });
+    //   }
+    // });
+
     if (bannersCubit.state is BannersInitial) {
       presenter.getAllBanner();
     }
@@ -139,248 +172,130 @@ class _HomeState extends State<Home> implements HomeView {
 
   Color bgColor = Color.fromRGBO(25, 27, 32, 1);
 
+  // Escucha el desplazamiento del scroll para cambiar el fondo de la app bar
+
   @override
   Widget build(BuildContext context) {
-    bool showFiltered = false;
-    bool _pinned = true;
-    bool _snap = false;
-    bool _floating = false;
-
     return Scaffold(
       backgroundColor: Color.fromRGBO(25, 27, 32, 1),
       body: CustomScrollView(
         controller: _scrollController,
         slivers: [
+          // SliverAppBar con barra de búsqueda fija
           SliverAppBar(
-            pinned: _pinned,
+            pinned: true,
+            floating: false,
+            stretch: true,
+            snap: false,
+            backgroundColor: _appBarBackgroundColor,
+            // Fondo dinámico
             elevation: 0,
-            backgroundColor: Color.fromRGBO(25, 27, 32, 1),
-            snap: _snap,
-            floating: _floating,
+            expandedHeight: MediaQuery.of(context).size.width * 1.1,
+            // Altura dinámica
             flexibleSpace: FlexibleSpaceBar(
-              centerTitle: false,
-              titlePadding: EdgeInsets.only(left: 24, bottom: 16),
-              // Establecer todos los lados a 0
-              title: GestureDetector(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => ChangeIsland(),
+              background: Stack(
+                children: [
+                  Positioned.fill(
+                    child: BlocBuilder<BannersCubit, BannersState>(
+                      builder: (context, state) {
+                        if (state is BannersLoaded) {
+                          if (surveyRanking !=null) {
+                            return HeroSliderComponent(
+                                state.banners, surveyRanking: surveyRanking,);
+                          }
+                          return HeroSliderComponent(
+                              state.banners);
+                        } else {
+                          return Container();
+                        }
+                      },
                     ),
-                  );
-                },
+                  ),
+                ],
+              ),
+            ),
+            title: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: GestureDetector(
+                onTap: () => GlobalMethods().pushPage(
+                    context,
+                    AdvancedSearch(
+                      categories: categories,
+                      municipalities: municipalities,
+                      types: types,
+                      islandId: islandId,
+                    )),
                 child: Row(
                   children: [
-                    Icon(
-                      Icons.location_on,
-                      color: Colors.white,
-                      size: 20,
+                    // Barra de búsqueda
+                    Expanded(
+                      child: Container(
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: Color.fromRGBO(50, 43, 45, 1),
+                          borderRadius: BorderRadius.circular(20.0),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.1),
+                              blurRadius: 10.0,
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          children: [
+                            const SizedBox(width: 16.0),
+                            Icon(Icons.search, color: Colors.grey),
+                            const SizedBox(width: 8.0),
+                            Text(
+                              "Busca donde comer",
+                              style: TextStyle(
+                                color: Colors.grey,
+                                fontSize: 16.0,
+                                fontFamily: 'SF Pro Display',
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
-                    Text(
-                      GlobalMethods().getIslandName(islandId),
-                      style: Theme.of(context).textTheme.displayMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
+                    const SizedBox(width: 8.0),
+                    // Espacio entre los contenedores
+                    // Botón "TF"
+                    GestureDetector(
+                      onTap: () =>
+                          GlobalMethods().pushPage(context, ChangeIsland()),
+                      child: Container(
+                        height: 36,
+                        width: 50, // Ancho del botón
+                        decoration: BoxDecoration(
+                          color: Color.fromRGBO(50, 43, 45, 1),
+                          borderRadius: BorderRadius.circular(20.0),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.1),
+                              blurRadius: 10.0,
+                            ),
+                          ],
+                        ),
+                        child: Center(
+                          child: Text(
+                            islandId == "76ac0bec-4bc1-41a5-bc60-e528e0c12f4d"
+                                ? "TF"
+                                : "GC",
+                            style: TextStyle(
+                              color: Colors.grey,
+                              fontSize: 16.0,
+                              fontFamily: 'SF Pro Display',
+                            ),
                           ),
+                        ),
+                      ),
                     ),
                   ],
                 ),
               ),
             ),
           ),
-          SliverAppBar(
-            pinned: false,
-            backgroundColor: Color.fromRGBO(25, 27, 32, 1),
-            elevation: 0,
-            toolbarHeight: -6,
-            collapsedHeight: -6,
-            expandedHeight: -6,
-            flexibleSpace: FlexibleSpaceBar(
-              title: Container(
-                height: 52.0,
-                margin: EdgeInsets.only(left: 24.0),
-                child: BlocBuilder<FilterCubit, FilterState>(
-                    builder: (context, state) {
-                  if (state is FilterCategory) {
-                    selectedCategories = state.categorySelected;
-                    selectedMunicipalities = state.municipalitesSelected;
-                    typesSelected = state.typesSelected;
-                  } else if (state is FilterInitial) {
-                    selectedCategories = [];
-                    selectedMunicipalities = [];
-                    typesSelected = [];
-                  }
-                  return ListView.builder(
-                    shrinkWrap: true,
-                    primary: false,
-                    itemCount: categories.length,
-                    scrollDirection: Axis.horizontal,
-                    itemBuilder: (context, index) {
-                      bool isCheck =
-                          selectedCategories.contains(categories[index].id);
-                      return GestureDetector(
-                        onTap: () => {
-                          setState(() {
-                            List<String> selectedCategoriesAux =
-                                selectedCategories;
-                            if (isCheck) {
-                              selectedCategoriesAux
-                                  .remove(categories[index].id);
-                            } else {
-                              selectedCategories.add(categories[index].id);
-                            }
-                            filterCubit.handleFilterChange(
-                                selectedCategories, [], typesSelected, '');
-                            this.selectedCategories = selectedCategoriesAux;
-                          }),
-                          if (selectedCategories.isNotEmpty ||
-                              selectedMunicipalities.isNotEmpty ||
-                              typesSelected.isNotEmpty)
-                            {
-                              restaurantsCubit.getFilterRestaurants(
-                                categories: selectedCategories,
-                                municipalities: selectedMunicipalities,
-                                text: '',
-                                types: typesSelected,
-                                islandId: islandId,
-                                isOpen: false,
-                              ),
-                            },
-                        },
-                        child: Padding(
-                          padding: const EdgeInsets.only(right: 8.0),
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: isCheck ? Colors.white : bgColor,
-                              border: Border.all(
-                                color: Colors.white, // Border color
-                                width: 1.0, // Border width
-                              ),
-                              borderRadius: BorderRadius.circular(
-                                  18.0), // Rounded corners
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
-                              child: Row(
-                                children: [
-                                  SvgPicture.network(
-                                    categories[index].iconUrl,
-                                    width: 16.0,
-                                    height: 16.0,
-                                  ),
-                                  SizedBox(
-                                    height: 8,
-                                    width: 8,
-                                  ),
-                                  Center(
-                                    child: Text(
-                                      categories[index].nombre,
-                                      textAlign: TextAlign.center,
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        color: isCheck ? bgColor : Colors.white,
-                                        fontWeight: isCheck
-                                            ? FontWeight.bold
-                                            : FontWeight.w500,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      );
-                    },
-                  );
-                }),
-              ),
-            ),
-          ),
-          BlocBuilder<FilterCubit, FilterState>(builder: (context, state) {
-            bool isFiltering = false;
-            if (state is FilterCategory) {
-              isFiltering = true;
-            }
-            return SliverAppBar(
-              pinned: true,
-              floating: false,
-              bottom: PreferredSize(
-                // Add this code
-                preferredSize: isFiltering
-                    ? Size.fromHeight(-24.0)
-                    : Size.fromHeight(-72.0), // Add this code
-                child: Text(''), // Add this code
-              ),
-              primary: true,
-              backgroundColor: bgColor,
-              elevation: 0,
-              collapsedHeight: 60,
-              flexibleSpace: FlexibleSpaceBar(
-                titlePadding: EdgeInsets.only(left: 24, bottom: 16),
-                // Establecer todos los lados a 0
-                title: Container(
-                  child: Column(
-                    children: [
-                      Container(
-                        height: 30,
-                        child: FilterBar(
-                          showCategoryChip: showCategoryChip,
-                          categories: categories,
-                          filterMap: false,
-                          municipalities: municipalities,
-                          types: types,
-                          islandId: islandId,
-                        ),
-                      ),
-                      isFiltering
-                          ? BlocBuilder<RestaurantCubit, RestaurantState>(
-                              builder: (context, state) {
-                              int totalRestaurant = 0;
-                              if (state is RestaurantFilter) {
-                                totalRestaurant =
-                                    state.filtersRestaurants.length;
-                                return Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text(
-                                      totalRestaurant.toString(),
-                                      style: TextStyle(
-                                          color: Color.fromRGBO(23, 23, 23, 1),
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 16),
-                                    ),
-                                    Chip(
-                                        label: GestureDetector(
-                                          onTap: () {
-                                            filterCubit.handleFilterChange(
-                                                [], [], [], '');
-                                          },
-                                          child: Text(
-                                            'Restablecer',
-                                            style: TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              color:
-                                                  Color.fromRGBO(23, 23, 23, 1),
-                                            ),
-                                          ),
-                                        ),
-                                        backgroundColor:
-                                            Color.fromRGBO(231, 231, 231, 1))
-                                  ],
-                                );
-                              } else {
-                                return Container();
-                              }
-                            })
-                          : Container(),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          }),
           SliverToBoxAdapter(
             child: SizedBox(
               child: Column(
@@ -388,7 +303,6 @@ class _HomeState extends State<Home> implements HomeView {
                 children: [
                   BlocBuilder<FilterCubit, FilterState>(
                       builder: (context, state) {
-                        print('estado '+state.toString()  );
                     if (state is FilterCategory) {
                       return Container(
                         color: Color.fromRGBO(25, 27, 32, 1),
@@ -398,7 +312,8 @@ class _HomeState extends State<Home> implements HomeView {
                             Padding(
                               padding:
                                   const EdgeInsets.symmetric(horizontal: 14.0),
-                              child: BlocBuilder<RestaurantCubit, RestaurantState>(
+                              child:
+                                  BlocBuilder<RestaurantCubit, RestaurantState>(
                                       builder: (context, state) {
                                 final ScrollController _scrollController =
                                     new ScrollController();
@@ -423,6 +338,8 @@ class _HomeState extends State<Home> implements HomeView {
                                     ),
                                   );
                                 } else if (state is AllRestaurantLoaded) {
+                                  setAllRestaurants(
+                                      state.restaurantResponse.restaurants);
                                   return Container(
                                     height: 264 *
                                         state.restaurantResponse.restaurants
@@ -453,30 +370,79 @@ class _HomeState extends State<Home> implements HomeView {
                     } else {
                       return Column(
                         children: [
-                          SizedBox(
-                            height: 16,
-                          ),
-                          BlocBuilder<BannersCubit, BannersState>(
-                              builder: (context, state) {
-                            if (state is BannersLoaded) {
-                              return HeroSliderComponent(state.banners);
-                            } else {
-                              return Container();
-                            }
-                          }),
-                          SizedBox(
-                            height: 16,
-                          ),
                           Padding(
-                            padding: const EdgeInsets.only(left: 24.0),
+                            padding: const EdgeInsets.all(16),
+                            child: Container(
+                              child: Row(
+                                mainAxisAlignment:MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Align(
+                                      alignment: Alignment.centerLeft,
+                                      child: Text('Resultados votaciones',
+                                          style: TextStyle(
+                                              fontSize: 18,
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.white,
+                                              fontFamily: "SF Pro Display"))),
+                                  surveyGuachinchesTradicionales.isNotEmpty &&
+                                      surveyGuachinchesModernos.isNotEmpty?ElevatedButton(
+                                    onPressed: () => {
+                                        GlobalMethods().pushPage(
+                                            context, SurveyRanking(
+                                          guachinchesModernos:
+                                          surveyGuachinchesModernos,
+                                          guachinchesTradicionales:
+                                          surveyGuachinchesTradicionales,
+                                          allRestaurants: allSurveyRestaurants,
+                                          isInitialTraditional: true,
+                                          onRefresh:  ()=>presenter.getSurveyResults(allSurveyRestaurants),
+                                        ))
+                                    },
+                                    style: ButtonStyle(
+                                        shape: MaterialStateProperty.all(RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(8), // <-- Radius
+                                        ),),
+                                        backgroundColor: MaterialStateProperty.all(GlobalMethods.blueColor
+                                        )
+                        ),
+                                    child:Padding(
+                                      padding: const EdgeInsets.all(8.0),
+                                      child: Text(
+                                        "Votar",
+                                        style: TextStyle(
+                                            fontFamily: "SF Pro Display",
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.white,
+                                            fontSize: 16.0),
+                                      ),
+                                    ),
+                                  ):Container(),
+                                ],
+                              ),
+                            ),
+                          ),
+                          surveyGuachinchesTradicionales.isNotEmpty &&
+                                  surveyGuachinchesModernos.isNotEmpty
+                              ? RankingList(
+                                  guachinchesModernos:
+                                      surveyGuachinchesModernos,
+                                  guachinchesTradicionales:
+                                      surveyGuachinchesTradicionales,
+                            allRestaurants: allSurveyRestaurants,
+                            onRefresh:  ()=>presenter.getSurveyResults(allSurveyRestaurants),
+
+                          )
+                              : Container(),
+                          Padding(
+                            padding: const EdgeInsets.all(16),
                             child: Align(
                                 alignment: Alignment.centerLeft,
-                                child: Text('⭐️ Lista hechas por expertos',
+                                child: Text('Listas hechas por expertos',
                                     style: TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.white,
-                                    ))),
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.white,
+                                        fontFamily: "SF Pro Display"))),
                           ),
                           Padding(
                             padding: const EdgeInsets.symmetric(
@@ -485,6 +451,88 @@ class _HomeState extends State<Home> implements HomeView {
                               children: blogPosts.map((blogPost) {
                                 return BlogPostComponent(blogPost: blogPost);
                               }).toList(),
+                            ),
+                          ),
+
+                          Align(
+                            alignment: Alignment.topLeft,
+                            child: Padding(
+                              padding: const EdgeInsets.fromLTRB(16, 16, 0, 0),
+                              child: Text(
+                                'Explora las categorías destacas',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontFamily: "SF Pro Display",
+                                  fontSize: 18,
+                                ),
+                              ),
+                            ),
+                          ),
+                          Container(
+                            height: 132,
+                            child: ListView.builder(
+                              shrinkWrap: false,
+                              primary: false,
+                              itemCount: categories.length,
+                              scrollDirection: Axis.horizontal,
+                              itemBuilder: (context, index) {
+                                return Padding(
+                                  padding: EdgeInsets.only(
+                                    right: 8.0,
+                                    top: 12,
+                                  ),
+                                  child: categories[index].foto.isNotEmpty
+                                      ? GestureDetector(
+                                          onTap: () => GlobalMethods().pushPage(
+                                              context,
+                                              AdvancedSearch(
+                                                categories: categories,
+                                                municipalities: municipalities,
+                                                types: types,
+                                                islandId: islandId,
+                                                preSelectedCategories: [
+                                                  categories[index]
+                                                ],
+                                              )),
+                                          child: CategoryImageCard(
+                                              categories[index]))
+                                      : Container(),
+                                );
+                              },
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.only(top: 18.0),
+                            child: Align(
+                              alignment: Alignment.topLeft,
+                              child: Padding(
+                                padding: const EdgeInsets.only(left: 16.0),
+                                child: Text(
+                                  'Los favoritos de los usuarios',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontFamily: "SF Pro Display",
+                                    fontSize: 18,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          Container(
+                            height: MediaQuery.of(context).size.height * 0.46,
+                            child: PageView.builder(
+                              controller: _pageController,
+                              itemCount: topRestaurants.length,
+                              itemBuilder: (context, index) {
+                                return Padding(
+                                    padding: EdgeInsets.only(
+                                      left: 8,
+                                      right: 8,
+                                      top: 12,
+                                    ),
+                                    child: TopRestaurantCard(
+                                        topRestaurants[index]));
+                              },
                             ),
                           ),
                           Padding(
@@ -583,131 +631,6 @@ class _HomeState extends State<Home> implements HomeView {
                               return Container();
                             }),
                           ),
-                          Align(
-                            alignment: Alignment.topLeft,
-                            child: Container(
-                              child: Padding(
-                                padding: const EdgeInsets.only(left: 18),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    GestureDetector(
-                                      onTap: () => GlobalMethods().pushPage(
-                                          context,
-                                          RestaurantList(
-                                              restaurants:
-                                                  restaurantsFilteredGuachinches)),
-                                      child: Padding(
-                                        padding: EdgeInsets.only(
-                                            top: 16, bottom: 16, right: 8),
-                                        child: Row(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.spaceBetween,
-                                          children: [
-                                            Text(
-                                              '🍷 Guachinches tradicionales',
-                                              style: Theme.of(context)
-                                                  .textTheme
-                                                  .bodyMedium,
-                                            ),
-                                            Icon(
-                                              Icons.arrow_forward_ios_rounded,
-                                              size: 18,
-                                            )
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                    Container(
-                                      height: 300,
-                                      child: ListView.builder(
-                                          shrinkWrap: false,
-                                          primary: false,
-                                          // default is 40
-                                          itemCount:
-                                              restaurantsFilteredGuachinches
-                                                  .length,
-                                          scrollDirection: Axis.horizontal,
-                                          itemBuilder: (context, index) {
-                                            return Padding(
-                                              padding: const EdgeInsets.only(
-                                                  right: 8.0),
-                                              child: RestaurantMainCard(
-                                                  size: 'small',
-                                                  restaurant:
-                                                      restaurantsFilteredGuachinches[
-                                                          index]),
-                                            );
-                                          }),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                          Align(
-                            alignment: Alignment.topLeft,
-                            child: Container(
-                              child: Padding(
-                                padding: const EdgeInsets.only(left: 18),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    GestureDetector(
-                                      onTap: () => GlobalMethods().pushPage(
-                                          context,
-                                          RestaurantList(
-                                              restaurants:
-                                                  restaurantsFilteredGuachinchesByViews)),
-                                      child: Padding(
-                                        padding: EdgeInsets.only(
-                                            top: 16, bottom: 16, right: 8),
-                                        child: Row(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.spaceBetween,
-                                          children: [
-                                            Text(
-                                              '🏞️ Con vistas',
-                                              style: TextStyle(
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: 18,
-                                              ),
-                                            ),
-                                            Icon(
-                                              Icons.arrow_forward_ios_rounded,
-                                              size: 18,
-                                            )
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                    Container(
-                                      height: 300,
-                                      child: ListView.builder(
-                                          shrinkWrap: false,
-                                          primary: false,
-                                          // default is 40
-                                          itemCount:
-                                              restaurantsFilteredGuachinchesByViews
-                                                  .length,
-                                          scrollDirection: Axis.horizontal,
-                                          itemBuilder: (context, index) {
-                                            return Padding(
-                                              padding: const EdgeInsets.only(
-                                                  right: 8.0),
-                                              child: RestaurantMainCard(
-                                                  size: 'small',
-                                                  restaurant:
-                                                      restaurantsFilteredGuachinchesByViews[
-                                                          index]),
-                                            );
-                                          }),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
                         ],
                       );
                     }
@@ -721,6 +644,20 @@ class _HomeState extends State<Home> implements HomeView {
     );
   }
 
+  setAllRestaurants(List<Restaurant> restaurants) {
+    setState(() {
+      allSurveyRestaurants = restaurants;
+
+    });
+  }
+
+  @override
+  setSurveyRestaurants(List<Restaurant> restaurants) {
+    setState(() {
+      allSurveyRestaurants = restaurants;
+    });
+    presenter.getSurveyResults(restaurants);
+  }
   createMenuForRestaurants() {
     return Padding(
       padding: const EdgeInsets.only(top: 24.0),
@@ -768,79 +705,6 @@ class _HomeState extends State<Home> implements HomeView {
         ),
       ),
     );
-  }
-
-  createListWidgetForRestaurants() {
-    Widget aux = BlocBuilder<TopRestaurantCubit, TopRestaurantState>(
-        builder: (context, state) {
-      if (state is TopRestaurantLoaded) {
-        widget.restaurants = state.restaurants;
-        return Container(
-          height: 220,
-          width: double.infinity,
-          child: ListView.builder(
-              shrinkWrap: true,
-              primary: false,
-              itemCount: 6,
-              scrollDirection: Axis.horizontal,
-              itemBuilder: (context, index) {
-                print(index);
-                if (index == 5) {
-                  return Wrap(
-                    alignment: WrapAlignment.end,
-                    children: [
-                      GestureDetector(
-                        onTap: () => GlobalMethods()
-                            .pushPage(context, RestaurantShowMore('top')),
-                        child: Container(
-                            height: 145,
-                            margin: EdgeInsets.fromLTRB(10, 16, 0, 0),
-                            width: MediaQuery.of(context).size.width * 0.8,
-                            decoration: BoxDecoration(
-                              borderRadius:
-                                  BorderRadius.all(Radius.circular(10)),
-                              color: Colors.blue,
-                              boxShadow: <BoxShadow>[
-                                BoxShadow(
-                                  color: Colors.white,
-                                  offset: Offset(0.0, 1.0),
-                                  blurRadius: 0.8,
-                                ),
-                              ],
-                            ),
-                            child: Center(
-                                child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text('Ver más',
-                                    style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 20,
-                                        fontWeight: FontWeight.w600)),
-                                Icon(
-                                  Icons.arrow_forward_ios,
-                                  color: Colors.white,
-                                )
-                              ],
-                            ))),
-                      ),
-                      SizedBox(
-                        width: 30.0,
-                      ),
-                    ],
-                  );
-                }
-                return TopRestaurantCard(widget.restaurants[index]);
-              }),
-        );
-      }
-      return Container();
-    });
-    if (mounted) {
-      setState(() {
-        restaurantsWidgets = aux;
-      });
-    }
   }
 
   createOpenListWidget() {
@@ -936,7 +800,7 @@ class _HomeState extends State<Home> implements HomeView {
   setTopRestaurants(List<TopRestaurants> restaurants) {
     if (mounted) {
       setState(() {
-        this.widget.restaurants = restaurants;
+        topRestaurants = restaurants;
       });
     }
   }
@@ -1037,13 +901,50 @@ class _HomeState extends State<Home> implements HomeView {
     setState(() {
       this.islandId = islandId;
     });
-    presenter
-        .getRestaurantsFilterByCategory('11a5f3a4-3ce3-48bb-9749-03eac640e23e',islandId);
+    presenter.getRestaurantsFilterByCategory(
+        '11a5f3a4-3ce3-48bb-9749-03eac640e23e', islandId);
     presenter.getAllMunicipalities(islandId);
     presenter.getAllRestaurants(islandId);
   }
+
+  @override
+  setSurveyResults(List<SurveyResult> guachinchesModernos,
+      List<SurveyResult> guachinchesTradicionales) {
+
+    setState(() {
+      surveyGuachinchesModernos = guachinchesModernos;
+      surveyGuachinchesTradicionales = guachinchesTradicionales;
+      surveyRanking = SurveyRanking(
+        guachinchesModernos:
+        surveyGuachinchesModernos,
+        guachinchesTradicionales:
+        surveyGuachinchesTradicionales,
+        allRestaurants: allSurveyRestaurants,
+        isInitialTraditional: true,
+        onRefresh:  ()=>presenter.getSurveyResults(allSurveyRestaurants),
+
+      );
+    });
+  }
+
+
 }
 
 final Shader linearGradient = LinearGradient(
   colors: <Color>[Color(0xff0189C4), Color(0xff01BCC4)],
 ).createShader(Rect.fromLTWH(0.0, 0.0, 200.0, 70.0));
+
+// Pantalla de búsqueda
+class SearchPage22 extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text("Buscar"),
+      ),
+      body: Center(
+        child: Text("Pantalla de búsqueda"),
+      ),
+    );
+  }
+}

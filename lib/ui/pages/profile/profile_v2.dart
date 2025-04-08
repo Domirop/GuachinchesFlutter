@@ -175,7 +175,7 @@ class _Profilev2State extends State<Profilev2> implements ProfileView{
                         ),
                       ],
                     ),
-                    ]
+                ]
             ),
           ),
     )]));

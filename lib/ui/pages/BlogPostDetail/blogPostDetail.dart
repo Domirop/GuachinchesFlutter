@@ -68,6 +68,7 @@ class BlogPostDetail extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24.0),
               child: Container(
+
                 height: 0.1,
                 width: double.infinity,
                 color: Color.fromRGBO(208, 221, 255, 1),

@@ -2,11 +2,13 @@ class ModelCategory {
   String id;
   String nombre;
   String iconUrl;
+  String foto;
 
   ModelCategory({
     required this.id,
     required this.nombre,
     required this.iconUrl,
+    required this.foto
   });
 
   factory ModelCategory.fromMap(Map<String, dynamic> map) {
@@ -14,6 +16,7 @@ class ModelCategory {
       id: map["id"] ?? "",
       nombre: map["nombre"] ?? "",
       iconUrl: map["iconUrl"] ?? "",
+      foto: map["foto"] ?? ""
     );
   }
 
@@ -22,6 +25,7 @@ class ModelCategory {
       id: json["id"] ?? "",
       nombre: json["nombre"] ?? "",
       iconUrl: json["iconUrl"] ?? "",
+      foto: json["foto"] ?? "",
     );
   }
 
@@ -30,6 +34,7 @@ class ModelCategory {
       "id": id,
       "nombre": nombre,
       "iconUrl": iconUrl,
+      "foto":foto,
     };
   }
 }

@@ -159,7 +159,7 @@ class _FilterBarState extends State<FilterBar> {
                               borderRadius: BorderRadius.circular(20)),
                           backgroundColor: Colors.white,
                           label: Padding(
-                            padding: const EdgeInsets.only(bottom: 3),
+                            padding: const EdgeInsets.only(bottom: 2),
                             child: Text(
                               'Abierto',
                               style: TextStyle(color: bgColor, fontSize: 16),

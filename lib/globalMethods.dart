@@ -10,6 +10,7 @@ class GlobalMethods {
 
 
   static Color bgColor = Color.fromRGBO(25, 27, 32, 1);
+  static Color bgColorFilter = Color.fromRGBO(50, 43, 45, 1);
 
   static Color blueColor = Color.fromRGBO(0, 133, 196, 1);
 
@@ -31,6 +32,13 @@ class GlobalMethods {
         return "Tenerife";
     }
   }
+  Future<void> pushPageAsync(BuildContext context, Widget page) {
+    return Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => page),
+    );
+  }
+
   void pushPageWithFocus(BuildContext context, Widget page) {
     Navigator.push(
       context,
