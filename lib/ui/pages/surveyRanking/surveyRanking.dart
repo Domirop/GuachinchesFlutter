@@ -151,7 +151,7 @@ class _SurveyRankingState extends State<SurveyRanking> implements SurveyRankingV
                               ),
                               const SizedBox(height: 4),
                               const Text(
-                                '📅 Fecha fin: 20 de abril de 2025',
+                                '📅 Fecha fin: 20 de marzo de 2026',
                                 style: TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w400,

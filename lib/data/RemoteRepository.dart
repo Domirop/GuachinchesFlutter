@@ -1,4 +1,5 @@
 import 'package:guachinches/data/model/Category.dart';
+import 'package:guachinches/data/model/survey_in_app_choice.dart';
 import 'package:guachinches/data/model/Cupones.dart';
 import 'package:guachinches/data/model/CuponesAgrupados.dart';
 import 'package:guachinches/data/model/CuponesUser.dart';
@@ -60,6 +61,9 @@ abstract class RemoteRepository{
   Future<List<BlogPost>> getAllBlogPosts();
   //Survey
   Future<bool> checkUserSurveyStatus(String userId);
+  // Survey In-App
+  Future<List<SurveyInAppChoice>> getSurveyInAppChoices(String categoryName, String userId);
+  Future<bool> submitSurveyInAppVotes(String userId, Map<String, String> votes, String signature, int duration);
   Future<List<SurveyResult>> getSurveyResults(int surveyId, String surveyName,List<Restaurant> allRestaurants);
   Future<List<String>> getVotedRestaurantsByUser(String surveySchemaId, String userId);
   Future<List<Restaurant>> getAllSurveyRestaurants(String surveyId);

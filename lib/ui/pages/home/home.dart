@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ffi';
 
 import 'package:flutter/material.dart';
@@ -29,6 +30,7 @@ import 'package:guachinches/ui/components/SurveyResults/SurveyResults.dart';
 import 'package:guachinches/ui/components/app_Bars/appbar_basic.dart';
 import 'package:guachinches/ui/components/banner/banner_ad.dart';
 import 'package:guachinches/ui/components/blog_post/blog_post_component.dart';
+import 'package:guachinches/ui/components/cards/rankingCard.dart';
 import 'package:guachinches/ui/components/cards/restaurantMainCard.dart';
 import 'package:guachinches/ui/components/cards/surveyCard.dart';
 import 'package:guachinches/ui/components/cards/topRestaurantCard.dart';
@@ -36,6 +38,7 @@ import 'package:guachinches/ui/components/cards/restaurantOpenCard.dart';
 import 'package:guachinches/ui/components/categories/CategoryImageCard.dart';
 import 'package:guachinches/ui/components/heroSliderComponent.dart';
 import 'package:guachinches/ui/components/rankingList.dart';
+import 'package:guachinches/ui/components/survey_banner/survey_banner.dart';
 import 'package:guachinches/ui/components/visit/visit_list.dart';
 import 'package:guachinches/ui/pages/advance_search/advanced_search.dart';
 import 'package:guachinches/ui/pages/changeIsland/change_island.dart';
@@ -100,6 +103,8 @@ class _HomeState extends State<Home> implements HomeView {
 
   List<SurveyResult> surveyGuachinchesModernos = [];
   List<SurveyResult> surveyGuachinchesTradicionales = [];
+  bool _surveyPreviewIsTraditional = true;
+  Timer? _surveyPreviewTimer;
   List<Visit> allVisits = [];
   List<BlogPost> blogPosts = [];
   Color _appBarBackgroundColor = Colors.transparent;
@@ -176,6 +181,12 @@ class _HomeState extends State<Home> implements HomeView {
         showCategoryChip = false;
       });
     }
+  }
+
+  @override
+  void dispose() {
+    _surveyPreviewTimer?.cancel();
+    super.dispose();
   }
 
   Color bgColor = Color.fromRGBO(25, 27, 32, 1);
@@ -310,6 +321,10 @@ class _HomeState extends State<Home> implements HomeView {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  const SurveyBanner(),
+                  if (surveyRanking != null &&
+                      surveyGuachinchesTradicionales.isNotEmpty)
+                    _buildSurveyResultsPreview(),
                   BlocBuilder<FilterCubit, FilterState>(
                       builder: (context, state) {
                     if (state is FilterCategory) {
@@ -868,6 +883,14 @@ class _HomeState extends State<Home> implements HomeView {
         onRefresh: () => presenter.getSurveyResults(allSurveyRestaurants),
       );
     });
+    _surveyPreviewTimer?.cancel();
+    _surveyPreviewTimer = Timer.periodic(const Duration(seconds: 4), (_) {
+      if (mounted) {
+        setState(() {
+          _surveyPreviewIsTraditional = !_surveyPreviewIsTraditional;
+        });
+      }
+    });
   }
 
   @override
@@ -875,6 +898,132 @@ class _HomeState extends State<Home> implements HomeView {
     setState(() {
       allVisits = visits;
     });
+  }
+
+  Widget _buildSurveyResultsPreview() {
+    final currentData = _surveyPreviewIsTraditional
+        ? surveyGuachinchesTradicionales.take(3).toList()
+        : surveyGuachinchesModernos.take(3).toList();
+    final title = _surveyPreviewIsTraditional
+        ? 'Guachinches Tradicionales'
+        : 'Guachinches Modernos';
+
+    return GestureDetector(
+      onTap: () => GlobalMethods().pushPage(context, surveyRanking!),
+      child: Container(
+      margin: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      clipBehavior: Clip.hardEdge,
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: Image.asset(
+              'assets/images/encuesta_tradicional.png',
+              fit: BoxFit.cover,
+            ),
+          ),
+          Positioned.fill(
+            child: Container(color: Colors.black.withOpacity(0.45)),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    _surveyTab('Tradicionales', _surveyPreviewIsTraditional,
+                        () => setState(() => _surveyPreviewIsTraditional = true)),
+                    const SizedBox(width: 8),
+                    _surveyTab('Modernos', !_surveyPreviewIsTraditional,
+                        () => setState(() => _surveyPreviewIsTraditional = false)),
+                  ],
+                ),
+                  const SizedBox(height: 12),
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 400),
+                    child: Align(
+                      key: ValueKey(title),
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        title,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          fontFamily: 'SF Pro Display',
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 500),
+                    transitionBuilder: (child, animation) => FadeTransition(
+                      opacity: animation,
+                      child: SlideTransition(
+                        position: Tween<Offset>(
+                          begin: const Offset(0.0, 0.12),
+                          end: Offset.zero,
+                        ).animate(animation),
+                        child: child,
+                      ),
+                    ),
+                    child: Column(
+                      key: ValueKey(_surveyPreviewIsTraditional),
+                      children: currentData.asMap().entries.map((e) {
+                        return RankingCard(
+                          position: e.key + 1,
+                          name: e.value.restaurant?.nombre ?? '',
+                          votes: e.value.votes.toString(),
+                          height: e.key == 0 ? 72 : 58,
+                          isWinner: e.key == 0,
+                          votedByUser: e.value.isVotedByUser,
+                          logoUrl: e.value.restaurant?.mainFoto ?? '',
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _surveyTab(String label, bool selected, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: selected ? const Color.fromRGBO(51, 189, 236, 1) : Colors.white,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (selected) ...[
+              const Icon(Icons.check, color: Colors.white, size: 14),
+              const SizedBox(width: 4),
+            ],
+            Text(
+              label,
+              style: TextStyle(
+                color: selected ? Colors.white : Colors.black87,
+                fontWeight: FontWeight.bold,
+                fontFamily: 'SF Pro Display',
+                fontSize: 13,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 

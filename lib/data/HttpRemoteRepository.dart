@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:guachinches/data/model/Category.dart';
+import 'package:guachinches/data/model/survey_in_app_choice.dart';
 import 'package:guachinches/data/model/Cupones.dart';
 import 'package:guachinches/data/model/CuponesAgrupados.dart';
 import 'package:guachinches/data/model/CuponesUser.dart';
@@ -642,6 +643,45 @@ class HttpRemoteRepository implements RemoteRepository {
       print('blogPosts: $blogPosts');
       return blogPosts;
     });
+  }
+
+  @override
+  Future<List<SurveyInAppChoice>> getSurveyInAppChoices(String categoryName, String userId) async {
+    try {
+      final String url = dotenv.env['ENDPOINT_V2']! +
+          'category-restaurants/surveyjs/1/$categoryName/by-user?user_id=$userId';
+      final uri = Uri.parse(url);
+      final response = await _client.get(uri);
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        return data.map((e) => SurveyInAppChoice.fromJson(e)).toList();
+      } else {
+        throw Exception('Error al obtener opciones: ${response.statusCode}');
+      }
+    } catch (e) {
+      throw Exception('Fallo al obtener opciones de encuesta: $e');
+    }
+  }
+
+  @override
+  Future<bool> submitSurveyInAppVotes(String userId, Map<String, String> votes, String signature, int duration) async {
+    try {
+      final String url = dotenv.env['ENDPOINT_V2']! + 'surveys/results/v2';
+      final uri = Uri.parse(url);
+      final body = jsonEncode({
+        'survey_schema_id': 1,
+        'content': votes,
+        'user_id': userId,
+        'token': signature,
+        'duration': duration,
+        'source': 'mobile',
+      });
+      final response = await _client.post(uri,
+          headers: {'Content-Type': 'application/json'}, body: body);
+      return response.statusCode == 200 || response.statusCode == 201;
+    } catch (e) {
+      throw Exception('Error al enviar votos: $e');
+    }
   }
 
   @override
