@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:guachinches/data/model/blog_post.dart';
+import 'package:guachinches/ui/components/banner/banner_ad.dart';
 import 'package:guachinches/ui/components/cards/restaurantMainCard.dart';
 
 class BlogPostDetail extends StatelessWidget {
@@ -100,6 +101,7 @@ class BlogPostDetail extends StatelessWidget {
                 }).toList() ?? [],
               ),
             ),
+            Center(child: BannerAdWidget()),
           ],
         ),
       ),

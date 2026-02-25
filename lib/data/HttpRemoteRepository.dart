@@ -23,6 +23,7 @@ import 'package:http/http.dart';
 import 'package:video_compress/src/media/media_info.dart';
 import 'package:http/http.dart' as http;
 import 'RemoteRepository.dart';
+import 'model/Visit.dart';
 
 class HttpRemoteRepository implements RemoteRepository {
   final Client _client;
@@ -682,4 +683,131 @@ class HttpRemoteRepository implements RemoteRepository {
       throw Exception("Fallo al obtener restaurantes de encuesta");
     }
   }
+  // Crear una visita
+  Future<Visit> createVisit({
+    required String restaurantId,
+    String? videoUrl,
+    String? creator,
+    String? extraText,
+  }) async {
+    final url = '${dotenv.env['ENDPOINT_V2']!}visits';
+    final uri = Uri.parse(url);
+
+    final body = jsonEncode({
+      'restaurantId': restaurantId,
+      if (videoUrl != null) 'videoUrl': videoUrl,
+      if (creator != null) 'creator': creator,
+      if (extraText != null) 'extraText': extraText,
+    });
+
+    final response = await _client.post(
+      uri,
+      headers: {'Content-Type': 'application/json'},
+      body: body,
+    );
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      final data = json.decode(response.body);
+      return Visit.fromJson(data);
+    } else {
+      throw Exception('Error al crear visita: ${response.statusCode} ${response.body}');
+    }
+  }
+
+// Obtener todas las visitas
+  Future<List<Visit>> getAllVisits() async {
+    final url = '${dotenv.env['ENDPOINT_V2']!}visits';
+    final uri = Uri.parse(url);
+
+    final response = await _client.get(uri);
+
+    if (response.statusCode == 200) {
+      final List<dynamic> data = json.decode(response.body);
+      return data.map((e) => Visit.fromJson(e)).toList();
+    } else {
+      throw Exception('Error al obtener visitas: ${response.statusCode}');
+    }
+  }
+
+// Obtener una visita por ID
+  Future<Visit> getVisitById(String id) async {
+    final url = '${dotenv.env['ENDPOINT_V2']!}visits/$id';
+    final uri = Uri.parse(url);
+
+    final response = await _client.get(uri);
+
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      return Visit.fromJson(data);
+    } else if (response.statusCode == 404) {
+      throw Exception('Visita no encontrada');
+    } else {
+      throw Exception('Error al obtener visita: ${response.statusCode}');
+    }
+  }
+
+// Obtener visitas por restaurante
+  Future<List<Visit>> getVisitsByRestaurant(String restaurantId) async {
+    final url = '${dotenv.env['ENDPOINT_V2']!}restaurants/$restaurantId/visits';
+    final uri = Uri.parse(url);
+
+    final response = await _client.get(uri);
+
+    if (response.statusCode == 200) {
+      final List<dynamic> data = json.decode(response.body);
+      return data.map((e) => Visit.fromJson(e)).toList();
+    } else {
+      throw Exception('Error al obtener visitas del restaurante: ${response.statusCode}');
+    }
+  }
+
+// Actualizar una visita
+  Future<Visit> updateVisit(
+      String id, {
+        String? videoUrl,
+        String? creator,
+        String? extraText,
+        String? restaurantId, // opcional por si permites mover la visita a otro restaurant
+      }) async {
+    final url = '${dotenv.env['ENDPOINT_V2']!}visits/$id';
+    final uri = Uri.parse(url);
+
+    final payload = <String, dynamic>{};
+    if (videoUrl != null) payload['videoUrl'] = videoUrl;
+    if (creator != null) payload['creator'] = creator;
+    if (extraText != null) payload['extraText'] = extraText;
+    if (restaurantId != null) payload['restaurantId'] = restaurantId;
+
+    final response = await _client.patch(
+      uri,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(payload),
+    );
+
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      return Visit.fromJson(data);
+    } else if (response.statusCode == 404) {
+      throw Exception('Visita no encontrada');
+    } else {
+      throw Exception('Error al actualizar visita: ${response.statusCode} ${response.body}');
+    }
+  }
+
+// Eliminar una visita
+  Future<bool> deleteVisit(String id) async {
+    final url = '${dotenv.env['ENDPOINT_V2']!}visits/$id';
+    final uri = Uri.parse(url);
+
+    final response = await _client.delete(uri);
+
+    if (response.statusCode == 200 || response.statusCode == 204) {
+      return true;
+    } else if (response.statusCode == 404) {
+      throw Exception('Visita no encontrada');
+    } else {
+      throw Exception('Error al eliminar visita: ${response.statusCode}');
+    }
+  }
+
 }

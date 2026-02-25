@@ -47,7 +47,7 @@ class _HeroSliderIslandState extends State<HeroSliderIsland> {
         .toList();
     super.initState();
   }
-  CarouselController buttonCarouselController = CarouselController();
+  CarouselSliderController buttonCarouselController = CarouselSliderController();
 
   @override
   Widget build(BuildContext context) {

@@ -99,7 +99,7 @@ class CuponesList extends StatelessWidget {
                                   width: double.infinity,
                                   child: ElevatedButton(
                                       style: ElevatedButton.styleFrom(
-                                          primary: Color.fromRGBO(0, 189, 195, 1),
+                                        backgroundColor: Color.fromRGBO(0, 189, 195, 1),
                                       ),
                                       onPressed: ()=>GlobalMethods().pushPage(
                                           context,

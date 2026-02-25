@@ -12,6 +12,7 @@ import 'package:guachinches/data/model/Municipality.dart';
 import 'package:guachinches/data/model/TopRestaurants.dart';
 import 'package:guachinches/data/model/Types.dart';
 import 'package:guachinches/data/model/Video.dart';
+import 'package:guachinches/data/model/Visit.dart';
 import 'package:guachinches/data/model/blog_post.dart';
 import 'package:guachinches/data/model/restaurant.dart';
 import 'package:guachinches/ui/components/SurveyResults/SurveyResults.dart';
@@ -36,6 +37,7 @@ class HomePresenter{
 
   HomePresenter(this._view, this._topRestaurantCubit, this._bannersCubit, this._cuponesCubit, this._userCubit, this.repository,this._restaurantCubit);
 
+
   getTopRestaurants() async {
     List<TopRestaurants> topRestaurants = await repository.getTopRestaurants();
     print(topRestaurants.length);
@@ -53,6 +55,11 @@ class HomePresenter{
     _view.setSurveyRestaurants(allSurveyRestaurants);
   }
 
+  getAllVisit() async {
+    List<Visit> visits = await repository.getAllVisits();
+
+    _view.setAllVisits(visits);
+  }
   getIsland() async {
     String islandId = await storage.read(key: 'islandId') ?? '76ac0bec-4bc1-41a5-bc60-e528e0c12f4d';
     _view.setIsland(islandId);
@@ -88,6 +95,8 @@ class HomePresenter{
   Future<List<String>> getRestaurantsVotedByUser() async {
     String? surveyUserId = await storage.read(key: "surveyUserId");
 
+
+    print("DeVUELVE EL USERID "+ surveyUserId.toString());
     List<String> restaurantsVoted = await repository.getVotedRestaurantsByUser("1", surveyUserId!);
     return restaurantsVoted;
   }
@@ -195,6 +204,7 @@ abstract class HomeView{
   setCupones(List<CuponesAgrupados>cuponesAgrupadosParam);
   setBlogPosts(List<BlogPost> blogPosts) {}
   setIsland(String islandId) {}
+  setAllVisits(List<Visit> visits){}
   setSurveyResults(List<SurveyResult> guachinchesModernos,List<SurveyResult> guachinchesTradicionales);
   setSurveyRestaurants(List<Restaurant> restaurants);
 }

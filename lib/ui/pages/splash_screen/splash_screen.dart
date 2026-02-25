@@ -65,6 +65,6 @@ class _SplashScreenState extends State<SplashScreen>
   }
   @override
   goToOnBoarding() {
-    GlobalMethods().pushAndReplacement(context, SurveyOnboarding());
+    GlobalMethods().pushAndReplacement(context, OnBoarding());
   }
 }

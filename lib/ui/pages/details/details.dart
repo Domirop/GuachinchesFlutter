@@ -13,6 +13,7 @@ import 'package:guachinches/data/model/fotos.dart';
 import 'package:guachinches/data/model/restaurant.dart';
 import 'package:guachinches/globalMethods.dart';
 import 'package:guachinches/ui/Others/new_review/new_review.dart';
+import 'package:guachinches/ui/components/banner/banner_ad.dart';
 import 'package:guachinches/ui/components/details_image_slider/detail_slider.dart';
 import 'package:guachinches/ui/pages/details/details_presenter.dart';
 import 'package:guachinches/ui/pages/login/login.dart';
@@ -140,65 +141,65 @@ class _DetailsState extends State<Details> implements DetailView {
       backgroundColor: bgColor,
       bottomNavigationBar: BottomAppBar(
         color: bgColor,
+        elevation: 0,
         child: Padding(
-          padding: const EdgeInsets.only(top: 12.0),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
           child: Row(
             children: [
-              SizedBox(
-                width: 16,
-              ),
-              Container(
-                width: outlinedButtonWidth,
-                height: outlinedButtonHeight,
+              // Botón Compartir
+              Expanded(
                 child: OutlinedButton(
-                  style: ButtonStyle(
-                    minimumSize: MaterialStateProperty.all(
-                        Size(outlinedButtonWidth, outlinedButtonHeight)),
-                    elevation: MaterialStateProperty.all(0.0),
-                    side: MaterialStateProperty.all(
-                        BorderSide(color: blueColor)), // Borde blanco
+                  style: OutlinedButton.styleFrom(
+                    side: BorderSide(color: blueColor),
+                    minimumSize: const Size.fromHeight(44), // altura estándar
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
-                  onPressed: () {
-                    _shareContent();
-                  },
+                  onPressed: _shareContent,
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.ios_share, color: blueColor, size: 16),
-                      SizedBox(width: 8),
+                      const Icon(Icons.ios_share, size: 16),
+                      const SizedBox(width: 8),
                       Text(
                         'Compartir',
                         style: TextStyle(
-                            color: blueColor, fontFamily: 'SF Pro Display'),
+                          color: blueColor,
+                          fontFamily: 'SF Pro Display',
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     ],
                   ),
                 ),
               ),
-              SizedBox(width: 16),
-              Container(
-                width: elevatedButtonWidth,
-                height: elevatedButtonHeight,
+              const SizedBox(width: 16),
+
+              // Botón Llamar
+              Expanded(
                 child: ElevatedButton(
-                  style: ButtonStyle(
-                    minimumSize: MaterialStateProperty.all(
-                        Size(elevatedButtonWidth, elevatedButtonHeight)),
-                    backgroundColor: MaterialStateProperty.all(blueColor),
-                    elevation: MaterialStateProperty.all(0.0),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: blueColor,
+                    elevation: 0,
+                    minimumSize: const Size.fromHeight(44),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
-                  onPressed: () {
-                    _makePhoneCall(restaurant
-                        .telefono); // Reemplaza '123456789' con el número de teléfono deseado
-                  },
+                  onPressed: () => _makePhoneCall(restaurant.telefono),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
+                    children: const [
                       Icon(Icons.phone, color: Colors.white, size: 16),
                       SizedBox(width: 8),
                       Text(
-                        'Llamar por teléfono',
+                        'Llamar',
                         style: TextStyle(
-                            color: Colors.white, fontFamily: 'SF Pro Display'),
+                          color: Colors.white,
+                          fontFamily: 'SF Pro Display',
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     ],
                   ),
@@ -429,6 +430,7 @@ class _DetailsState extends State<Details> implements DetailView {
                                   SizedBox(
                                     height: 12.0,
                                   ),
+                                  Center(child: BannerAdWidget()),
                                 ],
                               ),
                             ),
@@ -640,9 +642,11 @@ class _DetailsState extends State<Details> implements DetailView {
                           ),
                         ),
                       ),
+
                       SizedBox(
                         height: 12.0,
                       ),
+                      Center(child: BannerAdWidget()),
                       restaurant.valoraciones.isNotEmpty
                           ? Column(
                               children: [

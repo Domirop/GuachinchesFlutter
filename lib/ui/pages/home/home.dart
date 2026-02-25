@@ -21,11 +21,13 @@ import 'package:guachinches/data/model/Municipality.dart';
 import 'package:guachinches/data/model/TopRestaurants.dart';
 import 'package:guachinches/data/model/Types.dart';
 import 'package:guachinches/data/model/Video.dart';
+import 'package:guachinches/data/model/Visit.dart';
 import 'package:guachinches/data/model/blog_post.dart';
 import 'package:guachinches/data/model/restaurant.dart';
 import 'package:guachinches/globalMethods.dart';
 import 'package:guachinches/ui/components/SurveyResults/SurveyResults.dart';
 import 'package:guachinches/ui/components/app_Bars/appbar_basic.dart';
+import 'package:guachinches/ui/components/banner/banner_ad.dart';
 import 'package:guachinches/ui/components/blog_post/blog_post_component.dart';
 import 'package:guachinches/ui/components/cards/restaurantMainCard.dart';
 import 'package:guachinches/ui/components/cards/surveyCard.dart';
@@ -34,12 +36,15 @@ import 'package:guachinches/ui/components/cards/restaurantOpenCard.dart';
 import 'package:guachinches/ui/components/categories/CategoryImageCard.dart';
 import 'package:guachinches/ui/components/heroSliderComponent.dart';
 import 'package:guachinches/ui/components/rankingList.dart';
+import 'package:guachinches/ui/components/visit/visit_list.dart';
 import 'package:guachinches/ui/pages/advance_search/advanced_search.dart';
 import 'package:guachinches/ui/pages/changeIsland/change_island.dart';
 import 'package:guachinches/ui/pages/home/home_presenter.dart';
 import 'package:guachinches/ui/pages/restaurantList/restaurant_list.dart';
 import 'package:guachinches/ui/pages/restaurantsShowMore/restaurantsShowMoreGuachinches.dart';
 import 'package:guachinches/ui/pages/surveyRanking/surveyRanking.dart';
+import 'package:guachinches/ui/pages/verifiedVisit/verifiedVisitsScreen.dart';
+import 'package:guachinches/ui/pages/visit/visit_screen.dart';
 import 'package:http/http.dart';
 
 class Home extends StatefulWidget {
@@ -92,9 +97,10 @@ class _HomeState extends State<Home> implements HomeView {
   late FilterCubit filterCubit;
   late RestaurantCubit restaurantsCubit;
 
+
   List<SurveyResult> surveyGuachinchesModernos = [];
   List<SurveyResult> surveyGuachinchesTradicionales = [];
-
+  List<Visit> allVisits = [];
   List<BlogPost> blogPosts = [];
   Color _appBarBackgroundColor = Colors.transparent;
 
@@ -116,8 +122,10 @@ class _HomeState extends State<Home> implements HomeView {
     presenter.getAllVideos();
     presenter.getAllCategories();
     presenter.getAllTypes();
+    presenter.getAllVisit();
     presenter.getAllBlogPosts();
     presenter.getTopRestaurants();
+
     presenter.getSurveyRestaurants();
     // Escucha el desplazamiento del scroll para cambiar el fondo de la app bar
     _scrollController.addListener(() {
@@ -199,12 +207,13 @@ class _HomeState extends State<Home> implements HomeView {
                     child: BlocBuilder<BannersCubit, BannersState>(
                       builder: (context, state) {
                         if (state is BannersLoaded) {
-                          if (surveyRanking !=null) {
+                          if (surveyRanking != null) {
                             return HeroSliderComponent(
-                                state.banners, surveyRanking: surveyRanking,);
+                              state.banners,
+                              surveyRanking: surveyRanking,
+                            );
                           }
-                          return HeroSliderComponent(
-                              state.banners);
+                          return HeroSliderComponent(state.banners);
                         } else {
                           return Container();
                         }
@@ -370,69 +379,8 @@ class _HomeState extends State<Home> implements HomeView {
                     } else {
                       return Column(
                         children: [
-                          Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Container(
-                              child: Row(
-                                mainAxisAlignment:MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Align(
-                                      alignment: Alignment.centerLeft,
-                                      child: Text('Resultados votaciones',
-                                          style: TextStyle(
-                                              fontSize: 18,
-                                              fontWeight: FontWeight.bold,
-                                              color: Colors.white,
-                                              fontFamily: "SF Pro Display"))),
-                                  surveyGuachinchesTradicionales.isNotEmpty &&
-                                      surveyGuachinchesModernos.isNotEmpty?ElevatedButton(
-                                    onPressed: () => {
-                                        GlobalMethods().pushPage(
-                                            context, SurveyRanking(
-                                          guachinchesModernos:
-                                          surveyGuachinchesModernos,
-                                          guachinchesTradicionales:
-                                          surveyGuachinchesTradicionales,
-                                          allRestaurants: allSurveyRestaurants,
-                                          isInitialTraditional: true,
-                                          onRefresh:  ()=>presenter.getSurveyResults(allSurveyRestaurants),
-                                        ))
-                                    },
-                                    style: ButtonStyle(
-                                        shape: MaterialStateProperty.all(RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(8), // <-- Radius
-                                        ),),
-                                        backgroundColor: MaterialStateProperty.all(GlobalMethods.blueColor
-                                        )
-                        ),
-                                    child:Padding(
-                                      padding: const EdgeInsets.all(8.0),
-                                      child: Text(
-                                        "Votar",
-                                        style: TextStyle(
-                                            fontFamily: "SF Pro Display",
-                                            fontWeight: FontWeight.bold,
-                                            color: Colors.white,
-                                            fontSize: 16.0),
-                                      ),
-                                    ),
-                                  ):Container(),
-                                ],
-                              ),
-                            ),
-                          ),
-                          surveyGuachinchesTradicionales.isNotEmpty &&
-                                  surveyGuachinchesModernos.isNotEmpty
-                              ? RankingList(
-                                  guachinchesModernos:
-                                      surveyGuachinchesModernos,
-                                  guachinchesTradicionales:
-                                      surveyGuachinchesTradicionales,
-                            allRestaurants: allSurveyRestaurants,
-                            onRefresh:  ()=>presenter.getSurveyResults(allSurveyRestaurants),
-
-                          )
-                              : Container(),
+                          VisitsHorizontalList(visits: allVisits), // <-- tu lista de Visit
+                          BannerAdWidget(),
                           Padding(
                             padding: const EdgeInsets.all(16),
                             child: Align(
@@ -453,7 +401,6 @@ class _HomeState extends State<Home> implements HomeView {
                               }).toList(),
                             ),
                           ),
-
                           Align(
                             alignment: Alignment.topLeft,
                             child: Padding(
@@ -647,7 +594,6 @@ class _HomeState extends State<Home> implements HomeView {
   setAllRestaurants(List<Restaurant> restaurants) {
     setState(() {
       allSurveyRestaurants = restaurants;
-
     });
   }
 
@@ -658,6 +604,7 @@ class _HomeState extends State<Home> implements HomeView {
     });
     presenter.getSurveyResults(restaurants);
   }
+
   createMenuForRestaurants() {
     return Padding(
       padding: const EdgeInsets.only(top: 24.0),
@@ -910,24 +857,25 @@ class _HomeState extends State<Home> implements HomeView {
   @override
   setSurveyResults(List<SurveyResult> guachinchesModernos,
       List<SurveyResult> guachinchesTradicionales) {
-
     setState(() {
       surveyGuachinchesModernos = guachinchesModernos;
       surveyGuachinchesTradicionales = guachinchesTradicionales;
       surveyRanking = SurveyRanking(
-        guachinchesModernos:
-        surveyGuachinchesModernos,
-        guachinchesTradicionales:
-        surveyGuachinchesTradicionales,
+        guachinchesModernos: surveyGuachinchesModernos,
+        guachinchesTradicionales: surveyGuachinchesTradicionales,
         allRestaurants: allSurveyRestaurants,
         isInitialTraditional: true,
-        onRefresh:  ()=>presenter.getSurveyResults(allSurveyRestaurants),
-
+        onRefresh: () => presenter.getSurveyResults(allSurveyRestaurants),
       );
     });
   }
 
-
+  @override
+  setAllVisits(List<Visit> visits) {
+    setState(() {
+      allVisits = visits;
+    });
+  }
 }
 
 final Shader linearGradient = LinearGradient(

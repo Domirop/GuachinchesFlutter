@@ -32,7 +32,7 @@ class _SurveyOnboardingState extends State<SurveyOnboarding> implements SurveyDe
 
     remoteRepository = HttpRemoteRepository(Client());
     _presenter = SurveyDetailsPresenter(remoteRepository, this);
-    _presenter.getUserSurveyId();
+    // _presenter.getUserSurveyId();
   }
 
   @override

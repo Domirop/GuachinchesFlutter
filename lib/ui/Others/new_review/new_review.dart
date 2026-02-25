@@ -249,11 +249,12 @@ class _NewReviewState extends State<NewReview> implements NewReviewView {
                     )
                   },
                   style: ElevatedButton.styleFrom(
-                    primary: GlobalMethods.blueColor,
+                    backgroundColor: GlobalMethods.blueColor, // 👈 reemplaza primary
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12.0),
                     ),
                   ),
+
                   child: Padding(
                     padding: const EdgeInsets.all(12.0),
                     child: Text(

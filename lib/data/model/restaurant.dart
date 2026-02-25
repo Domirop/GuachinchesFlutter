@@ -189,6 +189,7 @@ class Restaurant {
       open = false;
     }
   }
+
   static generateOpen(googleHorario){
     bool auxOpen = true;
     bool alwaysOpen = false;

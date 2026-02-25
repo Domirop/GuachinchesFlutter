@@ -9,12 +9,7 @@ import 'package:guachinches/data/model/version.dart';
 import 'package:guachinches/ui/pages/home/home.dart';
 import 'package:guachinches/ui/pages/login/login.dart';
 import 'package:guachinches/ui/pages/map/map_search.dart';
-import 'package:guachinches/ui/pages/profile/profile.dart';
 import 'package:guachinches/ui/pages/profile/profile_v2.dart';
-import 'package:guachinches/ui/pages/search_page/search_page.dart';
-import 'package:guachinches/ui/pages/valoraciones/valoraciones.dart';
-import 'package:uuid/uuid.dart';
-
 import '../video/video.dart';
 
 class SplashScreenPresenter {
@@ -49,20 +44,7 @@ class SplashScreenPresenter {
     ];
 
     try {
-      String? surveyUserId = await storage.read(key: "surveyUserId");
 
-      if (surveyUserId == null) {
-        // No existe surveyUserId, revisamos userId
-        String? userId = await storage.read(key: "userId");
-
-        if (userId != null) {
-          await storage.write(key: "surveyUserId", value: userId);
-        } else {
-          // No hay userId, generamos un UUID4
-          var uuid = const Uuid().v4();
-          await storage.write(key: "surveyUserId", value: uuid);
-        }
-      }
 
       // Ahora seguimos con el flujo de usuario
       String? userId = await storage.read(key: "userId");
@@ -98,20 +80,10 @@ class SplashScreenPresenter {
     Version version = await _remoteRepository.getVersion();
 
     String versionBD = "1.0.0";
-    String? surveyUserId = await storage.read(key: "surveyUserId");
 
-    if (surveyUserId == null || surveyUserId == '69a54c41-5ae3-5445-bea3-4e16ec8092fa') {
-      // No existe surveyUserId, revisamos userId
-      String? userId = await storage.read(key: "userId");
 
-      if (userId != null) {
-        await storage.write(key: "surveyUserId", value: userId);
-      } else {
-        // No hay userId, generamos un UUID4
-        var uuid = const Uuid().v4();
-        await storage.write(key: "surveyUserId", value: uuid);
-      }
-    }
+
+
 
     if (Platform.isIOS == true) {
       versionBD = version.iosVersion;

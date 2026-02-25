@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:guachinches/data/model/blog_post.dart';
 import 'package:guachinches/ui/pages/BlogPostDetail/blogPostDetail.dart';
 
+import '../banner/banner_ad.dart';
+
 class BlogPostComponent extends StatelessWidget {
   final BlogPost blogPost;
 
@@ -109,6 +111,7 @@ class BlogPostComponent extends StatelessWidget {
           ],
         ),
         SizedBox(height: 16),
+
       ],
     );
   }

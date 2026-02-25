@@ -168,7 +168,7 @@ class _ProfileState extends State<Profile> implements ProfileView {
                     child: ElevatedButton(
                       onPressed: () => _presenter.logOut(),
                       style: ElevatedButton.styleFrom(
-                        primary: Color.fromRGBO(242, 62, 74, 1),
+                        backgroundColor: Color.fromRGBO(242, 62, 74, 1),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(7.0),
                         ),
@@ -202,7 +202,7 @@ class _ProfileState extends State<Profile> implements ProfileView {
                     child: ElevatedButton(
                       onPressed: () => _presenter.deleteAccount(),
                       style: ElevatedButton.styleFrom(
-                        primary: Color.fromRGBO(242, 62, 74, 1),
+                        backgroundColor: Color.fromRGBO(242, 62, 74, 1),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(7.0),
                         ),

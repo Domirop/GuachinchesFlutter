@@ -18,6 +18,8 @@ import 'package:guachinches/data/model/version.dart';
 import 'package:guachinches/ui/components/SurveyResults/SurveyResults.dart';
 import 'package:video_compress/video_compress.dart';
 
+import 'model/Visit.dart';
+
 abstract class RemoteRepository{
   Future<List<ModelCategory>> getAllCategories();
   Future<RestaurantResponse> getAllRestaurants(int number,[String islandId]);
@@ -61,4 +63,21 @@ abstract class RemoteRepository{
   Future<List<SurveyResult>> getSurveyResults(int surveyId, String surveyName,List<Restaurant> allRestaurants);
   Future<List<String>> getVotedRestaurantsByUser(String surveySchemaId, String userId);
   Future<List<Restaurant>> getAllSurveyRestaurants(String surveyId);
-  }
+  Future<bool> deleteVisit(String id);
+  Future<Visit> updateVisit(
+      String id, {
+        String? videoUrl,
+        String? creator,
+        String? extraText,
+        String? restaurantId, // opcional por si permites mover la visita a otro restaurant
+      });
+  Future<List<Visit>> getVisitsByRestaurant(String restaurantId);
+  Future<Visit> getVisitById(String id);
+  Future<List<Visit>> getAllVisits();
+  Future<Visit> createVisit({
+    required String restaurantId,
+    String? videoUrl,
+    String? creator,
+    String? extraText,
+  });
+}

@@ -47,6 +47,9 @@
 	<true/>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
+	<key>GADApplicationIdentifier</key>
+    <string>ca-app-pub-4844069686980039~5546213719</string> <!-- App ID de prueba -->
+
 	<key>UIMainStoryboardFile</key>
 	<string>Main</string>
 	<key>UISupportedInterfaceOrientations</key>
