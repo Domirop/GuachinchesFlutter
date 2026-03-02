@@ -39,6 +39,7 @@ import 'package:guachinches/ui/components/categories/CategoryImageCard.dart';
 import 'package:guachinches/ui/components/heroSliderComponent.dart';
 import 'package:guachinches/ui/components/rankingList.dart';
 import 'package:guachinches/ui/components/survey_banner/survey_banner.dart';
+import 'package:guachinches/ui/components/survey_popup/survey_popup.dart';
 import 'package:guachinches/ui/components/visit/visit_list.dart';
 import 'package:guachinches/ui/pages/advance_search/advanced_search.dart';
 import 'package:guachinches/ui/pages/changeIsland/change_island.dart';
@@ -132,6 +133,12 @@ class _HomeState extends State<Home> implements HomeView {
     presenter.getTopRestaurants();
 
     presenter.getSurveyRestaurants();
+
+    SurveyPopup.showIfNeeded(
+      context,
+      onVoted: () => presenter.getSurveyResults(allSurveyRestaurants),
+    );
+
     // Escucha el desplazamiento del scroll para cambiar el fondo de la app bar
     _scrollController.addListener(() {
       if (_scrollController.offset > 50) {
@@ -222,9 +229,13 @@ class _HomeState extends State<Home> implements HomeView {
                             return HeroSliderComponent(
                               state.banners,
                               surveyRanking: surveyRanking,
+                              onVoted: () => presenter.getSurveyResults(allSurveyRestaurants),
                             );
                           }
-                          return HeroSliderComponent(state.banners);
+                          return HeroSliderComponent(
+                            state.banners,
+                            onVoted: () => presenter.getSurveyResults(allSurveyRestaurants),
+                          );
                         } else {
                           return Container();
                         }
@@ -321,7 +332,9 @@ class _HomeState extends State<Home> implements HomeView {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const SurveyBanner(),
+                  SurveyBanner(
+                    onVoted: () => presenter.getSurveyResults(allSurveyRestaurants),
+                  ),
                   if (surveyRanking != null &&
                       surveyGuachinchesTradicionales.isNotEmpty)
                     _buildSurveyResultsPreview(),

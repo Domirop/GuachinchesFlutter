@@ -67,4 +67,9 @@ class _SplashScreenState extends State<SplashScreen>
   goToOnBoarding() {
     GlobalMethods().pushAndReplacement(context, OnBoarding());
   }
+
+  @override
+  goToSurveyOnboarding(List<Widget> screens) {
+    GlobalMethods().pushAndReplacement(context, SurveyOnboarding(screens: screens));
+  }
 }

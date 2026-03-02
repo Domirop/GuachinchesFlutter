@@ -664,7 +664,7 @@ class HttpRemoteRepository implements RemoteRepository {
   }
 
   @override
-  Future<bool> submitSurveyInAppVotes(String userId, Map<String, String> votes, String signature, int duration) async {
+  Future<bool> submitSurveyInAppVotes(String userId, Map<String, String> votes, String signature, int duration, String deviceToken) async {
     try {
       final String url = dotenv.env['ENDPOINT_V2']! + 'surveys/results/v2';
       final uri = Uri.parse(url);
@@ -675,6 +675,7 @@ class HttpRemoteRepository implements RemoteRepository {
         'token': signature,
         'duration': duration,
         'source': 'mobile',
+        'device_token': deviceToken,
       });
       final response = await _client.post(uri,
           headers: {'Content-Type': 'application/json'}, body: body);

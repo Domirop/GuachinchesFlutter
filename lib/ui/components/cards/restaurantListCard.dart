@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 import 'package:guachinches/data/model/restaurant.dart';
 import 'package:guachinches/globalMethods.dart';
+import 'package:guachinches/ui/components/open_status_badge.dart';
 import 'package:guachinches/ui/pages/details/details.dart';
 
 class RestaurantListCard extends StatelessWidget {
@@ -77,14 +78,9 @@ class RestaurantListCard extends StatelessWidget {
                       ),
                     ),
                     SizedBox(height: 6),
-                    Text(
-                      restaurant.open ? "Abierto" : "Cerrado",
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: restaurant.open
-                            ? Color.fromRGBO(149, 220, 0, 1)
-                            : Color.fromRGBO(226, 120, 120, 1),
-                      ),
+                    OpenStatusBadge(
+                      horariosJson: restaurant.horariosJson,
+                      fallbackOpen: restaurant.open,
                     ),
                     SizedBox(height: 6),
                     Text(

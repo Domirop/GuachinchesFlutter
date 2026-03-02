@@ -7,7 +7,7 @@ import 'package:guachinches/globalMethods.dart';
 import 'package:guachinches/ui/components/SurveyResults/SurveyResults.dart';
 import 'package:guachinches/ui/components/cards/rankingCard.dart';
 import 'package:guachinches/ui/pages/myVotedRestaurants/myVotedRestaurants.dart';
-import 'package:guachinches/ui/pages/surveyDetails/surveyDetails.dart';
+import 'package:guachinches/ui/pages/survey_in_app/survey_in_app_page.dart';
 import 'package:guachinches/ui/pages/surveyRanking/surveyRankingPresenter.dart';
 import 'package:http/http.dart';
 
@@ -40,7 +40,7 @@ class _SurveyRankingState extends State<SurveyRanking> implements SurveyRankingV
   List<String> userRestaurantsVoted = [];
 
   // Temporizador
-  final DateTime endDate = DateTime(2025, 4, 20, 23, 59);
+  final DateTime endDate = DateTime(2026, 4, 20, 23, 59);
   late Timer countdownTimer;
   late Duration timeLeft;
 
@@ -337,9 +337,9 @@ class _SurveyRankingState extends State<SurveyRanking> implements SurveyRankingV
                       elevation: 6,
                     ),
                     onPressed: () async {
-                      await GlobalMethods().pushPageAsync(
-                        context,
-                        SurveyDetails(onRefresh: _refreshData),
+                      await Navigator.of(context).push(
+                        MaterialPageRoute(
+                            builder: (_) => const SurveyInAppPage()),
                       );
                       _refreshData();
                     },

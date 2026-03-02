@@ -109,14 +109,15 @@ class _FilterBarMapState extends State<FilterBarMap> {
           ),
         )
             : Container(),
-        Container(
-          height: 30,
-          child:  BlocBuilder<FilterCubitMap, FilterMapStateCubit>(
+        SizedBox(
+          height: 36,
+          child: BlocBuilder<FilterCubitMap, FilterMapStateCubit>(
               builder: (context, state) {
                 if (state is FilterCategoryMap) {
-                  selectedMunicipalities =
-                      state.municipalitesSelected;
-                }else if(state is FilterInitial){
+                  selectedMunicipalities = state.municipalitesSelected;
+                  selectedCategories = state.categorySelected;
+                  typesSelected = state.typesSelected;
+                } else if (state is FilterInitial) {
                   selectedMunicipalities = [];
                   selectedCategories = [];
                   typesSelected = [];
@@ -124,86 +125,46 @@ class _FilterBarMapState extends State<FilterBarMap> {
 
                 return ListView(
                   scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.only(right: 8),
                   children: [
-                    widget.showCategoryChip
-                        ? GestureDetector(
-                      onTap: () => {showCategoryFilterModal(context)},
-                      child: Chip(
-                        backgroundColor: Colors.white30,
-                        label: Text(
-                          selectedCategories.isEmpty
-                              ? 'Categoria'
-                              : 'Categorias +' +
-                              selectedCategories.length.toString(),
-                          style:
-                          TextStyle(color: Color.fromRGBO(23, 23, 23, 1)),
-                        ),
+                    if (widget.showCategoryChip) ...[
+                      _MapFilterChip(
+                        label: selectedCategories.isEmpty
+                            ? 'Categoría'
+                            : 'Categoría (${selectedCategories.length})',
+                        icon: Icons.category_outlined,
+                        isActive: selectedCategories.isNotEmpty,
+                        onTap: () => showCategoryFilterModal(context),
                       ),
-                    )
-                        : Container(),
-                    widget.showCategoryChip
-                        ? SizedBox(
-                      width: 8,
-                    )
-                        : Container(),
-                    GestureDetector(
+                      const SizedBox(width: 8),
+                    ],
+                    _MapFilterChip(
+                      label: 'Abierto',
+                      icon: Icons.access_time_rounded,
+                      isActive: openFilter,
                       onTap: () => handleIsOpenFilter(),
-                      child: openFilter
-                          ? Chip(
-                        backgroundColor: Color.fromRGBO(23, 23, 23, 1),
-                        label: Text(
-                          'Abierto',
-                          style: TextStyle(color: Colors.white),
-                        ),
-                      )
-                          : Chip(
-                        backgroundColor: Colors.white30,
-                        label: Text(
-                          'Abierto',
-                          style:
-                          TextStyle(color: Color.fromRGBO(23, 23, 23, 1)),
-                        ),
-                      ),
                     ),
-                    SizedBox(
-                      width: 8,
+                    const SizedBox(width: 8),
+                    _MapFilterChip(
+                      label: selectedMunicipalities.isEmpty
+                          ? 'Municipio'
+                          : 'Municipio (${selectedMunicipalities.length})',
+                      icon: Icons.location_on_outlined,
+                      isActive: selectedMunicipalities.isNotEmpty,
+                      onTap: () => showMunicipalityFilterModal(context),
                     ),
-                    GestureDetector(
-                      onTap: () => {showMunicipalityFilterModal(context)},
-                      child: Chip(
-                        backgroundColor: Colors.white30,
-                        label: Text(
-                          selectedMunicipalities.isEmpty
-                              ? 'Municipio'
-                              : 'Municipio +' +
-                              selectedMunicipalities.length.toString(),
-                          style: TextStyle(color: Color.fromRGBO(23, 23, 23, 1)),
-                        ),
-                      ),
-                    ),
-                    SizedBox(
-                      width: 8,
-                    ),
-                    // Chip(
-                    //   label: Text('Valoración'),
-                    //   backgroundColor: Color.fromRGBO(231, 231, 231, 1),
-                    // ),
-                    // SizedBox(
-                    //   width: 8,
-                    // ),
-                    GestureDetector(
-                      onTap: () {
-                        showTypeFilterModal(context);
-                      },
-                      child: Chip(
-                        label: Text('Tipo'),
-                        backgroundColor: Colors.white30,
-                      ),
+                    const SizedBox(width: 8),
+                    _MapFilterChip(
+                      label: typesSelected.isEmpty
+                          ? 'Tipo'
+                          : 'Tipo (${typesSelected.length})',
+                      icon: Icons.restaurant_outlined,
+                      isActive: typesSelected.isNotEmpty,
+                      onTap: () => showTypeFilterModal(context),
                     ),
                   ],
                 );
-              }
-          ),
+              }),
         ),
       ],
     );
@@ -888,18 +849,81 @@ class _FilterBarMapState extends State<FilterBarMap> {
   }
 
   handleIsOpenFilter() {
-      restaurantsCubit.getFilterMapRestaurants(
-        categories: selectedCategories,
-        municipalities: selectedMunicipalities,
-        text: text,
-        types: typesSelected,
-        isOpen: openFilter,
-        islandId:
-        '76ac0bec-4bc1-41a5-bc60-e528e0c12f4d',
-      );
+    restaurantsCubit.getFilterMapRestaurants(
+      categories: selectedCategories,
+      municipalities: selectedMunicipalities,
+      text: text,
+      types: typesSelected,
+      isOpen: openFilter,
+      islandId: '76ac0bec-4bc1-41a5-bc60-e528e0c12f4d',
+    );
 
     setState(() {
       openFilter = !openFilter;
     });
+  }
+}
+
+/// Chip de filtro con diseño consistente para el mapa.
+/// - Inactivo: fondo oscuro con borde sutil
+/// - Activo: fondo cyan sólido con icono de check
+class _MapFilterChip extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final bool isActive;
+  final VoidCallback onTap;
+
+  const _MapFilterChip({
+    required this.label,
+    required this.icon,
+    required this.isActive,
+    required this.onTap,
+  });
+
+  static const _cyan = Color(0xFF0085C4);
+  static const _darkBg = Color(0xFF2A2D36);
+  static const _borderInactive = Color(0x44FFFFFF);
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeInOut,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+        decoration: BoxDecoration(
+          color: isActive ? _cyan : _darkBg,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isActive ? _cyan : _borderInactive,
+            width: 1,
+          ),
+          boxShadow: isActive
+              ? [BoxShadow(color: _cyan.withValues(alpha: 0.35), blurRadius: 6, offset: const Offset(0, 2))]
+              : [],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: Colors.white),
+            const SizedBox(width: 5),
+            Text(
+              label,
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 13,
+                fontFamily: 'SF Pro Display',
+                fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
+              ),
+            ),
+            if (isActive) ...[
+              const SizedBox(width: 4),
+              const Icon(Icons.check_rounded, size: 13, color: Colors.white),
+            ],
+          ],
+        ),
+      ),
+    );
   }
 }

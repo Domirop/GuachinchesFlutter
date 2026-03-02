@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:guachinches/data/model/TopRestaurants.dart';
 import 'package:guachinches/data/model/restaurant.dart';
 import 'package:guachinches/globalMethods.dart';
+import 'package:guachinches/ui/components/open_status_badge.dart';
 import 'package:guachinches/ui/pages/details/details.dart';
 
 class RestaurantMainCard extends StatefulWidget {
@@ -61,7 +62,11 @@ class _RestaurantMainCardState extends State<RestaurantMainCard> {
                 Text(widget.restaurant.avgRating.toStringAsFixed(2), style: Theme.of(context).textTheme.bodySmall),
                 Icon(Icons.star,size: 16,color: Colors.white),
                 // Text('(120)',style: TextStyle(color: Color.fromRGBO(97, 97, 97, 1),fontSize: 14,fontWeight: FontWeight.w500)),
-                Text(' · Abierto', style: Theme.of(context).textTheme.bodySmall)
+                Text(' · ', style: Theme.of(context).textTheme.bodySmall),
+                OpenStatusBadge(
+                  horariosJson: widget.restaurant.horariosJson,
+                  fallbackOpen: widget.restaurant.open,
+                )
               ],
             ),
             SizedBox(height: 4),

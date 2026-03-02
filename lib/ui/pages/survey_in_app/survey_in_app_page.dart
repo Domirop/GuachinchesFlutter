@@ -5,7 +5,9 @@ import 'package:guachinches/ui/pages/survey_in_app/survey_in_app_presenter.dart'
 import 'package:http/http.dart';
 
 class SurveyInAppPage extends StatefulWidget {
-  const SurveyInAppPage({Key? key}) : super(key: key);
+  final VoidCallback? onVoted;
+
+  const SurveyInAppPage({Key? key, this.onVoted}) : super(key: key);
 
   @override
   State<SurveyInAppPage> createState() => _SurveyInAppPageState();
@@ -32,6 +34,12 @@ class _SurveyInAppPageState extends State<SurveyInAppPage>
   bool _isSubmitting = false;
   bool _submitted = false;
 
+  // Search
+  final TextEditingController _searchTradicionalCtrl = TextEditingController();
+  final TextEditingController _searchModernoCtrl = TextEditingController();
+  String _searchTradicional = '';
+  String _searchModerno = '';
+
   static const Color _bgColor = Color.fromRGBO(25, 27, 32, 1);
   static const Color _cardColor = Color.fromRGBO(35, 37, 44, 1);
   static const Color _greenAccent = Color.fromRGBO(0, 255, 102, 1);
@@ -47,6 +55,8 @@ class _SurveyInAppPageState extends State<SurveyInAppPage>
   @override
   void dispose() {
     _pageController.dispose();
+    _searchTradicionalCtrl.dispose();
+    _searchModernoCtrl.dispose();
     super.dispose();
   }
 
@@ -81,7 +91,6 @@ class _SurveyInAppPageState extends State<SurveyInAppPage>
       setState(() {
         _previousTradicional = tradicional;
         _previousModerno = moderno;
-        // Pre-fill if already voted
         _selectedTradicional = tradicional ?? _selectedTradicional;
         _selectedModerno = moderno ?? _selectedModerno;
       });
@@ -102,7 +111,10 @@ class _SurveyInAppPageState extends State<SurveyInAppPage>
 
   @override
   void onSubmitSuccess() {
-    if (mounted) setState(() => _submitted = true);
+    if (mounted) {
+      setState(() => _submitted = true);
+      widget.onVoted?.call();
+    }
   }
 
   // --- Navigation ---
@@ -130,7 +142,7 @@ class _SurveyInAppPageState extends State<SurveyInAppPage>
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.white),
         title: const Text(
-          'Encuesta 2025',
+          'Encuesta 2026',
           style: TextStyle(
             color: Colors.white,
             fontFamily: 'SF Pro Display',
@@ -297,9 +309,7 @@ class _SurveyInAppPageState extends State<SurveyInAppPage>
   Widget _buildSurvey() {
     return Column(
       children: [
-        // Page progress bar
         _buildProgressBar(),
-        // Pages
         Expanded(
           child: PageView(
             controller: _pageController,
@@ -312,7 +322,12 @@ class _SurveyInAppPageState extends State<SurveyInAppPage>
                 choices: _tradicionales,
                 selectedValue: _selectedTradicional,
                 alreadyVoted: _previousTradicional,
-                onSelect: (value) => setState(() => _selectedTradicional = value),
+                searchController: _searchTradicionalCtrl,
+                searchQuery: _searchTradicional,
+                onSearchChanged: (v) =>
+                    setState(() => _searchTradicional = v),
+                onSelect: (value) =>
+                    setState(() => _selectedTradicional = value),
               ),
               _buildSurveyPage(
                 title: 'Mejor Guachinche Moderno',
@@ -320,12 +335,16 @@ class _SurveyInAppPageState extends State<SurveyInAppPage>
                 choices: _modernos,
                 selectedValue: _selectedModerno,
                 alreadyVoted: _previousModerno,
-                onSelect: (value) => setState(() => _selectedModerno = value),
+                searchController: _searchModernoCtrl,
+                searchQuery: _searchModerno,
+                onSearchChanged: (v) =>
+                    setState(() => _searchModerno = v),
+                onSelect: (value) =>
+                    setState(() => _selectedModerno = value),
               ),
             ],
           ),
         ),
-        // Navigation buttons
         _buildNavigation(),
       ],
     );
@@ -357,12 +376,22 @@ class _SurveyInAppPageState extends State<SurveyInAppPage>
     required List<SurveyInAppChoice> choices,
     required String? selectedValue,
     required String? alreadyVoted,
+    required TextEditingController searchController,
+    required String searchQuery,
+    required ValueChanged<String> onSearchChanged,
     required ValueChanged<String> onSelect,
   }) {
     final bool isLocked = alreadyVoted != null;
 
+    final filteredChoices = searchQuery.isEmpty
+        ? choices
+        : choices
+            .where((c) =>
+                c.text.toLowerCase().contains(searchQuery.toLowerCase()))
+            .toList();
+
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -388,17 +417,19 @@ class _SurveyInAppPageState extends State<SurveyInAppPage>
           if (isLocked) ...[
             const SizedBox(height: 12),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
                 color: const Color.fromRGBO(0, 255, 102, 0.1),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color.fromRGBO(0, 255, 102, 0.3)),
+                border: Border.all(
+                    color: const Color.fromRGBO(0, 255, 102, 0.3)),
               ),
-              child: Row(
+              child: const Row(
                 children: [
-                  const Icon(Icons.check_circle, color: _greenAccent, size: 16),
-                  const SizedBox(width: 8),
-                  const Text(
+                  Icon(Icons.check_circle, color: _greenAccent, size: 16),
+                  SizedBox(width: 8),
+                  Text(
                     'Ya has votado en esta categoría',
                     style: TextStyle(
                       color: _greenAccent,
@@ -410,25 +441,78 @@ class _SurveyInAppPageState extends State<SurveyInAppPage>
               ),
             ),
           ],
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
+          // Search bar
+          TextField(
+            controller: searchController,
+            onChanged: onSearchChanged,
+            enabled: !isLocked,
+            style: const TextStyle(
+              color: Colors.white,
+              fontFamily: 'SF Pro Display',
+              fontSize: 15,
+            ),
+            decoration: InputDecoration(
+              hintText: 'Buscar local...',
+              hintStyle: const TextStyle(
+                color: Colors.white38,
+                fontFamily: 'SF Pro Display',
+              ),
+              prefixIcon:
+                  const Icon(Icons.search, color: Colors.white38, size: 20),
+              suffixIcon: searchQuery.isNotEmpty
+                  ? GestureDetector(
+                      onTap: () {
+                        searchController.clear();
+                        onSearchChanged('');
+                      },
+                      child: const Icon(Icons.close,
+                          color: Colors.white38, size: 18),
+                    )
+                  : null,
+              filled: true,
+              fillColor: const Color.fromRGBO(45, 48, 56, 1),
+              contentPadding: const EdgeInsets.symmetric(vertical: 12),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide.none,
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
           if (choices.isEmpty)
             const Center(
               child: Padding(
                 padding: EdgeInsets.all(32),
                 child: Text(
                   'Cargando opciones...',
-                  style: TextStyle(color: Colors.white54, fontFamily: 'SF Pro Display'),
+                  style: TextStyle(
+                      color: Colors.white54,
+                      fontFamily: 'SF Pro Display'),
+                ),
+              ),
+            )
+          else if (filteredChoices.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 32),
+              child: Center(
+                child: Text(
+                  'No se encontraron resultados',
+                  style: TextStyle(
+                      color: Colors.white38,
+                      fontFamily: 'SF Pro Display'),
                 ),
               ),
             )
           else
-            ...choices.map((choice) {
+            ...filteredChoices.map((choice) {
               final bool isSelected = selectedValue == choice.value;
               return GestureDetector(
                 onTap: isLocked ? null : () => onSelect(choice.value),
                 child: Container(
                   margin: const EdgeInsets.only(bottom: 10),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 16, vertical: 14),
                   decoration: BoxDecoration(
                     color: isSelected
                         ? const Color.fromRGBO(0, 255, 102, 0.15)
@@ -445,7 +529,8 @@ class _SurveyInAppPageState extends State<SurveyInAppPage>
                         child: Text(
                           choice.text,
                           style: TextStyle(
-                            color: isSelected ? _greenAccent : Colors.white,
+                            color:
+                                isSelected ? _greenAccent : Colors.white,
                             fontSize: 15,
                             fontFamily: 'SF Pro Display',
                             fontWeight: isSelected
@@ -470,7 +555,17 @@ class _SurveyInAppPageState extends State<SurveyInAppPage>
 
   Widget _buildNavigation() {
     final bool isLastPage = _currentPage == 1;
-    final bool canSubmit = _selectedTradicional != null || _selectedModerno != null;
+
+    // Página 1 → 2: requiere voto en Tradicional (nuevo o previo)
+    final bool canGoNext =
+        _selectedTradicional != null || _previousTradicional != null;
+
+    // Enviar: requiere ambos votos (nuevos o previos)
+    final bool canSubmit =
+        (_selectedTradicional != null || _previousTradicional != null) &&
+        (_selectedModerno != null || _previousModerno != null);
+
+    final bool enabled = isLastPage ? canSubmit : canGoNext;
 
     return Container(
       color: _bgColor,
@@ -501,17 +596,15 @@ class _SurveyInAppPageState extends State<SurveyInAppPage>
             flex: 2,
             child: ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: isLastPage
-                    ? (canSubmit ? _greenAccent : Colors.grey)
-                    : _greenAccent,
+                backgroundColor: enabled ? _greenAccent : Colors.grey.shade800,
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10)),
                 padding: const EdgeInsets.symmetric(vertical: 14),
               ),
-              onPressed: _isSubmitting
+              onPressed: _isSubmitting || !enabled
                   ? null
                   : isLastPage
-                      ? (canSubmit ? _handleSubmit : null)
+                      ? _handleSubmit
                       : () => _goToPage(_currentPage + 1),
               child: _isSubmitting
                   ? const SizedBox(
@@ -528,7 +621,7 @@ class _SurveyInAppPageState extends State<SurveyInAppPage>
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
                         fontFamily: 'SF Pro Display',
-                        color: isLastPage ? Colors.black : Colors.white,
+                        color: enabled ? Colors.black : Colors.white38,
                       ),
                     ),
             ),

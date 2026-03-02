@@ -21,6 +21,10 @@ import 'package:flutter/services.dart';
 
 import '../../../data/cubit/restaurants/map/restaurant_map_state.dart';
 
+// Colores semánticos para marcadores
+const double _markerHueOpen = BitmapDescriptor.hueGreen;
+const double _markerHueClosed = BitmapDescriptor.hueRed;
+
 class MapSearch extends StatefulWidget {
   const MapSearch({Key? key}) : super(key: key);
 
@@ -55,6 +59,7 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
   double appbarSize = 0.08;
   double offsetVisibility = 100.0;
   bool FAB_visibility = true;
+  StreamSubscription<LocationData>? _locationSubscription;
 
   @override
   void initState() {
@@ -66,52 +71,67 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
     presenter.getAllTypes();
     presenter.getAllMunicipalities('76ac0bec-4bc1-41a5-bc60-e528e0c12f4d');
     presenter.getAllCategories();
-    _getLocation();
+    _startLiveLocation();
   }
 
-  Future<void> _getLocation() async {
+  @override
+  void dispose() {
+    _locationSubscription?.cancel();
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _startLiveLocation() async {
     try {
-      Location location = new Location();
+      final Location location = Location();
 
-      bool _serviceEnabled;
-      PermissionStatus _permissionGranted;
-      LocationData _locationData;
-
-      _serviceEnabled = await location.serviceEnabled();
-
-      if (!_serviceEnabled) {
-        _serviceEnabled = await location.requestService();
-        if (!_serviceEnabled) {
-          return;
-        }
+      bool serviceEnabled = await location.serviceEnabled();
+      if (!serviceEnabled) {
+        serviceEnabled = await location.requestService();
+        if (!serviceEnabled) return;
       }
 
-      _permissionGranted = await location.hasPermission();
-
-      if (_permissionGranted == PermissionStatus.denied) {
-        _permissionGranted = await location.requestPermission();
-        if (_permissionGranted != PermissionStatus.granted) {
-          return;
-        }
+      PermissionStatus permission = await location.hasPermission();
+      if (permission == PermissionStatus.denied) {
+        permission = await location.requestPermission();
+        if (permission != PermissionStatus.granted) return;
       }
-      _locationData = await location.getLocation();
-      print(_locationData.latitude.toString() +
-          " " +
-          _locationData.longitude.toString());
-      if (isFirstMap) {
-        isFirstMap = false;
-        final GoogleMapController controller = await _controller.future;
-        controller.animateCamera(CameraUpdate.newCameraPosition(CameraPosition(
-          target: LatLng(_locationData.latitude!, _locationData.longitude!),
-          zoom: 14.4746,
-        )));
+
+      await location.changeSettings(
+        accuracy: LocationAccuracy.high,
+        interval: 3000,
+        distanceFilter: 8,
+      );
+
+      _locationSubscription =
+          location.onLocationChanged.listen((LocationData data) {
+        if (!mounted) return;
         setState(() {
-          currentLocation =
-              LatLng(_locationData.latitude!, _locationData.longitude!);
+          currentLocation = LatLng(data.latitude!, data.longitude!);
         });
-      }
+        if (isFirstMap) {
+          isFirstMap = false;
+          _controller.future.then((controller) {
+            controller.animateCamera(CameraUpdate.newCameraPosition(
+              CameraPosition(
+                target: LatLng(data.latitude!, data.longitude!),
+                zoom: 14.4746,
+              ),
+            ));
+          });
+        }
+      });
     } catch (e) {
-      print("Error obtaining location: $e");
+      debugPrint("Error tracking location: $e");
+    }
+  }
+
+  Future<void> _centerOnUser() async {
+    if (currentLocation.latitude != 28.4495292) {
+      final controller = await _controller.future;
+      controller.animateCamera(CameraUpdate.newCameraPosition(
+        CameraPosition(target: currentLocation, zoom: 15),
+      ));
     }
   }
 
@@ -119,33 +139,30 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
 
   @override
   Widget build(BuildContext context) {
-    _getLocation();
     return Scaffold(
       body: BlocBuilder<RestaurantMapCubit, RestaurantMapState>(
           builder: (context, state) {
         Set<Marker> aux = {};
-        if (currentLocation is LatLng) {
-          aux.add(Marker(
-            markerId: MarkerId("currentLocation"),
-            position: currentLocation,
-            infoWindow: InfoWindow(title: "Tu ubicación"),
-            icon:
-                BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
-          ));
-        }
+        // La ubicación del usuario la muestra Google Maps nativamente
+        // via myLocationEnabled: true — punto azul pulsante con círculo de precisión
+
         List<Restaurant> restaurants = [];
         if (state is AllRestaurantMapLoaded) {
-          print(
-              "mapa " + state.restaurantResponse.restaurants.length.toString());
           restaurants = state.restaurantResponse.restaurants;
-          state.restaurantResponse.restaurants.forEach((element) {
+          for (final element in state.restaurantResponse.restaurants) {
             aux.add(Marker(
-              markerId: MarkerId(element.id.toString()),
+              markerId: MarkerId(element.id),
               position: LatLng(element.lat, element.lon),
-              infoWindow: InfoWindow(title: element.nombre),
-              onTap: () => _onMarkerTapped(element.id.toString()),
+              infoWindow: InfoWindow(
+                title: element.nombre,
+                snippet: element.open ? '🟢 Abierto' : '🔴 Cerrado',
+              ),
+              icon: BitmapDescriptor.defaultMarkerWithHue(
+                element.open ? _markerHueOpen : _markerHueClosed,
+              ),
+              onTap: () => _onMarkerTapped(element.id),
             ));
-          });
+          }
           markers = aux;
           if (isFirst) {
             getVisibleMarkers(restaurants);
@@ -153,17 +170,21 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
           }
         }
         if (state is RestaurantFilterMap) {
-          print('Filter ' + state.filtersRestaurants.length.toString());
           restaurants = state.filtersRestaurants;
-          state.filtersRestaurants.forEach((element) {
+          for (final element in state.filtersRestaurants) {
             aux.add(Marker(
-              markerId: MarkerId(element.id.toString()),
+              markerId: MarkerId(element.id),
               position: LatLng(element.lat, element.lon),
-              infoWindow: InfoWindow(title: element.nombre),
-              onTap: () => _onMarkerTapped(element.id.toString()),
+              infoWindow: InfoWindow(
+                title: element.nombre,
+                snippet: element.open ? '🟢 Abierto' : '🔴 Cerrado',
+              ),
+              icon: BitmapDescriptor.defaultMarkerWithHue(
+                element.open ? _markerHueOpen : _markerHueClosed,
+              ),
+              onTap: () => _onMarkerTapped(element.id),
             ));
-          });
-          print('aux ' + aux.length.toString());
+          }
           markers = aux;
           if (isFirst) {
             getVisibleMarkers(restaurants);
@@ -175,6 +196,8 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
           children: [
             GoogleMap(
               mapType: MapType.normal,
+              myLocationEnabled: true,
+              myLocationButtonEnabled: false,
               onCameraMove: (CameraPosition position) {
                 getVisibleMarkers(restaurants);
               },
@@ -184,7 +207,6 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
               },
               markers: aux,
               onTap: (_) {
-                // Limpiar la tarjeta cuando se toque en cualquier lugar del mapa
                 _updateCardTitle("Tarjeta por defecto");
               },
             ),
@@ -202,16 +224,26 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
                 types: types,
               ),
             ),
+            // Botón para centrar en la ubicación del usuario
+            Positioned(
+              bottom: 232,
+              right: 16,
+              child: FloatingActionButton.small(
+                heroTag: 'centerOnUser',
+                backgroundColor: GlobalMethods.bgColor,
+                onPressed: _centerOnUser,
+                child: const Icon(Icons.my_location, color: Colors.white, size: 20),
+              ),
+            ),
             Positioned(
               bottom: 86,
               left: 16,
               right: 16,
               child: Container(
-                height: 132, // Altura fija para las tarjetas
+                height: 132,
                 child: PageView.builder(
                   controller: _pageController,
-                  physics: PageScrollPhysics(),
-                  // Permite el desplazamiento página por página
+                  physics: const PageScrollPhysics(),
                   scrollDirection: Axis.horizontal,
                   onPageChanged: (index) async {
                     final GoogleMapController controller =
@@ -219,11 +251,10 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
                     MarkerId markerId =
                         MarkerId(visibleRestaurants[index].id.toString());
                     controller.showMarkerInfoWindow(markerId);
-                    // Actualizar el marcador cuando se cambie de página
                   },
                   itemCount: visibleRestaurants.length,
                   itemBuilder: (context, index) {
-                    TopRestaurants topRestaurant = new TopRestaurants(
+                    TopRestaurants topRestaurant = TopRestaurants(
                       nombre: visibleRestaurants[index].nombre,
                       open: visibleRestaurants[index].open,
                       id: visibleRestaurants[index].id,
@@ -238,9 +269,8 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
                     return GestureDetector(
                       child: Container(
                         width: MediaQuery.of(context).size.width - 32,
-                        // Ancho igual al ancho de la pantalla menos el margen
-                        margin: EdgeInsets.only(right: 16),
-                        padding: EdgeInsets.symmetric(horizontal: 8),
+                        margin: const EdgeInsets.only(right: 16),
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
                         decoration: BoxDecoration(
                           color: GlobalMethods.bgColor,
                           borderRadius: BorderRadius.circular(16),
@@ -248,7 +278,7 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
                             BoxShadow(
                               color: Colors.black.withOpacity(0.2),
                               blurRadius: 6,
-                              offset: Offset(0, 3),
+                              offset: const Offset(0, 3),
                             ),
                           ],
                         ),

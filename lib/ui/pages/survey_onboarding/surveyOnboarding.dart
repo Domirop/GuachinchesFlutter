@@ -1,196 +1,317 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:guachinches/data/HttpRemoteRepository.dart';
-import 'package:guachinches/data/RemoteRepository.dart';
 import 'package:guachinches/globalMethods.dart';
-import 'package:guachinches/ui/pages/splash_screen/splash_screen.dart';
-import 'package:guachinches/ui/pages/surveyDetails/surveyDetailsPresenter.dart';
-import 'package:http/http.dart';
-import '../web_encuesta/PoolWebView.dart';
+import 'package:guachinches/ui/pages/menu/menu.dart';
+import 'package:guachinches/ui/pages/survey_in_app/survey_in_app_page.dart';
+
+const String kSurveyOnboarding2026Key = 'surveyOnboarding2026Shown';
 
 class SurveyOnboarding extends StatefulWidget {
-  final VoidCallback? onRefresh;
+  final List<Widget> screens;
 
-  SurveyOnboarding({Key? key, this.onRefresh}) : super(key: key);
+  SurveyOnboarding({Key? key, required this.screens}) : super(key: key);
 
   @override
   _SurveyOnboardingState createState() => _SurveyOnboardingState();
 }
 
-class _SurveyOnboardingState extends State<SurveyOnboarding> implements SurveyDetailsView {
-  Color bgColor = const Color.fromRGBO(25, 27, 32, 1);
-  late RemoteRepository remoteRepository;
-  late SurveyDetailsPresenter _presenter;
-  String userId = "";
+class _SurveyOnboardingState extends State<SurveyOnboarding>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _fadeIn;
+  late Animation<Offset> _slideUp;
+  final _storage = const FlutterSecureStorage();
+
+  static const Color _bg = Color.fromRGBO(25, 27, 32, 1);
+  static const Color _card = Color.fromRGBO(35, 37, 44, 1);
 
   @override
   void initState() {
     super.initState();
-    final storage = new FlutterSecureStorage();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 700),
+    );
+    _fadeIn = CurvedAnimation(parent: _controller, curve: Curves.easeOut);
+    _slideUp = Tween<Offset>(
+      begin: const Offset(0, 0.12),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
+    _controller.forward();
+    _markSeen();
+  }
 
-    storage.write(key: 'onBoardingFinished',value: 'true');
+  Future<void> _markSeen() async {
+    await _storage.write(key: kSurveyOnboarding2026Key, value: 'true');
+  }
 
-    remoteRepository = HttpRemoteRepository(Client());
-    _presenter = SurveyDetailsPresenter(remoteRepository, this);
-    // _presenter.getUserSurveyId();
+  void _done() {
+    GlobalMethods().pushAndReplacement(
+      context,
+      Menu(widget.screens, selectedItem: 0),
+    );
+  }
+
+  Future<void> _goVote() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const SurveyInAppPage()),
+    );
+    if (mounted) _done();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    String buttonText = 'Hacer la encuesta';
-
-    VoidCallback? onPressed = () {
-      GlobalMethods().pushAndReplacement(
-        context,
-        WebViewPool(userId, widget.onRefresh,true),
-      );
-    };
+    final topPadding = MediaQuery.of(context).padding.top;
 
     return Scaffold(
-      extendBodyBehindAppBar: true,
-      backgroundColor: bgColor,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        automaticallyImplyLeading: false, // No back arrow
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.close, color: Colors.white),
-            onPressed:
-                ()=>GlobalMethods().pushAndReplacement(context, SplashScreen())
+      backgroundColor: _bg,
+      body: Stack(
+        children: [
+          // Fondo con gradiente azul sutil
+          Positioned.fill(
+            child: Container(
+              decoration: const BoxDecoration(
+                gradient: RadialGradient(
+                  center: Alignment(0, -0.6),
+                  radius: 1.1,
+                  colors: [
+                    Color.fromRGBO(0, 100, 160, 0.28),
+                    Color.fromRGBO(25, 27, 32, 1),
+                  ],
+                  stops: [0.0, 0.7],
+                ),
+              ),
+            ),
+          ),
 
+          // Botón cerrar
+          Positioned(
+            top: topPadding + 12,
+            right: 16,
+            child: GestureDetector(
+              onTap: _done,
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.08),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.close, color: Colors.white54, size: 18),
+              ),
+            ),
+          ),
+
+          // Contenido principal
+          FadeTransition(
+            opacity: _fadeIn,
+            child: SlideTransition(
+              position: _slideUp,
+              child: SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      const SizedBox(height: 40),
+
+                      // Icono trofeo con glow
+                      Container(
+                        width: 96,
+                        height: 96,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: GlobalMethods.blueColor.withOpacity(0.12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: GlobalMethods.blueColor.withOpacity(0.35),
+                              blurRadius: 40,
+                              spreadRadius: 2,
+                            ),
+                          ],
+                        ),
+                        child: Icon(
+                          Icons.emoji_events_rounded,
+                          color: GlobalMethods.blueColor,
+                          size: 48,
+                        ),
+                      ),
+
+                      const SizedBox(height: 28),
+
+                      // Badge edición
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: GlobalMethods.blueColor.withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: GlobalMethods.blueColor.withOpacity(0.35),
+                          ),
+                        ),
+                        child: Text(
+                          'EDICIÓN 2026',
+                          style: TextStyle(
+                            color: GlobalMethods.blueColor,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            fontFamily: 'SF Pro Display',
+                            letterSpacing: 1.8,
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 18),
+
+                      // Título
+                      const Text(
+                        'Premios\nDonde Comer\nCanarias',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 34,
+                          fontWeight: FontWeight.w800,
+                          fontFamily: 'SF Pro Display',
+                          height: 1.12,
+                          letterSpacing: -0.5,
+                        ),
+                      ),
+
+                      const SizedBox(height: 16),
+
+                      // Subtítulo
+                      Text(
+                        'Tu voto decide quiénes son\nlos mejores guachinches de Canarias',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.5),
+                          fontSize: 15,
+                          fontFamily: 'SF Pro Display',
+                          height: 1.45,
+                        ),
+                      ),
+
+                      const SizedBox(height: 32),
+
+                      // Categorías
+                      Row(
+                        children: [
+                          _categoryCard(
+                            icon: Icons.home_outlined,
+                            label: 'Guachinche\nTradicional',
+                          ),
+                          const SizedBox(width: 12),
+                          _categoryCard(
+                            icon: Icons.restaurant_outlined,
+                            label: 'Guachinche\nModerno',
+                          ),
+                        ],
+                      ),
+
+                      const Spacer(),
+
+                      // Divider sutil
+                      Divider(
+                        color: Colors.white.withOpacity(0.07),
+                        thickness: 1,
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Botón principal
+                      SizedBox(
+                        width: double.infinity,
+                        height: 56,
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: GlobalMethods.blueColor,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            elevation: 0,
+                          ),
+                          onPressed: _goVote,
+                          child: const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.how_to_vote_outlined,
+                                  color: Colors.white, size: 20),
+                              SizedBox(width: 10),
+                              Text(
+                                '¡Quiero votar!',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w700,
+                                  fontFamily: 'SF Pro Display',
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 12),
+
+                      // Saltar
+                      TextButton(
+                        onPressed: _done,
+                        child: Text(
+                          'Quizás más tarde',
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.38),
+                            fontSize: 15,
+                            fontFamily: 'SF Pro Display',
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 20),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Stack(
-              children: [
-                ShaderMask(
-                  shaderCallback: (rect) {
-                    return const LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [Colors.transparent, Color.fromRGBO(25, 27, 32, 1)],
-                      stops: [0.5, 1.0],
-                    ).createShader(Rect.fromLTRB(0, 0, rect.width, rect.height));
-                  },
-                  blendMode: BlendMode.darken,
-                  child: Image.asset(
-                    'assets/images/images-beach.png',
-                    width: double.infinity,
-                    height: 300,
-                    fit: BoxFit.cover,
-                  ),
-                ),
-                Container(
-                  width: double.infinity,
-                  height: 300,
-                  color: Colors.black.withOpacity(0.5),
-                  child: const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 24.0),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          "Premios donde Comer Canarias 2025",
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 32,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        SizedBox(height: 8),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 24.0),
-              child: Divider(color: Color.fromRGBO(208, 221, 255, 1), thickness: 0.4),
-            ),
-            const SizedBox(height: 16),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Presentamos los premios Donde Comer Canarias 2025. Puedes votar ya en las siguientes categorías:',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.normal,
-                      fontFamily: "SF Pro Display",
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  ...[
-                    'Mejor Guachinche Tradicional',
-                    'Mejor Guachinche Moderno',
-                  ].map((category) => Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 5),
-                    child: Text(
-                      '• $category',
-                      style: const TextStyle(
-                        fontSize: 14,
-                        color: Colors.white,
-                        fontWeight: FontWeight.normal,
-                        fontFamily: "SF Pro Display",
-                      ),
-                    ),
-                  )),
-                  const SizedBox(height: 100),
-                ],
-              ),
-            ),
-          ],
+    );
+  }
+
+  Widget _categoryCard({required IconData icon, required String label}) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 14),
+        decoration: BoxDecoration(
+          color: _card,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Colors.white.withOpacity(0.06)),
         ),
-      ),
-      bottomNavigationBar: Container(
-        color: bgColor,
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+        child: Row(
           children: [
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: onPressed == null
-                      ? Colors.grey
-                      : const Color.fromRGBO(0, 255, 102, 1),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 50),
-                ),
-                onPressed: onPressed,
-                child: Text(
-                  buttonText,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    fontFamily: "SF Pro Display",
-                    color: Colors.white,
-                  ),
-                ),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: GlobalMethods.blueColor.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(8),
               ),
+              child: Icon(icon, color: GlobalMethods.blueColor, size: 18),
             ),
-            const SizedBox(height: 16),
-            TextButton(
-              onPressed:
-                    ()=>GlobalMethods().pushAndReplacement(context, SplashScreen()) ,
-              child: const Text(
-                "Saltar",
-                style: TextStyle(
-                  color: Colors.white70,
-                  fontSize: 16,
-                  fontFamily: "SF Pro Display",
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                label,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  fontFamily: 'SF Pro Display',
+                  height: 1.3,
                 ),
               ),
             ),
@@ -198,12 +319,5 @@ class _SurveyOnboardingState extends State<SurveyOnboarding> implements SurveyDe
         ),
       ),
     );
-  }
-
-  @override
-  setUserSurveyId(String surveyUserId) {
-    setState(() {
-      userId = surveyUserId;
-    });
   }
 }

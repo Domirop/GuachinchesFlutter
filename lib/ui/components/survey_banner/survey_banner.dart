@@ -1,38 +1,37 @@
 import 'package:flutter/material.dart';
+import 'package:guachinches/globalMethods.dart';
 import 'package:guachinches/ui/pages/survey_in_app/survey_in_app_page.dart';
 
 class SurveyBanner extends StatelessWidget {
-  const SurveyBanner({Key? key}) : super(key: key);
+  final VoidCallback? onVoted;
+
+  const SurveyBanner({Key? key, this.onVoted}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () => Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => const SurveyInAppPage()),
+        MaterialPageRoute(builder: (_) => SurveyInAppPage(onVoted: onVoted)),
       ),
       child: Container(
         margin: const EdgeInsets.fromLTRB(16, 12, 16, 4),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          color: const Color.fromRGBO(35, 37, 44, 1),
+          color: GlobalMethods.blueColor,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: const Color.fromRGBO(0, 255, 102, 0.35),
-            width: 1,
-          ),
         ),
         child: Row(
           children: [
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: const Color.fromRGBO(0, 255, 102, 0.1),
+                color: Colors.white.withOpacity(0.2),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: const Icon(
                 Icons.how_to_vote_outlined,
-                color: Color.fromRGBO(0, 255, 102, 1),
+                color: Colors.white,
                 size: 22,
               ),
             ),
@@ -42,7 +41,7 @@ class SurveyBanner extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Premios Donde Comer Canarias 2025',
+                    'Premios Donde Comer Canarias 2026',
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 13,
@@ -54,7 +53,7 @@ class SurveyBanner extends StatelessWidget {
                   Text(
                     '¡Vota por tus guachinches favoritos!',
                     style: TextStyle(
-                      color: Colors.white54,
+                      color: Colors.white70,
                       fontSize: 12,
                       fontFamily: 'SF Pro Display',
                     ),
@@ -64,7 +63,7 @@ class SurveyBanner extends StatelessWidget {
             ),
             const Icon(
               Icons.arrow_forward_ios_rounded,
-              color: Color.fromRGBO(0, 255, 102, 1),
+              color: Colors.white,
               size: 16,
             ),
           ],

@@ -7,8 +7,6 @@ import 'package:guachinches/ui/pages/details/details.dart';
 import 'package:guachinches/ui/pages/visit/visit_presenter.dart';
 import 'package:http/http.dart';
 import 'package:maps_launcher/maps_launcher.dart';
-import 'package:share_plus/share_plus.dart';
-import 'package:youtube_player_iframe/youtube_player_iframe.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class VisitDetailPage extends StatefulWidget {
@@ -34,7 +32,6 @@ class _VisitDetailPageState extends State<VisitDetailPage>
   bool _loading = true;
   String? _error;
 
-  YoutubePlayerController? _ytController;
   bool _isDisposing = false;
 
   @override
@@ -44,51 +41,10 @@ class _VisitDetailPageState extends State<VisitDetailPage>
     _presenter = VisitDetailPresenter(_repo, this);
     _presenter.loadVisit(widget.visitId);
   }
-  Widget _buildButton(String text, IconData icon, VoidCallback onPressed) {
-    return Container(
-      child: OutlinedButton(
-        onPressed: onPressed,
-        style: ButtonStyle(
-          elevation: MaterialStateProperty.all(0.0),
-          side: MaterialStateProperty.all(
-              BorderSide(width: 1, color: GlobalMethods.blueColor)),
-          // Borde blanco
-          shape: MaterialStateProperty.all(
-            RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(
-                  10.0), // Ajusta el valor para redondear más las esquinas
-            ),
-          ),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              icon,
-              color: GlobalMethods.blueColor,
-              size: 18,
-            ),
-            SizedBox(
-              width: 8.0,
-            ),
-            Text(
-              text,
-              style: TextStyle(
-                color: GlobalMethods.blueColor,
-                fontFamily: 'SF Pro Display',
-                fontSize: 12.0,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+
   @override
   void dispose() {
     _isDisposing = true;
-    _ytController?.close();
-    _ytController = null;
     super.dispose();
   }
 
@@ -110,7 +66,6 @@ class _VisitDetailPageState extends State<VisitDetailPage>
       _loading = false;
       _error = null;
     });
-    _initYoutube(visit.videoUrl ?? '');
   }
 
   @override
@@ -122,200 +77,340 @@ class _VisitDetailPageState extends State<VisitDetailPage>
     });
   }
 
-  // ===== YouTube =====
-  void _initYoutube(String url) {
-    if (_isDisposing) return;
+  // ===== Acciones =====
 
-    final id = YoutubePlayerController.convertUrlToId(url);
-    if (id == null) {
-      setState(() => _error = 'El enlace de YouTube no es válido');
-      return;
+  Future<void> _makePhoneCall(String phoneNumber) async {
+    if (phoneNumber.isEmpty) return;
+    final uri = Uri(scheme: 'tel', path: phoneNumber);
+    if (await canLaunchUrl(uri)) await launchUrl(uri);
+  }
+
+  Future<void> _openYoutubeLink() async {
+    final url = _visit?.videoUrl;
+    if (url == null || url.isEmpty) return;
+    final uri = Uri.parse(url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
     }
+  }
 
-    _ytController = YoutubePlayerController.fromVideoId(
-      videoId: id,
-      params: const YoutubePlayerParams(
-        mute: false,
-        showFullscreenButton: true,
-        strictRelatedVideos: true,
-        showVideoAnnotations: false
+  // ===== Build helpers =====
+
+  Widget _buildActionButton(
+      String text, IconData icon, VoidCallback onPressed) {
+    return Expanded(
+      child: OutlinedButton(
+        onPressed: onPressed,
+        style: OutlinedButton.styleFrom(
+          side: BorderSide(color: GlobalMethods.blueColor, width: 1),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          padding: const EdgeInsets.symmetric(vertical: 12),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: GlobalMethods.blueColor, size: 16),
+            const SizedBox(width: 6),
+            Text(
+              text,
+              style: TextStyle(
+                color: GlobalMethods.blueColor,
+                fontFamily: 'SF Pro Display',
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
-// Función para realizar una llamada telefónica
-  Future<void> _makePhoneCall(String phoneNumber) async {
-    final Uri launchUri = Uri(
-      scheme: 'tel',
-      path: phoneNumber,
-    );
-    if (await canLaunchUrl(launchUri)) {
-      await canLaunchUrl(launchUri);
-    } else {
-      // Maneja el error si no se puede realizar la llamada
-      print('No se puede realizar la llamada al $phoneNumber');
+
+  Widget _buildVideoSection() {
+    final videoUrl = _visit?.videoUrl;
+
+    // Thumbnail + abrir en YouTube app
+    if (videoUrl != null && videoUrl.isNotEmpty) {
+      return GestureDetector(
+        onTap: _openYoutubeLink,
+        child: Stack(
+          children: [
+            if (_visit?.thumbnail != null && _visit!.thumbnail!.isNotEmpty)
+              Image.network(
+                _visit!.thumbnail!,
+                width: double.infinity,
+                height: 220,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => _buildVideoPlaceholder(),
+              )
+            else
+              _buildVideoPlaceholder(),
+            Container(
+              width: double.infinity,
+              height: 220,
+              color: Colors.black.withOpacity(0.4),
+            ),
+            const Positioned.fill(
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.play_circle_fill,
+                        color: Colors.white, size: 72),
+                    SizedBox(height: 10),
+                    Text(
+                      'Ver en YouTube',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                        fontFamily: 'SF Pro Display',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
     }
+
+    // Sin video pero con thumbnail → imagen hero
+    if (_visit?.thumbnail != null && _visit!.thumbnail!.isNotEmpty) {
+      return Image.network(
+        _visit!.thumbnail!,
+        width: double.infinity,
+        height: 220,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+      );
+    }
+
+    return const SizedBox.shrink();
   }
 
+  Widget _buildVideoPlaceholder() {
+    return Container(
+      width: double.infinity,
+      height: 220,
+      color: Colors.black,
+      child: const Center(
+        child: Icon(Icons.play_circle_outline,
+            color: Colors.white38, size: 64),
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader(String title, IconData? icon) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+      child: Row(
+        children: [
+          if (icon != null) ...[
+            Icon(icon, color: Colors.white70, size: 18),
+            const SizedBox(width: 8),
+          ],
+          Text(
+            title,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 17,
+              fontWeight: FontWeight.w600,
+              fontFamily: 'SF Pro Display',
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBody() {
+    final restaurantName =
+        _visit?.restaurant?.nombre ?? widget.title ?? 'Visita';
+    final municipio = _visit?.restaurant?.municipio ?? '';
+
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildVideoSection(),
+
+          const SizedBox(height: 20),
+
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  restaurantName,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    fontFamily: 'SF Pro Display',
+                  ),
+                ),
+                if (municipio.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      const Icon(Icons.location_on,
+                          color: Colors.grey, size: 14),
+                      const SizedBox(width: 4),
+                      Text(
+                        municipio,
+                        style: const TextStyle(
+                          color: Colors.grey,
+                          fontSize: 13,
+                          fontFamily: 'SF Pro Display',
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              children: [
+                _buildActionButton(
+                  'Cómo llegar',
+                  Icons.location_on,
+                  () => MapsLauncher.launchQuery(
+                      _visit?.restaurant?.nombre ?? ''),
+                ),
+                const SizedBox(width: 8),
+                _buildActionButton(
+                  'Llamar',
+                  Icons.phone,
+                  () => _makePhoneCall(_visit?.restaurant?.telefono ?? ''),
+                ),
+              ],
+            ),
+          ),
+
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+            child: Divider(
+                color: Color.fromRGBO(208, 221, 255, 0.15), thickness: 0.5),
+          ),
+
+          if (_visit?.extraText?.isNotEmpty ?? false) ...[
+            _buildSectionHeader('Nuestra experiencia', null),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              child: Text(
+                _visit!.extraText!,
+                style: const TextStyle(
+                  color: Color(0xFFCCCCCC),
+                  fontSize: 15,
+                  height: 1.65,
+                  fontFamily: 'SF Pro Display',
+                ),
+              ),
+            ),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+              child: Divider(
+                  color: Color.fromRGBO(208, 221, 255, 0.15), thickness: 0.5),
+            ),
+          ],
+
+          if (_visit?.myTicket?.isNotEmpty ?? false) ...[
+            _buildSectionHeader('Nuestro ticket', Icons.receipt_long),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              child: Text(
+                _visit!.myTicket!,
+                style: const TextStyle(
+                  color: Color(0xFFCCCCCC),
+                  fontSize: 15,
+                  height: 1.65,
+                  fontFamily: 'SF Pro Display',
+                ),
+              ),
+            ),
+          ],
+
+          const SizedBox(height: 100),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final bg = GlobalMethods.bgColor;
-    final title =
-        _visit?.restaurant?.nombre ?? widget.title ?? "Visita";
 
     return Scaffold(
       backgroundColor: bg,
       appBar: AppBar(
-        title: Text(title),
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
+        elevation: 0,
+        title: Text(
+          _visit?.restaurant?.nombre ?? widget.title ?? 'Visita',
+          style: const TextStyle(
+            fontFamily: 'SF Pro Display',
+            fontSize: 17,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-          ? _ErrorView(
-        message: _error!,
-        onRetry: () => _presenter.loadVisit(widget.visitId),
-      )
-          : (_ytController == null)
-          ? _ErrorView(
-        message: 'No se pudo inicializar el video.',
-        onRetry: () => _presenter.loadVisit(widget.visitId),
-      )
-          : SingleChildScrollView( // 👈 envolvemos el contenido
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            AspectRatio(
-              aspectRatio: 16 / 9,
-              child: YoutubePlayer(
-                controller: _ytController!,
-              ),
-            ),
-            const SizedBox(height: 16),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Text(
-                title,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0,vertical: 8),
-              child: Row(
-                children: [
-                  _buildButton(
-                      'Como llegar',
-                      Icons.location_on,
-                          () => MapsLauncher.launchQuery(
-                          '${_visit!.restaurant!.nombre}')),
-                  const SizedBox(width: 8),
-                  _buildButton(
-                      'Llamar',
-                      Icons.phone,
-                          () => _makePhoneCall(
-                          _visit!.restaurant!.telefono)),
-                ],
-              ),
-            ),
-            if ((_visit?.extraText?.isNotEmpty ?? false)) ...[
-              const Padding(
-                padding: EdgeInsets.fromLTRB(16, 0, 16, 0),
-                child: Text(
-                  "Experiencia",
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w400,
-                  ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                child: Text(
-                  _visit!.extraText!,
-                  style: const TextStyle(
-                      color: Colors.white,
-                    fontSize: 14,
-                      fontWeight: FontWeight.normal
-
-                  ),
-                ),
-              ),
-            ],
-            if ((_visit?.myTicket?.isNotEmpty ?? false)) ...[
-              const Padding(
-                padding: EdgeInsets.fromLTRB(16, 8, 16, 0),
-                child: Text(
-                  "Nuestro ticket",
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w400,
-                  ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                child: Text(
-                  _visit!.myTicket!,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.normal
-                  ),
-                ),
-              ),
-            ],
-            const SizedBox(height: 80), // 👈 espacio para no tapar el contenido con el bottom bar
-          ],
-        ),
-      ),
-
-      bottomNavigationBar: BottomAppBar(
-        color: bg,
-        child: Padding(
-          padding: const EdgeInsets.all(12.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: ElevatedButton(
-                  onPressed: () => GlobalMethods().pushPage(context, Details(_visit!.restaurantId)),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: GlobalMethods.blueColor,
-                    foregroundColor: Colors.white,
-                    textStyle: const TextStyle(
-                      fontFamily: 'SF Pro Display',
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600
+              ? _ErrorView(
+                  message: _error!,
+                  onRetry: () => _presenter.loadVisit(widget.visitId),
+                )
+              : _buildBody(),
+      bottomNavigationBar: _visit != null
+          ? BottomAppBar(
+              color: bg,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                child: SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: ElevatedButton(
+                    onPressed: () => GlobalMethods()
+                        .pushPage(context, Details(_visit!.restaurantId)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: GlobalMethods.blueColor,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      textStyle: const TextStyle(
+                        fontFamily: 'SF Pro Display',
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text('Ver restaurante'),
+                        SizedBox(width: 8),
+                        Icon(Icons.arrow_forward_ios, size: 16),
+                      ],
                     ),
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min, // 👈 evita que ocupe todo el ancho
-                    children: const [
-                      Text("Ver restaurante"),
-                      SizedBox(width: 8), // separación
-                      Icon(Icons.arrow_forward_ios,size: 16,),
-                    ],
-                  ),
                 ),
-
               ),
-            ],
-          ),
-        ),
-      ),
-
+            )
+          : null,
     );
   }
-
 }
 
 class _ErrorView extends StatelessWidget {
@@ -341,8 +436,8 @@ class _ErrorView extends StatelessWidget {
           const SizedBox(height: 16),
           ElevatedButton(
             onPressed: onRetry,
-            child: const Text("Reintentar"),
-          )
+            child: const Text('Reintentar'),
+          ),
         ],
       ),
     );

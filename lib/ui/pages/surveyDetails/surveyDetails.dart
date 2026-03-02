@@ -81,7 +81,7 @@ class _SurveyDetailsState extends State<SurveyDetails> implements SurveyDetailsV
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          "Premios donde Comer Canarias 2025",
+                          "Premios donde Comer Canarias 2026",
                           style: TextStyle(
                             color: Colors.white,
                             fontSize: 32,
@@ -106,7 +106,7 @@ class _SurveyDetailsState extends State<SurveyDetails> implements SurveyDetailsV
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'Presentamos los premios Donde Comer Canarias 2025. Puedes votar ya en las siguientes categorías:',
+                    'Presentamos los premios Donde Comer Canarias 2026. Puedes votar ya en las siguientes categorías:',
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.normal,

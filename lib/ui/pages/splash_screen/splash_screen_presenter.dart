@@ -35,20 +35,15 @@ class SplashScreenPresenter {
   }
 
 
-  mainFunction() async {
+  Future<List<Widget>> _buildScreens() async {
     List<Widget> screens = [
       Home(),
       MapSearch(),
       VideoScreen(index: 0),
       Login("Para ver tu perfíl debes iniciar sesión."),
     ];
-
     try {
-
-
-      // Ahora seguimos con el flujo de usuario
       String? userId = await storage.read(key: "userId");
-
       if (userId != null) {
         if (_userCubit.state is UserInitial) {
           var response = await _userCubit.getUserInfo(userId);
@@ -60,19 +55,14 @@ class SplashScreenPresenter {
         } else if (_userCubit.state is UserLoaded) {
           screens = [Home(), MapSearch(), VideoScreen(index: 0), Profilev2()];
         }
-      } else {
-        screens = [
-          Home(),
-          MapSearch(),
-          VideoScreen(index: 0),
-          Login("Para ver tu perfíl debes iniciar sesión."),
-        ];
       }
+    } catch (_) {}
+    return screens;
+  }
 
-      _view.goToMenu(screens);
-    } catch (e) {
-      _view.goToMenu(screens);
-    }
+  mainFunction() async {
+    final screens = await _buildScreens();
+    _view.goToMenu(screens);
   }
 
 
@@ -96,13 +86,18 @@ class SplashScreenPresenter {
     }
     else {
       String? key = await storage.read(key: 'onBoardingFinished') ;
-      // await storage.write(key: 'onBoardingFinished',value: 'false');
       if(key==null|| key.length==0){
         await storage.write(key: 'onBoardingFinished',value: 'false');
         _view.goToOnBoarding();
       }else{
         if(key == 'true'){
-          mainFunction(); 
+          final surveyShown = await storage.read(key: 'surveyOnboarding2026Shown');
+          if (surveyShown == null || surveyShown.isEmpty) {
+            final screens = await _buildScreens();
+            _view.goToSurveyOnboarding(screens);
+          } else {
+            mainFunction();
+          }
         }else{
           _view.goToOnBoarding();
         }
@@ -115,4 +110,5 @@ abstract class SplashScreenView {
   goToMenu(List<Widget> screens);
   goToUpdateScreen();
   goToOnBoarding();
+  goToSurveyOnboarding(List<Widget> screens);
 }

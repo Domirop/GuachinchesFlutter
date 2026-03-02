@@ -14,6 +14,7 @@ import 'package:guachinches/data/model/restaurant.dart';
 import 'package:guachinches/globalMethods.dart';
 import 'package:guachinches/ui/Others/new_review/new_review.dart';
 import 'package:guachinches/ui/components/banner/banner_ad.dart';
+import 'package:guachinches/ui/components/open_status_badge.dart';
 import 'package:guachinches/ui/components/details_image_slider/detail_slider.dart';
 import 'package:guachinches/ui/pages/details/details_presenter.dart';
 import 'package:guachinches/ui/pages/login/login.dart';
@@ -401,18 +402,25 @@ class _DetailsState extends State<Details> implements DetailView {
                                       mainAxisAlignment:
                                           MainAxisAlignment.start,
                                       children: [
-                                        Text(
-                                          restaurant.horarios == null
-                                              ? ""
-                                              : restaurant.horarios!,
-                                          textAlign: TextAlign.start,
-                                          style: TextStyle(
-                                            fontSize: 13.0,
-                                            fontWeight: FontWeight.normal,
-                                            fontFamily: 'SF Pro Display',
-                                            color: Colors.white,
+                                        OpenStatusBadge(
+                                          horariosJson: restaurant.horariosJson,
+                                          fallbackOpen: restaurant.open,
+                                        ),
+                                        SizedBox(height: 8),
+                                        if (restaurant.horariosJson != null) ...[
+                                          ..._buildWeekdayText(restaurant.horariosJson!),
+                                        ] else ...[
+                                          Text(
+                                            restaurant.horarios ?? "",
+                                            textAlign: TextAlign.start,
+                                            style: TextStyle(
+                                              fontSize: 13.0,
+                                              fontWeight: FontWeight.normal,
+                                              fontFamily: 'SF Pro Display',
+                                              color: Colors.white,
+                                            ),
                                           ),
-                                        )
+                                        ],
                                       ]),
                                   Padding(
                                     padding: const EdgeInsets.symmetric(
@@ -1116,6 +1124,24 @@ class _DetailsState extends State<Details> implements DetailView {
   @override
   updateVideos() {
     presenter.getRestaurantVideos(restaurant.id);
+  }
+
+  List<Widget> _buildWeekdayText(Map<String, dynamic> horariosJson) {
+    final int googleDay = DateTime.now().weekday % 7;
+    final int todayIndex = (googleDay + 6) % 7;
+    final List<dynamic> lines = horariosJson['weekday_text'] ?? [];
+    return lines.asMap().entries.map((e) {
+      final bool isToday = e.key == todayIndex;
+      return Text(
+        e.value,
+        style: TextStyle(
+          fontSize: 13,
+          color: Colors.white,
+          fontFamily: 'SF Pro Display',
+          fontWeight: isToday ? FontWeight.bold : FontWeight.normal,
+        ),
+      );
+    }).toList();
   }
 }
 //calback as parameter

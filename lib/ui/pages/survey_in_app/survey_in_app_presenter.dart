@@ -1,14 +1,16 @@
 import 'dart:convert';
 import 'package:crypto/crypto.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:guachinches/config/secrets.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
 import 'package:guachinches/data/model/survey_in_app_choice.dart';
+import 'package:guachinches/services/device_id_service.dart';
 import 'package:uuid/uuid.dart';
 
 const String _kVotedTradicional = 'survey_inapp_voted_tradicional';
 const String _kVotedModerno = 'survey_inapp_voted_moderno';
 const String _kSurveyUserId = 'surveyUserId';
-const int _kMinDurationSeconds = 8;
+const int _kMinDurationSeconds = 3;
 
 class SurveyInAppPresenter {
   final RemoteRepository _repository;
@@ -16,6 +18,7 @@ class SurveyInAppPresenter {
   final _storage = const FlutterSecureStorage();
 
   late String _userId;
+  String _deviceId = 'unknown-device';
   DateTime? _surveyStartTime;
 
   SurveyInAppPresenter(this._repository, this._view);
@@ -23,6 +26,7 @@ class SurveyInAppPresenter {
   Future<void> initialize() async {
     try {
       _userId = await _getOrCreateUserId();
+      _deviceId = await DeviceIdService.getDeviceId();
       _surveyStartTime = DateTime.now();
       await _loadChoices();
     } catch (e) {
@@ -105,10 +109,15 @@ class SurveyInAppPresenter {
       votes['Mejor-Guachinche-Moderno'] = modernoValue;
     }
 
-    // Security: HMAC-SHA256 signature
+    // Security: HMAC-SHA256 signature (token existente, sin cambios)
     final timestamp = DateTime.now().millisecondsSinceEpoch.toString();
     final dataToSign = '$_userId:${votes.toString()}:$timestamp';
     final signature = _computeHmac(_userId, dataToSign);
+
+    // Security: device_token con formato "{device_id}:{hmac_hex}".
+    // El HMAC se calcula sobre el deviceId usando DEVICE_HMAC_SECRET.
+    final hmacHex = _computeHmac(kDeviceHmacSecret, _deviceId);
+    final deviceToken = '$_deviceId:$hmacHex';
 
     final duration = _surveyStartTime != null
         ? DateTime.now().difference(_surveyStartTime!).inSeconds
@@ -117,7 +126,7 @@ class SurveyInAppPresenter {
     _view.setSubmitting(true);
     try {
       final success = await _repository.submitSurveyInAppVotes(
-          _userId, votes, signature, duration);
+          _userId, votes, signature, duration, deviceToken);
 
       if (success) {
         _view.onSubmitSuccess();

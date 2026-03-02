@@ -27,6 +27,8 @@ class Restaurant {
   late bool open;
   late String googleHorarios;
   late double avgRating = 0;
+  Map<String, dynamic>? horariosJson;
+  String? googleHorariosSyncedAt;
   late String mainFoto;
   late String area;
   late String type;
@@ -187,6 +189,12 @@ class Restaurant {
       open = generateOpen(auxValue);
     }else{
       open = false;
+    }
+    if (json["horarios_json"] != null) {
+      horariosJson = Map<String, dynamic>.from(json["horarios_json"]);
+    }
+    if (json["google_horarios_synced_at"] != null) {
+      googleHorariosSyncedAt = json["google_horarios_synced_at"].toString();
     }
   }
 

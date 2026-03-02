@@ -3,13 +3,15 @@ import 'package:carousel_slider/carousel_slider.dart';
 import 'package:flutter/material.dart';
 import 'package:guachinches/data/model/fotoBanner.dart';
 import 'package:guachinches/globalMethods.dart';
+import 'package:guachinches/ui/pages/survey_in_app/survey_in_app_page.dart';
 import 'package:guachinches/ui/pages/surveyRanking/surveyRanking.dart';
 
 class HeroSliderComponent extends StatefulWidget {
   final List<FotoBanner> banners;
   final SurveyRanking? surveyRanking;
+  final VoidCallback? onVoted;
 
-  HeroSliderComponent(this.banners, {this.surveyRanking});
+  HeroSliderComponent(this.banners, {this.surveyRanking, this.onVoted});
 
   @override
   _HeroSliderComponentState createState() => _HeroSliderComponentState();
@@ -43,8 +45,10 @@ class _HeroSliderComponentState extends State<HeroSliderComponent> {
 
           return GestureDetector(
             onTap: () {
-              if (item.id == "encuesta" && widget.surveyRanking != null) {
-                GlobalMethods().pushPage(context, widget.surveyRanking!);
+              if (item.id == "encuesta") {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => SurveyInAppPage(onVoted: widget.onVoted)),
+                );
               }
             },
             child: Stack(
@@ -103,29 +107,35 @@ class _HeroSliderComponentState extends State<HeroSliderComponent> {
                     left: 0,
                     right: 0,
                     child: Center(
-                      child: Container(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: screenWidth * 0.06,
-                          vertical: screenHeight * 0.012,
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute(builder: (_) => SurveyInAppPage(onVoted: widget.onVoted)),
                         ),
-                        decoration: BoxDecoration(
-                          color: GlobalMethods.blueColor,
-                          borderRadius: BorderRadius.circular(20.0),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black26,
-                              blurRadius: 6,
-                              offset: Offset(0, 3),
-                            )
-                          ],
-                        ),
-                        child: Text(
-                          "Vota aquí!",
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: screenWidth * 0.04,
-                            fontWeight: FontWeight.w600,
-                            fontFamily: 'SF Pro Display',
+                        child: Container(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: screenWidth * 0.06,
+                            vertical: screenHeight * 0.012,
+                          ),
+                          decoration: BoxDecoration(
+                            color: GlobalMethods.blueColor,
+                            borderRadius: BorderRadius.circular(20.0),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black26,
+                                blurRadius: 6,
+                                offset: Offset(0, 3),
+                              )
+                            ],
+                          ),
+                          child: Text(
+                            "Vota aquí!",
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: screenWidth * 0.04,
+                              fontWeight: FontWeight.w600,
+                              fontFamily: 'SF Pro Display',
+                            ),
                           ),
                         ),
                       ),

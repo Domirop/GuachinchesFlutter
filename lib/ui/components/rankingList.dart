@@ -28,7 +28,7 @@ class _RankingListState extends State<RankingList> {
   bool isTraditional = true;
   late Timer _switchTimer;
   late Timer _countdownTimer;
-  final DateTime endDate = DateTime(2025, 4, 20, 23, 59);
+  final DateTime endDate = DateTime(2026, 4, 20, 23, 59);
   late Duration timeLeft;
 
   @override
@@ -155,7 +155,7 @@ class _RankingListState extends State<RankingList> {
                       children: [
                         const SizedBox(height: 4),
                         const Text(
-                          '📅 Fecha fin: 20 de abril de 2025',
+                          '📅 Fecha fin: 20 de abril de 2026',
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w400,
