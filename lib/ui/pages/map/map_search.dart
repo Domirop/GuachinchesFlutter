@@ -15,8 +15,8 @@ import 'package:guachinches/ui/components/cards/TopRestaurantListCard.dart';
 import 'package:guachinches/ui/components/cards/restaurantMainCard.dart';
 import 'package:guachinches/ui/components/filters/filterBarMap.dart';
 import 'package:guachinches/ui/pages/map/map_search_presenter.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart';
-import 'package:location/location.dart';
 import 'package:flutter/services.dart';
 
 import '../../../data/cubit/restaurants/map/restaurant_map_state.dart';
@@ -59,7 +59,7 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
   double appbarSize = 0.08;
   double offsetVisibility = 100.0;
   bool FAB_visibility = true;
-  StreamSubscription<LocationData>? _locationSubscription;
+  StreamSubscription<Position>? _locationSubscription;
 
   @override
   void initState() {
@@ -83,38 +83,33 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
 
   Future<void> _startLiveLocation() async {
     try {
-      final Location location = Location();
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) return;
 
-      bool serviceEnabled = await location.serviceEnabled();
-      if (!serviceEnabled) {
-        serviceEnabled = await location.requestService();
-        if (!serviceEnabled) return;
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission != LocationPermission.whileInUse &&
+            permission != LocationPermission.always) return;
       }
+      if (permission == LocationPermission.deniedForever) return;
 
-      PermissionStatus permission = await location.hasPermission();
-      if (permission == PermissionStatus.denied) {
-        permission = await location.requestPermission();
-        if (permission != PermissionStatus.granted) return;
-      }
-
-      await location.changeSettings(
-        accuracy: LocationAccuracy.high,
-        interval: 3000,
-        distanceFilter: 8,
-      );
-
-      _locationSubscription =
-          location.onLocationChanged.listen((LocationData data) {
+      _locationSubscription = Geolocator.getPositionStream(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          distanceFilter: 8,
+        ),
+      ).listen((Position position) {
         if (!mounted) return;
         setState(() {
-          currentLocation = LatLng(data.latitude!, data.longitude!);
+          currentLocation = LatLng(position.latitude, position.longitude);
         });
         if (isFirstMap) {
           isFirstMap = false;
           _controller.future.then((controller) {
             controller.animateCamera(CameraUpdate.newCameraPosition(
               CameraPosition(
-                target: LatLng(data.latitude!, data.longitude!),
+                target: LatLng(position.latitude, position.longitude),
                 zoom: 14.4746,
               ),
             ));

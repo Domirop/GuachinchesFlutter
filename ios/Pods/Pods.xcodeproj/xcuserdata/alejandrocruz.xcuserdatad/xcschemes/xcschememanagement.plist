@@ -219,6 +219,16 @@
 			<key>isShown</key>
 			<false/>
 		</dict>
+		<key>geolocator_apple-geolocator_apple_privacy.xcscheme</key>
+		<dict>
+			<key>isShown</key>
+			<false/>
+		</dict>
+		<key>geolocator_apple.xcscheme</key>
+		<dict>
+			<key>isShown</key>
+			<false/>
+		</dict>
 		<key>google_maps_flutter_ios-google_maps_flutter_ios_privacy.xcscheme</key>
 		<dict>
 			<key>isShown</key>
@@ -250,11 +260,6 @@
 			<false/>
 		</dict>
 		<key>libwebp.xcscheme</key>
-		<dict>
-			<key>isShown</key>
-			<false/>
-		</dict>
-		<key>location.xcscheme</key>
 		<dict>
 			<key>isShown</key>
 			<false/>

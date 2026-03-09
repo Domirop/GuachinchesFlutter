@@ -25,8 +25,7 @@ class AdvancedSearch extends StatefulWidget {
     required this.municipalities,
     required this.types,
     required this.islandId,
-    this.preSelectedCategories =
-        const [], // Valor predeterminado como lista vacía
+    this.preSelectedCategories = const [],
   });
 
   @override
@@ -39,13 +38,21 @@ class _AdvancedSearchState extends State<AdvancedSearch>
   List<Restaurant> _restaurants = [];
   List<Restaurant> _filteredRestaurants = [];
 
-  // Lists to store selected IDs
   List<String> _selectedCategoryIds = [];
   List<String> _selectedTypeIds = [];
   List<String> selectedMunicipalities = [];
+  bool _filterOpenOnly = false;
   late RestaurantCubit restaurantsCubit;
   late FilterCubit filterCubit;
   List<SimpleMunicipality> municipalitiesFilter = [];
+
+  int get _activeFilterCount =>
+      _selectedCategoryIds.length +
+      _selectedTypeIds.length +
+      selectedMunicipalities.length +
+      (_filterOpenOnly ? 1 : 0);
+
+  bool get _hasActiveFilters => _activeFilterCount > 0;
 
   void _toggleCategorySelection(String categoryId) {
     setState(() {
@@ -57,8 +64,6 @@ class _AdvancedSearchState extends State<AdvancedSearch>
     });
   }
 
-
-
   void _toggleTypeSelection(String typeId) {
     setState(() {
       if (_selectedTypeIds.contains(typeId)) {
@@ -69,12 +74,40 @@ class _AdvancedSearchState extends State<AdvancedSearch>
     });
   }
 
+  void _toggleMunicipalitySelection(String municipalityId) {
+    setState(() {
+      if (selectedMunicipalities.contains(municipalityId)) {
+        selectedMunicipalities.remove(municipalityId);
+      } else {
+        selectedMunicipalities.add(municipalityId);
+      }
+    });
+  }
+
+  void _clearAllFilters() {
+    setState(() {
+      _selectedCategoryIds.clear();
+      _selectedTypeIds.clear();
+      selectedMunicipalities.clear();
+      _filterOpenOnly = false;
+      _searchController.clear();
+    });
+    restaurantsCubit.getFilterRestaurantsAdvance(
+      categories: [],
+      municipalities: [],
+      text: '',
+      types: [],
+      islandId: widget.islandId,
+      isOpen: false,
+    );
+  }
+
   @override
   void initState() {
     super.initState();
     restaurantsCubit = context.read<RestaurantCubit>();
     filterCubit = context.read<FilterCubit>();
-    if(widget.preSelectedCategories.length>0){
+    if (widget.preSelectedCategories.isNotEmpty) {
       _selectedCategoryIds.add(widget.preSelectedCategories[0].id);
       restaurantsCubit.getFilterRestaurantsAdvance(
         categories: _selectedCategoryIds,
@@ -82,172 +115,458 @@ class _AdvancedSearchState extends State<AdvancedSearch>
         text: _searchController.text,
         types: _selectedTypeIds,
         islandId: widget.islandId,
+        isOpen: _filterOpenOnly,
       );
     }
   }
 
-  void _filterRestaurants(String query) {
+  void _applyFilters() {
     restaurantsCubit.getFilterRestaurantsAdvance(
       categories: _selectedCategoryIds,
       municipalities: selectedMunicipalities,
-      text: query,
+      text: _searchController.text,
       types: _selectedTypeIds,
       islandId: widget.islandId,
+      isOpen: _filterOpenOnly,
     );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        centerTitle: true,
-        leadingWidth: 32,
-        title: Container(
-          height: 36,
-          width: MediaQuery.of(context).size.width * 0.9,
-          decoration: BoxDecoration(
-            color: GlobalMethods.bgColorFilter,
-            borderRadius: BorderRadius.circular(20.0),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.1),
-                blurRadius: 10.0,
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              const SizedBox(width: 16.0),
-              const Icon(Icons.search, color: Colors.grey),
-              const SizedBox(width: 8.0),
-              Expanded(
-                child: TextField(
-                  controller: _searchController,
-
-                  onChanged: _filterRestaurants,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 16.0,
-                    fontFamily: 'SF Pro Display',
-                  ),
-                  decoration: const InputDecoration(
-                    hintText: "Busca donde comer",
-                    hintStyle: TextStyle(color: Colors.grey),
-                    border: InputBorder.none,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8.0),
-              GestureDetector(
-                onTap: () {
-                  showCategoryFilterModal(context);
-                },
-                child: Container(
-                  height: 36,
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                  decoration: BoxDecoration(
-                    color: Colors.blue,
-                    borderRadius: BorderRadius.circular(20.0),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 10.0,
-                      ),
-                    ],
-                  ),
-                  child: Center(
-                    child: Row(
-                      children: [
-                        SvgPicture.asset(
-                          'assets/images/line.3.horizontal.decrease.circle.svg',
-                          width: 16,
-                          height: 16,
-                          color: Colors.white,
-                        ),
-                        SizedBox(width: 4),
-                        Text(
-                          "Filtrar",
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 16.0,
-                            fontFamily: 'SF Pro Display',
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            _buildSelectedChips(),
-            BlocBuilder<RestaurantCubit, RestaurantState>(
+      backgroundColor: GlobalMethods.bgColor,
+      appBar: _buildAppBar(),
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildSearchBar(),
+          if (_hasActiveFilters) _buildActiveFilterChips(),
+          Expanded(
+            child: BlocBuilder<RestaurantCubit, RestaurantState>(
               builder: (context, state) {
                 if (state is RestaurantLoading) {
-                  // Mostrar un spinner mientras carga
                   return Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(20.0),
-                      child: CircularProgressIndicator(),
+                    child: CircularProgressIndicator(
+                      color: GlobalMethods.blueColor,
+                      strokeWidth: 2,
                     ),
                   );
                 } else if (state is RestaurantFilterAdvanced) {
                   if (state.restaurantFilterAdvanced.isEmpty) {
-                    // Mostrar mensaje cuando no haya resultados
-                    return Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Center(
-                        child: Text(
-                          "Introduce filtros para buscar restaurantes",
-                          style: TextStyle(
-                            fontSize: 16.0,
-                            color: Colors.grey,
-                            fontFamily: 'SF Pro Display',
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                    );
+                    return _buildEmptyState();
                   } else {
-                    // Mostrar la lista de restaurantes
-                    return Padding(
-                      padding: const EdgeInsets.only(left: 16.0, right: 8),
-                      child: ListView.builder(
-                        shrinkWrap: true,
-                        primary: false,
-                        itemCount: state.restaurantFilterAdvanced.length,
-                        itemBuilder: (context, index) {
-                          return RestaurantListCard(
-                            state.restaurantFilterAdvanced[index],
-                          );
-                        },
-                      ),
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                          child: Text(
+                            '${state.restaurantFilterAdvanced.length} resultado${state.restaurantFilterAdvanced.length != 1 ? 's' : ''}',
+                            style: TextStyle(
+                              color: Colors.grey.shade500,
+                              fontSize: 13,
+                              fontFamily: 'SF Pro Display',
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: ListView.builder(
+                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                            itemCount: state.restaurantFilterAdvanced.length,
+                            itemBuilder: (context, index) {
+                              return RestaurantListCard(
+                                state.restaurantFilterAdvanced[index],
+                              );
+                            },
+                          ),
+                        ),
+                      ],
                     );
                   }
                 } else {
-                  // Estado inicial o vacío
-                  return Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Center(
-                      child: Text(
-                        "Introduce filtros para buscar restaurantes",
-                        style: TextStyle(
-                          fontSize: 16.0,
-                          color: Colors.grey,
-                          fontFamily: 'SF Pro Display',
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  );
+                  return _buildInitialState();
                 }
               },
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  PreferredSizeWidget _buildAppBar() {
+    return AppBar(
+      backgroundColor: GlobalMethods.bgColor,
+      elevation: 0,
+      centerTitle: true,
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back_ios_new_rounded,
+            color: Colors.white, size: 20),
+        onPressed: () => Navigator.pop(context),
+      ),
+      title: const Text(
+        'Buscar',
+        style: TextStyle(
+          color: Colors.white,
+          fontFamily: 'SF Pro Display',
+          fontWeight: FontWeight.w600,
+          fontSize: 17,
+        ),
+      ),
+      actions: [
+        Padding(
+          padding: const EdgeInsets.only(right: 16),
+          child: GestureDetector(
+            onTap: () => showCategoryFilterModal(context),
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: _hasActiveFilters
+                        ? GlobalMethods.blueColor
+                        : GlobalMethods.bgColorFilter,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.tune_rounded,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                ),
+                if (_activeFilterCount > 0)
+                  Positioned(
+                    right: -4,
+                    top: -4,
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: const BoxDecoration(
+                        color: Colors.red,
+                        shape: BoxShape.circle,
+                      ),
+                      constraints:
+                          const BoxConstraints(minWidth: 18, minHeight: 18),
+                      child: Center(
+                        child: Text(
+                          '$_activeFilterCount',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            fontFamily: 'SF Pro Display',
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSearchBar() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      child: Container(
+        height: 46,
+        decoration: BoxDecoration(
+          color: GlobalMethods.bgColorFilter,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Row(
+          children: [
+            const SizedBox(width: 14),
+            Icon(Icons.search_rounded, color: Colors.grey.shade600, size: 20),
+            const SizedBox(width: 8),
+            Expanded(
+              child: TextField(
+                controller: _searchController,
+                onChanged: (query) {
+                  setState(() {});
+                  restaurantsCubit.getFilterRestaurantsAdvance(
+                    categories: _selectedCategoryIds,
+                    municipalities: selectedMunicipalities,
+                    text: query,
+                    types: _selectedTypeIds,
+                    islandId: widget.islandId,
+                    isOpen: _filterOpenOnly,
+                  );
+                },
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 15,
+                  fontFamily: 'SF Pro Display',
+                ),
+                decoration: InputDecoration(
+                  hintText: 'Restaurantes, guachinches...',
+                  hintStyle:
+                      TextStyle(color: Colors.grey.shade600, fontSize: 15),
+                  border: InputBorder.none,
+                  isDense: true,
+                ),
+              ),
+            ),
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 200),
+              child: _searchController.text.isNotEmpty
+                  ? GestureDetector(
+                      key: const ValueKey('clear'),
+                      onTap: () {
+                        setState(() => _searchController.clear());
+                        restaurantsCubit.getFilterRestaurantsAdvance(
+                          categories: _selectedCategoryIds,
+                          municipalities: selectedMunicipalities,
+                          text: '',
+                          types: _selectedTypeIds,
+                          islandId: widget.islandId,
+                          isOpen: _filterOpenOnly,
+                        );
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.only(right: 14),
+                        child: Icon(Icons.cancel_rounded,
+                            color: Colors.grey.shade600, size: 18),
+                      ),
+                    )
+                  : const SizedBox(key: ValueKey('empty'), width: 14),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActiveFilterChips() {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+      child: Row(
+        children: [
+          // Limpiar todo
+          GestureDetector(
+            onTap: _clearAllFilters,
+            child: Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.transparent,
+                border: Border.all(
+                    color: Colors.red.shade700.withOpacity(0.5)),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.close, size: 14, color: Colors.red.shade400),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Limpiar',
+                    style: TextStyle(
+                      color: Colors.red.shade400,
+                      fontSize: 13,
+                      fontFamily: 'SF Pro Display',
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          // Abierto ahora
+          if (_filterOpenOnly)
+            _buildActiveChip('Abierto ahora', () {
+              setState(() => _filterOpenOnly = false);
+              _applyFilters();
+            }),
+          // Categorías seleccionadas
+          ..._selectedCategoryIds.map((id) {
+            final cat = widget.categories.firstWhere((c) => c.id == id);
+            return _buildActiveChip(cat.nombre, () {
+              _toggleCategorySelection(id);
+              _applyFilters();
+            });
+          }),
+          // Tipos seleccionados
+          ..._selectedTypeIds.map((id) {
+            final type = widget.types.firstWhere((t) => t.id == id);
+            return _buildActiveChip(type.nombre, () {
+              _toggleTypeSelection(id);
+              _applyFilters();
+            });
+          }),
+          // Municipios seleccionados
+          ...selectedMunicipalities.map((id) {
+            final muni = widget.municipalities
+                .expand((g) => g.municipalities)
+                .firstWhere((m) => m.id == id);
+            return _buildActiveChip(muni.nombre, () {
+              _toggleMunicipalitySelection(id);
+              _applyFilters();
+            });
+          }),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActiveChip(String label, VoidCallback onRemove) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(10, 6, 8, 6),
+        decoration: BoxDecoration(
+          color: GlobalMethods.blueColor.withOpacity(0.15),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+              color: GlobalMethods.blueColor.withOpacity(0.4)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                color: GlobalMethods.blueColor,
+                fontSize: 13,
+                fontFamily: 'SF Pro Display',
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(width: 6),
+            GestureDetector(
+              onTap: onRemove,
+              child: Icon(Icons.close,
+                  size: 14, color: GlobalMethods.blueColor),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInitialState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(40),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.restaurant_menu_rounded,
+              size: 72,
+              color: Colors.grey.shade800,
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              'Encuentra tu sitio',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 20,
+                fontFamily: 'SF Pro Display',
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Escribe un nombre o usa los filtros para encontrar el restaurante perfecto',
+              style: TextStyle(
+                color: Colors.grey.shade500,
+                fontSize: 14,
+                fontFamily: 'SF Pro Display',
+                height: 1.5,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            GestureDetector(
+              onTap: () => showCategoryFilterModal(context),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 20, vertical: 12),
+                decoration: BoxDecoration(
+                  color: GlobalMethods.blueColor,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: const [
+                    Icon(Icons.tune_rounded,
+                        color: Colors.white, size: 18),
+                    SizedBox(width: 8),
+                    Text(
+                      'Abrir filtros',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontFamily: 'SF Pro Display',
+                        fontWeight: FontWeight.w600,
+                        fontSize: 15,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(40),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.search_off_rounded,
+              size: 72,
+              color: Colors.grey.shade800,
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              'Sin resultados',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 20,
+                fontFamily: 'SF Pro Display',
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Prueba con otros filtros o busca por un nombre diferente',
+              style: TextStyle(
+                color: Colors.grey.shade500,
+                fontSize: 14,
+                fontFamily: 'SF Pro Display',
+                height: 1.5,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            if (_hasActiveFilters) ...[
+              const SizedBox(height: 20),
+              GestureDetector(
+                onTap: _clearAllFilters,
+                child: Text(
+                  'Limpiar filtros',
+                  style: TextStyle(
+                    color: GlobalMethods.blueColor,
+                    fontFamily: 'SF Pro Display',
+                    fontWeight: FontWeight.w600,
+                    fontSize: 15,
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -261,15 +580,8 @@ class _AdvancedSearchState extends State<AdvancedSearch>
       _filteredRestaurants = restaurants;
     });
   }
-  void _toggleMunicipalitySelection(String municipalityId) {
-    setState(() {
-      if (selectedMunicipalities.contains(municipalityId)) {
-        selectedMunicipalities.remove(municipalityId);
-      } else {
-        selectedMunicipalities.add(municipalityId);
-      }
-    });
-  }
+
+  // ─── Filter Modal ───────────────────────────────────────────────────────────
 
   void showCategoryFilterModal(BuildContext context) {
     showModalBottomSheet(
@@ -278,368 +590,412 @@ class _AdvancedSearchState extends State<AdvancedSearch>
       isScrollControlled: true,
       builder: (BuildContext context) {
         return StatefulBuilder(
-          builder: (BuildContext context, StateSetter setState) {
+          builder: (BuildContext context, StateSetter modalSetState) {
             return ClipRRect(
-              borderRadius: BorderRadius.vertical(top: Radius.circular(12.0)),
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(20)),
               child: Container(
-                height: MediaQuery.of(context).size.height * 0.9,
+                height: MediaQuery.of(context).size.height * 0.92,
                 color: GlobalMethods.bgColor,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    // Header
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16.0, vertical: 12.0),
-                      decoration: BoxDecoration(
-                        color: GlobalMethods.bgColor,
-                        borderRadius:
-                            BorderRadius.vertical(top: Radius.circular(12.0)),
-                      ),
+                  children: [
+                    // Handle
+                    Center(
                       child: Padding(
-                        padding: const EdgeInsets.only(top: 8.0),
-                        child: Stack(
+                        padding: const EdgeInsets.only(top: 12, bottom: 4),
+                        child: Container(
+                          width: 40,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade700,
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                      ),
+                    ),
+                    // Header
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 20, vertical: 12),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          GestureDetector(
+                            onTap: () {
+                              modalSetState(() {
+                                _selectedCategoryIds.clear();
+                                _selectedTypeIds.clear();
+                                selectedMunicipalities.clear();
+                                _filterOpenOnly = false;
+                              });
+                              setState(() {});
+                            },
+                            child: Text(
+                              'Limpiar todo',
+                              style: TextStyle(
+                                color: Colors.grey.shade500,
+                                fontSize: 15,
+                                fontFamily: 'SF Pro Display',
+                              ),
+                            ),
+                          ),
+                          const Text(
+                            'Filtros',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontFamily: 'SF Pro Display',
+                              fontSize: 17,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          GestureDetector(
+                            onTap: () {
+                              _applyFilters();
+                              Navigator.pop(context);
+                            },
+                            child: Text(
+                              'Aplicar',
+                              style: TextStyle(
+                                color: GlobalMethods.blueColor,
+                                fontSize: 15,
+                                fontFamily: 'SF Pro Display',
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Divider(
+                        color: Colors.grey.shade800,
+                        height: 1,
+                        thickness: 1),
+                    // Content
+                    Expanded(
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.all(20),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Align(
-                              alignment: Alignment.centerLeft,
-                              child: GestureDetector(
-                                onTap: () {
-                                  Navigator.pop(context);
-                                },
-                                child: Text(
-                                  "Cancelar",
-                                  style: TextStyle(
-                                    color: Colors.blue,
-                                    fontSize: 16.0,
-                                    fontFamily: "SF Pro Display",
-                                    fontWeight: FontWeight.normal,
-                                  ),
-                                ),
-                              ),
+                            // ── Estado ────────────────────────────────────
+                            _buildSectionHeader('Estado'),
+                            const SizedBox(height: 12),
+                            _buildFilterChip(
+                              label: 'Abierto ahora',
+                              isSelected: _filterOpenOnly,
+                              icon: Icons.access_time_rounded,
+                              onTap: () {
+                                modalSetState(() {
+                                  setState(() {
+                                    _filterOpenOnly = !_filterOpenOnly;
+                                  });
+                                });
+                              },
                             ),
-                            Align(
-                              alignment: Alignment.center,
-                              child: Text(
-                                "Filtros",
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontFamily: "SF Pro Display",
-                                  fontSize: 16.0,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                            Align(
-                              alignment: Alignment.centerRight,
-                              child: GestureDetector(
-                                onTap: () {
-                                  restaurantsCubit.getFilterRestaurantsAdvance(
-                                    categories: _selectedCategoryIds,
-                                    municipalities: selectedMunicipalities,
-                                    text: _searchController.text,
-                                    types: _selectedTypeIds,
-                                    islandId: widget.islandId,
-                                  );
-                                  Navigator.pop(context);
+                            const SizedBox(height: 24),
+                            Divider(
+                                color: Colors.grey.shade800,
+                                height: 1,
+                                thickness: 1),
+                            const SizedBox(height: 24),
 
-                                },
-                                child: Text(
-                                  "OK",
-                                  style: TextStyle(
-                                    color: Colors.blue,
-                                    fontFamily: "SF Pro Display",
-                                    fontSize: 16.0,
-                                    fontWeight: FontWeight.normal,
+                            // ── Zona ──────────────────────────────────────
+                            Row(
+                              mainAxisAlignment:
+                                  MainAxisAlignment.spaceBetween,
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                _buildSectionHeader('Zona'),
+                                if (selectedMunicipalities.isNotEmpty)
+                                  GestureDetector(
+                                    onTap: () {
+                                      modalSetState(() {
+                                        selectedMunicipalities.clear();
+                                      });
+                                      setState(() {});
+                                    },
+                                    child: Text(
+                                      'Quitar todas',
+                                      style: TextStyle(
+                                        color: Colors.grey.shade500,
+                                        fontSize: 13,
+                                        fontFamily: 'SF Pro Display',
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: [
+                                ...selectedMunicipalities.map((id) {
+                                  final muni = widget.municipalities
+                                      .expand((g) => g.municipalities)
+                                      .firstWhere((m) => m.id == id);
+                                  return GestureDetector(
+                                    onTap: () {
+                                      modalSetState(() {
+                                        _toggleMunicipalitySelection(id);
+                                      });
+                                    },
+                                    child: Container(
+                                      padding: const EdgeInsets.fromLTRB(
+                                          10, 8, 10, 8),
+                                      decoration: BoxDecoration(
+                                        color: GlobalMethods.blueColor,
+                                        borderRadius:
+                                            BorderRadius.circular(22),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          const Icon(
+                                              Icons.location_on_rounded,
+                                              size: 14,
+                                              color: Colors.white),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            muni.nombre,
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 14,
+                                              fontFamily: 'SF Pro Display',
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 6),
+                                          const Icon(Icons.close,
+                                              size: 14, color: Colors.white),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                }),
+                                GestureDetector(
+                                  onTap: () => showMunicipalityFilterModal(
+                                      context, modalSetState),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 12, vertical: 8),
+                                    decoration: BoxDecoration(
+                                      color: Colors.transparent,
+                                      borderRadius:
+                                          BorderRadius.circular(22),
+                                      border: Border.all(
+                                          color: Colors.grey.shade700),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(Icons.add_rounded,
+                                            size: 16,
+                                            color: Colors.grey.shade400),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          selectedMunicipalities.isEmpty
+                                              ? 'Seleccionar zona'
+                                              : 'Añadir más',
+                                          style: TextStyle(
+                                            color: Colors.grey.shade400,
+                                            fontSize: 14,
+                                            fontFamily: 'SF Pro Display',
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
-                              ),
+                              ],
                             ),
+                            const SizedBox(height: 24),
+                            Divider(
+                                color: Colors.grey.shade800,
+                                height: 1,
+                                thickness: 1),
+                            const SizedBox(height: 24),
+
+                            // ── Categorías ────────────────────────────────
+                            _buildSectionHeader('Categorías'),
+                            const SizedBox(height: 12),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: widget.categories.map((category) {
+                                final isSelected = _selectedCategoryIds
+                                    .contains(category.id);
+                                return GestureDetector(
+                                  onTap: () {
+                                    modalSetState(() {
+                                      _toggleCategorySelection(category.id);
+                                    });
+                                  },
+                                  child: AnimatedContainer(
+                                    duration:
+                                        const Duration(milliseconds: 150),
+                                    padding: const EdgeInsets.fromLTRB(
+                                        10, 8, 12, 8),
+                                    decoration: BoxDecoration(
+                                      color: isSelected
+                                          ? GlobalMethods.blueColor
+                                          : GlobalMethods.bgColorFilter,
+                                      borderRadius:
+                                          BorderRadius.circular(22),
+                                      border: Border.all(
+                                        color: isSelected
+                                            ? GlobalMethods.blueColor
+                                            : Colors.grey.shade700,
+                                      ),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        CircleAvatar(
+                                          radius: 12,
+                                          backgroundColor: Colors.white,
+                                          child: SvgPicture.network(
+                                            category.iconUrl,
+                                            width: 14,
+                                            height: 14,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          category.nombre,
+                                          style: TextStyle(
+                                            color: isSelected
+                                                ? Colors.white
+                                                : Colors.grey.shade400,
+                                            fontSize: 14,
+                                            fontFamily: 'SF Pro Display',
+                                            fontWeight: isSelected
+                                                ? FontWeight.w600
+                                                : FontWeight.normal,
+                                          ),
+                                        ),
+                                        if (isSelected) ...[
+                                          const SizedBox(width: 6),
+                                          const Icon(
+                                              Icons.check_circle_rounded,
+                                              size: 15,
+                                              color: Colors.white),
+                                        ],
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              }).toList(),
+                            ),
+                            const SizedBox(height: 24),
+                            Divider(
+                                color: Colors.grey.shade800,
+                                height: 1,
+                                thickness: 1),
+                            const SizedBox(height: 24),
+
+                            // ── Tipos ─────────────────────────────────────
+                            _buildSectionHeader('Tipo de establecimiento'),
+                            const SizedBox(height: 12),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: widget.types.map((type) {
+                                final isSelected =
+                                    _selectedTypeIds.contains(type.id);
+                                return GestureDetector(
+                                  onTap: () {
+                                    modalSetState(() {
+                                      _toggleTypeSelection(type.id);
+                                    });
+                                  },
+                                  child: AnimatedContainer(
+                                    duration:
+                                        const Duration(milliseconds: 150),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 14, vertical: 9),
+                                    decoration: BoxDecoration(
+                                      color: isSelected
+                                          ? GlobalMethods.blueColor
+                                          : GlobalMethods.bgColorFilter,
+                                      borderRadius:
+                                          BorderRadius.circular(22),
+                                      border: Border.all(
+                                        color: isSelected
+                                            ? GlobalMethods.blueColor
+                                            : Colors.grey.shade700,
+                                      ),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          type.nombre,
+                                          style: TextStyle(
+                                            color: isSelected
+                                                ? Colors.white
+                                                : Colors.grey.shade400,
+                                            fontSize: 14,
+                                            fontFamily: 'SF Pro Display',
+                                            fontWeight: isSelected
+                                                ? FontWeight.w600
+                                                : FontWeight.normal,
+                                          ),
+                                        ),
+                                        if (isSelected) ...[
+                                          const SizedBox(width: 6),
+                                          const Icon(
+                                              Icons.check_circle_rounded,
+                                              size: 15,
+                                              color: Colors.white),
+                                        ],
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              }).toList(),
+                            ),
+                            const SizedBox(height: 16),
                           ],
                         ),
                       ),
                     ),
-                    Expanded(
-                      child: SingleChildScrollView(
-                        child: Padding(
-                          padding: const EdgeInsets.only(left: 12.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // Estado
-                              Text(
-                                "Estado",
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontFamily: "SF Pro Display",
-                                  fontSize: 24.0,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              Chip(
-                                shape: RoundedRectangleBorder(
-                                  side: BorderSide(
-                                      color: GlobalMethods.bgColorFilter),
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                backgroundColor: GlobalMethods.bgColorFilter,
-                                label: Padding(
-                                  padding: const EdgeInsets.only(bottom: 3),
-                                  child: Text(
-                                    'Abierto',
-                                    style: TextStyle(
-                                      color: Colors.grey,
-                                      fontSize: 16,
-                                      fontFamily: "SF Pro Display",
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              // Zona
-                              Text(
-                                "Zona",
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontFamily: "SF Pro Display",
-                                  fontSize: 24.0,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              SingleChildScrollView(
-                                scrollDirection: Axis.horizontal,
-                                child: Row(
-                                  children: [
-                                    ...selectedMunicipalities.map((id) {
-                                      final municipality = widget.municipalities
-                                          .expand(
-                                              (group) => group.municipalities)
-                                          .firstWhere((m) => m.id == id);
 
-                                      return municipality != null
-                                          ? GestureDetector(
-                                              onTap: () {
-                                                setState(() {
-                                                  _toggleMunicipalitySelection(
-                                                      municipality.id);
-                                                });
-                                              },
-                                              child: Padding(
-                                                padding: const EdgeInsets.only(
-                                                    right: 8.0),
-                                                child: Chip(
-                                                  label: Row(
-                                                    mainAxisSize:
-                                                        MainAxisSize.min,
-                                                    children: [
-                                                      Icon(
-                                                        Icons.close,
-                                                        size: 16,
-                                                        color: Colors.white,
-                                                      ),
-                                                      Text(
-                                                        municipality.nombre,
-                                                        style: TextStyle(
-                                                          color: Colors.white,
-                                                          fontSize: 14,
-                                                          fontFamily:
-                                                              "SF Pro Display",
-                                                        ),
-                                                      ),
-                                                      const SizedBox(width: 4),
-                                                    ],
-                                                  ),
-                                                  backgroundColor: Colors.blue,
-                                                  shape: RoundedRectangleBorder(
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            20),
-                                                  ),
-                                                ),
-                                              ),
-                                            )
-                                          : SizedBox();
-                                    }).toList(),
-
-                                    // Chip para añadir más municipios
-                                    GestureDetector(
-                                      onTap: () => {
-                                        showMunicipalityFilterModal(context,setState)
-                                      },
-                                      child: Chip(
-                                        shape: RoundedRectangleBorder(
-                                          side: BorderSide(
-                                              color:
-                                                  GlobalMethods.bgColorFilter),
-                                          borderRadius:
-                                              BorderRadius.circular(20),
-                                        ),
-                                        backgroundColor:
-                                            GlobalMethods.bgColorFilter,
-                                        label: Padding(
-                                          padding:
-                                              const EdgeInsets.only(bottom: 3),
-                                          child: Text(
-                                            'Añadir más',
-                                            style: TextStyle(
-                                              color: Colors.grey,
-                                              fontSize: 16,
-                                              fontFamily: "SF Pro Display",
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              // Categorías
-                              Text(
-                                "Categorías",
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontFamily: "SF Pro Display",
-                                  fontSize: 24.0,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              Container(
-                                height: 264,
-                                child: GridView.builder(
-                                  scrollDirection: Axis.horizontal,
-                                  gridDelegate:
-                                      SliverGridDelegateWithFixedCrossAxisCount(
-                                    crossAxisCount: 5,
-                                    crossAxisSpacing: 8,
-                                    mainAxisSpacing: 10,
-                                    childAspectRatio: 0.20,
-                                  ),
-                                  itemCount: widget.categories.length,
-                                  itemBuilder:
-                                      (BuildContext context, int index) {
-                                    final category = widget.categories[index];
-                                    final isSelected = _selectedCategoryIds
-                                        .contains(category.id);
-
-                                    return GestureDetector(
-                                      onTap: () {
-                                        setState(() {
-                                          _toggleCategorySelection(category.id);
-                                        });
-                                      },
-                                      child: Container(
-                                        decoration: BoxDecoration(
-                                          color: isSelected
-                                              ? Colors.blue
-                                              : GlobalMethods.bgColorFilter,
-                                          border: Border.all(
-                                              color:
-                                                  GlobalMethods.bgColorFilter),
-                                          borderRadius:
-                                              BorderRadius.circular(20),
-                                        ),
-                                        padding: const EdgeInsets.symmetric(
-                                            vertical: 4, horizontal: 6),
-                                        child: Row(
-                                          children: [
-                                            CircleAvatar(
-                                              backgroundColor: Colors.white,
-                                              child: SvgPicture.network(
-                                                category.iconUrl,
-                                                height: 24,
-                                              ),
-                                            ),
-                                            Flexible(
-                                              child: Padding(
-                                                padding: const EdgeInsets.only(
-                                                    left: 8.0),
-                                                child: Text(
-                                                  category.nombre,
-                                                  style: TextStyle(
-                                                    color: isSelected
-                                                        ? Colors.white
-                                                        : Colors.grey,
-                                                    fontSize: 14,
-                                                    fontFamily:
-                                                        "SF Pro Display",
-                                                  ),
-                                                  textAlign: TextAlign.left,
-                                                  overflow:
-                                                      TextOverflow.visible,
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                ),
-                              ),
-                              // Tipos
-                              Text(
-                                "Tipos",
-                                style: TextStyle(
-                                  fontFamily: "SF Pro Display",
-                                  fontSize: 24.0,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              Container(
-                                height: 264,
-                                child: GridView.builder(
-                                  scrollDirection: Axis.horizontal,
-                                  gridDelegate:
-                                      SliverGridDelegateWithFixedCrossAxisCount(
-                                    crossAxisCount: 6,
-                                    crossAxisSpacing: 8,
-                                    mainAxisSpacing: 4,
-                                    childAspectRatio: 0.20,
-                                  ),
-                                  itemCount: widget.types.length,
-                                  itemBuilder:
-                                      (BuildContext context, int index) {
-                                    final types = widget.types[index];
-                                    final isSelected =
-                                        _selectedTypeIds.contains(types.id);
-
-                                    return GestureDetector(
-                                      onTap: () {
-                                        setState(() {
-                                          _toggleTypeSelection(types.id);
-                                        });
-                                      },
-                                      child: Container(
-                                        decoration: BoxDecoration(
-                                          color: isSelected
-                                              ? Colors.blue
-                                              : GlobalMethods.bgColorFilter,
-                                          border: Border.all(
-                                              color:
-                                                  GlobalMethods.bgColorFilter),
-                                          borderRadius:
-                                              BorderRadius.circular(20),
-                                        ),
-                                        padding: const EdgeInsets.symmetric(
-                                            vertical: 2, horizontal: 6),
-                                        child: Center(
-                                          child: Text(
-                                            types.nombre,
-                                            style: TextStyle(
-                                              color: isSelected
-                                                  ? Colors.white
-                                                  : Colors.grey,
-                                              fontSize: 14,
-                                              fontFamily: "SF Pro Display",
-                                            ),
-                                            textAlign: TextAlign.center,
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                ),
-                              ),
-                            ],
+                    // Bottom button
+                    Container(
+                      padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+                      decoration: BoxDecoration(
+                        color: GlobalMethods.bgColor,
+                        border: Border(
+                            top: BorderSide(
+                                color: Colors.grey.shade800, width: 1)),
+                      ),
+                      child: SizedBox(
+                        width: double.infinity,
+                        height: 50,
+                        child: ElevatedButton(
+                          onPressed: () {
+                            _applyFilters();
+                            Navigator.pop(context);
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: GlobalMethods.blueColor,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            elevation: 0,
+                          ),
+                          child: Text(
+                            _activeFilterCount > 0
+                                ? 'Ver resultados · $_activeFilterCount filtro${_activeFilterCount != 1 ? 's' : ''}'
+                                : 'Ver resultados',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontFamily: 'SF Pro Display',
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
                       ),
@@ -654,8 +1010,72 @@ class _AdvancedSearchState extends State<AdvancedSearch>
     );
   }
 
-  void showMunicipalityFilterModal(BuildContext context,StateSetter outSetState) {
-    TextEditingController _textController = TextEditingController();
+  Widget _buildSectionHeader(String title) {
+    return Text(
+      title,
+      style: const TextStyle(
+        color: Colors.white,
+        fontFamily: 'SF Pro Display',
+        fontSize: 18,
+        fontWeight: FontWeight.bold,
+      ),
+    );
+  }
+
+  Widget _buildFilterChip({
+    required String label,
+    required bool isSelected,
+    IconData? icon,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? GlobalMethods.blueColor
+              : GlobalMethods.bgColorFilter,
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(
+            color:
+                isSelected ? GlobalMethods.blueColor : Colors.grey.shade700,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (icon != null) ...[
+              Icon(icon,
+                  size: 16,
+                  color:
+                      isSelected ? Colors.white : Colors.grey.shade400),
+              const SizedBox(width: 6),
+            ],
+            Text(
+              label,
+              style: TextStyle(
+                color:
+                    isSelected ? Colors.white : Colors.grey.shade400,
+                fontSize: 14,
+                fontFamily: 'SF Pro Display',
+                fontWeight:
+                    isSelected ? FontWeight.w600 : FontWeight.normal,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ─── Municipality Modal ─────────────────────────────────────────────────────
+
+  void showMunicipalityFilterModal(
+      BuildContext context, StateSetter outerSetState) {
+    final TextEditingController muniController = TextEditingController();
+    municipalitiesFilter = [];
 
     showModalBottomSheet(
       backgroundColor: Colors.transparent,
@@ -663,323 +1083,278 @@ class _AdvancedSearchState extends State<AdvancedSearch>
       isScrollControlled: true,
       builder: (BuildContext context) {
         return StatefulBuilder(
-            builder: (BuildContext context, StateSetter setState) {
-
-          return ClipRRect(
-            borderRadius: BorderRadius.vertical(top: Radius.circular(12.0)),
-            child: Container(
-              height: MediaQuery.of(context).size.height * 0.9,
-              color: GlobalMethods.bgColor,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  SizedBox(height: 8),
-                  Center(
-                    child: Container(
-                      height: 2,
-                      color: Color.fromRGBO(231, 231, 231, 1),
-                      width: 64,
-                    ),
-                  ),
-                  SizedBox(height: 12),
-                  Padding(
-                    padding: const EdgeInsets.all(12.0),
-                    child: Container(
-                      height: 36,
-                      width: MediaQuery.of(context).size.width * 0.9,
-                      decoration: BoxDecoration(
-                        color: GlobalMethods.bgColorFilter,
-                        borderRadius: BorderRadius.circular(20.0),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
-                            blurRadius: 10.0,
+          builder: (BuildContext context, StateSetter modalSetState) {
+            return ClipRRect(
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(20)),
+              child: Container(
+                height: MediaQuery.of(context).size.height * 0.9,
+                color: GlobalMethods.bgColor,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Handle
+                    Center(
+                      child: Padding(
+                        padding:
+                            const EdgeInsets.only(top: 12, bottom: 4),
+                        child: Container(
+                          width: 40,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade700,
+                            borderRadius: BorderRadius.circular(2),
                           ),
-                        ],
+                        ),
                       ),
+                    ),
+                    // Header
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
                       child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const SizedBox(width: 16.0),
-                          const Icon(Icons.search, color: Colors.grey),
-                          const SizedBox(width: 8.0),
-                          Expanded(
-                            child: TextField(
-                              onChanged: (text) {
-                                List<SimpleMunicipality>
-                                    auxMunicipalitiesFilter = [];
-                                for (var municipalityGroup
-                                    in widget.municipalities) {
-                                  for (var municipality
-                                      in municipalityGroup.municipalities) {
-                                    if (municipality.nombre
-                                        .toLowerCase()
-                                        .contains(text.toLowerCase())) {
-                                      auxMunicipalitiesFilter.add(municipality);
-                                    }
-                                  }
-                                }
-                                setState(() {
-                                  municipalitiesFilter =
-                                      auxMunicipalitiesFilter;
-                                });
-                              },
-                              controller: _textController,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 16.0,
+                          GestureDetector(
+                            onTap: () => Navigator.pop(context),
+                            child: Text(
+                              'Cancelar',
+                              style: TextStyle(
+                                color: Colors.grey.shade500,
+                                fontSize: 15,
                                 fontFamily: 'SF Pro Display',
                               ),
-                              decoration: const InputDecoration(
-                                hintText: "Busca donde comer",
-                                hintStyle: TextStyle(color: Colors.grey),
-                                border: InputBorder.none,
+                            ),
+                          ),
+                          const Text(
+                            'Seleccionar zona',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontFamily: 'SF Pro Display',
+                              fontSize: 17,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          GestureDetector(
+                            onTap: () => Navigator.pop(context),
+                            child: Text(
+                              'Listo',
+                              style: TextStyle(
+                                color: GlobalMethods.blueColor,
+                                fontSize: 15,
+                                fontFamily: 'SF Pro Display',
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
                           ),
                         ],
                       ),
                     ),
-                  ),
-                  Expanded(
-                    child: ListView.builder(
-                      itemCount: _textController.text.isNotEmpty
-                          ? municipalitiesFilter.length
-                          : widget.municipalities.length,
-                      itemBuilder: (context, index) {
-                        if (_textController.text.isNotEmpty) {
-                          // Mostrar municipios filtrados
-                          SimpleMunicipality municipality =
-                              municipalitiesFilter[index];
-                          bool isCheck =
-                              selectedMunicipalities.contains(municipality.id);
-                          return _buildMunicipalityItem(
-                              municipality, isCheck, setState,setState);
-                        } else {
-                          // Mostrar grupos de municipios completos
-                          var municipalityGroup = widget.municipalities[index];
-                          return Padding(
-                            padding: const EdgeInsets.only(left: 8.0),
-                            child: Container(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    municipalityGroup.nombre,
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w500,
-                                      fontFamily: 'SF Pro Display',
-                                    ),
-                                  ),
-                                  ListView.builder(
-                                    shrinkWrap: true,
-                                    primary: false,
-                                    physics: ClampingScrollPhysics(),
-                                    itemCount:
-                                        municipalityGroup.municipalities.length,
-                                    itemBuilder: (context, index2) {
-                                      SimpleMunicipality municipality =
-                                          municipalityGroup
-                                              .municipalities[index2];
-                                      bool isCheck = selectedMunicipalities
-                                          .contains(municipality.id);
-                                      return _buildMunicipalityItem(
-                                          municipality, isCheck, outSetState,setState);
-                                    },
-                                  ),
-                                  Divider(thickness: 0.1),
-                                ],
+                    // Search
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+                      child: Container(
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: GlobalMethods.bgColorFilter,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          children: [
+                            const SizedBox(width: 12),
+                            Icon(Icons.search_rounded,
+                                color: Colors.grey.shade600, size: 20),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: TextField(
+                                controller: muniController,
+                                onChanged: (text) {
+                                  final filtered = <SimpleMunicipality>[];
+                                  for (final group
+                                      in widget.municipalities) {
+                                    for (final m in group.municipalities) {
+                                      if (m.nombre
+                                          .toLowerCase()
+                                          .contains(text.toLowerCase())) {
+                                        filtered.add(m);
+                                      }
+                                    }
+                                  }
+                                  modalSetState(() {
+                                    municipalitiesFilter = filtered;
+                                  });
+                                },
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 15,
+                                  fontFamily: 'SF Pro Display',
+                                ),
+                                decoration: InputDecoration(
+                                  hintText: 'Busca por zona o municipio...',
+                                  hintStyle: TextStyle(
+                                      color: Colors.grey.shade600,
+                                      fontSize: 15),
+                                  border: InputBorder.none,
+                                  isDense: true,
+                                ),
                               ),
                             ),
-                          );
-                        }
-                      },
+                            const SizedBox(width: 12),
+                          ],
+                        ),
+                      ),
                     ),
-                  ),
-                  Divider(thickness: 0.2),
-                  _buildActionButtons(context),
-                ],
+                    const SizedBox(height: 12),
+                    Divider(
+                        color: Colors.grey.shade800,
+                        height: 1,
+                        thickness: 1),
+                    Expanded(
+                      child: ListView.builder(
+                        itemCount: muniController.text.isNotEmpty
+                            ? municipalitiesFilter.length
+                            : widget.municipalities.length,
+                        itemBuilder: (context, index) {
+                          if (muniController.text.isNotEmpty) {
+                            final m = municipalitiesFilter[index];
+                            final isChecked =
+                                selectedMunicipalities.contains(m.id);
+                            return _buildMunicipalityTile(
+                                m, isChecked, outerSetState, modalSetState);
+                          } else {
+                            final group = widget.municipalities[index];
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                      20, 16, 20, 6),
+                                  child: Text(
+                                    group.nombre.toUpperCase(),
+                                    style: TextStyle(
+                                      color: Colors.grey.shade500,
+                                      fontSize: 11,
+                                      fontFamily: 'SF Pro Display',
+                                      fontWeight: FontWeight.w600,
+                                      letterSpacing: 0.8,
+                                    ),
+                                  ),
+                                ),
+                                ...group.municipalities.map((m) {
+                                  final isChecked = selectedMunicipalities
+                                      .contains(m.id);
+                                  return _buildMunicipalityTile(m,
+                                      isChecked, outerSetState, modalSetState);
+                                }),
+                                Divider(
+                                    color: Colors.grey.shade800,
+                                    height: 1,
+                                    thickness: 1),
+                              ],
+                            );
+                          }
+                        },
+                      ),
+                    ),
+                    // Bottom button
+                    Container(
+                      padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+                      decoration: BoxDecoration(
+                        color: GlobalMethods.bgColor,
+                        border: Border(
+                            top: BorderSide(
+                                color: Colors.grey.shade800, width: 1)),
+                      ),
+                      child: SizedBox(
+                        width: double.infinity,
+                        height: 50,
+                        child: ElevatedButton(
+                          onPressed: () => Navigator.pop(context),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: GlobalMethods.blueColor,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            elevation: 0,
+                          ),
+                          child: Text(
+                            selectedMunicipalities.isEmpty
+                                ? 'Confirmar'
+                                : 'Confirmar (${selectedMunicipalities.length})',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontFamily: 'SF Pro Display',
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-          );
-        });
+            );
+          },
+        );
       },
     );
   }
 
-  Widget _buildMunicipalityItem(
-      SimpleMunicipality municipality, bool isCheck, StateSetter outSetState,StateSetter setState) {
-    return GestureDetector(
+  Widget _buildMunicipalityTile(
+    SimpleMunicipality municipality,
+    bool isChecked,
+    StateSetter outerSetState,
+    StateSetter modalSetState,
+  ) {
+    return InkWell(
       onTap: () {
-        outSetState((){
-          setState(() {
+        outerSetState(() {
+          modalSetState(() {
             _toggleMunicipalitySelection(municipality.id);
           });
         });
       },
-      child: Chip(
-        shape: RoundedRectangleBorder(
-          side: BorderSide(
-            color: isCheck ? Colors.blue : GlobalMethods.bgColorFilter,
-          ),
-          borderRadius: BorderRadius.circular(20),
-        ),
-        backgroundColor: isCheck ? Colors.blue : GlobalMethods.bgColorFilter,
-        label: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      splashColor: GlobalMethods.blueColor.withOpacity(0.08),
+      highlightColor: Colors.transparent,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+        child: Row(
           children: [
             Expanded(
               child: Text(
                 municipality.nombre,
-                key: Key(municipality.id),
                 style: TextStyle(
+                  color: Colors.white,
                   fontFamily: 'SF Pro Display',
-                  fontSize: 14,
-                  color: isCheck ? Colors.white : Colors.white,
-                  fontWeight: isCheck ? FontWeight.bold : FontWeight.normal,
+                  fontSize: 15,
+                  fontWeight:
+                      isChecked ? FontWeight.w600 : FontWeight.normal,
                 ),
               ),
             ),
-            isCheck
-                ? Icon(Icons.check, color: Color.fromRGBO(231, 231, 231, 1))
-                : Container(),
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              width: 24,
+              height: 24,
+              decoration: BoxDecoration(
+                color: isChecked
+                    ? GlobalMethods.blueColor
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
+                  color: isChecked
+                      ? GlobalMethods.blueColor
+                      : Colors.grey.shade600,
+                  width: 2,
+                ),
+              ),
+              child: isChecked
+                  ? const Icon(Icons.check, size: 14, color: Colors.white)
+                  : null,
+            ),
           ],
         ),
       ),
     );
   }
-
-  Widget _buildActionButtons(BuildContext context) {
-    return Center(
-      child: Column(
-        children: [
-          SizedBox(height: 12),
-          Container(
-            width: MediaQuery.of(context).size.width * 0.86,
-            child: ElevatedButton(
-              onPressed: () =>{
-
-                Navigator.pop(context),
-              },
-              style: ButtonStyle(
-                shape: MaterialStateProperty.all(
-                  RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                minimumSize: MaterialStateProperty.all(Size.fromHeight(48)),
-                backgroundColor:
-                    MaterialStateProperty.all(Color.fromRGBO(0, 133, 196, 1)),
-              ),
-              child: Text(
-                "Ver resultados",
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                  fontFamily: 'SF Pro Display',
-                  fontSize: 16.0,
-                ),
-              ),
-            ),
-          ),
-          Container(
-            width: MediaQuery.of(context).size.width * 0.86,
-            child: TextButton(
-              onPressed: () => {Navigator.pop(context)},
-              style: ButtonStyle(
-                elevation: MaterialStateProperty.all(0),
-                shape: MaterialStateProperty.all(
-                  RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                minimumSize: MaterialStateProperty.all(Size.fromHeight(48)),
-              ),
-              child: Text(
-                "Descartar",
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontFamily: 'SF Pro Display',
-                  color: Color.fromRGBO(97, 97, 97, 1),
-                  fontSize: 16.0,
-                ),
-              ),
-            ),
-          ),
-          SizedBox(height: 12),
-        ],
-      ),
-    );
-  }
-  // Builds the selected filter chips
-  Widget _buildSelectedChips() {
-    List<Widget> chips = [];
-
-    // Add selected categories as chips
-    chips.addAll(
-      _selectedCategoryIds.map(
-            (id) {
-          final category = widget.categories.firstWhere((c) => c.id == id);
-          return _buildChip(category.nombre, () {
-            setState(() {
-              _toggleCategorySelection(id);
-            });
-            restaurantsCubit.getFilterRestaurantsAdvance(
-              categories: _selectedCategoryIds,
-              municipalities: selectedMunicipalities,
-              text: _searchController.text,
-              types: _selectedTypeIds,
-              islandId: widget.islandId,
-            );
-          });
-        },
-      ),
-    );
-
-    // Add selected types as chips
-    chips.addAll(
-      _selectedTypeIds.map(
-            (id) {
-          final type = widget.types.firstWhere((t) => t.id == id);
-          return _buildChip(type.nombre, () {
-            setState(() {
-              _toggleTypeSelection(id);
-              restaurantsCubit.getFilterRestaurantsAdvance(
-                categories: _selectedCategoryIds,
-                municipalities: selectedMunicipalities,
-                text: _searchController.text,
-                types: _selectedTypeIds,
-                islandId: widget.islandId,
-              );
-            });
-          });
-        },
-      ),
-    );
-
-
-
-
-    return chips.isNotEmpty
-        ? Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
-      child: Wrap(
-        spacing: 8.0,
-        runSpacing: 4.0,
-        children: chips,
-      ),
-    )
-        : const SizedBox.shrink();
-  }
-
-// Builds a single chip
-  Widget _buildChip(String label, VoidCallback onDeleted) {
-    return Chip(
-      label: Text(label),
-      onDeleted: onDeleted,
-      backgroundColor: Colors.blue.shade100,
-      deleteIcon: const Icon(Icons.close, size: 16),
-    );
-  }
-
 }

@@ -12,6 +12,7 @@ import 'package:guachinches/data/cubit/banners/banners_cubit.dart';
 import 'package:guachinches/data/cubit/cupones/cupones_cubit.dart';
 import 'package:guachinches/data/cubit/filter/filter_cubit.dart';
 import 'package:guachinches/data/cubit/filter/filter_map_cubit.dart';
+import 'package:guachinches/data/cubit/location/location_cubit.dart';
 import 'package:guachinches/data/cubit/menu/menu_cubit.dart';
 import 'package:guachinches/data/cubit/restaurants/map/restaurant_map_cubit.dart';
 import 'package:guachinches/data/cubit/restaurants/top/top_restaurants_cubit.dart';
@@ -153,7 +154,10 @@ class _MyAppState extends State<MyApp> {
         ) ,
         BlocProvider(
           create: ((context) => MenuCubit()),
-        )
+        ),
+        BlocProvider(
+          create: ((context) => LocationCubit()),
+        ),
       ],
       child: MaterialApp(
         title: 'Guachinches',

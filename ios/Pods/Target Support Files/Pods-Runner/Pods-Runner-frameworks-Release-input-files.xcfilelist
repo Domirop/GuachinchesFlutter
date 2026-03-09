@@ -14,9 +14,9 @@ ${BUILT_PRODUCTS_DIR}/device_info_plus/device_info_plus.framework
 ${BUILT_PRODUCTS_DIR}/file_picker/file_picker.framework
 ${BUILT_PRODUCTS_DIR}/flutter_inappwebview_ios/flutter_inappwebview_ios.framework
 ${BUILT_PRODUCTS_DIR}/flutter_secure_storage/flutter_secure_storage.framework
+${BUILT_PRODUCTS_DIR}/geolocator_apple/geolocator_apple.framework
 ${BUILT_PRODUCTS_DIR}/image_picker_ios/image_picker_ios.framework
 ${BUILT_PRODUCTS_DIR}/libwebp/libwebp.framework
-${BUILT_PRODUCTS_DIR}/location/location.framework
 ${BUILT_PRODUCTS_DIR}/maps_launcher/maps_launcher.framework
 ${BUILT_PRODUCTS_DIR}/nanopb/nanopb.framework
 ${BUILT_PRODUCTS_DIR}/package_info_plus/package_info_plus.framework

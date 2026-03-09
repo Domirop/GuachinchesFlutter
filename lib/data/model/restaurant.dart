@@ -102,7 +102,6 @@ class Restaurant {
     if (json["lat"] != null) {
 
       double resultado = double.parse(json['lat'].toString());
-      print('resultado '+resultado.toString());
 
       lat = resultado;
     }

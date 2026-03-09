@@ -31,8 +31,6 @@ class RestaurantCubit extends Cubit<RestaurantState> {
       else{
         condition = false;
       }
-      print('EMITTING RESTAURANT 0');
-      print(restaurantResponse.restaurants.length);
       index++;
     }
 
@@ -44,8 +42,7 @@ class RestaurantCubit extends Cubit<RestaurantState> {
      if (isOpen) {
        restaurants = restaurants.where((element) => element.open).toList();
      }
-     print('EMITTING RESTAURANT 2');
-     print('EMITTING RESTAURANT 2');
+
      emit(RestaurantFilter(restaurants));
   }
   Future<void> getFilterRestaurantsAdvance({List<String>? categories, List<String>? municipalities, List<String>? types, String? text,String? islandId,bool isOpen=false}) async {
@@ -54,9 +51,7 @@ class RestaurantCubit extends Cubit<RestaurantState> {
     if (isOpen) {
       restaurants = restaurants.where((element) => element.open).toList();
     }
-    print('EMITTING RESTAURANT 2');
-    print('EMITTING RESTAURANT 2');
-    print('EMITTING RESTAURANT 2');
+
     emit(RestaurantFilterAdvanced(restaurants));
   }
 }

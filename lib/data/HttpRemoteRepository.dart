@@ -51,7 +51,6 @@ class HttpRemoteRepository implements RemoteRepository {
       final String encodedName = Uri.encodeComponent(surveyName);
       final String url = dotenv.env['ENDPOINT_V2']! +
           "surveys/results/$surveyId/$encodedName";
-      print('url survey: $url');
 
       final uri = Uri.parse(url);
       final response = await _client.get(uri);
@@ -76,7 +75,7 @@ class HttpRemoteRepository implements RemoteRepository {
           "restaurant/pagination?from=" +
           number.toString() +
           islandQuery;
-      print('url: ' + url);
+
       var uri = Uri.parse(url);
       var response = await _client.get(uri);
       RestaurantResponse restaurantResponse =
@@ -94,7 +93,7 @@ class HttpRemoteRepository implements RemoteRepository {
       String nombre,
       String islandId) async {
     try {
-      print("esta es 1");
+
       List<Restaurant> restaurants = [];
       String url =
           dotenv.env['ENDPOINT_V2']! + "restaurant/findByFilter/filter?name=";
@@ -106,7 +105,6 @@ class HttpRemoteRepository implements RemoteRepository {
       if (municipalities != null && municipalities.isNotEmpty)
         url += "&municipalities=" + municipalities;
       if (islandId != null) url += "&island=" + islandId;
-      print('url ' + url);
 
       var uri = Uri.parse(url);
       var response = await _client.get(uri);
@@ -118,7 +116,7 @@ class HttpRemoteRepository implements RemoteRepository {
       }
       return restaurants;
     } on Exception catch (e) {
-      print(e);
+
       return [];
     }
   }
@@ -127,10 +125,10 @@ class HttpRemoteRepository implements RemoteRepository {
   Future<Restaurant> getRestaurantById(String id) async {
     try {
       String url = dotenv.env['ENDPOINT_V2']! + "restaurant/" + id;
-      print("url " + url.toString());
+
       var uri = Uri.parse(url);
       var response = await _client.get(uri);
-      print('restaurant response' + response.body);
+
       Restaurant restaurant = Restaurant.fromJson(json.decode(response.body));
       return restaurant;
     } on Exception catch (e) {
@@ -143,12 +141,10 @@ class HttpRemoteRepository implements RemoteRepository {
       String baseUrl = dotenv.env['ENDPOINT_V2']!;
       String url = dotenv.env['ENDPOINT_V2']! + "surveys/results/$surveySchemaId/$userId/voted-restaurants";
 
-      print("URL: $url");
 
       var uri = Uri.parse(url);
       var response = await _client.get(uri);
 
-      print('Response: ${response.body}');
 
       if (response.statusCode == 200) {
         List<dynamic> data = json.decode(response.body);
@@ -166,8 +162,7 @@ class HttpRemoteRepository implements RemoteRepository {
     var uri = Uri.parse(dotenv.env['ENDPOINT_V2']! + "categorias");
     var response = await _client.get(uri);
     List<dynamic> data = json.decode(response.body);
-    print("categorias");
-    print(data);
+
     List<ModelCategory> categories = [];
     for (var i = 0; i < data.length; i++) {
       ModelCategory category = ModelCategory.fromJson(data[i]);
@@ -309,7 +304,6 @@ class HttpRemoteRepository implements RemoteRepository {
     try {
       String url = dotenv.env['ENDPOINT_V2']! + "restaurant/top/all";
       var uri = Uri.parse(url);
-      print('top: ' + url);
       var response = await _client.get(uri);
       List<dynamic> data = json.decode(response.body);
       List<TopRestaurants> restaurants = [];
@@ -325,7 +319,6 @@ class HttpRemoteRepository implements RemoteRepository {
         }
 
       }
-      print('test02');
       return restaurants;
     } on Exception catch (e) {
       print("ERROR GRAVE "+e.toString());
@@ -376,10 +369,8 @@ class HttpRemoteRepository implements RemoteRepository {
     });
     var response = await _client.post(uri,
         headers: {"Content-Type": "application/json"}, body: body);
-    print('response');
     print(response);
     var x = json.decode(response.body);
-    print('cuponId');
     print(x['id']);
     couponId = x['id'];
 
@@ -414,8 +405,6 @@ class HttpRemoteRepository implements RemoteRepository {
       var uri = Uri.parse(url);
       var response = await _client.get(uri);
       var data = json.decode(response.body);
-      print('data');
-      print(data);
       cupon = CuponesUser.fromJson(data);
       return cupon;
     } catch (e) {
@@ -521,7 +510,6 @@ class HttpRemoteRepository implements RemoteRepository {
     var uri = Uri.parse(url);
     List<Video> videos = [];
     return _client.get(uri).then((response) {
-      print('response: ' + response.body);
 
       var data = json.decode(response.body);
       for (var i = 0; i < data.length; i++) {
@@ -555,7 +543,6 @@ class HttpRemoteRepository implements RemoteRepository {
     var uri = Uri.parse(url);
     List<Fotos> fotos = [];
     return _client.get(uri).then((response) {
-      print('response: ' + response.body);
 
       var data = json.decode(response.body);
       for (var i = 0; i < data.length; i++) {
@@ -640,7 +627,6 @@ class HttpRemoteRepository implements RemoteRepository {
         BlogPost blogPost = BlogPost.fromJson(data[i]);
         blogPosts.add(blogPost);
       }
-      print('blogPosts: $blogPosts');
       return blogPosts;
     });
   }

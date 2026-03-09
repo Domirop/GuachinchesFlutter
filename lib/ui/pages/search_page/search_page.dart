@@ -8,8 +8,11 @@ import 'package:guachinches/data/HttpRemoteRepository.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
 import 'package:guachinches/data/cubit/cupones/cupones_cubit.dart';
 import 'package:guachinches/data/cubit/cupones/cupones_state.dart';
+import 'package:guachinches/data/cubit/location/location_cubit.dart';
+import 'package:guachinches/data/cubit/location/location_state.dart';
 import 'package:guachinches/data/cubit/restaurants/basic/restaurant_cubit.dart';
 import 'package:guachinches/data/cubit/restaurants/basic/restaurant_state.dart';
+import 'package:guachinches/utils/distance_utils.dart';
 import 'package:guachinches/data/defaultData/allIsland.dart';
 import 'package:guachinches/data/model/Category.dart';
 import 'package:guachinches/data/model/CuponesAgrupados.dart';
@@ -68,6 +71,8 @@ class _SearchPageState extends State<SearchPage>
   int activeFilterNumber = 0;
   bool isCharging = false;
   bool isChargingInitalRestaurants = true;
+  bool _sortByDistance = false;
+  List<Restaurant> _cachedTabList = [];
   late TabController _tabController;
   var restaurantCubit;
 
@@ -132,6 +137,7 @@ class _SearchPageState extends State<SearchPage>
           categoriesId = [];
           municipalitiesId = [];
           typesId = [];
+          _sortByDistance = false;
         });
       }
     }
@@ -239,17 +245,37 @@ class _SearchPageState extends State<SearchPage>
   }
 
   generateWidgetsTab2(List<Restaurant> restaurantsParams) async {
-    List auxList = [];
-    print(activeFilterNumber);
+    List<Restaurant> auxList;
     if(activeFilterNumber>0 || textValue.length>2){
-      auxList = restaurantsParams;
-
+      auxList = List<Restaurant>.from(restaurantsParams);
     }else{
-      auxList = restaurants;
+      auxList = List<Restaurant>.from(restaurants);
     }
     if (isOpen) {
       auxList = auxList.where((element) => element.open).toList();
     }
+
+    // Cache the pre-sort list so toggling sort doesn't lose the original order
+    _cachedTabList = List<Restaurant>.from(auxList);
+
+    // Sort by distance from user's location if enabled
+    if (_sortByDistance) {
+      final locState = context.read<LocationCubit>().state;
+      if (locState is LocationLoaded) {
+        auxList.sort((a, b) {
+          // Restaurants without coords go last
+          final aHas = a.lat != 0.0 || a.lon != 0.0;
+          final bHas = b.lat != 0.0 || b.lon != 0.0;
+          if (!aHas && bHas) return 1;
+          if (aHas && !bHas) return -1;
+          if (!aHas && !bHas) return 0;
+          final dA = haversineDistanceMeters(locState.latitude, locState.longitude, a.lat, a.lon);
+          final dB = haversineDistanceMeters(locState.latitude, locState.longitude, b.lat, b.lon);
+          return dA.compareTo(dB);
+        });
+      }
+    }
+
     Widget widget = Padding(
       padding: const EdgeInsets.all(8.0),
       child: Column(
@@ -274,6 +300,69 @@ class _SearchPageState extends State<SearchPage>
     setState(() {
       tab3 = aux;
     });
+  }
+
+  Widget _buildSortChips() {
+    final locState = context.read<LocationCubit>().state;
+    final hasLocation = locState is LocationLoaded;
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: Row(
+        children: [
+          GestureDetector(
+            onTap: hasLocation
+                ? () {
+                    setState(() => _sortByDistance = !_sortByDistance);
+                    generateWidgetsTab2(_cachedTabList);
+                  }
+                : null,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+              decoration: BoxDecoration(
+                color: _sortByDistance
+                    ? GlobalMethods.blueColor
+                    : Colors.grey.shade200,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: _sortByDistance
+                      ? GlobalMethods.blueColor
+                      : Colors.grey.shade300,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.near_me_rounded,
+                    size: 14,
+                    color: _sortByDistance
+                        ? Colors.white
+                        : (hasLocation ? Colors.black87 : Colors.grey),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Cerca de ti',
+                    style: TextStyle(
+                      color: _sortByDistance
+                          ? Colors.white
+                          : (hasLocation ? Colors.black87 : Colors.grey),
+                      fontSize: 13,
+                      fontFamily: 'SF Pro Display',
+                      fontWeight: _sortByDistance
+                          ? FontWeight.w600
+                          : FontWeight.normal,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   widgetsTab3(CuponesAgrupados element) {
@@ -659,7 +748,9 @@ class _SearchPageState extends State<SearchPage>
                   SingleChildScrollView(
                     controller: controller2,
                     child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        _buildSortChips(),
                         tab2,
                         SizedBox(
                           height: 10.0,

@@ -11,8 +11,6 @@ class CuponesList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    print('userId2');
-    print(userId);
     return Padding(
       padding: const EdgeInsets.only(top: 12),
       child: Container(

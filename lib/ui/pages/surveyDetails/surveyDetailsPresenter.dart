@@ -17,7 +17,6 @@ class SurveyDetailsPresenter {
     if (surveyUserId == null || surveyUserId == '69a54c41-5ae3-5445-bea3-4e16ec8092fa') {
       String? userId = await storage.read(key: "userId");
 
-      print("Survey ID "+ userId.toString());
 
       // if (userId != null) {
       //   await storage.write(key: "surveyUserId", value: userId);

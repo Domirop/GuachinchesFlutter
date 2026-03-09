@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
+import 'package:guachinches/utils/distance_utils.dart';
 import 'package:guachinches/data/cubit/banners/banners_cubit.dart';
 import 'package:guachinches/data/cubit/cupones/cupones_cubit.dart';
 import 'package:guachinches/data/cubit/restaurants/basic/restaurant_cubit.dart';
@@ -105,6 +106,41 @@ class HomePresenter{
 
     await _restaurantCubit.getAllRestaurants(0,islandId);
   }
+
+  getNearbyRestaurants(double lat, double lon, String islandId, List<Types> types) async {
+    try {
+      final restaurants = await repository.getFilterRestaurants('', '', '', '', islandId);
+      final List<NearbyRestaurant> nearby = [];
+      for (final r in restaurants) {
+        if (r.lat == 0.0 && r.lon == 0.0) continue;
+        final meters = haversineDistanceMeters(lat, lon, r.lat, r.lon);
+
+        // Resolve human-readable type name from types list
+        String typeName = '';
+        try {
+          typeName = types.firstWhere((t) => t.id == r.type).nombre;
+        } catch (_) {}
+        // Fallback: use first category name if available
+        if (typeName.isEmpty && r.categoriaRestaurantes.isNotEmpty) {
+          typeName = r.categoriaRestaurantes.first.categorias.nombre;
+        }
+
+        nearby.add(NearbyRestaurant(
+          restaurant: r,
+          distanceLabel: formatDistance(meters),
+          typeName: typeName,
+        ));
+      }
+      nearby.sort((a, b) {
+        final dA = haversineDistanceMeters(lat, lon, a.restaurant.lat, a.restaurant.lon);
+        final dB = haversineDistanceMeters(lat, lon, b.restaurant.lat, b.restaurant.lon);
+        return dA.compareTo(dB);
+      });
+      _view.setNearbyRestaurants(nearby.take(15).toList());
+    } catch (_) {
+      _view.setNearbyRestaurants([]);
+    }
+  }
   getAllBlogPosts() async {
     List<BlogPost> blogPosts = await  repository.getAllBlogPosts();
     _view.setBlogPosts(blogPosts);
@@ -207,4 +243,5 @@ abstract class HomeView{
   setAllVisits(List<Visit> visits){}
   setSurveyResults(List<SurveyResult> guachinchesModernos,List<SurveyResult> guachinchesTradicionales);
   setSurveyRestaurants(List<Restaurant> restaurants);
+  setNearbyRestaurants(List<NearbyRestaurant> restaurants) {}
 }

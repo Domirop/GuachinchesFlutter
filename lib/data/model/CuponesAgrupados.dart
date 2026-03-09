@@ -37,7 +37,6 @@ class CuponesAgrupados {
   }
 
   CuponesAgrupados.fromJson(dynamic json) {
-    print('test03');
     _id = json["id"];
     _enable = json["enable"];
     _nombre = json["nombre"];

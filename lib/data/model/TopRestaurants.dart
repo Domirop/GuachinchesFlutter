@@ -56,12 +56,9 @@ class TopRestaurants {
     _imagen = json["max"] ?? "";
     _avg = double.parse(json["avg"] ?? "0.0");
     _municipio = (json['municipio'] as String?)?.capitalize() ?? "";
-print(_nombre);
     bool auxOpen = true;
     bool alwaysOpen = false;
     String auxValue = json["google_horarios"] ?? "";
-    print("HORARIO ${nombre.toUpperCase()} -> líneas detectadas: ${auxValue.split('\n').length}");
-    print("Texto bruto:\n$auxValue");
     if (auxValue.toLowerCase() == "cerrado" || auxValue.toLowerCase() == "sin horario") {
       auxOpen = false;
     } else {
@@ -78,7 +75,6 @@ print(_nombre);
           auxOpen = alwaysOpen = true;
         }
       }catch(e){
-        print("ERROR HORARIO");
         print(nombre);
       }
     }
@@ -120,7 +116,6 @@ print(_nombre);
         }
       }
       }on Exception catch (e) {
-        print("ERROR restaurante: "+nombre +" "+ e.toString());
     }
     }
     _open = auxOpen;

@@ -10,7 +10,10 @@ import 'package:guachinches/data/cubit/banners/banners_state.dart';
 import 'package:guachinches/data/cubit/cupones/cupones_cubit.dart';
 import 'package:guachinches/data/cubit/filter/filter_cubit.dart';
 import 'package:guachinches/data/cubit/filter/filter_state.dart';
+import 'package:guachinches/data/cubit/location/location_cubit.dart';
+import 'package:guachinches/data/cubit/location/location_state.dart';
 import 'package:guachinches/data/cubit/restaurants/basic/restaurant_cubit.dart';
+import 'package:guachinches/utils/distance_utils.dart';
 import 'package:guachinches/data/cubit/restaurants/basic/restaurant_state.dart';
 import 'package:guachinches/data/cubit/restaurants/top/top_restaurant_state.dart';
 import 'package:guachinches/data/cubit/restaurants/top/top_restaurants_cubit.dart';
@@ -37,6 +40,7 @@ import 'package:guachinches/ui/components/cards/topRestaurantCard.dart';
 import 'package:guachinches/ui/components/cards/restaurantOpenCard.dart';
 import 'package:guachinches/ui/components/categories/CategoryImageCard.dart';
 import 'package:guachinches/ui/components/heroSliderComponent.dart';
+import 'package:guachinches/ui/components/nearby_section.dart';
 import 'package:guachinches/ui/components/rankingList.dart';
 import 'package:guachinches/ui/components/survey_banner/survey_banner.dart';
 import 'package:guachinches/ui/components/survey_popup/survey_popup.dart';
@@ -58,7 +62,7 @@ class Home extends StatefulWidget {
   _HomeState createState() => _HomeState();
 }
 
-class _HomeState extends State<Home> implements HomeView {
+class _HomeState extends State<Home> with WidgetsBindingObserver implements HomeView {
   late AppBarBasic appBarBasic;
   List<String> selectedCategories = [];
   late String islandId = '';
@@ -109,6 +113,23 @@ class _HomeState extends State<Home> implements HomeView {
   List<Visit> allVisits = [];
   List<BlogPost> blogPosts = [];
   Color _appBarBackgroundColor = Colors.transparent;
+  List<NearbyRestaurant> nearbyRestaurants = [];
+  bool _nearbyLoading = false;
+
+  /// Single entry-point for loading nearby restaurants.
+  /// Fires only when ALL three dependencies are ready and no request
+  /// is already in flight or completed.
+  void _tryLoadNearby() {
+    final locState = context.read<LocationCubit>().state;
+
+    if (_nearbyLoading || nearbyRestaurants.isNotEmpty) return;
+    if (locState is! LocationLoaded) return;
+    if (islandId.isEmpty) return;
+    // types can be empty — presenter falls back to category names
+    setState(() => _nearbyLoading = true);
+    presenter.getNearbyRestaurants(
+        locState.latitude, locState.longitude, islandId, types);
+  }
 
   @override
   void initState() {
@@ -132,7 +153,9 @@ class _HomeState extends State<Home> implements HomeView {
     presenter.getAllBlogPosts();
     presenter.getTopRestaurants();
 
+    WidgetsBinding.instance.addObserver(this);
     presenter.getSurveyRestaurants();
+    context.read<LocationCubit>().requestLocation();
 
     SurveyPopup.showIfNeeded(
       context,
@@ -192,8 +215,18 @@ class _HomeState extends State<Home> implements HomeView {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _surveyPreviewTimer?.cancel();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // Silent check: no dialogs, just reacts if the user changed permission
+      // in Settings while the app was in the background.
+      context.read<LocationCubit>().checkLocationSilently();
+    }
   }
 
   Color bgColor = Color.fromRGBO(25, 27, 32, 1);
@@ -202,7 +235,11 @@ class _HomeState extends State<Home> implements HomeView {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return BlocListener<LocationCubit, LocationState>(
+      listener: (context, state) {
+        if (state is LocationLoaded) _tryLoadNearby();
+      },
+      child: Scaffold(
       backgroundColor: Color.fromRGBO(25, 27, 32, 1),
       body: CustomScrollView(
         controller: _scrollController,
@@ -338,95 +375,108 @@ class _HomeState extends State<Home> implements HomeView {
                   if (surveyRanking != null &&
                       surveyGuachinchesTradicionales.isNotEmpty)
                     _buildSurveyResultsPreview(),
+                  // ── Filtered restaurants ────────────────────────────────
+                  // Only mounts when a category/filter is active.
+                  // Independent of the home content below.
                   BlocBuilder<FilterCubit, FilterState>(
-                      builder: (context, state) {
-                    if (state is FilterCategory) {
+                    builder: (context, filterState) {
+                      if (filterState is! FilterCategory) {
+                        return const SizedBox.shrink();
+                      }
                       return Container(
                         color: Color.fromRGBO(25, 27, 32, 1),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Padding(
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 14.0),
-                              child:
-                                  BlocBuilder<RestaurantCubit, RestaurantState>(
-                                      builder: (context, state) {
-                                final ScrollController _scrollController =
-                                    new ScrollController();
-                                if (state is RestaurantFilter) {
-                                  return Container(
-                                    height: 280 *
-                                        state.filtersRestaurants.length
-                                            .toDouble(),
-                                    // Assuming 264 is the height of each item
-                                    child: Column(
-                                      children: state.filtersRestaurants
-                                          .map((restaurant) {
-                                        return Padding(
-                                          padding: const EdgeInsets.only(
-                                              bottom: 8.0),
-                                          child: RestaurantMainCard(
-                                            restaurant: restaurant,
-                                            size: 'big',
-                                          ),
-                                        );
-                                      }).toList(),
-                                    ),
-                                  );
-                                } else if (state is AllRestaurantLoaded) {
-                                  setAllRestaurants(
-                                      state.restaurantResponse.restaurants);
-                                  return Container(
-                                    height: 264 *
-                                        state.restaurantResponse.restaurants
-                                            .length
-                                            .toDouble(),
-                                    child: Column(
-                                      children: state
-                                          .restaurantResponse.restaurants
-                                          .map((restaurant) {
-                                        return Padding(
-                                          padding: const EdgeInsets.only(
-                                              bottom: 8.0),
-                                          child: RestaurantMainCard(
-                                            restaurant: restaurant,
-                                            size: 'big',
-                                          ),
-                                        );
-                                      }).toList(),
-                                    ),
-                                  );
-                                }
-                                return Container();
-                              }),
-                            ),
-                          ],
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 14.0),
+                          child: BlocBuilder<RestaurantCubit, RestaurantState>(
+                            builder: (context, state) {
+                              if (state is RestaurantFilter) {
+                                return Container(
+                                  height: 280 *
+                                      state.filtersRestaurants.length
+                                          .toDouble(),
+                                  child: Column(
+                                    children: state.filtersRestaurants
+                                        .map((restaurant) => Padding(
+                                              padding: const EdgeInsets.only(
+                                                  bottom: 8.0),
+                                              child: RestaurantMainCard(
+                                                restaurant: restaurant,
+                                                size: 'big',
+                                              ),
+                                            ))
+                                        .toList(),
+                                  ),
+                                );
+                              } else if (state is AllRestaurantLoaded) {
+                                setAllRestaurants(
+                                    state.restaurantResponse.restaurants);
+                                return Container(
+                                  height: 264 *
+                                      state.restaurantResponse.restaurants
+                                          .length
+                                          .toDouble(),
+                                  child: Column(
+                                    children: state
+                                        .restaurantResponse.restaurants
+                                        .map((restaurant) => Padding(
+                                              padding: const EdgeInsets.only(
+                                                  bottom: 8.0),
+                                              child: RestaurantMainCard(
+                                                restaurant: restaurant,
+                                                size: 'big',
+                                              ),
+                                            ))
+                                        .toList(),
+                                  ),
+                                );
+                              }
+                              return const SizedBox.shrink();
+                            },
+                          ),
                         ),
                       );
-                    } else {
+                    },
+                  ),
+
+                  // ── Normal home content ──────────────────────────────────
+                  // Completely independent of FilterCubit internals.
+                  // BlocSelector only rebuilds this section when the filter
+                  // mode toggles (active ↔ inactive), not on every filter update.
+                  BlocSelector<FilterCubit, FilterState, bool>(
+                    selector: (state) => state is FilterCategory,
+                    builder: (context, isFiltered) {
+                      if (isFiltered) return const SizedBox.shrink();
                       return Column(
                         children: [
-                          VisitsHorizontalList(visits: allVisits), // <-- tu lista de Visit
+                          NearbySection(
+                            restaurants: nearbyRestaurants,
+                            isLoadingRestaurants: _nearbyLoading,
+                          ),
+                          VisitsHorizontalList(visits: allVisits),
                           BannerAdWidget(),
                           Padding(
                             padding: const EdgeInsets.all(16),
                             child: Align(
-                                alignment: Alignment.centerLeft,
-                                child: Text('Listas hechas por expertos',
-                                    style: TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.white,
-                                        fontFamily: "SF Pro Display"))),
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                'Listas hechas por expertos',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                  fontFamily: "SF Pro Display",
+                                ),
+                              ),
+                            ),
                           ),
                           Padding(
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 24.0, vertical: 16),
                             child: Column(
-                              children: blogPosts.map((blogPost) {
-                                return BlogPostComponent(blogPost: blogPost);
-                              }).toList(),
+                              children: blogPosts
+                                  .map((blogPost) =>
+                                      BlogPostComponent(blogPost: blogPost))
+                                  .toList(),
                             ),
                           ),
                           Align(
@@ -452,10 +502,8 @@ class _HomeState extends State<Home> implements HomeView {
                               scrollDirection: Axis.horizontal,
                               itemBuilder: (context, index) {
                                 return Padding(
-                                  padding: EdgeInsets.only(
-                                    right: 8.0,
-                                    top: 12,
-                                  ),
+                                  padding: const EdgeInsets.only(
+                                      right: 8.0, top: 12),
                                   child: categories[index].foto.isNotEmpty
                                       ? GestureDetector(
                                           onTap: () => GlobalMethods().pushPage(
@@ -471,7 +519,7 @@ class _HomeState extends State<Home> implements HomeView {
                                               )),
                                           child: CategoryImageCard(
                                               categories[index]))
-                                      : Container(),
+                                      : const SizedBox.shrink(),
                                 );
                               },
                             ),
@@ -500,55 +548,50 @@ class _HomeState extends State<Home> implements HomeView {
                               itemCount: topRestaurants.length,
                               itemBuilder: (context, index) {
                                 return Padding(
-                                    padding: EdgeInsets.only(
-                                      left: 8,
-                                      right: 8,
-                                      top: 12,
-                                    ),
-                                    child: TopRestaurantCard(
-                                        topRestaurants[index]));
+                                  padding: const EdgeInsets.only(
+                                      left: 8, right: 8, top: 12),
+                                  child:
+                                      TopRestaurantCard(topRestaurants[index]),
+                                );
                               },
                             ),
                           ),
                           Padding(
                             padding: const EdgeInsets.only(left: 18.0),
                             child: BlocBuilder<TopRestaurantCubit,
-                                TopRestaurantState>(builder: (context, state) {
-                              final ScrollController _scrollController =
-                                  new ScrollController();
-                              if (state is TopRestaurantLoaded) {
-                                List<Restaurant> restaurants = [];
-                                for (int i = 0;
-                                    i < state.restaurants.length;
-                                    i++) {
-                                  restaurants.add(new Restaurant(
-                                      id: state.restaurants[i].id,
-                                      horarios: state.restaurants[i].horarios,
-                                      enable: true,
-                                      googleUrl: '',
-                                      municipio: state.restaurants[i].municipio,
-                                      mainFoto: state.restaurants[i].imagen,
-                                      nombre: state.restaurants[i].nombre,
-                                      direccion: state.restaurants[i].direccion,
-                                      telefono: '',
-                                      destacado: '',
-                                      fotos: [],
-                                      createdAt: '',
-                                      updatedAt: '',
-                                      negocioMunicipioId:
-                                          state.restaurants[i].municipio,
-                                      menus: [],
-                                      categoriaRestaurantes: [],
-                                      valoraciones: [],
-                                      googleHorarios:
-                                          state.restaurants[i].horarios,
-                                      open: state.restaurants[i].open,
-                                      avgRating: state.restaurants[i].avg,
-                                      area: '',
-                                      lat: 0,
-                                      lon: 0,
-                                      type: ''));
+                                TopRestaurantState>(
+                              builder: (context, state) {
+                                if (state is! TopRestaurantLoaded) {
+                                  return const SizedBox.shrink();
                                 }
+                                final restaurants = state.restaurants
+                                    .map((r) => Restaurant(
+                                          id: r.id,
+                                          horarios: r.horarios,
+                                          enable: true,
+                                          googleUrl: '',
+                                          municipio: r.municipio,
+                                          mainFoto: r.imagen,
+                                          nombre: r.nombre,
+                                          direccion: r.direccion,
+                                          telefono: '',
+                                          destacado: '',
+                                          fotos: [],
+                                          createdAt: '',
+                                          updatedAt: '',
+                                          negocioMunicipioId: r.municipio,
+                                          menus: [],
+                                          categoriaRestaurantes: [],
+                                          valoraciones: [],
+                                          googleHorarios: r.horarios,
+                                          open: r.open,
+                                          avgRating: r.avg,
+                                          area: '',
+                                          lat: 0,
+                                          lon: 0,
+                                          type: '',
+                                        ))
+                                    .toList();
                                 return Column(
                                   children: [
                                     Padding(
@@ -564,7 +607,7 @@ class _HomeState extends State<Home> implements HomeView {
                                               MainAxisAlignment.spaceBetween,
                                           crossAxisAlignment:
                                               CrossAxisAlignment.end,
-                                          children: [
+                                          children: const [
                                             Text(
                                               '🏆 Los favoritos',
                                               style: TextStyle(
@@ -575,7 +618,7 @@ class _HomeState extends State<Home> implements HomeView {
                                             Icon(
                                               Icons.arrow_forward_ios_rounded,
                                               size: 18,
-                                            )
+                                            ),
                                           ],
                                         ),
                                       ),
@@ -583,39 +626,37 @@ class _HomeState extends State<Home> implements HomeView {
                                     Container(
                                       height: 300,
                                       child: ListView.builder(
-                                          shrinkWrap: false,
-                                          primary: false,
-                                          controller: _scrollController,
-                                          // default is 40
-                                          itemCount: state.restaurants.length,
-                                          scrollDirection: Axis.horizontal,
-                                          itemBuilder: (context, index) {
-                                            return Padding(
-                                              padding: const EdgeInsets.only(
-                                                  right: 8.0),
-                                              child: RestaurantMainCard(
-                                                  size: 'small',
-                                                  restaurant:
-                                                      restaurants[index]),
-                                            );
-                                          }),
+                                        shrinkWrap: false,
+                                        primary: false,
+                                        itemCount: restaurants.length,
+                                        scrollDirection: Axis.horizontal,
+                                        itemBuilder: (context, index) =>
+                                            Padding(
+                                          padding: const EdgeInsets.only(
+                                              right: 8.0),
+                                          child: RestaurantMainCard(
+                                            size: 'small',
+                                            restaurant: restaurants[index],
+                                          ),
+                                        ),
+                                      ),
                                     ),
                                   ],
                                 );
-                              }
-                              return Container();
-                            }),
+                              },
+                            ),
                           ),
                         ],
                       );
-                    }
-                  }),
+                    },
+                  ),
                 ],
               ),
             ),
           ),
         ],
       ),
+    ),
     );
   }
 
@@ -853,6 +894,7 @@ class _HomeState extends State<Home> implements HomeView {
     setState(() {
       this.types = types;
     });
+    _tryLoadNearby();
   }
 
   @override
@@ -872,10 +914,19 @@ class _HomeState extends State<Home> implements HomeView {
   }
 
   @override
+  setNearbyRestaurants(List<NearbyRestaurant> restaurants) {
+    setState(() {
+      nearbyRestaurants = restaurants;
+      _nearbyLoading = false;
+    });
+  }
+
+  @override
   setIsland(String islandId) {
     setState(() {
       this.islandId = islandId;
     });
+    _tryLoadNearby();
     presenter.getRestaurantsFilterByCategory(
         '11a5f3a4-3ce3-48bb-9749-03eac640e23e', islandId);
     presenter.getAllMunicipalities(islandId);

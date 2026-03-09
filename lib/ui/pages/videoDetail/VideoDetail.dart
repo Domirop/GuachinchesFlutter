@@ -129,7 +129,6 @@ class _VideoDetailState extends State<VideoDetail> {
     setState(() {
       actualIndex = currentIndex!;
     });
-    print("Scroll callback received with data: {direction: $direction, success: $success and index: ${currentIndex ?? 'not given'}}");
   }
 }
 

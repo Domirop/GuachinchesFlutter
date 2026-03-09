@@ -269,7 +269,6 @@ class Pin extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: () {
-        print("Pin");
         GlobalMethods().pushPageWithFocus(context, PinDetail(title: title,asset: asset,
           description: "Haz visitado algún restaurante dificil de llegar de esos que tienes que preguntar 20 veces antes de encontrarlo",));
       },
