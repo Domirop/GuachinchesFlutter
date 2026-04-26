@@ -63,6 +63,7 @@ abstract class RemoteRepository{
   Future<bool> checkUserSurveyStatus(String userId);
   // Survey In-App
   Future<List<SurveyInAppChoice>> getSurveyInAppChoices(String categoryName, String userId);
+  Future<Map<String, List<String>>> getVotedByDevice(int surveySchemaId, String deviceToken);
   Future<bool> submitSurveyInAppVotes(String userId, Map<String, String> votes, String signature, int duration, String deviceToken);
   Future<List<SurveyResult>> getSurveyResults(int surveyId, String surveyName,List<Restaurant> allRestaurants);
   Future<List<String>> getVotedRestaurantsByUser(String surveySchemaId, String userId);

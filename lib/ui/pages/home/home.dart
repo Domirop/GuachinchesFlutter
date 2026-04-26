@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:ffi';
 
 import 'package:flutter/material.dart';
 import 'package:guachinches/data/HttpRemoteRepository.dart';
@@ -35,10 +34,10 @@ import 'package:guachinches/ui/components/banner/banner_ad.dart';
 import 'package:guachinches/ui/components/blog_post/blog_post_component.dart';
 import 'package:guachinches/ui/components/cards/rankingCard.dart';
 import 'package:guachinches/ui/components/cards/restaurantMainCard.dart';
-import 'package:guachinches/ui/components/cards/surveyCard.dart';
 import 'package:guachinches/ui/components/cards/topRestaurantCard.dart';
 import 'package:guachinches/ui/components/cards/restaurantOpenCard.dart';
-import 'package:guachinches/ui/components/categories/CategoryImageCard.dart';
+import 'package:guachinches/ui/components/categories/category_pill_chip.dart';
+import 'package:guachinches/ui/components/section_header.dart';
 import 'package:guachinches/ui/components/heroSliderComponent.dart';
 import 'package:guachinches/ui/components/nearby_section.dart';
 import 'package:guachinches/ui/components/rankingList.dart';
@@ -115,6 +114,34 @@ class _HomeState extends State<Home> with WidgetsBindingObserver implements Home
   Color _appBarBackgroundColor = Colors.transparent;
   List<NearbyRestaurant> nearbyRestaurants = [];
   bool _nearbyLoading = false;
+
+
+  // ── Quick-chip navigation helpers ─────────────────────────────────────────
+
+  void _openPreset({List<Types> preTypes = const [], bool openOnly = false}) {
+    GlobalMethods().pushPage(
+      context,
+      AdvancedSearch(
+        categories: categories,
+        municipalities: municipalities,
+        types: types,
+        islandId: islandId,
+        preSelectedTypes: preTypes,
+        preSelectedOpenOnly: openOnly,
+      ),
+    );
+  }
+
+  void _scrollToNearby() {
+    final heroHeight = MediaQuery.of(context).size.width * 1.1;
+    _scrollController.animateTo(
+      heroHeight,
+      duration: const Duration(milliseconds: 500),
+      curve: Curves.easeOut,
+    );
+  }
+
+  // ── Nearby restaurants ────────────────────────────────────────────────────
 
   /// Single entry-point for loading nearby restaurants.
   /// Fires only when ALL three dependencies are ready and no request
@@ -373,8 +400,13 @@ class _HomeState extends State<Home> with WidgetsBindingObserver implements Home
                     onVoted: () => presenter.getSurveyResults(allSurveyRestaurants),
                   ),
                   if (surveyRanking != null &&
-                      surveyGuachinchesTradicionales.isNotEmpty)
+                      (surveyGuachinchesTradicionales.isNotEmpty ||
+                          surveyGuachinchesModernos.isNotEmpty))
                     _buildSurveyResultsPreview(),
+
+                  // ── Quick-action filter chips ────────────────────────────
+                  _buildQuickFilterChips(),
+
                   // ── Filtered restaurants ────────────────────────────────
                   // Only mounts when a category/filter is active.
                   // Independent of the home content below.
@@ -454,21 +486,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver implements Home
                           ),
                           VisitsHorizontalList(visits: allVisits),
                           BannerAdWidget(),
-                          Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Align(
-                              alignment: Alignment.centerLeft,
-                              child: Text(
-                                'Listas hechas por expertos',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                  fontFamily: "SF Pro Display",
-                                ),
-                              ),
-                            ),
-                          ),
+                          SectionHeader(title: '📋 Listas de expertos'),
                           Padding(
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 24.0, vertical: 16),
@@ -479,87 +497,66 @@ class _HomeState extends State<Home> with WidgetsBindingObserver implements Home
                                   .toList(),
                             ),
                           ),
-                          Align(
-                            alignment: Alignment.topLeft,
-                            child: Padding(
-                              padding: const EdgeInsets.fromLTRB(16, 16, 0, 0),
-                              child: Text(
-                                'Explora las categorías destacas',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontFamily: "SF Pro Display",
-                                  fontSize: 18,
-                                ),
+                          SectionHeader(
+                            title: 'Explora las categorías',
+                            onTap: () => GlobalMethods().pushPage(
+                              context,
+                              AdvancedSearch(
+                                categories: categories,
+                                municipalities: municipalities,
+                                types: types,
+                                islandId: islandId,
                               ),
                             ),
                           ),
-                          Container(
-                            height: 132,
+                          SizedBox(
+                            height: 44,
                             child: ListView.builder(
-                              shrinkWrap: false,
-                              primary: false,
-                              itemCount: categories.length,
                               scrollDirection: Axis.horizontal,
+                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                              itemCount: categories.length,
                               itemBuilder: (context, index) {
-                                return Padding(
-                                  padding: const EdgeInsets.only(
-                                      right: 8.0, top: 12),
-                                  child: categories[index].foto.isNotEmpty
-                                      ? GestureDetector(
-                                          onTap: () => GlobalMethods().pushPage(
-                                              context,
-                                              AdvancedSearch(
-                                                categories: categories,
-                                                municipalities: municipalities,
-                                                types: types,
-                                                islandId: islandId,
-                                                preSelectedCategories: [
-                                                  categories[index]
-                                                ],
-                                              )),
-                                          child: CategoryImageCard(
-                                              categories[index]))
-                                      : const SizedBox.shrink(),
+                                final cat = categories[index];
+                                if (cat.foto.isEmpty && cat.iconUrl.isEmpty) {
+                                  return const SizedBox.shrink();
+                                }
+                                return CategoryPillChip(
+                                  category: cat,
+                                  onTap: () => GlobalMethods().pushPage(
+                                    context,
+                                    AdvancedSearch(
+                                      categories: categories,
+                                      municipalities: municipalities,
+                                      types: types,
+                                      islandId: islandId,
+                                      preSelectedCategories: [cat],
+                                    ),
+                                  ),
                                 );
                               },
                             ),
                           ),
-                          Padding(
-                            padding: const EdgeInsets.only(top: 18.0),
-                            child: Align(
-                              alignment: Alignment.topLeft,
-                              child: Padding(
-                                padding: const EdgeInsets.only(left: 16.0),
-                                child: Text(
-                                  'Los favoritos de los usuarios',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontFamily: "SF Pro Display",
-                                    fontSize: 18,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                          Container(
-                            height: MediaQuery.of(context).size.height * 0.46,
+                          const SizedBox(height: 4),
+                          SectionHeader(title: '🏅 Los favoritos'),
+                          SizedBox(
+                            height: 280,
                             child: PageView.builder(
                               controller: _pageController,
                               itemCount: topRestaurants.length,
                               itemBuilder: (context, index) {
                                 return Padding(
                                   padding: const EdgeInsets.only(
-                                      left: 8, right: 8, top: 12),
-                                  child:
-                                      TopRestaurantCard(topRestaurants[index]),
+                                      left: 8, right: 8, top: 8, bottom: 8),
+                                  child: TopRestaurantCard(
+                                    topRestaurants[index],
+                                    rank: index + 1,
+                                  ),
                                 );
                               },
                             ),
                           ),
-                          Padding(
-                            padding: const EdgeInsets.only(left: 18.0),
-                            child: BlocBuilder<TopRestaurantCubit,
-                                TopRestaurantState>(
+                          BlocBuilder<TopRestaurantCubit,
+                              TopRestaurantState>(
                               builder: (context, state) {
                                 if (state is! TopRestaurantLoaded) {
                                   return const SizedBox.shrink();
@@ -594,33 +591,11 @@ class _HomeState extends State<Home> with WidgetsBindingObserver implements Home
                                     .toList();
                                 return Column(
                                   children: [
-                                    Padding(
-                                      padding:
-                                          const EdgeInsets.only(bottom: 8.0),
-                                      child: GestureDetector(
-                                        onTap: () => GlobalMethods().pushPage(
-                                            context,
-                                            RestaurantList(
-                                                restaurants: restaurants)),
-                                        child: Row(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.spaceBetween,
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.end,
-                                          children: const [
-                                            Text(
-                                              '🏆 Los favoritos',
-                                              style: TextStyle(
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: 18,
-                                              ),
-                                            ),
-                                            Icon(
-                                              Icons.arrow_forward_ios_rounded,
-                                              size: 18,
-                                            ),
-                                          ],
-                                        ),
+                                    SectionHeader(
+                                      title: '🏆 Los más visitados',
+                                      onTap: () => GlobalMethods().pushPage(
+                                        context,
+                                        RestaurantList(restaurants: restaurants),
                                       ),
                                     ),
                                     Container(
@@ -645,7 +620,6 @@ class _HomeState extends State<Home> with WidgetsBindingObserver implements Home
                                 );
                               },
                             ),
-                          ),
                         ],
                       );
                     },
@@ -964,6 +938,52 @@ class _HomeState extends State<Home> with WidgetsBindingObserver implements Home
     });
   }
 
+  // ── Quick-filter chips row ──────────────────────────────────────────────────
+
+  Widget _buildQuickFilterChips() {
+    final tradicional =
+        types.where((t) => t.nombre.toLowerCase().contains('tradicional')).toList();
+    final moderno =
+        types.where((t) => t.nombre.toLowerCase().contains('moderno')).toList();
+
+    final chips = [
+      _QuickChip(
+        label: 'Tradicional',
+        icon: Icons.eco_rounded,
+        onTap: () => _openPreset(preTypes: tradicional),
+      ),
+      _QuickChip(
+        label: 'Moderno',
+        icon: Icons.star_rounded,
+        onTap: () => _openPreset(preTypes: moderno),
+      ),
+      _QuickChip(
+        label: 'Abierto ahora',
+        icon: Icons.access_time_rounded,
+        onTap: () => _openPreset(openOnly: true),
+      ),
+      _QuickChip(
+        label: 'Cerca de ti',
+        icon: Icons.location_on_rounded,
+        onTap: _scrollToNearby,
+      ),
+    ];
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(0, 14, 0, 8),
+      child: SizedBox(
+        height: 40,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          itemCount: chips.length,
+          separatorBuilder: (_, __) => const SizedBox(width: 10),
+          itemBuilder: (_, i) => chips[i],
+        ),
+      ),
+    );
+  }
+
   Widget _buildSurveyResultsPreview() {
     final currentData = _surveyPreviewIsTraditional
         ? surveyGuachinchesTradicionales.take(3).toList()
@@ -1094,6 +1114,55 @@ class _HomeState extends State<Home> with WidgetsBindingObserver implements Home
 final Shader linearGradient = LinearGradient(
   colors: <Color>[Color(0xff0189C4), Color(0xff01BCC4)],
 ).createShader(Rect.fromLTWH(0.0, 0.0, 200.0, 70.0));
+
+/// Quick-action chip: abre AdvancedSearch con un preset.
+class _QuickChip extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _QuickChip({
+    required this.label,
+    required this.icon,
+    required this.onTap,
+  });
+
+  static const _darkBg = Color(0xFF2A2D36);
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+        decoration: BoxDecoration(
+          color: _darkBg,
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(
+            color: Colors.white.withOpacity(0.25),
+            width: 1,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 15, color: Colors.white),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 13,
+                fontFamily: 'SF Pro Display',
+                fontWeight: FontWeight.w400,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
 // Pantalla de búsqueda
 class SearchPage22 extends StatelessWidget {

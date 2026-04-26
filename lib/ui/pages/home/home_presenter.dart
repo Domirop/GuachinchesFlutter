@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:guachinches/services/app_storage.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
 import 'package:guachinches/utils/distance_utils.dart';
 import 'package:guachinches/data/cubit/banners/banners_cubit.dart';
@@ -34,7 +35,7 @@ class HomePresenter{
   BannersCubit _bannersCubit;
   RestaurantCubit _restaurantCubit;
 
-  final storage = new FlutterSecureStorage();
+  final storage = AppStorage.instance;
 
   HomePresenter(this._view, this._topRestaurantCubit, this._bannersCubit, this._cuponesCubit, this._userCubit, this.repository,this._restaurantCubit);
 
@@ -98,7 +99,8 @@ class HomePresenter{
 
 
     print("DeVUELVE EL USERID "+ surveyUserId.toString());
-    List<String> restaurantsVoted = await repository.getVotedRestaurantsByUser("1", surveyUserId!);
+    if (surveyUserId == null) return [];
+    List<String> restaurantsVoted = await repository.getVotedRestaurantsByUser("1", surveyUserId);
     return restaurantsVoted;
   }
 
@@ -170,7 +172,7 @@ class HomePresenter{
     _view.setMunicipalities(municipalities);
   }
   getScreens() async {
-    final storage = new FlutterSecureStorage();
+    final storage = AppStorage.instance;
     List<Widget> screens = [
       Home(),
       MapSearch(),

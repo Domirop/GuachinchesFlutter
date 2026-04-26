@@ -38,7 +38,9 @@
 	<key>NSCameraUsageDescription</key>
 	<string>We need access to the camera to take pictures.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Necesitamos determinar tu ubicación para ofrecerte recomendaciones</string>
+	<string>Necesitamos determinar tu ubicación para ofrecerte recomendaciones de restaurantes cercanos</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Necesitamos determinar tu ubicación para ofrecerte recomendaciones de restaurantes cercanos</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>We need access to save pictures to your photo library.</string>
 	<key>NSPhotoLibraryUsageDescription</key>

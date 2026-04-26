@@ -119,92 +119,70 @@ class _DetailsState extends State<Details> implements DetailView {
   static Color bgColor = Color.fromRGBO(25, 27, 32, 1);
   static Color blueColor = Color.fromRGBO(0, 133, 196, 1);
 
+  bool _horariosExpanded = false;
+
+  void _shareContent() {
+    Share.share(
+        'Mira este restaurante: ${restaurant.nombre} en ${restaurant.direccion}');
+  }
+
+  Widget _actionBtn(IconData icon, String label, VoidCallback onPressed,
+      {bool primary = false}) {
+    return GestureDetector(
+      onTap: onPressed,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              color: primary ? blueColor : const Color.fromRGBO(40, 43, 50, 1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: Colors.white, size: 22),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 11,
+              fontFamily: 'SF Pro Display',
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    double screenWidth = MediaQuery.of(context).size.width;
-
-    // Calculamos los tamaños de los botones de manera proporcional
-    double outlinedButtonWidth =
-        screenWidth * 0.4; // 40% del ancho de la pantalla
-    double outlinedButtonHeight =
-        outlinedButtonWidth * 0.32; // Relación de aspecto mantenida
-    double elevatedButtonWidth =
-        screenWidth * 0.5; // 50% del ancho de la pantalla
-    double elevatedButtonHeight =
-        elevatedButtonWidth * 0.25; // Relación de aspecto mantenida
-    // Función para compartir contenido
-    void _shareContent() {
-      Share.share(
-          'Mira este restaurante: ${restaurant.nombre} en ${restaurant.direccion}');
-    }
-
     return Scaffold(
       backgroundColor: bgColor,
       bottomNavigationBar: BottomAppBar(
         color: bgColor,
         elevation: 0,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
           child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              // Botón Compartir
-              Expanded(
-                child: OutlinedButton(
-                  style: OutlinedButton.styleFrom(
-                    side: BorderSide(color: blueColor),
-                    minimumSize: const Size.fromHeight(44), // altura estándar
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  onPressed: _shareContent,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.ios_share, size: 16),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Compartir',
-                        style: TextStyle(
-                          color: blueColor,
-                          fontFamily: 'SF Pro Display',
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+              _actionBtn(
+                Icons.directions_outlined,
+                'Cómo llegar',
+                () => MapsLauncher.launchQuery(restaurant.nombre),
               ),
-              const SizedBox(width: 16),
-
-              // Botón Llamar
-              Expanded(
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: blueColor,
-                    elevation: 0,
-                    minimumSize: const Size.fromHeight(44),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  onPressed: () => _makePhoneCall(restaurant.telefono),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: const [
-                      Icon(Icons.phone, color: Colors.white, size: 16),
-                      SizedBox(width: 8),
-                      Text(
-                        'Llamar',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontFamily: 'SF Pro Display',
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+              _actionBtn(
+                Icons.phone_outlined,
+                'Llamar',
+                () => _makePhoneCall(restaurant.telefono),
+                primary: true,
+              ),
+              _actionBtn(
+                Icons.ios_share,
+                'Compartir',
+                _shareContent,
               ),
             ],
           ),
@@ -294,34 +272,6 @@ class _DetailsState extends State<Details> implements DetailView {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 mainAxisAlignment: MainAxisAlignment.start,
                                 children: [
-                                  //button with border blue and white background
-                                  Container(
-                                    width: double.infinity,
-                                    height: 50.0,
-                                    child: SingleChildScrollView(
-                                      scrollDirection: Axis.horizontal,
-                                      child: Row(
-                                        children: [
-                                          _buildButton(
-                                              'Como llegar',
-                                              Icons.location_on,
-                                              () => {
-                                                    MapsLauncher.launchQuery(
-                                                        '${restaurant.nombre}')
-                                                  }),
-                                          // _buildButton('Llamar', Icons.phone,()=>{
-                                          //   _launchCaller(restaurant.telefono)
-                                          // }),
-                                          // _buildButton('Reservar', Icons.book,()=>{
-                                          //   launch("tel:${restaurant.telefono}")
-                                          // }),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                  SizedBox(
-                                    height: 8.0,
-                                  ),
                                   Row(
                                     mainAxisAlignment: MainAxisAlignment.start,
                                     crossAxisAlignment:
@@ -396,32 +346,7 @@ class _DetailsState extends State<Details> implements DetailView {
                                           ],
                                         ),
 
-                                  Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.start,
-                                      children: [
-                                        OpenStatusBadge(
-                                          horariosJson: restaurant.horariosJson,
-                                          fallbackOpen: restaurant.open,
-                                        ),
-                                        SizedBox(height: 8),
-                                        if (restaurant.horariosJson != null) ...[
-                                          ..._buildWeekdayText(restaurant.horariosJson!),
-                                        ] else ...[
-                                          Text(
-                                            restaurant.horarios ?? "",
-                                            textAlign: TextAlign.start,
-                                            style: TextStyle(
-                                              fontSize: 13.0,
-                                              fontWeight: FontWeight.normal,
-                                              fontFamily: 'SF Pro Display',
-                                              color: Colors.white,
-                                            ),
-                                          ),
-                                        ],
-                                      ]),
+                                  _buildScheduleSection(),
                                   Padding(
                                     padding: const EdgeInsets.symmetric(
                                         vertical: 8.0),
@@ -1126,22 +1051,101 @@ class _DetailsState extends State<Details> implements DetailView {
     presenter.getRestaurantVideos(restaurant.id);
   }
 
-  List<Widget> _buildWeekdayText(Map<String, dynamic> horariosJson) {
-    final int googleDay = DateTime.now().weekday % 7;
-    final int todayIndex = (googleDay + 6) % 7;
-    final List<dynamic> lines = horariosJson['weekday_text'] ?? [];
-    return lines.asMap().entries.map((e) {
-      final bool isToday = e.key == todayIndex;
-      return Text(
-        e.value,
-        style: TextStyle(
-          fontSize: 13,
-          color: Colors.white,
-          fontFamily: 'SF Pro Display',
-          fontWeight: isToday ? FontWeight.bold : FontWeight.normal,
+  Widget _buildScheduleSection() {
+    final hasJson = restaurant.horariosJson != null;
+    final lines = hasJson
+        ? (restaurant.horariosJson!['weekday_text'] as List<dynamic>? ?? [])
+        : <dynamic>[];
+    final int todayIndex = (DateTime.now().weekday % 7 + 6) % 7;
+    final String todayLine =
+        lines.isNotEmpty ? lines[todayIndex].toString() : '';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            OpenStatusBadge(
+              horariosJson: restaurant.horariosJson,
+              fallbackOpen: restaurant.open,
+            ),
+            if (hasJson && todayLine.isNotEmpty) ...[
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  todayLine.contains(':')
+                      ? todayLine.substring(todayLine.indexOf(':') + 1).trim()
+                      : todayLine,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Colors.white60,
+                    fontFamily: 'SF Pro Display',
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              GestureDetector(
+                onTap: () =>
+                    setState(() => _horariosExpanded = !_horariosExpanded),
+                child: Padding(
+                  padding: const EdgeInsets.only(left: 4),
+                  child: Icon(
+                    _horariosExpanded
+                        ? Icons.keyboard_arrow_up
+                        : Icons.keyboard_arrow_down,
+                    color: Colors.white54,
+                    size: 20,
+                  ),
+                ),
+              ),
+            ] else if (!hasJson &&
+                (restaurant.horarios?.isNotEmpty ?? false)) ...[
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  restaurant.horarios!,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Colors.white60,
+                    fontFamily: 'SF Pro Display',
+                  ),
+                ),
+              ),
+            ],
+          ],
         ),
-      );
-    }).toList();
+        if (_horariosExpanded && hasJson && lines.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: const Color.fromRGBO(35, 38, 45, 1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: lines.asMap().entries.map((e) {
+                final bool isToday = e.key == todayIndex;
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 2),
+                  child: Text(
+                    e.value.toString(),
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontFamily: 'SF Pro Display',
+                      color: isToday ? Colors.white : Colors.white60,
+                      fontWeight:
+                          isToday ? FontWeight.bold : FontWeight.normal,
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        ],
+      ],
+    );
   }
 }
 //calback as parameter

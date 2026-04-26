@@ -219,6 +219,58 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
                 types: types,
               ),
             ),
+
+            // ── Area counter chip ────────────────────────────────────────
+            if (visibleRestaurants.isNotEmpty)
+              Positioned(
+                top: 64 + 48 + 52, // below filter bar
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: GestureDetector(
+                    onTap: () => controller.animateTo(
+                      0.80,
+                      duration: const Duration(milliseconds: 250),
+                      curve: Curves.easeOut,
+                    ),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 7),
+                      decoration: BoxDecoration(
+                        color: GlobalMethods.bgColor.withOpacity(0.92),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: Colors.white.withOpacity(0.15),
+                          width: 1,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.3),
+                            blurRadius: 8,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text('🍽', style: TextStyle(fontSize: 13)),
+                          const SizedBox(width: 6),
+                          Text(
+                            '${visibleRestaurants.length} restaurantes en esta área',
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: Colors.white,
+                              fontFamily: 'SF Pro Display',
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             // Botón para centrar en la ubicación del usuario
             Positioned(
               bottom: 232,
@@ -324,9 +376,12 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
                               mainAxisAlignment: MainAxisAlignment.start,
                               children: [
                                 Container(
-                                  height: 2,
-                                  color: Colors.white,
-                                  width: 64,
+                                  height: 4,
+                                  width: 40,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white24,
+                                    borderRadius: BorderRadius.circular(2),
+                                  ),
                                 ),
                                 GestureDetector(
                                   onTap: () {
@@ -338,11 +393,13 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
                                     );
                                   },
                                   child: Padding(
-                                    padding: const EdgeInsets.only(top: 4.0),
+                                    padding: const EdgeInsets.only(top: 6.0),
                                     child: Text(
-                                      'Mostrar la lista de Restaurantes',
-                                      style: TextStyle(
-                                        fontSize: 16.0,
+                                      visibleRestaurants.isEmpty
+                                          ? 'Ver restaurantes'
+                                          : '${visibleRestaurants.length} restaurantes cerca',
+                                      style: const TextStyle(
+                                        fontSize: 15.0,
                                         fontFamily: 'SF Pro Display',
                                         color: Colors.white,
                                         fontWeight: FontWeight.w600,

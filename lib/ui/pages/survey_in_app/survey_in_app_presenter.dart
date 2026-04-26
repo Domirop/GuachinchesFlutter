@@ -1,24 +1,23 @@
 import 'dart:convert';
 import 'package:crypto/crypto.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:guachinches/config/secrets.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
 import 'package:guachinches/data/model/survey_in_app_choice.dart';
+import 'package:guachinches/services/app_storage.dart';
 import 'package:guachinches/services/device_id_service.dart';
 import 'package:uuid/uuid.dart';
 
-const String _kVotedTradicional = 'survey_inapp_voted_tradicional';
-const String _kVotedModerno = 'survey_inapp_voted_moderno';
 const String _kSurveyUserId = 'surveyUserId';
 const int _kMinDurationSeconds = 3;
 
 class SurveyInAppPresenter {
   final RemoteRepository _repository;
   final SurveyInAppView _view;
-  final _storage = const FlutterSecureStorage();
+  final _storage = AppStorage.instance;
 
   late String _userId;
   String _deviceId = 'unknown-device';
+  String _deviceToken = '';
   DateTime? _surveyStartTime;
 
   SurveyInAppPresenter(this._repository, this._view);
@@ -27,6 +26,12 @@ class SurveyInAppPresenter {
     try {
       _userId = await _getOrCreateUserId();
       _deviceId = await DeviceIdService.getDeviceId();
+      _deviceToken = '$_deviceId:${_computeHmac(kDeviceHmacSecret, _deviceId)}';
+      print('── SURVEY INIT ──────────────────────');
+      print('USER_ID      = $_userId');
+      print('DEVICE_ID    = $_deviceId');
+      print('DEVICE_TOKEN = $_deviceToken');
+      print('─────────────────────────────────────');
       _surveyStartTime = DateTime.now();
       await _loadChoices();
     } catch (e) {
@@ -43,34 +48,36 @@ class SurveyInAppPresenter {
       await _storage.write(key: _kSurveyUserId, value: newId);
       return newId;
     } catch (e) {
-      // Fallback to in-memory UUID if secure storage fails
+      print('SURVEY_STORAGE ERROR: $e');
       return const Uuid().v4();
-    }
-  }
-
-  Future<void> _loadPreviousVotes() async {
-    try {
-      final votedTradicional = await _storage.read(key: _kVotedTradicional);
-      final votedModerno = await _storage.read(key: _kVotedModerno);
-      _view.setPreviousVotes(
-        tradicional: votedTradicional,
-        moderno: votedModerno,
-      );
-    } catch (e) {
-      // If reading previous votes fails, continue without them
-      _view.setPreviousVotes(tradicional: null, moderno: null);
     }
   }
 
   Future<void> _loadChoices() async {
     _view.setLoading(true);
     try {
-      final tradicionales = await _repository.getSurveyInAppChoices(
-          'Mejor-Guachinche-Tradicional', _userId);
-      final modernos = await _repository.getSurveyInAppChoices(
-          'Mejor-Guachinche-Moderno', _userId);
+      // Cargar en paralelo: opciones disponibles + ya votados por este dispositivo
+      final results = await Future.wait([
+        _repository.getSurveyInAppChoices('Mejor-Guachinche-Tradicional', _userId),
+        _repository.getSurveyInAppChoices('Mejor-Guachinche-Moderno', _userId),
+        _repository.getVotedByDevice(1, _deviceToken),
+      ]);
 
-      // Shuffle for random order (same as SurveyJS choicesOrder: "random")
+      var tradicionales = results[0] as List<SurveyInAppChoice>;
+      var modernos = results[1] as List<SurveyInAppChoice>;
+      final voted = results[2] as Map<String, List<String>>;
+
+      // Excluir los que este dispositivo ya votó
+      final votedTrad = voted['Mejor-Guachinche-Tradicional'] ?? [];
+      final votedMod = voted['Mejor-Guachinche-Moderno'] ?? [];
+
+      tradicionales = tradicionales
+          .where((c) => !votedTrad.contains(c.value))
+          .toList();
+      modernos = modernos
+          .where((c) => !votedMod.contains(c.value))
+          .toList();
+
       tradicionales.shuffle();
       modernos.shuffle();
 
@@ -86,7 +93,6 @@ class SurveyInAppPresenter {
     required String? tradicionalValue,
     required String? modernoValue,
   }) async {
-    // Security: time check
     if (_surveyStartTime != null) {
       final elapsed = DateTime.now().difference(_surveyStartTime!).inSeconds;
       if (elapsed < _kMinDurationSeconds) {
@@ -95,7 +101,6 @@ class SurveyInAppPresenter {
       }
     }
 
-    // Require at least one vote
     if (tradicionalValue == null && modernoValue == null) {
       _view.showError('Debes seleccionar al menos una opción.');
       return;
@@ -109,31 +114,35 @@ class SurveyInAppPresenter {
       votes['Mejor-Guachinche-Moderno'] = modernoValue;
     }
 
-    // Security: HMAC-SHA256 signature (token existente, sin cambios)
     final timestamp = DateTime.now().millisecondsSinceEpoch.toString();
     final dataToSign = '$_userId:${votes.toString()}:$timestamp';
     final signature = _computeHmac(_userId, dataToSign);
-
-    // Security: device_token con formato "{device_id}:{hmac_hex}".
-    // El HMAC se calcula sobre el deviceId usando DEVICE_HMAC_SECRET.
-    final hmacHex = _computeHmac(kDeviceHmacSecret, _deviceId);
-    final deviceToken = '$_deviceId:$hmacHex';
 
     final duration = _surveyStartTime != null
         ? DateTime.now().difference(_surveyStartTime!).inSeconds
         : 0;
 
+    print('── SUBMIT VOTES ─────────────────────');
+    print('votes        = $votes');
+    print('device_token = $_deviceToken');
+    print('─────────────────────────────────────');
     _view.setSubmitting(true);
     try {
       final success = await _repository.submitSurveyInAppVotes(
-          _userId, votes, signature, duration, deviceToken);
+          _userId, votes, signature, duration, _deviceToken);
 
       if (success) {
+        print('SUBMIT: OK');
         _view.onSubmitSuccess();
       } else {
+        print('SUBMIT: FAILED (non-200/201)');
         _view.showError('No se pudo enviar tu voto. Inténtalo de nuevo.');
       }
+    } on AlreadyVotedThisBusinessException {
+      print('SUBMIT: 409 already_voted_this_business');
+      _view.showError('Ya has votado a este negocio anteriormente.');
     } catch (e) {
+      print('SUBMIT: ERROR $e');
       _view.showError('Error al enviar: $e');
     } finally {
       _view.setSubmitting(false);
@@ -149,6 +158,8 @@ class SurveyInAppPresenter {
   }
 }
 
+class AlreadyVotedThisBusinessException implements Exception {}
+
 abstract class SurveyInAppView {
   void setLoading(bool loading);
   void setSubmitting(bool submitting);
@@ -156,7 +167,6 @@ abstract class SurveyInAppView {
     required List<SurveyInAppChoice> tradicionales,
     required List<SurveyInAppChoice> modernos,
   });
-  void setPreviousVotes({String? tradicional, String? moderno});
   void showError(String message);
   void onSubmitSuccess();
 }

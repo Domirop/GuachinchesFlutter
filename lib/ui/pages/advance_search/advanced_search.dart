@@ -19,6 +19,8 @@ class AdvancedSearch extends StatefulWidget {
   final List<Types> types;
   final String islandId;
   final List<ModelCategory> preSelectedCategories;
+  final List<Types> preSelectedTypes;
+  final bool preSelectedOpenOnly;
 
   AdvancedSearch({
     required this.categories,
@@ -26,6 +28,8 @@ class AdvancedSearch extends StatefulWidget {
     required this.types,
     required this.islandId,
     this.preSelectedCategories = const [],
+    this.preSelectedTypes = const [],
+    this.preSelectedOpenOnly = false,
   });
 
   @override
@@ -107,8 +111,19 @@ class _AdvancedSearchState extends State<AdvancedSearch>
     super.initState();
     restaurantsCubit = context.read<RestaurantCubit>();
     filterCubit = context.read<FilterCubit>();
+    if (widget.preSelectedTypes.isNotEmpty) {
+      _selectedTypeIds.addAll(widget.preSelectedTypes.map((t) => t.id));
+    }
+    if (widget.preSelectedOpenOnly) {
+      _filterOpenOnly = true;
+    }
+    final hasPreset = widget.preSelectedCategories.isNotEmpty ||
+        widget.preSelectedTypes.isNotEmpty ||
+        widget.preSelectedOpenOnly;
     if (widget.preSelectedCategories.isNotEmpty) {
       _selectedCategoryIds.add(widget.preSelectedCategories[0].id);
+    }
+    if (hasPreset) {
       restaurantsCubit.getFilterRestaurantsAdvance(
         categories: _selectedCategoryIds,
         municipalities: selectedMunicipalities,

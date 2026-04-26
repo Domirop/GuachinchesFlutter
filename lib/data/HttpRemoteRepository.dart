@@ -1,5 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:guachinches/ui/pages/survey_in_app/survey_in_app_presenter.dart'
+    show AlreadyVotedThisBusinessException;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:guachinches/data/model/Category.dart';
 import 'package:guachinches/data/model/survey_in_app_choice.dart';
@@ -650,6 +652,25 @@ class HttpRemoteRepository implements RemoteRepository {
   }
 
   @override
+  Future<Map<String, List<String>>> getVotedByDevice(int surveySchemaId, String deviceToken) async {
+    try {
+      final encodedToken = Uri.encodeComponent(deviceToken);
+      final url = dotenv.env['ENDPOINT_V2']! +
+          'surveys/results/$surveySchemaId/by-device?device_token=$encodedToken';
+      final response = await _client.get(Uri.parse(url));
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body) as Map<String, dynamic>;
+        final voted = data['voted'] as Map<String, dynamic>? ?? {};
+        return voted.map((key, value) =>
+            MapEntry(key, (value as List).map((e) => e.toString()).toList()));
+      }
+      return {};
+    } catch (_) {
+      return {};
+    }
+  }
+
+  @override
   Future<bool> submitSurveyInAppVotes(String userId, Map<String, String> votes, String signature, int duration, String deviceToken) async {
     try {
       final String url = dotenv.env['ENDPOINT_V2']! + 'surveys/results/v2';
@@ -665,7 +686,13 @@ class HttpRemoteRepository implements RemoteRepository {
       });
       final response = await _client.post(uri,
           headers: {'Content-Type': 'application/json'}, body: body);
+      print('HTTP POST $url → ${response.statusCode} | ${response.body}');
+      if (response.statusCode == 409) {
+        throw AlreadyVotedThisBusinessException();
+      }
       return response.statusCode == 200 || response.statusCode == 201;
+    } on AlreadyVotedThisBusinessException {
+      rethrow;
     } catch (e) {
       throw Exception('Error al enviar votos: $e');
     }

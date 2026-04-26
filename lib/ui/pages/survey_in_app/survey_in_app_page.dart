@@ -26,15 +26,10 @@ class _SurveyInAppPageState extends State<SurveyInAppPage>
   String? _selectedTradicional;
   String? _selectedModerno;
 
-  // Previous votes (already voted)
-  String? _previousTradicional;
-  String? _previousModerno;
-
   bool _isLoading = true;
   bool _isSubmitting = false;
   bool _submitted = false;
 
-  // Search
   final TextEditingController _searchTradicionalCtrl = TextEditingController();
   final TextEditingController _searchModernoCtrl = TextEditingController();
   String _searchTradicional = '';
@@ -60,7 +55,7 @@ class _SurveyInAppPageState extends State<SurveyInAppPage>
     super.dispose();
   }
 
-  // --- SurveyInAppView implementation ---
+  // --- SurveyInAppView ---
 
   @override
   void setLoading(bool loading) {
@@ -81,18 +76,6 @@ class _SurveyInAppPageState extends State<SurveyInAppPage>
       setState(() {
         _tradicionales = tradicionales;
         _modernos = modernos;
-      });
-    }
-  }
-
-  @override
-  void setPreviousVotes({String? tradicional, String? moderno}) {
-    if (mounted) {
-      setState(() {
-        _previousTradicional = tradicional;
-        _previousModerno = moderno;
-        _selectedTradicional = tradicional ?? _selectedTradicional;
-        _selectedModerno = moderno ?? _selectedModerno;
       });
     }
   }
@@ -128,8 +111,20 @@ class _SurveyInAppPageState extends State<SurveyInAppPage>
     setState(() => _currentPage = page);
   }
 
-  bool get _hasAlreadyVotedAll =>
-      _previousTradicional != null && _previousModerno != null;
+  void _resetAndVoteAgain() {
+    setState(() {
+      _submitted = false;
+      _selectedTradicional = null;
+      _selectedModerno = null;
+      _searchTradicional = '';
+      _searchModerno = '';
+      _searchTradicionalCtrl.clear();
+      _searchModernoCtrl.clear();
+      _currentPage = 0;
+    });
+    _pageController.jumpToPage(0);
+    _presenter.initialize();
+  }
 
   // --- Build ---
 
@@ -170,9 +165,7 @@ class _SurveyInAppPageState extends State<SurveyInAppPage>
           ? _buildLoading()
           : _submitted
               ? _buildSuccessScreen()
-              : _hasAlreadyVotedAll
-                  ? _buildAlreadyVotedScreen()
-                  : _buildSurvey(),
+              : _buildSurvey(),
     );
   }
 
@@ -221,7 +214,7 @@ class _SurveyInAppPageState extends State<SurveyInAppPage>
                 fontFamily: 'SF Pro Display',
               ),
             ),
-            const SizedBox(height: 40),
+            const SizedBox(height: 32),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
@@ -231,9 +224,9 @@ class _SurveyInAppPageState extends State<SurveyInAppPage>
                       borderRadius: BorderRadius.circular(10)),
                   padding: const EdgeInsets.symmetric(vertical: 16),
                 ),
-                onPressed: () => Navigator.of(context).pop(),
+                onPressed: _resetAndVoteAgain,
                 child: const Text(
-                  'Volver al inicio',
+                  'Votar a otro negocio',
                   style: TextStyle(
                     color: Colors.black,
                     fontSize: 16,
@@ -243,47 +236,12 @@ class _SurveyInAppPageState extends State<SurveyInAppPage>
                 ),
               ),
             ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAlreadyVotedScreen() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.how_to_vote, color: _greenAccent, size: 80),
-            const SizedBox(height: 24),
-            const Text(
-              'Ya has votado en esta encuesta',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-                fontFamily: 'SF Pro Display',
-              ),
-            ),
             const SizedBox(height: 12),
-            const Text(
-              'Muchas Gracias por participar.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.white54,
-                fontSize: 16,
-                fontFamily: 'SF Pro Display',
-              ),
-            ),
-            const SizedBox(height: 40),
             SizedBox(
               width: double.infinity,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _greenAccent,
+              child: OutlinedButton(
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: Colors.white24),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10)),
                   padding: const EdgeInsets.symmetric(vertical: 16),
@@ -292,9 +250,8 @@ class _SurveyInAppPageState extends State<SurveyInAppPage>
                 child: const Text(
                   'Volver al inicio',
                   style: TextStyle(
-                    color: Colors.black,
+                    color: Colors.white,
                     fontSize: 16,
-                    fontWeight: FontWeight.bold,
                     fontFamily: 'SF Pro Display',
                   ),
                 ),
@@ -321,26 +278,20 @@ class _SurveyInAppPageState extends State<SurveyInAppPage>
                 subtitle: 'Selecciona tu voto para GUACHINCHE TRADICIONAL',
                 choices: _tradicionales,
                 selectedValue: _selectedTradicional,
-                alreadyVoted: _previousTradicional,
                 searchController: _searchTradicionalCtrl,
                 searchQuery: _searchTradicional,
-                onSearchChanged: (v) =>
-                    setState(() => _searchTradicional = v),
-                onSelect: (value) =>
-                    setState(() => _selectedTradicional = value),
+                onSearchChanged: (v) => setState(() => _searchTradicional = v),
+                onSelect: (value) => setState(() => _selectedTradicional = value),
               ),
               _buildSurveyPage(
                 title: 'Mejor Guachinche Moderno',
                 subtitle: 'Selecciona tu voto para mejor Guachinche Moderno',
                 choices: _modernos,
                 selectedValue: _selectedModerno,
-                alreadyVoted: _previousModerno,
                 searchController: _searchModernoCtrl,
                 searchQuery: _searchModerno,
-                onSearchChanged: (v) =>
-                    setState(() => _searchModerno = v),
-                onSelect: (value) =>
-                    setState(() => _selectedModerno = value),
+                onSearchChanged: (v) => setState(() => _searchModerno = v),
+                onSelect: (value) => setState(() => _selectedModerno = value),
               ),
             ],
           ),
@@ -375,14 +326,11 @@ class _SurveyInAppPageState extends State<SurveyInAppPage>
     required String subtitle,
     required List<SurveyInAppChoice> choices,
     required String? selectedValue,
-    required String? alreadyVoted,
     required TextEditingController searchController,
     required String searchQuery,
     required ValueChanged<String> onSearchChanged,
     required ValueChanged<String> onSelect,
   }) {
-    final bool isLocked = alreadyVoted != null;
-
     final filteredChoices = searchQuery.isEmpty
         ? choices
         : choices
@@ -414,39 +362,10 @@ class _SurveyInAppPageState extends State<SurveyInAppPage>
               fontFamily: 'SF Pro Display',
             ),
           ),
-          if (isLocked) ...[
-            const SizedBox(height: 12),
-            Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: const Color.fromRGBO(0, 255, 102, 0.1),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                    color: const Color.fromRGBO(0, 255, 102, 0.3)),
-              ),
-              child: const Row(
-                children: [
-                  Icon(Icons.check_circle, color: _greenAccent, size: 16),
-                  SizedBox(width: 8),
-                  Text(
-                    'Ya has votado en esta categoría',
-                    style: TextStyle(
-                      color: _greenAccent,
-                      fontSize: 13,
-                      fontFamily: 'SF Pro Display',
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
           const SizedBox(height: 16),
-          // Search bar
           TextField(
             controller: searchController,
             onChanged: onSearchChanged,
-            enabled: !isLocked,
             style: const TextStyle(
               color: Colors.white,
               fontFamily: 'SF Pro Display',
@@ -487,8 +406,7 @@ class _SurveyInAppPageState extends State<SurveyInAppPage>
                 child: Text(
                   'Cargando opciones...',
                   style: TextStyle(
-                      color: Colors.white54,
-                      fontFamily: 'SF Pro Display'),
+                      color: Colors.white54, fontFamily: 'SF Pro Display'),
                 ),
               ),
             )
@@ -499,8 +417,7 @@ class _SurveyInAppPageState extends State<SurveyInAppPage>
                 child: Text(
                   'No se encontraron resultados',
                   style: TextStyle(
-                      color: Colors.white38,
-                      fontFamily: 'SF Pro Display'),
+                      color: Colors.white38, fontFamily: 'SF Pro Display'),
                 ),
               ),
             )
@@ -508,7 +425,7 @@ class _SurveyInAppPageState extends State<SurveyInAppPage>
             ...filteredChoices.map((choice) {
               final bool isSelected = selectedValue == choice.value;
               return GestureDetector(
-                onTap: isLocked ? null : () => onSelect(choice.value),
+                onTap: () => onSelect(choice.value),
                 child: Container(
                   margin: const EdgeInsets.only(bottom: 10),
                   padding: const EdgeInsets.symmetric(
@@ -529,8 +446,7 @@ class _SurveyInAppPageState extends State<SurveyInAppPage>
                         child: Text(
                           choice.text,
                           style: TextStyle(
-                            color:
-                                isSelected ? _greenAccent : Colors.white,
+                            color: isSelected ? _greenAccent : Colors.white,
                             fontSize: 15,
                             fontFamily: 'SF Pro Display',
                             fontWeight: isSelected
@@ -555,16 +471,9 @@ class _SurveyInAppPageState extends State<SurveyInAppPage>
 
   Widget _buildNavigation() {
     final bool isLastPage = _currentPage == 1;
-
-    // Página 1 → 2: requiere voto en Tradicional (nuevo o previo)
-    final bool canGoNext =
-        _selectedTradicional != null || _previousTradicional != null;
-
-    // Enviar: requiere ambos votos (nuevos o previos)
+    final bool canGoNext = _selectedTradicional != null;
     final bool canSubmit =
-        (_selectedTradicional != null || _previousTradicional != null) &&
-        (_selectedModerno != null || _previousModerno != null);
-
+        _selectedTradicional != null && _selectedModerno != null;
     final bool enabled = isLastPage ? canSubmit : canGoNext;
 
     return Container(
