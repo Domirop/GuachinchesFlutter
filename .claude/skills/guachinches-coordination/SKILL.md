@@ -52,14 +52,50 @@ Dispara migration si:
 2. Crea `.claude/coordination/migration-dashboard/NNN-titulo.md`.
 3. Prompt autónomo: ruta a tocar (recordar que es **React Router v5 con `src/pages/` y `src/helpers/routes.js`**, no Next.js), página/componente nuevo, llamadas API a añadir en `src/Data/Petitions/ApiRequest.js`, integración con Redux si aplica.
 
+## Sistema Obsidian (vault del repo coordination)
+
+El repo `.claude/coordination/` **es un vault de Obsidian**. El estado de cada migration / task vive en su **frontmatter YAML** y se visualiza en `dashboards/migrations.canvas`, `dashboards/migrations.base` y `kanbans/migrations.md`.
+
+**Cuando crees una migration o task:**
+1. Usa la plantilla correspondiente (`migration-<repo>/PLANTILLA.md`, `tasks/PLANTILLA.md`) — **incluye obligatoriamente el bloque frontmatter** al inicio:
+   ```yaml
+   ---
+   title: "..."
+   type: migration                # o "task"
+   repo: backend|mobile|dashboard
+   status: pending
+   priority: low|medium|high
+   created: <YYYY-MM-DD>
+   applied:                       # vacío hasta aplicar
+   test_added: false
+   breaking: false
+   tags: [migration, <repo>]
+   ---
+   ```
+2. **Añade la tarjeta al Kanban** en `kanbans/migrations.md`, columna `## 📋 Pendiente`:
+   ```
+   - [ ] [[NNN-slug]]
+   ```
+3. Si la migration nace de una task, rellena el campo `origin: tasks/00X-...` en su frontmatter y `migrations: ["migration-<repo>/NNN-..."]` en la task.
+
+**Cuando se aplique una migration en su repo destino** (lo hace el skill del repo destino, no este, pero documentado aquí para coherencia):
+- Cambiar `status: pending` → `status: done`, rellenar `applied: <fecha>` y `test_added: true` (si aplica) en el frontmatter.
+- Actualizar el bloque `## Estado` con los checkboxes correspondientes.
+- Mover la tarjeta del Kanban (`kanbans/migrations.md`) de `📋 Pendiente` a `✅ Aplicadas` con el sufijo ` · <repo> · <fecha>`.
+- Si una migration queda bloqueada por dependencia: `status: blocked` + mover a columna `⛔ Bloqueadas` con nota del motivo.
+
+**Capturas de diseño y referencias visuales:**
+- Pega con `Cmd+V` en cualquier nota → Obsidian las guarda en `assets/inbox/`.
+- Para tasks con varias capturas, crear `tasks/<NN>/assets/` y mover allí.
+
 ## Cierre de tarea
 
 Antes de dar la tarea por terminada:
-1. Lista las migrations creadas en este turno (paths en `migration-backend/` y/o `migration-dashboard/`).
+1. Lista las migrations creadas en este turno (paths en `migration-backend/` y/o `migration-dashboard/`) — confirma que cada una tiene **frontmatter completo** y está en el **Kanban**.
 2. Recuerda al usuario:
    - Commit en este repo Flutter: solo cambios en `lib/`, `pubspec.yaml`, etc.
-   - Commit + push en repo coordination con las nuevas migrations (mensaje sugerido: `add: migration <repo>/<NNN-titulo>`).
-3. Si añadiste un endpoint a `shared/types.md`, mencionarlo en el commit de coordination.
+   - Commit + push en repo coordination con las nuevas migrations + actualización de `kanbans/migrations.md` (mensaje sugerido: `add: migration <repo>/<NNN-titulo>`).
+3. Si añadiste un endpoint, confirma que `shared/endpoints.md` está actualizado (y `shared/database.md` / `shared/types.md` si aplica).
 
 ## Anti-patrones específicos de este repo
 
