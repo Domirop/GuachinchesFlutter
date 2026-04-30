@@ -72,10 +72,11 @@ El repo `.claude/coordination/` **es un vault de Obsidian**. El estado de cada m
    tags: [migration, <repo>]
    ---
    ```
-2. **Añade la tarjeta al Kanban** en `kanbans/migrations.md`, columna `## 📋 Pendiente`:
+2. **Añade la tarjeta al Kanban** en `kanbans/migrations.md`, columna `## 📋 Pendiente`, **siempre con el tag del repo** (`#backend`, `#dashboard` o `#mobile`):
    ```
-   - [ ] [[NNN-slug]]
+   - [ ] [[NNN-slug]] #backend
    ```
+   El plugin Kanban colorea cada tag (verde / azul / naranja) → identificación visual instantánea sin importar la columna.
 3. Si la migration nace de una task, rellena el campo `origin: tasks/00X-...` en su frontmatter y `migrations: ["migration-<repo>/NNN-..."]` en la task.
 
 **Cuando se aplique una migration en su repo destino** (lo hace el skill del repo destino, no este, pero documentado aquí para coherencia):
