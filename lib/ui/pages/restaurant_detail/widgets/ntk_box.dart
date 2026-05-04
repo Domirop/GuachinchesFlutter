@@ -2,73 +2,54 @@ import 'package:flutter/material.dart';
 import 'package:guachinches/config/app_colors.dart';
 import 'package:guachinches/config/brand_colors.dart';
 import 'package:guachinches/config/app_text_styles.dart';
+import 'package:guachinches/data/model/Visit.dart';
 import 'package:guachinches/data/model/restaurant.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class NTKBox extends StatelessWidget {
   final Restaurant restaurant;
+  final Visit? visit;
   final String? instagram;
 
-  const NTKBox({super.key, required this.restaurant, this.instagram});
+  const NTKBox({
+    super.key,
+    required this.restaurant,
+    this.visit,
+    this.instagram,
+  });
 
   @override
   Widget build(BuildContext context) {
     final rows = <_NTKRowData>[];
 
-    rows.add(_NTKRowData(
-      key: 'Estado',
-      value: restaurant.open ? 'Abierto ahora' : 'Cerrado',
-      color: restaurant.open ? AppColors.laurisilva : AppColors.mojo,
-    ));
-
-    if (restaurant.googleHorarios.isNotEmpty &&
-        restaurant.googleHorarios.toLowerCase() != 'sin horario') {
-      rows.add(_NTKRowData(key: 'Horario', value: _todayLine()));
+    final address = _firstNonEmpty([visit?.address, restaurant.direccion]);
+    if (address != null) {
+      rows.add(_NTKRowData(key: 'DIRECCIÓN', value: address));
     }
 
-    if (restaurant.minPrice != null && restaurant.maxPrice != null) {
-      rows.add(_NTKRowData(
-        key: 'Precio medio',
-        value: '${restaurant.minPrice}–${restaurant.maxPrice}€',
-      ));
+    final schedule = _scheduleLine();
+    if (schedule != null) {
+      rows.add(_NTKRowData(key: 'HORARIO', value: schedule));
     }
 
-    if (restaurant.reservationInfo != null &&
-        restaurant.reservationInfo!.isNotEmpty) {
+    final phone = _firstNonEmpty([visit?.phone, restaurant.telefono]);
+    if (phone != null) {
       rows.add(_NTKRowData(
-        key: 'Reservas',
-        value: restaurant.reservationInfo!,
-      ));
-    }
-
-    if (restaurant.season != null && restaurant.season!.isNotEmpty) {
-      rows.add(_NTKRowData(
-        key: 'Temporada',
-        value: restaurant.season!,
-        color: AppColors.mojo,
-      ));
-    }
-
-    if (restaurant.telefono.isNotEmpty) {
-      rows.add(_NTKRowData(
-        key: 'Teléfono',
-        value: restaurant.telefono,
+        key: 'TELÉFONO',
+        value: phone,
         color: AppColors.atlanticoClaro,
         onTap: () async {
-          final uri = Uri.parse('tel:${restaurant.telefono}');
+          final uri = Uri.parse('tel:$phone');
           if (await canLaunchUrl(uri)) await launchUrl(uri);
         },
       ));
     }
 
-    if (restaurant.parking != null && restaurant.parking!.isNotEmpty) {
-      rows.add(_NTKRowData(key: 'Parking', value: restaurant.parking!));
-    }
-
-    if (instagram != null && instagram!.isNotEmpty) {
-      final handle = instagram!.startsWith('@') ? instagram! : '@$instagram';
+    final igRaw = _firstNonEmpty([instagram, visit?.instagram]);
+    if (igRaw != null) {
+      final handle = igRaw.startsWith('@') ? igRaw : '@$igRaw';
       rows.add(_NTKRowData(
-        key: 'Instagram',
+        key: 'INSTAGRAM',
         value: handle,
         color: AppColors.atlanticoClaro,
         onTap: () async {
@@ -81,33 +62,27 @@ class NTKBox extends StatelessWidget {
       ));
     }
 
+    if (rows.isEmpty) return const SizedBox.shrink();
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 14),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 6),
       decoration: BoxDecoration(
         color: context.brand.surface,
         border: Border.all(color: Colors.white.withOpacity(0.04)),
         borderRadius: BorderRadius.circular(13),
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: const EdgeInsets.only(top: 10, bottom: 6),
-            child: Row(
-              children: [
-                Icon(Icons.info_outline,
-                    size: 12, color: context.brand.textMuted),
-                const SizedBox(width: 6),
-                Text(
-                  'LO QUE NECESITAS SABER',
-                  style: AppTextStyles.eyebrow(
-                    size: 8,
-                    color: context.brand.textMuted,
-                  ),
-                ),
-              ],
+          Text(
+            'LO QUE NECESITAS SABER',
+            style: AppTextStyles.eyebrow(
+              size: 11,
+              color: AppColors.atlantico,
             ),
           ),
+          const SizedBox(height: 12),
           ...rows.asMap().entries.map((e) {
             final isLast = e.key == rows.length - 1;
             return _NTKRow(data: e.value, isLast: isLast);
@@ -117,13 +92,21 @@ class NTKBox extends StatelessWidget {
     );
   }
 
-  String _todayLine() {
+  String? _firstNonEmpty(List<String?> xs) {
+    for (final x in xs) {
+      if (x != null && x.isNotEmpty) return x;
+    }
+    return null;
+  }
+
+  String? _scheduleLine() {
+    if (visit?.openingHours?.isNotEmpty == true) return visit!.openingHours;
+
     final json = restaurant.horariosJson;
     if (json != null) {
       try {
         final weekday = json['weekday_text'];
         if (weekday is List) {
-          // Google: 0=Sun..6=Sat. Dart: 1=Mon..7=Sun.
           final idx = (DateTime.now().weekday + 6) % 7;
           if (idx < weekday.length) {
             final line = weekday[idx].toString();
@@ -136,7 +119,12 @@ class NTKBox extends StatelessWidget {
         }
       } catch (_) {}
     }
-    return restaurant.googleHorarios.split('\n').first;
+
+    if (restaurant.googleHorarios.isNotEmpty &&
+        restaurant.googleHorarios.toLowerCase() != 'sin horario') {
+      return restaurant.googleHorarios.split('\n').first;
+    }
+    return null;
   }
 }
 
@@ -166,33 +154,33 @@ class _NTKRow extends StatelessWidget {
         border: isLast
             ? null
             : Border(
-                bottom:
-                    BorderSide(color: Colors.white.withOpacity(0.04)),
+                bottom: BorderSide(color: Colors.white.withOpacity(0.05)),
               ),
       ),
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.symmetric(vertical: 10),
       child: GestureDetector(
         onTap: data.onTap,
         behavior: HitTestBehavior.opaque,
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              data.key,
-              style: AppTextStyles.ui(
-                size: 10,
-                color: context.brand.textMuted,
+            SizedBox(
+              width: 96,
+              child: Text(
+                data.key,
+                style: AppTextStyles.eyebrow(
+                  size: 9,
+                  color: context.brand.textMuted,
+                ),
               ),
             ),
-            const SizedBox(width: 12),
-            Flexible(
+            const SizedBox(width: 8),
+            Expanded(
               child: Text(
                 data.value,
-                textAlign: TextAlign.right,
-                style: AppTextStyles.chipLabel(
-                  size: 10,
-                  color: data.color ?? AppColors.crema,
+                style: AppTextStyles.ui(
+                  size: 11,
+                  color: data.color ?? context.brand.textPrimary,
                 ),
               ),
             ),

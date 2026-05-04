@@ -1,8 +1,8 @@
 // This is a generated file; do not edit or check into version control.
 FLUTTER_ROOT=/Users/alejandrocruz/development/flutter
-FLUTTER_APPLICATION_PATH=/Users/alejandrocruz/StudioProjects/GuachinchesFlutter
+FLUTTER_APPLICATION_PATH=/Users/alejandrocruz/conductor/workspaces/GuachinchesFlutter/surabaya
 COCOAPODS_PARALLEL_CODE_SIGN=true
-FLUTTER_TARGET=/Users/alejandrocruz/StudioProjects/GuachinchesFlutter/lib/main.dart
+FLUTTER_TARGET=/Users/alejandrocruz/conductor/workspaces/GuachinchesFlutter/surabaya/lib/main.dart
 FLUTTER_BUILD_DIR=build
 FLUTTER_BUILD_NAME=1.0.3
 FLUTTER_BUILD_NUMBER=92
@@ -12,4 +12,4 @@ DART_DEFINES=RkxVVFRFUl9WRVJTSU9OPTMuMzUuNw==,RkxVVFRFUl9DSEFOTkVMPXN0YWJsZQ==,R
 DART_OBFUSCATION=false
 TRACK_WIDGET_CREATION=true
 TREE_SHAKE_ICONS=false
-PACKAGE_CONFIG=/Users/alejandrocruz/StudioProjects/GuachinchesFlutter/.dart_tool/package_config.json
+PACKAGE_CONFIG=/Users/alejandrocruz/conductor/workspaces/GuachinchesFlutter/surabaya/.dart_tool/package_config.json

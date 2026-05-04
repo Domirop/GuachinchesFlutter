@@ -2,21 +2,28 @@ import 'package:flutter/material.dart';
 import 'package:guachinches/config/app_colors.dart';
 import 'package:guachinches/config/brand_colors.dart';
 import 'package:guachinches/config/app_text_styles.dart';
+import 'package:guachinches/data/model/Visit.dart';
 import 'package:guachinches/data/model/restaurant.dart';
 
 class VisitPillsRow extends StatelessWidget {
   final Restaurant restaurant;
+  final Visit? visit;
 
-  const VisitPillsRow({super.key, required this.restaurant});
+  const VisitPillsRow({super.key, required this.restaurant, this.visit});
 
   @override
   Widget build(BuildContext context) {
+    final rating = visit?.ratingImplicit ?? restaurant.avgRating;
+    final priceRange = visit?.priceRange;
+    final perPerson = _perPerson();
+    final isOpen = restaurant.open;
+
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
         children: [
-          if (restaurant.avgRating > 0)
+          if (rating > 0)
             _Pill(
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -24,7 +31,7 @@ class VisitPillsRow extends StatelessWidget {
                   const Icon(Icons.star, size: 12, color: AppColors.sol),
                   const SizedBox(width: 4),
                   Text(
-                    restaurant.avgRating.toStringAsFixed(1),
+                    rating.toStringAsFixed(1),
                     style: AppTextStyles.chipLabel(
                       size: 11,
                       color: AppColors.sol,
@@ -33,41 +40,64 @@ class VisitPillsRow extends StatelessWidget {
                 ],
               ),
             ),
-          if (restaurant.minPrice != null && restaurant.maxPrice != null) ...[
+          if (priceRange != null && priceRange.isNotEmpty) ...[
+            const SizedBox(width: 8),
+            _Pill(
+              child: Text(
+                _toEuros(priceRange),
+                style: AppTextStyles.chipLabel(
+                  size: 11,
+                  color: context.brand.textPrimary,
+                ),
+              ),
+            ),
+          ] else if (restaurant.minPrice != null &&
+              restaurant.maxPrice != null) ...[
             const SizedBox(width: 8),
             _Pill(
               child: Text(
                 '${restaurant.minPrice}–${restaurant.maxPrice}€',
                 style: AppTextStyles.chipLabel(
                   size: 11,
-                  color: AppColors.crema,
+                  color: context.brand.textPrimary,
                 ),
               ),
             ),
           ],
-          if (_avgPrice() != null) ...[
+          if (perPerson != null) ...[
             const SizedBox(width: 8),
             _Pill(
               child: Text(
-                '~ ${_avgPrice()}€ / persona',
-                style: AppTextStyles.chipLabel(
+                '~$perPerson€ / persona',
+                style: AppTextStyles.ui(
                   size: 11,
-                  color: AppColors.crema,
+                  weight: FontWeight.w600,
+                  color: context.brand.textPrimary,
                 ),
               ),
             ),
           ],
           const SizedBox(width: 8),
-          _OpenPill(isOpen: restaurant.open),
+          _OpenPill(isOpen: isOpen),
         ],
       ),
     );
   }
 
-  String? _avgPrice() {
-    if (restaurant.minPrice == null || restaurant.maxPrice == null) return null;
-    final avg = (restaurant.minPrice! + restaurant.maxPrice!) / 2;
-    return avg % 1 == 0 ? avg.toInt().toString() : avg.toStringAsFixed(1);
+  String _toEuros(String range) => range.replaceAll(r'$', '€');
+
+  String? _perPerson() {
+    final approx = visit?.priceApprox;
+    if (approx != null) {
+      return approx % 1 == 0
+          ? approx.toInt().toString()
+          : approx.toStringAsFixed(1);
+    }
+    if (restaurant.minPrice != null && restaurant.maxPrice != null) {
+      final avg = (restaurant.minPrice! + restaurant.maxPrice!) / 2;
+      return avg % 1 == 0 ? avg.toInt().toString() : avg.toStringAsFixed(1);
+    }
+    return null;
   }
 }
 

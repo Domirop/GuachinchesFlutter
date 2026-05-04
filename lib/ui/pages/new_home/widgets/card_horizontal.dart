@@ -37,8 +37,6 @@ class _CardHorizontalState extends State<CardHorizontal> {
   @override
   Widget build(BuildContext context) {
     final r = widget.restaurant;
-    final priceRange = '8–15€'; // Fase 2: campo real
-    final daysSince = _daysSince(r.updatedAt);
 
     return GestureDetector(
       onTapDown: (_) => setState(() => _pressed = true),
@@ -127,25 +125,17 @@ class _CardHorizontalState extends State<CardHorizontal> {
                           const SizedBox(width: 3),
                           Text(
                             r.avgRating > 0 ? r.avgRating.toStringAsFixed(1) : '—',
-                            style: AppTextStyles.ui(size: 10, color: AppColors.sol),
+                            style: AppTextStyles.ui(size: 11, color: AppColors.sol),
                           ),
                           const SizedBox(width: 6),
-                          Text(
-                            '· ${r.municipio}',
-                            style: AppTextStyles.muted(size: 10),
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            '· $priceRange',
-                            style: AppTextStyles.muted(size: 10),
-                          ),
-                          if (daysSince != null) ...[
-                            const Spacer(),
-                            Text(
-                              'hace ${daysSince}d',
-                              style: AppTextStyles.muted(size: 9),
+                          Flexible(
+                            child: Text(
+                              '· ${r.municipio}',
+                              style: AppTextStyles.muted(size: 11),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                          ],
+                          ),
                         ]),
                       ],
                     ),
@@ -172,16 +162,6 @@ class _CardHorizontalState extends State<CardHorizontal> {
     return Container(color: context.brand.surface);
   }
 
-  int? _daysSince(String? dateStr) {
-    if (dateStr == null || dateStr.isEmpty) return null;
-    try {
-      final d = DateTime.tryParse(dateStr);
-      if (d == null) return null;
-      return DateTime.now().difference(d).inDays;
-    } catch (_) {
-      return null;
-    }
-  }
 }
 
 class _Badge extends StatelessWidget {

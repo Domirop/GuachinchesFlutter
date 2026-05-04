@@ -2,16 +2,57 @@ import 'package:guachinches/data/model/restaurant.dart';
 
 class VisitDish {
   final String name;
+  final String? description;
+  final num? price;
+  final String? sentiment; // "loved" | "liked" | "neutral" | "disliked" …
   final bool isTop;
 
-  const VisitDish({required this.name, this.isTop = false});
+  const VisitDish({
+    required this.name,
+    this.description,
+    this.price,
+    this.sentiment,
+    this.isTop = false,
+  });
 
   factory VisitDish.fromJson(dynamic json) {
     if (json is String) return VisitDish(name: json);
     final map = json as Map<String, dynamic>;
+    final sentiment = map['sentiment']?.toString().toLowerCase();
+    final isTop = map['isTop'] == true ||
+        map['is_top'] == true ||
+        map['top'] == true ||
+        sentiment == 'loved';
     return VisitDish(
       name: map['name']?.toString() ?? map['dish']?.toString() ?? '',
-      isTop: map['isTop'] == true || map['is_top'] == true || map['top'] == true,
+      description: map['description']?.toString(),
+      price: map['price'] is num ? map['price'] as num : num.tryParse('${map['price']}'),
+      sentiment: sentiment,
+      isTop: isTop,
+    );
+  }
+}
+
+class VisitQuote {
+  final String text;
+  final String? sentiment;
+  final String? timestamp;
+
+  const VisitQuote({required this.text, this.sentiment, this.timestamp});
+
+  factory VisitQuote.fromJson(dynamic json) {
+    if (json is String) return VisitQuote(text: json);
+    final map = json as Map<String, dynamic>;
+    final text = (map['text'] ??
+            map['quote'] ??
+            map['content'] ??
+            map['phrase'] ??
+            '')
+        .toString();
+    return VisitQuote(
+      text: text,
+      sentiment: map['sentiment']?.toString(),
+      timestamp: (map['timestamp'] ?? map['time'])?.toString(),
     );
   }
 }
@@ -19,33 +60,50 @@ class VisitDish {
 class Visit {
   late String id;
   String? videoUrl;
+  String? youtubeVideoId;
   String? creator;
   String? extraText;
   late String restaurantId;
   String? createdAt;
   String? updatedAt;
+  String? publishedAt;
   String? myTicket;
   String? thumbnail;
   Restaurant? restaurant;
 
-  // Campos Gemini extraídos del video
+  // Campos extraídos del video / IA
   String? summary;
-  String? overallSentiment; // "muy_positivo" | "positivo" | "neutro" | "negativo"
+  String? overallSentiment; // muy_positivo | positivo | neutro | negativo
   String? instagram;
   int? durationSeconds;
   List<VisitDish> dishes;
   List<String> highlights;
   List<String> lowlights;
   List<String> services;
+  List<VisitQuote> quotes;
+
+  // Campos visit-level del nuevo endpoint
+  String? name;
+  String? address;
+  String? zone;
+  String? phone;
+  String? website;
+  String? googleMapsUrl;
+  String? openingHours;
+  String? priceRange; // p.ej. "$$"
+  double? priceApprox; // €
+  double? ratingImplicit;
 
   Visit({
     required this.id,
     this.videoUrl,
+    this.youtubeVideoId,
     this.creator,
     this.extraText,
     required this.restaurantId,
     this.createdAt,
     this.updatedAt,
+    this.publishedAt,
     this.myTicket,
     this.thumbnail,
     this.restaurant,
@@ -57,46 +115,127 @@ class Visit {
     List<String>? highlights,
     List<String>? lowlights,
     List<String>? services,
+    List<VisitQuote>? quotes,
+    this.name,
+    this.address,
+    this.zone,
+    this.phone,
+    this.website,
+    this.googleMapsUrl,
+    this.openingHours,
+    this.priceRange,
+    this.priceApprox,
+    this.ratingImplicit,
   })  : dishes = dishes ?? [],
         highlights = highlights ?? [],
         lowlights = lowlights ?? [],
-        services = services ?? [];
+        services = services ?? [],
+        quotes = quotes ?? [];
 
   factory Visit.fromJson(Map<String, dynamic> json) {
     List<VisitDish> parseDishes(dynamic raw) {
-      if (raw == null) return [];
       if (raw is List) return raw.map((d) => VisitDish.fromJson(d)).toList();
       return [];
     }
 
+    List<VisitQuote> parseQuotes(dynamic raw) {
+      if (raw is List) return raw.map((q) => VisitQuote.fromJson(q)).toList();
+      return [];
+    }
+
     List<String> parseStrings(dynamic raw) {
-      if (raw == null) return [];
       if (raw is List) return raw.map((e) => e.toString()).toList();
       return [];
     }
 
+    double? parseDouble(dynamic raw) {
+      if (raw == null) return null;
+      if (raw is num) return raw.toDouble();
+      return double.tryParse(raw.toString());
+    }
+
+    // youtubeVideo nested (nuevo endpoint).
+    // Importante: el "videoId" real de YouTube vive en youtubeVideo.videoId.
+    // El campo top-level "youtubeVideoId" es el UUID interno (no sirve para reproducir).
+    final yt = json['youtubeVideo'] is Map<String, dynamic>
+        ? json['youtubeVideo'] as Map<String, dynamic>
+        : null;
+    final ytVideoId = (yt?['videoId'] ?? json['videoId'])?.toString();
+    final videoUrl = json['videoUrl'] ??
+        json['video_url'] ??
+        (ytVideoId != null && ytVideoId.isNotEmpty
+            ? 'https://www.youtube.com/watch?v=$ytVideoId'
+            : null);
+    final thumbnail = json['thumbnail'] ?? yt?['thumbnailUrl'];
+    final durationSeconds = json['durationSeconds'] ??
+        json['duration_seconds'] ??
+        yt?['durationSeconds'];
+
     return Visit(
-      id: json['id'],
-      videoUrl: json['videoUrl'] ?? json['video_url'],
-      creator: json['creator'],
-      extraText: json['extraText'] ?? json['extra_text'],
-      restaurantId: json['restaurantId'] ?? json['restaurant_id'] ?? '',
-      createdAt: json['createdAt'] ?? json['created_at'],
-      updatedAt: json['updatedAt'] ?? json['updated_at'],
-      myTicket: json['myTicket'] ?? json['my_ticket'],
-      thumbnail: json['thumbnail'],
-      restaurant: json['restaurant'] != null
+      id: json['id']?.toString() ?? '',
+      videoUrl: videoUrl?.toString(),
+      youtubeVideoId: ytVideoId,
+      creator: json['creator']?.toString(),
+      extraText: (json['extraText'] ?? json['extra_text'])?.toString(),
+      restaurantId:
+          (json['restaurantId'] ?? json['restaurant_id'] ?? '').toString(),
+      createdAt: (json['createdAt'] ?? json['created_at'])?.toString(),
+      updatedAt: (json['updatedAt'] ?? json['updated_at'])?.toString(),
+      publishedAt: (json['publishedAt'] ?? json['published_at'])?.toString(),
+      myTicket: (json['myTicket'] ?? json['my_ticket'])?.toString(),
+      thumbnail: thumbnail?.toString(),
+      restaurant: json['restaurant'] is Map<String, dynamic>
           ? Restaurant.fromJson(json['restaurant'])
           : null,
-      summary: json['summary'],
-      overallSentiment: json['overallSentiment'] ?? json['overall_sentiment'],
-      instagram: json['instagram'],
-      durationSeconds: json['durationSeconds'] ?? json['duration_seconds'],
+      summary: json['summary']?.toString(),
+      overallSentiment: _normalizeSentiment(
+          (json['overallSentiment'] ?? json['overall_sentiment'])?.toString()),
+      instagram: json['instagram']?.toString(),
+      durationSeconds: durationSeconds is int
+          ? durationSeconds
+          : int.tryParse('${durationSeconds ?? ''}'),
       dishes: parseDishes(json['dishes']),
       highlights: parseStrings(json['highlights']),
       lowlights: parseStrings(json['lowlights']),
       services: parseStrings(json['services']),
+      quotes: parseQuotes(json['quotes']),
+      name: json['name']?.toString(),
+      address: json['address']?.toString(),
+      zone: json['zone']?.toString(),
+      phone: json['phone']?.toString(),
+      website: json['website']?.toString(),
+      googleMapsUrl:
+          (json['googleMapsUrl'] ?? json['google_maps_url'])?.toString(),
+      openingHours:
+          (json['openingHours'] ?? json['opening_hours'])?.toString(),
+      priceRange: (json['priceRange'] ?? json['price_range'])?.toString(),
+      priceApprox: parseDouble(json['priceApprox'] ?? json['price_approx']),
+      ratingImplicit:
+          parseDouble(json['ratingImplicit'] ?? json['rating_implicit']),
     );
+  }
+
+  /// Normaliza "very_positive" → "muy_positivo" para que los widgets existentes
+  /// (que esperan los labels antiguos) sigan funcionando.
+  static String? _normalizeSentiment(String? raw) {
+    if (raw == null) return null;
+    final s = raw.toLowerCase();
+    switch (s) {
+      case 'very_positive':
+      case 'very positive':
+        return 'muy_positivo';
+      case 'positive':
+        return 'positivo';
+      case 'neutral':
+        return 'neutro';
+      case 'negative':
+        return 'negativo';
+      case 'very_negative':
+      case 'very negative':
+        return 'negativo';
+      default:
+        return s;
+    }
   }
 
   Map<String, dynamic> toJson() {

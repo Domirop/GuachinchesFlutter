@@ -9,14 +9,27 @@ class TicketCardWidget extends StatelessWidget {
   const TicketCardWidget({super.key, required this.visit});
 
   static bool shouldRender(Visit? v) =>
-      v != null && v.myTicket?.isNotEmpty == true;
+      v != null &&
+      (v.myTicket?.isNotEmpty == true || v.priceApprox != null);
 
   @override
   Widget build(BuildContext context) {
-    final title = visit.myTicket?.isNotEmpty == true
-        ? visit.myTicket!
-        : visit.extraText ?? '';
-    final subtitle = visit.myTicket?.isNotEmpty == true ? visit.extraText : null;
+    String title;
+    String? subtitle;
+    if (visit.myTicket?.isNotEmpty == true) {
+      title = visit.myTicket!;
+      subtitle = visit.extraText;
+    } else if (visit.priceApprox != null) {
+      final perTwo = (visit.priceApprox! * 2);
+      final perTwoStr = perTwo % 1 == 0
+          ? perTwo.toInt().toString()
+          : perTwo.toStringAsFixed(2);
+      title = '$perTwoStr€ PARA DOS';
+      subtitle = visit.extraText;
+    } else {
+      title = visit.extraText ?? '';
+      subtitle = null;
+    }
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),

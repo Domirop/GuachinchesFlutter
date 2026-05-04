@@ -7,6 +7,7 @@ import 'package:guachinches/config/app_text_styles.dart';
 import 'package:guachinches/data/HttpRemoteRepository.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
 import 'package:guachinches/data/model/Visit.dart' as vm;
+import 'package:guachinches/data/model/short_quote.dart';
 import 'package:guachinches/ui/pages/restaurant_detail/restaurant_detail_screen.dart';
 import 'package:guachinches/ui/pages/restaurant_detail/widgets/del_video_section.dart';
 import 'package:guachinches/ui/pages/restaurant_detail/widgets/dishes_section.dart';
@@ -148,25 +149,27 @@ class _VisitDetailPageState extends State<VisitDetailPage>
     }
   }
 
-  void _openMaps() {
+  Future<void> _openMaps() async {
+    final mapsUrl = _visit?.googleMapsUrl;
+    if (mapsUrl != null && mapsUrl.isNotEmpty) {
+      final uri = Uri.parse(mapsUrl);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+        return;
+      }
+    }
     final r = _visit?.restaurant;
-    if (r == null) return;
-    if (r.lat != 0 && r.lon != 0) {
-      MapsLauncher.launchCoordinates(r.lat, r.lon, r.nombre);
-    } else {
-      MapsLauncher.launchQuery(r.nombre);
+    final name = _visit?.name ?? r?.nombre ?? '';
+    if (r != null && r.lat != 0 && r.lon != 0) {
+      MapsLauncher.launchCoordinates(r.lat, r.lon, name);
+    } else if (name.isNotEmpty) {
+      MapsLauncher.launchQuery(name);
     }
   }
 
-  Future<void> _call() async {
-    final phone = _visit?.restaurant?.telefono ?? '';
-    if (phone.isEmpty) return;
-    final uri = Uri.parse('tel:$phone');
-    if (await canLaunchUrl(uri)) await launchUrl(uri);
-  }
-
   void _share() {
-    final name = _visit?.restaurant?.nombre ?? widget.title ?? 'Visita';
+    final name =
+        _visit?.name ?? _visit?.restaurant?.nombre ?? widget.title ?? 'Visita';
     SharePlus.instance.share(ShareParams(text: '$name en ¿Dónde Comer Canarias?'));
   }
 
@@ -226,7 +229,6 @@ class _VisitDetailPageState extends State<VisitDetailPage>
       ),
       bottomNavigationBar: _BottomBar(
         onDirections: _openMaps,
-        onCall: (_visit?.restaurant?.telefono.isNotEmpty == true) ? _call : null,
         onShare: _share,
       ),
     );
@@ -251,9 +253,13 @@ class _VisitDetailPageState extends State<VisitDetailPage>
 
           // ③ Info restaurante
           if (r != null) ...[
-            RestaurantInfoCard(restaurant: r),
+            RestaurantInfoCard(
+              restaurant: r,
+              visit: v,
+              onTap: _goToRestaurant,
+            ),
             const SizedBox(height: 12),
-            VisitPillsRow(restaurant: r),
+            VisitPillsRow(restaurant: r, visit: v),
             const SizedBox(height: 16),
           ],
 
@@ -269,39 +275,42 @@ class _VisitDetailPageState extends State<VisitDetailPage>
             const SizedBox(height: 16),
           ],
 
-          // ⑤ Ticket "42€ PARA DOS"
-          if (TicketCardWidget.shouldRender(v)) ...[
-            TicketCardWidget(visit: v),
-            const SizedBox(height: 20),
-          ],
-
-          // ⑥ DEL VIDEO
-          if (r != null && DelVideoSection.shouldRender(r.shortQuotes)) ...[
-            DelVideoSection(quotes: r.shortQuotes, videoId: r.shortVideoId),
-            const SizedBox(height: 20),
-          ],
-
-          // ⑦ LO QUE PEDIMOS
-          if (DishesSection.shouldRender(v.dishes)) ...[
-            DishesSection(dishes: v.dishes),
-            const SizedBox(height: 20),
-          ],
-
-          // ⑧ A FAVOR / EN CONTRA
-          if (ProsConsSection.shouldRender(v.highlights, v.lowlights)) ...[
-            ProsConsSection(pros: v.highlights, cons: v.lowlights),
-            const SizedBox(height: 20),
-          ],
-
-          // ⑨ SERVICIOS
+          // ⑤ SERVICIOS (justo debajo de la descripción)
           if (ServicesChipsSection.shouldRender(v.services)) ...[
             ServicesChipsSection(services: v.services),
             const SizedBox(height: 20),
           ],
 
+          // ⑥ Ticket "42€ PARA DOS" — ocultado: dato no fiable de momento
+          // if (TicketCardWidget.shouldRender(v)) ...[
+          //   TicketCardWidget(visit: v),
+          //   const SizedBox(height: 20),
+          // ],
+
+          // ⑦ DEL VIDEO — ocultado temporalmente (problema de render por investigar)
+          // if (_videoQuotes(v).isNotEmpty) ...[
+          //   DelVideoSection(
+          //     quotes: _videoQuotes(v),
+          //     videoId: v.youtubeVideoId,
+          //   ),
+          //   const SizedBox(height: 20),
+          // ],
+
+          // ⑧ LO QUE PEDIMOS
+          if (DishesSection.shouldRender(v.dishes)) ...[
+            DishesSection(dishes: v.dishes),
+            const SizedBox(height: 20),
+          ],
+
+          // ⑨ A FAVOR / EN CONTRA
+          if (ProsConsSection.shouldRender(v.highlights, v.lowlights)) ...[
+            ProsConsSection(pros: v.highlights, cons: v.lowlights),
+            const SizedBox(height: 20),
+          ],
+
           // ⑩ LO QUE NECESITAS SABER
           if (r != null) ...[
-            NTKBox(restaurant: r, instagram: v.instagram),
+            NTKBox(restaurant: r, visit: v, instagram: v.instagram),
             const SizedBox(height: 24),
           ],
         ],
@@ -330,11 +339,21 @@ class _VisitDetailPageState extends State<VisitDetailPage>
   }
 
   String? _description(vm.Visit v) {
+    if (v.summary?.isNotEmpty == true) return v.summary;
     final editorial = v.restaurant?.editorialBody;
     if (editorial != null && editorial.isNotEmpty) return editorial;
-    if (v.summary?.isNotEmpty == true) return v.summary;
     if (v.extraText?.isNotEmpty == true) return v.extraText;
     return null;
+  }
+
+  List<ShortQuote> _videoQuotes(vm.Visit v) {
+    if (v.quotes.isNotEmpty) {
+      return v.quotes
+          .where((q) => q.text.isNotEmpty)
+          .map((q) => ShortQuote(text: q.text, timestamp: q.timestamp))
+          .toList();
+    }
+    return v.restaurant?.shortQuotes ?? const [];
   }
 }
 
@@ -483,10 +502,9 @@ class _FloatingButton extends StatelessWidget {
 
 class _BottomBar extends StatelessWidget {
   final VoidCallback onDirections;
-  final VoidCallback? onCall;
   final VoidCallback onShare;
 
-  const _BottomBar({required this.onDirections, required this.onShare, this.onCall});
+  const _BottomBar({required this.onDirections, required this.onShare});
 
   @override
   Widget build(BuildContext context) {
@@ -510,10 +528,6 @@ class _BottomBar extends StatelessWidget {
                       .copyWith(color: Colors.white, letterSpacing: 1.0)),
             ),
           ),
-          if (onCall != null) ...[
-            const SizedBox(width: 8),
-            _IconBtn(icon: Icons.phone_outlined, onTap: onCall!),
-          ],
           const SizedBox(width: 8),
           _IconBtn(icon: Icons.ios_share, onTap: onShare),
         ],
