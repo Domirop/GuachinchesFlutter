@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:crypto/crypto.dart';
-import 'package:guachinches/config/secrets.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
 import 'package:guachinches/data/model/survey_in_app_choice.dart';
 import 'package:guachinches/services/app_storage.dart';
@@ -26,7 +26,7 @@ class SurveyInAppPresenter {
     try {
       _userId = await _getOrCreateUserId();
       _deviceId = await DeviceIdService.getDeviceId();
-      _deviceToken = '$_deviceId:${_computeHmac(kDeviceHmacSecret, _deviceId)}';
+      _deviceToken = '$_deviceId:${_computeHmac(dotenv.env['DEVICE_HMAC_SECRET']!, _deviceId)}';
       print('── SURVEY INIT ──────────────────────');
       print('USER_ID      = $_userId');
       print('DEVICE_ID    = $_deviceId');
