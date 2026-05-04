@@ -20,9 +20,9 @@ import 'package:guachinches/ui/pages/restaurant_detail/widgets/visit_pills_row.d
 import 'package:guachinches/ui/pages/visit/visit_presenter.dart';
 import 'package:http/http.dart';
 import 'package:maps_launcher/maps_launcher.dart';
-import 'package:share_plus/share_plus.dart';
+import 'package:share_plus/share_plus.dart' show SharePlus, ShareParams;
 import 'package:url_launcher/url_launcher.dart';
-import 'package:youtube_player_flutter/youtube_player_flutter.dart';
+import 'package:youtube_player_iframe/youtube_player_iframe.dart';
 
 class VisitDetailPage extends StatefulWidget {
   final String visitId;
@@ -46,6 +46,7 @@ class _VisitDetailPageState extends State<VisitDetailPage>
   vm.Visit? _visit;
   YoutubePlayerController? _ytController;
   bool _loading = true;
+  bool _ytEmbedBlocked = false;
   String? _error;
 
   @override
@@ -58,7 +59,7 @@ class _VisitDetailPageState extends State<VisitDetailPage>
 
   @override
   void dispose() {
-    _ytController?.dispose();
+    _ytController?.close();
     super.dispose();
   }
 
@@ -77,18 +78,29 @@ class _VisitDetailPageState extends State<VisitDetailPage>
   void showVisit(vm.Visit visit) {
     if (!mounted) return;
     final videoId = _extractVideoId(visit.videoUrl);
-    _ytController?.dispose();
-    _ytController = videoId != null
-        ? YoutubePlayerController(
-            initialVideoId: videoId,
-            flags: const YoutubePlayerFlags(
-              autoPlay: false,
-              mute: false,
-              enableCaption: false,
-              forceHD: false,
-            ),
-          )
-        : null;
+    _ytController?.close();
+    _ytEmbedBlocked = false;
+    if (videoId != null) {
+      _ytController = YoutubePlayerController.fromVideoId(
+        videoId: videoId,
+        autoPlay: false,
+        params: const YoutubePlayerParams(
+          showControls: true,
+          showFullscreenButton: true,
+          enableCaption: false,
+          playsInline: true,
+          color: 'white',
+        ),
+      );
+      // Detecta error de embedding (código 101/150/152) y cae al thumbnail
+      _ytController!.listen((value) {
+        if (value.error != YoutubeError.none && mounted && !_ytEmbedBlocked) {
+          setState(() => _ytEmbedBlocked = true);
+        }
+      });
+    } else {
+      _ytController = null;
+    }
     setState(() {
       _visit = visit;
       _loading = false;
@@ -109,18 +121,15 @@ class _VisitDetailPageState extends State<VisitDetailPage>
 
   static String? _extractVideoId(String? url) {
     if (url == null || url.isEmpty) return null;
-    // youtube.com/watch?v=ID
-    // youtu.be/ID
-    // youtube.com/shorts/ID
-    // youtube.com/embed/ID
     final uri = Uri.tryParse(url);
     if (uri == null) return null;
-    if (uri.queryParameters.containsKey('v')) {
-      return uri.queryParameters['v'];
-    }
+    // ?v=ID
+    if (uri.queryParameters.containsKey('v')) return uri.queryParameters['v'];
     final segs = uri.pathSegments;
     if (segs.isEmpty) return null;
+    // youtu.be/ID
     if (uri.host.contains('youtu.be')) return segs.first;
+    // /shorts/ID  or  /embed/ID
     for (final kw in ['shorts', 'embed']) {
       final idx = segs.indexOf(kw);
       if (idx != -1 && idx + 1 < segs.length) return segs[idx + 1];
@@ -158,7 +167,7 @@ class _VisitDetailPageState extends State<VisitDetailPage>
 
   void _share() {
     final name = _visit?.restaurant?.nombre ?? widget.title ?? 'Visita';
-    Share.share('$name en ¿Dónde Comer Canarias?');
+    SharePlus.instance.share(ShareParams(text: '$name en ¿Dónde Comer Canarias?'));
   }
 
   void _goToRestaurant() {
@@ -192,24 +201,17 @@ class _VisitDetailPageState extends State<VisitDetailPage>
       );
     }
 
-    // Con player YouTube: YoutubePlayerBuilder gestiona el fullscreen
-    if (_ytController != null) {
-      return YoutubePlayerBuilder(
-        player: YoutubePlayer(
-          controller: _ytController!,
-          showVideoProgressIndicator: true,
-          progressIndicatorColor: AppColors.atlantico,
-          progressColors: const ProgressBarColors(
-            playedColor: AppColors.atlantico,
-            handleColor: AppColors.atlanticoClaro,
-          ),
-          onReady: () {},
-        ),
+    // Con player inline (solo si embedding no está bloqueado)
+    if (_ytController != null && !_ytEmbedBlocked) {
+      return YoutubePlayerScaffold(
+        controller: _ytController!,
+        aspectRatio: 16 / 9,
+        backgroundColor: Colors.black,
         builder: (context, player) => _buildScaffold(context, player: player),
       );
     }
 
-    // Sin video ID: thumbnail estático con botón de abrir externo
+    // Sin video ID: thumbnail estático
     return _buildScaffold(context, player: null);
   }
 
@@ -218,23 +220,19 @@ class _VisitDetailPageState extends State<VisitDetailPage>
       backgroundColor: context.brand.base,
       body: Stack(
         children: [
-          _buildScrollContent(player),
-          _buildFloatingButtons(),
+          _buildScrollContent(context, player),
+          _buildFloatingButtons(context),
         ],
       ),
-      bottomNavigationBar: _visit != null
-          ? _BottomBar(
-              onDirections: _openMaps,
-              onCall: (_visit?.restaurant?.telefono?.isNotEmpty == true)
-                  ? _call
-                  : null,
-              onShare: _share,
-            )
-          : null,
+      bottomNavigationBar: _BottomBar(
+        onDirections: _openMaps,
+        onCall: (_visit?.restaurant?.telefono.isNotEmpty == true) ? _call : null,
+        onShare: _share,
+      ),
     );
   }
 
-  Widget _buildScrollContent(Widget? player) {
+  Widget _buildScrollContent(BuildContext context, Widget? player) {
     final v = _visit!;
     final r = v.restaurant;
 
@@ -246,15 +244,12 @@ class _VisitDetailPageState extends State<VisitDetailPage>
           if (player != null)
             player
           else
-            _StaticVideoHero(
-              visit: v,
-              onTap: _openVideoExternal,
-            ),
+            _StaticVideoHero(visit: v, onTap: _openVideoExternal),
 
-          // ② Visit header (creator · fecha · sentiment)
+          // ② Visit header
           VisitHeaderSection(visit: v),
 
-          // ③ Tarjeta azul info restaurante
+          // ③ Info restaurante
           if (r != null) ...[
             RestaurantInfoCard(restaurant: r),
             const SizedBox(height: 12),
@@ -268,22 +263,19 @@ class _VisitDetailPageState extends State<VisitDetailPage>
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Text(
                 _description(v)!,
-                style: AppTextStyles.ui(
-                  size: 13,
-                  color: context.brand.textSecondary,
-                ),
+                style: AppTextStyles.ui(size: 13, color: context.brand.textSecondary),
               ),
             ),
             const SizedBox(height: 16),
           ],
 
-          // ⑤ "42€ PARA DOS"
+          // ⑤ Ticket "42€ PARA DOS"
           if (TicketCardWidget.shouldRender(v)) ...[
             TicketCardWidget(visit: v),
             const SizedBox(height: 20),
           ],
 
-          // ⑥ DEL VIDEO — citas del short
+          // ⑥ DEL VIDEO
           if (r != null && DelVideoSection.shouldRender(r.shortQuotes)) ...[
             DelVideoSection(quotes: r.shortQuotes, videoId: r.shortVideoId),
             const SizedBox(height: 20),
@@ -317,33 +309,21 @@ class _VisitDetailPageState extends State<VisitDetailPage>
     );
   }
 
-  Widget _buildFloatingButtons() {
+  Widget _buildFloatingButtons(BuildContext context) {
     final top = MediaQuery.of(context).padding.top + 8;
     return Stack(
       children: [
         Positioned(
-          top: top,
-          left: 12,
-          child: _FloatingButton(
-            icon: Icons.arrow_back_ios_new,
-            onTap: () => Navigator.pop(context),
-          ),
+          top: top, left: 12,
+          child: _FloatingButton(icon: Icons.arrow_back_ios_new, onTap: () => Navigator.pop(context)),
         ),
         Positioned(
-          top: top,
-          right: 12,
-          child: _FloatingButton(
-            icon: Icons.ios_share,
-            onTap: _share,
-          ),
+          top: top, right: 12,
+          child: _FloatingButton(icon: Icons.ios_share, onTap: _share),
         ),
         Positioned(
-          top: top,
-          right: 56,
-          child: _FloatingButton(
-            icon: Icons.storefront_outlined,
-            onTap: _goToRestaurant,
-          ),
+          top: top, right: 56,
+          child: _FloatingButton(icon: Icons.storefront_outlined, onTap: _goToRestaurant),
         ),
       ],
     );
@@ -352,13 +332,13 @@ class _VisitDetailPageState extends State<VisitDetailPage>
   String? _description(vm.Visit v) {
     final editorial = v.restaurant?.editorialBody;
     if (editorial != null && editorial.isNotEmpty) return editorial;
-    if (v.summary != null && v.summary!.isNotEmpty) return v.summary;
-    if (v.extraText != null && v.extraText!.isNotEmpty) return v.extraText;
+    if (v.summary?.isNotEmpty == true) return v.summary;
+    if (v.extraText?.isNotEmpty == true) return v.extraText;
     return null;
   }
 }
 
-// ── Thumbnail estático (fallback sin video ID) ────────────────────────────────
+// ── Thumbnail estático (sin video ID válido) ──────────────────────────────────
 
 class _StaticVideoHero extends StatelessWidget {
   final vm.Visit visit;
@@ -366,7 +346,7 @@ class _StaticVideoHero extends StatelessWidget {
 
   const _StaticVideoHero({required this.visit, required this.onTap});
 
-  bool get _hasVideo => visit.videoUrl != null && visit.videoUrl!.isNotEmpty;
+  bool get _hasVideo => visit.videoUrl?.isNotEmpty == true;
 
   @override
   Widget build(BuildContext context) {
@@ -377,7 +357,7 @@ class _StaticVideoHero extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            _buildThumbnail(context),
+            _buildThumb(context),
             const DecoratedBox(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
@@ -391,8 +371,7 @@ class _StaticVideoHero extends StatelessWidget {
             if (_hasVideo) const Center(child: _PlayButton()),
             if (visit.durationSeconds != null)
               Positioned(
-                bottom: 10,
-                right: 12,
+                bottom: 10, right: 12,
                 child: _DurationBadge(visit.durationSeconds!),
               ),
           ],
@@ -401,23 +380,23 @@ class _StaticVideoHero extends StatelessWidget {
     );
   }
 
-  Widget _buildThumbnail(BuildContext context) {
+  Widget _buildThumb(BuildContext context) {
     final thumb = visit.thumbnail;
-    final mainPhoto = visit.restaurant?.mainFoto ?? '';
-    if (thumb != null && thumb.isNotEmpty) {
+    final fallback = visit.restaurant?.mainFoto ?? '';
+    if (thumb?.isNotEmpty == true) {
       return CachedNetworkImage(
-        imageUrl: thumb,
+        imageUrl: thumb!,
         fit: BoxFit.cover,
-        errorWidget: (_, __, ___) => _fallback(context, mainPhoto),
+        errorWidget: (_, __, ___) => _fallback(context, fallback),
       );
     }
-    return _fallback(context, mainPhoto);
+    return _fallback(context, fallback);
   }
 
-  Widget _fallback(BuildContext context, String mainPhoto) {
-    if (mainPhoto.isNotEmpty) {
+  Widget _fallback(BuildContext context, String url) {
+    if (url.isNotEmpty) {
       return CachedNetworkImage(
-        imageUrl: mainPhoto,
+        imageUrl: url,
         fit: BoxFit.cover,
         errorWidget: (_, __, ___) => Container(color: context.brand.elevated),
       );
@@ -435,8 +414,7 @@ class _PlayButton extends StatelessWidget {
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
         child: Container(
-          width: 64,
-          height: 64,
+          width: 64, height: 64,
           decoration: BoxDecoration(
             color: AppColors.atlantico.withOpacity(0.85),
             shape: BoxShape.circle,
@@ -463,15 +441,9 @@ class _DurationBadge extends StatelessWidget {
     final s = seconds % 60;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: AppColors.glassDark,
-        borderRadius: BorderRadius.circular(7),
-      ),
-      child: Text(
-        '$m:${s.toString().padLeft(2, '0')}',
-        style: AppTextStyles.ui(
-            size: 10, weight: FontWeight.w600, color: Colors.white),
-      ),
+      decoration: BoxDecoration(color: AppColors.glassDark, borderRadius: BorderRadius.circular(7)),
+      child: Text('$m:${s.toString().padLeft(2, '0')}',
+          style: AppTextStyles.ui(size: 10, weight: FontWeight.w600, color: Colors.white)),
     );
   }
 }
@@ -492,8 +464,7 @@ class _FloatingButton extends StatelessWidget {
         child: GestureDetector(
           onTap: onTap,
           child: Container(
-            width: 36,
-            height: 36,
+            width: 36, height: 36,
             decoration: BoxDecoration(
               color: AppColors.glassDark,
               shape: BoxShape.circle,
@@ -515,11 +486,7 @@ class _BottomBar extends StatelessWidget {
   final VoidCallback? onCall;
   final VoidCallback onShare;
 
-  const _BottomBar({
-    required this.onDirections,
-    required this.onShare,
-    this.onCall,
-  });
+  const _BottomBar({required this.onDirections, required this.onShare, this.onCall});
 
   @override
   Widget build(BuildContext context) {
@@ -534,16 +501,13 @@ class _BottomBar extends StatelessWidget {
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.atlantico,
                 padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                 elevation: 0,
               ),
               onPressed: onDirections,
-              child: Text(
-                'CÓMO LLEGAR ›',
-                style: AppTextStyles.displaySection(size: 11)
-                    .copyWith(color: Colors.white, letterSpacing: 1.0),
-              ),
+              child: Text('CÓMO LLEGAR ›',
+                  style: AppTextStyles.displaySection(size: 11)
+                      .copyWith(color: Colors.white, letterSpacing: 1.0)),
             ),
           ),
           if (onCall != null) ...[
@@ -569,8 +533,7 @@ class _IconBtn extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 46,
-        height: 46,
+        width: 46, height: 46,
         decoration: BoxDecoration(
           color: context.brand.surface,
           border: Border.all(color: context.brand.borderStrong),
@@ -589,20 +552,17 @@ class _LoadingView extends StatelessWidget {
   const _LoadingView();
 
   @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const CircularProgressIndicator(color: AppColors.atlantico),
-          const SizedBox(height: 12),
-          Text('Cargando visita…',
-              style:
-                  AppTextStyles.ui(size: 11, color: context.brand.textMuted)),
-        ],
-      ),
-    );
-  }
+  Widget build(BuildContext context) => Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const CircularProgressIndicator(color: AppColors.atlantico),
+            const SizedBox(height: 12),
+            Text('Cargando visita…',
+                style: AppTextStyles.ui(size: 11, color: context.brand.textMuted)),
+          ],
+        ),
+      );
 }
 
 class _ErrorView extends StatelessWidget {
@@ -612,32 +572,28 @@ class _ErrorView extends StatelessWidget {
   const _ErrorView({required this.message, required this.onRetry});
 
   @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.error_outline, color: context.brand.textMuted, size: 32),
-            const SizedBox(height: 12),
-            Text(message,
-                style: AppTextStyles.ui(
-                    size: 13, color: context.brand.textSecondary),
-                textAlign: TextAlign.center),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: onRetry,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.atlantico,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
+  Widget build(BuildContext context) => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.error_outline, color: context.brand.textMuted, size: 32),
+              const SizedBox(height: 12),
+              Text(message,
+                  style: AppTextStyles.ui(size: 13, color: context.brand.textSecondary),
+                  textAlign: TextAlign.center),
+              const SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: onRetry,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.atlantico,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                child: const Text('Reintentar'),
               ),
-              child: const Text('Reintentar'),
-            ),
-          ],
+            ],
+          ),
         ),
-      ),
-    );
-  }
+      );
 }
