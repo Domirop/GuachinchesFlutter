@@ -1047,6 +1047,9 @@ class _DetailsState extends State<Details> implements DetailView {
   }
 
   @override
+  setVisit(visit) {}
+
+  @override
   updateVideos() {
     presenter.getRestaurantVideos(restaurant.id);
   }

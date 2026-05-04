@@ -90,6 +90,7 @@ flutter:
 
   assets:
     - assets/images/
+    - assets/images/new-home/
     - env_files/
   fonts:
     - family: YourCustomFont
@@ -97,6 +98,15 @@ flutter:
         - asset: assets/fonts/TimesNewRoman.ttf
         - asset: assets/fonts/TimesNewRomanBold.ttf
           weight: 700
+    - family: Oswald
+      fonts:
+        - asset: assets/fonts/Oswald-Variable.ttf
+    - family: Merriweather
+      fonts:
+        - asset: assets/fonts/Merriweather-Regular.ttf
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/Inter-Regular.ttf
 flutter_icons:
   ios: true
   android: true

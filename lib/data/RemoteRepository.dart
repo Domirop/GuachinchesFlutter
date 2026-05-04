@@ -1,4 +1,9 @@
 import 'package:guachinches/data/model/Category.dart';
+import 'package:guachinches/data/model/Island.dart';
+import 'package:guachinches/data/model/SimpleMunicipality.dart';
+import 'package:guachinches/data/model/curated_list.dart';
+import 'package:guachinches/data/model/weather_data.dart';
+import 'package:guachinches/data/model/zone.dart';
 import 'package:guachinches/data/model/survey_in_app_choice.dart';
 import 'package:guachinches/data/model/Cupones.dart';
 import 'package:guachinches/data/model/CuponesAgrupados.dart';
@@ -85,4 +90,27 @@ abstract class RemoteRepository{
     String? creator,
     String? extraText,
   });
+
+  // Curated lists (editorial)
+  Future<List<CuratedList>> getCuratedLists({String? islandId});
+  Future<CuratedListDetail> getCuratedListById(String id);
+
+  // Zones por isla
+  Future<List<Zone>> getZonesByIsland(String islandId);
+
+  // Weather
+  Future<WeatherData> getWeatherForIsland(String islandId);
+  Future<WeatherData> getWeatherForMunicipality(String municipalityId);
+  Future<WeatherData> getWeatherForZone(String zoneId);
+
+  // Islands (lista pública de las 7 habitadas)
+  Future<List<Island>> getIslands();
+
+  // Municipios oficiales INE por isla (lista plana, no áreas anidadas)
+  Future<List<SimpleMunicipality>> getOfficialMunicipalitiesByIsland(
+    String islandId,
+  );
+
+  // Municipios pertenecientes a una zona (pivot municipio_zones)
+  Future<List<SimpleMunicipality>> getMunicipalitiesByZone(String zoneId);
 }

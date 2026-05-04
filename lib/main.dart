@@ -14,10 +14,19 @@ import 'package:guachinches/data/cubit/filter/filter_cubit.dart';
 import 'package:guachinches/data/cubit/filter/filter_map_cubit.dart';
 import 'package:guachinches/data/cubit/location/location_cubit.dart';
 import 'package:guachinches/data/cubit/menu/menu_cubit.dart';
+import 'package:guachinches/data/cubit/new_home/curated_lists_cubit.dart';
+import 'package:guachinches/data/cubit/new_home/islands_cubit.dart';
+import 'package:guachinches/data/cubit/new_home/new_home_filters_cubit.dart';
+import 'package:guachinches/data/cubit/new_home/weather_cubit.dart';
+import 'package:guachinches/data/cubit/new_home/visits_cubit.dart';
+import 'package:guachinches/data/cubit/new_home/zones_cubit.dart';
+import 'package:guachinches/data/cubit/theme/theme_cubit.dart';
+import 'package:guachinches/config/app_theme.dart';
 import 'package:guachinches/data/cubit/restaurants/map/restaurant_map_cubit.dart';
 import 'package:guachinches/data/cubit/restaurants/top/top_restaurants_cubit.dart';
 import 'package:guachinches/data/cubit/user/user_cubit.dart';
 import 'package:guachinches/data/local/db_provider.dart';
+import 'package:guachinches/services/http_weather_service.dart';
 import 'package:http/http.dart';
 import 'data/cubit/restaurants/basic/restaurant_cubit.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -25,6 +34,10 @@ import 'ui/pages/splash_screen/splash_screen.dart';
 
 
 const bool _kReleaseMode = const bool.fromEnvironment("dart.vm.product");
+
+/// Feature flag: ENABLE_NEW_HOME=true en debug.env activa NewHomeTabScaffold.
+bool get enableNewHome =>
+    (dotenv.env['ENABLE_NEW_HOME'] ?? 'false').toLowerCase() == 'true';
 
 Future<void> main() async{
   String file = _kReleaseMode == true ? 'env_files/release.env' : 'env_files/debug.env';
@@ -34,11 +47,16 @@ Future<void> main() async{
   WidgetsFlutterBinding.ensureInitialized();
   // Inicializar SDK de AdMob
   await MobileAds.instance.initialize();
+  final initialThemeMode = await ThemeCubit.hydrate();
 
-  runApp(MyApp());
+  runApp(MyApp(initialThemeMode: initialThemeMode));
 }
 
 class MyApp extends StatefulWidget {
+  final ThemeMode initialThemeMode;
+
+  const MyApp({Key? key, this.initialThemeMode = ThemeMode.light})
+      : super(key: key);
 
   @override
   _MyAppState createState() => _MyAppState();
@@ -158,35 +176,39 @@ class _MyAppState extends State<MyApp> {
         BlocProvider(
           create: ((context) => LocationCubit()),
         ),
-      ],
-      child: MaterialApp(
-        title: 'Guachinches',
-        navigatorKey: navigatorKey,
-        debugShowCheckedModeBanner: false,
-        theme: ThemeData(
-          fontFamily: 'SF Pro Display',
-          textTheme: TextTheme(
-            displayLarge: TextStyle(color: Colors.white),
-            displayMedium: TextStyle(color: Colors.white,fontFamily: 'SF Pro Display',fontSize: 18),
-            displaySmall: TextStyle(color: Colors.white,fontFamily: 'SF Pro Display'),
-            bodyLarge: TextStyle(color: Colors.white),
-            bodyMedium: TextStyle(color: Colors.white,fontSize: 20,fontWeight: FontWeight.bold),
-            bodySmall: TextStyle(color: Colors.white,fontFamily: 'SF Pro Display',fontSize:12),
-          ),
-          appBarTheme: AppBarTheme(
-            color: Color.fromRGBO(25, 27, 32, 1),
-            elevation: 0,
-            iconTheme: IconThemeData(color: Colors.white),
-            actionsIconTheme: IconThemeData(color: Colors.white),
-          ),
-          scaffoldBackgroundColor:  Color.fromRGBO(25, 27, 32, 1),
-          buttonTheme: ButtonThemeData(minWidth: 5),
-          dividerColor: Colors.black,
-          primarySwatch: Colors.blue,
-          splashColor: Colors.transparent,
-          highlightColor: Colors.transparent,
+        BlocProvider(
+          create: ((context) => NewHomeFiltersCubit()),
         ),
-        home: SplashScreen(),
+        BlocProvider(
+          create: ((context) => WeatherCubit(HttpWeatherService(remoteRepository))),
+        ),
+        BlocProvider(
+          create: ((context) => CuratedListsCubit(remoteRepository)),
+        ),
+        BlocProvider(
+          create: ((context) => ZonesCubit(remoteRepository)),
+        ),
+        BlocProvider(
+          lazy: false,
+          create: ((context) => IslandsCubit(remoteRepository)..load()),
+        ),
+        BlocProvider(
+          create: ((context) => VisitsCubit(remoteRepository)),
+        ),
+        BlocProvider(
+          create: ((context) => ThemeCubit(widget.initialThemeMode)),
+        ),
+      ],
+      child: BlocBuilder<ThemeCubit, ThemeMode>(
+        builder: (_, themeMode) => MaterialApp(
+          title: 'Guachinches',
+          navigatorKey: navigatorKey,
+          debugShowCheckedModeBanner: false,
+          theme: appLightTheme,
+          darkTheme: appDarkTheme,
+          themeMode: themeMode,
+          home: SplashScreen(),
+        ),
       ),
     );
   }

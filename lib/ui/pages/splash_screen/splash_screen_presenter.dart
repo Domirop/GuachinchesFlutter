@@ -9,8 +9,15 @@ import 'package:guachinches/data/model/version.dart';
 import 'package:guachinches/ui/pages/home/home.dart';
 import 'package:guachinches/ui/pages/login/login.dart';
 import 'package:guachinches/ui/pages/map/map_search.dart';
+import 'package:guachinches/ui/pages/new_home/new_home_tab_scaffold.dart';
 import 'package:guachinches/ui/pages/profile/profile_v2.dart';
 import '../video/video.dart';
+
+bool _isNewHomeEnabled() =>
+    (dotenv.env['ENABLE_NEW_HOME'] ?? 'false').toLowerCase() == 'true';
+
+Widget _homeWidget() =>
+    _isNewHomeEnabled() ? const NewHomeTabScaffold() : Home();
 
 class SplashScreenPresenter {
   final SplashScreenView _view;
@@ -37,7 +44,7 @@ class SplashScreenPresenter {
 
   Future<List<Widget>> _buildScreens() async {
     List<Widget> screens = [
-      Home(),
+      _homeWidget(),
       MapSearch(),
       VideoScreen(index: 0),
       Login("Para ver tu perfíl debes iniciar sesión."),
@@ -48,7 +55,7 @@ class SplashScreenPresenter {
         if (_userCubit.state is UserInitial) {
           var response = await _userCubit.getUserInfo(userId);
           if (response == true) {
-            screens = [Home(), MapSearch(), VideoScreen(index: 0), Profilev2()];
+            screens = [_homeWidget(), MapSearch(), VideoScreen(index: 0), Profilev2()];
           } else {
             await storage.delete(key: "userId");
           }

@@ -4,6 +4,11 @@ import 'package:guachinches/ui/pages/survey_in_app/survey_in_app_presenter.dart'
     show AlreadyVotedThisBusinessException;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:guachinches/data/model/Category.dart';
+import 'package:guachinches/data/model/Island.dart';
+import 'package:guachinches/data/model/SimpleMunicipality.dart';
+import 'package:guachinches/data/model/curated_list.dart';
+import 'package:guachinches/data/model/weather_data.dart';
+import 'package:guachinches/data/model/zone.dart';
 import 'package:guachinches/data/model/survey_in_app_choice.dart';
 import 'package:guachinches/data/model/Cupones.dart';
 import 'package:guachinches/data/model/CuponesAgrupados.dart';
@@ -79,11 +84,15 @@ class HttpRemoteRepository implements RemoteRepository {
           islandQuery;
 
       var uri = Uri.parse(url);
+      print('[getAllRestaurants] GET $url');
       var response = await _client.get(uri);
+      print('[getAllRestaurants] status=${response.statusCode} bodyLen=${response.body.length}');
       RestaurantResponse restaurantResponse =
           RestaurantResponse.fromJson(json.decode(response.body));
+      print('[getAllRestaurants] parsed count=${restaurantResponse.restaurants.length}');
       return restaurantResponse;
     } on Exception catch (e) {
+      print('[getAllRestaurants] EXCEPTION: $e');
       throw e;
     }
   }
@@ -864,4 +873,146 @@ class HttpRemoteRepository implements RemoteRepository {
     }
   }
 
+  // ────────────────────────────────────────────────
+  // Curated lists, zones, weather (migration-mobile/001)
+  // ────────────────────────────────────────────────
+
+  @override
+  Future<List<CuratedList>> getCuratedLists({String? islandId}) async {
+    final base = dotenv.env['ENDPOINT_V2']! + 'curated-lists';
+    final url = islandId != null && islandId.isNotEmpty
+        ? '$base?islandId=$islandId'
+        : base;
+    print('[getCuratedLists] GET $url');
+    final response = await _client.get(Uri.parse(url));
+    print('[getCuratedLists] status=${response.statusCode} body=${response.body.substring(0, response.body.length > 200 ? 200 : response.body.length)}');
+    if (response.statusCode != 200) {
+      throw Exception('Error getCuratedLists: ${response.statusCode}');
+    }
+    final List<dynamic> data = json.decode(response.body);
+    print('[getCuratedLists] count=${data.length}');
+    return data
+        .whereType<Map<String, dynamic>>()
+        .map(CuratedList.fromJson)
+        .toList();
+  }
+
+  @override
+  Future<CuratedListDetail> getCuratedListById(String id) async {
+    final url = dotenv.env['ENDPOINT_V2']! + 'curated-lists/' + id;
+    final response = await _client.get(Uri.parse(url));
+    if (response.statusCode != 200) {
+      throw Exception('Error getCuratedListById: ${response.statusCode}');
+    }
+    return CuratedListDetail.fromJson(json.decode(response.body));
+  }
+
+  @override
+  Future<List<Zone>> getZonesByIsland(String islandId) async {
+    final url = dotenv.env['ENDPOINT_V2']! + 'zones/island/' + islandId;
+    print('[getZonesByIsland] GET $url');
+    final response = await _client.get(Uri.parse(url));
+    print('[getZonesByIsland] status=${response.statusCode}');
+    if (response.statusCode != 200) {
+      print('[getZonesByIsland] body=${response.body}');
+      throw Exception('Error getZonesByIsland: ${response.statusCode}');
+    }
+    final List<dynamic> data = json.decode(response.body);
+    print('[getZonesByIsland] count=${data.length}');
+    return data
+        .whereType<Map<String, dynamic>>()
+        .map(Zone.fromJson)
+        .toList();
+  }
+
+  @override
+  Future<WeatherData> getWeatherForIsland(String islandId) =>
+      _fetchWeather('weather/island/' + islandId);
+
+  @override
+  Future<WeatherData> getWeatherForMunicipality(String municipalityId) =>
+      _fetchWeather('weather/municipality/' + municipalityId);
+
+  @override
+  Future<WeatherData> getWeatherForZone(String zoneId) =>
+      _fetchWeather('weather/zone/' + zoneId);
+
+  @override
+  Future<List<Island>> getIslands() async {
+    final url = dotenv.env['ENDPOINT_V2']! + 'islands';
+    print('[getIslands] GET $url');
+    final response = await _client.get(Uri.parse(url));
+    print('[getIslands] status=${response.statusCode}');
+    if (response.statusCode != 200) {
+      print('[getIslands] body=${response.body}');
+      throw Exception('Error getIslands: ${response.statusCode}');
+    }
+    final List<dynamic> data = json.decode(response.body);
+    print('[getIslands] count=${data.length}');
+    return data
+        .whereType<Map<String, dynamic>>()
+        .map(Island.fromJson)
+        .toList();
+  }
+
+  @override
+  Future<List<SimpleMunicipality>> getOfficialMunicipalitiesByIsland(
+    String islandId,
+  ) async {
+    final url = dotenv.env['ENDPOINT_V2']! +
+        'municipios/islands/' +
+        islandId +
+        '?onlyOfficial=true';
+    print('[getOfficialMunicipalities] GET $url');
+    final response = await _client.get(Uri.parse(url));
+    print('[getOfficialMunicipalities] status=${response.statusCode}');
+    if (response.statusCode != 200) {
+      print('[getOfficialMunicipalities] body=${response.body}');
+      throw Exception(
+          'Error getOfficialMunicipalitiesByIsland: ${response.statusCode}');
+    }
+    final List<dynamic> data = json.decode(response.body);
+    print('[getOfficialMunicipalities] count=${data.length}');
+    return data
+        .whereType<Map<String, dynamic>>()
+        .map(SimpleMunicipality.fromJson)
+        .toList();
+  }
+
+  @override
+  Future<List<SimpleMunicipality>> getMunicipalitiesByZone(
+    String zoneId,
+  ) async {
+    final url = dotenv.env['ENDPOINT_V2']! + 'municipios/zone/' + zoneId;
+    print('[getMunicipalitiesByZone] GET $url');
+    final response = await _client.get(Uri.parse(url));
+    print('[getMunicipalitiesByZone] status=${response.statusCode}');
+    if (response.statusCode != 200) {
+      throw Exception(
+          'Error getMunicipalitiesByZone: ${response.statusCode}');
+    }
+    final List<dynamic> data = json.decode(response.body);
+    print('[getMunicipalitiesByZone] count=${data.length}');
+    return data
+        .whereType<Map<String, dynamic>>()
+        .map(SimpleMunicipality.fromJson)
+        .toList();
+  }
+
+  Future<WeatherData> _fetchWeather(String path) async {
+    final url = dotenv.env['ENDPOINT_V2']! + path;
+    print('[weather] GET $url');
+    final response = await _client.get(Uri.parse(url));
+    print('[weather] status=${response.statusCode} body=${response.body}');
+    if (response.statusCode != 200) {
+      return const WeatherData.unknown();
+    }
+    final data = json.decode(response.body) as Map<String, dynamic>;
+    final tempRaw = data['tempC'];
+    return WeatherData(
+      tempC: tempRaw == null ? null : (tempRaw as num).toDouble(),
+      condition: (data['condition'] ?? 'unknown') as String,
+      emoji: (data['emoji'] ?? '—') as String,
+    );
+  }
 }

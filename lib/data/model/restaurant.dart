@@ -1,37 +1,61 @@
 
 import 'package:guachinches/data/model/Menu.dart';
 import 'package:guachinches/data/model/fotos.dart';
+import 'package:guachinches/data/model/short_quote.dart';
 import 'CategoryRestaurant.dart';
 import 'Review.dart';
 
 class Restaurant {
-  late String id;
-  late String nombre;
-  late bool enable;
-  late String horarios;
-  late String googleUrl;
-  late String direccion;
-  late String telefono;
-  late String destacado;
-  late String avg = "n/d";
-  late double lat = 0.0;
-  late double lon = 0.0;
-  late String createdAt;
-  late String updatedAt;
-  late List<Fotos> fotos = [];
-  late String negocioMunicipioId;
-  late String municipio = '';
-  late List<Menu> menus = [];
-  late List<CategoryRestaurant> categoriaRestaurantes = [];
-  late List<Review> valoraciones = [];
-  late bool open;
-  late String googleHorarios;
-  late double avgRating = 0;
+  String id = '';
+  String nombre = '';
+  bool enable = true;
+  String horarios = '';
+  String googleUrl = '';
+  String direccion = '';
+  String telefono = '';
+  String destacado = '';
+  String avg = "n/d";
+  double lat = 0.0;
+  double lon = 0.0;
+  String createdAt = '';
+  String updatedAt = '';
+  List<Fotos> fotos = [];
+  String negocioMunicipioId = '';
+  String municipio = '';
+  List<Menu> menus = [];
+  List<CategoryRestaurant> categoriaRestaurantes = [];
+  List<Review> valoraciones = [];
+  bool open = false;
+  String googleHorarios = '';
+  double avgRating = 0;
   Map<String, dynamic>? horariosJson;
   String? googleHorariosSyncedAt;
-  late String mainFoto;
-  late String area;
-  late String type;
+  String mainFoto = '';
+  String area = '';
+  String type = 'vacio';
+
+  // Campos opcionales nuevos (backend puede o no devolverlos).
+  int? rankNumber;
+  String? season;
+  String? reservationInfo;
+  String? parking;
+  int? minPrice;
+  int? maxPrice;
+  String? website;
+  String? island;
+
+  // YouTube Short
+  String? shortVideoId;
+  String? shortThumbnailUrl;
+  String? shortDuration;
+  int? shortLikes;
+  int? shortComments;
+  String? shortDescription;
+  List<ShortQuote> shortQuotes = const [];
+
+  // Editorial
+  String? editorialQuote;
+  String? editorialBody;
 
   Restaurant(
       {String? id,
@@ -58,30 +82,30 @@ class Restaurant {
         double? lat,
         double? lon,
         String? type}) {
-    this.id = id!;
-    this.enable = enable!;
-    this.horarios = horarios!;
-    this.googleUrl = googleUrl!;
-    this.nombre = nombre!;
-    this.direccion = direccion!;
-    this.telefono = telefono!;
-    this.destacado = destacado!;
-    this.fotos = fotos!;
-    this.createdAt = createdAt!;
-    this.updatedAt = updatedAt!;
-    this.negocioMunicipioId = negocioMunicipioId!;
-    this.municipio = municipio!;
-    this.menus = menus!;
-    this.categoriaRestaurantes = categoriaRestaurantes!;
-    this.valoraciones = valoraciones!;
-    this.open = open!;
-    this.googleHorarios = googleHorarios!;
-    this.avgRating = avgRating!;
-    this.mainFoto = mainFoto!;
-    this.area = area!;
-    this.lat = lat!;
-    this.lon = lon!;
-    this.type = type!;
+    this.id = id ?? '';
+    this.enable = enable ?? true;
+    this.horarios = horarios ?? '';
+    this.googleUrl = googleUrl ?? '';
+    this.nombre = nombre ?? '';
+    this.direccion = direccion ?? '';
+    this.telefono = telefono ?? '';
+    this.destacado = destacado ?? '';
+    this.fotos = fotos ?? [];
+    this.createdAt = createdAt ?? '';
+    this.updatedAt = updatedAt ?? '';
+    this.negocioMunicipioId = negocioMunicipioId ?? '';
+    this.municipio = municipio ?? '';
+    this.menus = menus ?? [];
+    this.categoriaRestaurantes = categoriaRestaurantes ?? [];
+    this.valoraciones = valoraciones ?? [];
+    this.open = open ?? false;
+    this.googleHorarios = googleHorarios ?? '';
+    this.avgRating = avgRating ?? 0;
+    this.mainFoto = mainFoto ?? '';
+    this.area = area ?? '';
+    this.lat = lat ?? 0.0;
+    this.lon = lon ?? 0.0;
+    this.type = type ?? 'vacio';
   }
 
   Restaurant.fromJson(dynamic json) {
@@ -195,6 +219,46 @@ class Restaurant {
     if (json["google_horarios_synced_at"] != null) {
       googleHorariosSyncedAt = json["google_horarios_synced_at"].toString();
     }
+
+    // Campos opcionales nuevos
+    rankNumber = _asInt(json["rankNumber"] ?? json["rank_number"]);
+    season = json["season"]?.toString();
+    reservationInfo = json["reservationInfo"]?.toString() ?? json["reservation_info"]?.toString();
+    parking = json["parking"]?.toString();
+    minPrice = _asInt(json["minPrice"] ?? json["min_price"]);
+    maxPrice = _asInt(json["maxPrice"] ?? json["max_price"]);
+    website = json["website"]?.toString();
+    island = json["island"]?.toString();
+
+    final short = json["short"];
+    if (short is Map) {
+      shortVideoId = short["videoId"]?.toString() ?? short["video_id"]?.toString();
+      shortThumbnailUrl = short["thumbnailUrl"]?.toString() ?? short["thumbnail_url"]?.toString();
+      shortDuration = short["duration"]?.toString();
+      shortLikes = _asInt(short["likes"]);
+      shortComments = _asInt(short["comments"]);
+      shortDescription = short["description"]?.toString();
+      final quotes = short["quotes"];
+      if (quotes is List) {
+        shortQuotes = quotes
+            .whereType<Map>()
+            .map((q) => ShortQuote.fromJson(Map<String, dynamic>.from(q)))
+            .toList();
+      }
+    }
+
+    final editorial = json["editorial"];
+    if (editorial is Map) {
+      editorialQuote = editorial["quote"]?.toString();
+      editorialBody = editorial["body"]?.toString();
+    }
+  }
+
+  static int? _asInt(dynamic v) {
+    if (v == null) return null;
+    if (v is int) return v;
+    if (v is num) return v.toInt();
+    return int.tryParse(v.toString());
   }
 
   static generateOpen(googleHorario){

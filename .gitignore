@@ -42,3 +42,6 @@ app.*.map.json
 
 # Secrets - never commit
 lib/config/secrets.dart
+
+# Symlink al repo de coordination (no se sube)
+.claude/coordination

@@ -6,6 +6,7 @@ import 'package:guachinches/data/local/restaurant_sql_lite.dart';
 import 'package:guachinches/data/local/sql_lite_local_repository.dart';
 import 'package:guachinches/data/model/Review.dart';
 import 'package:guachinches/data/model/Video.dart';
+import 'package:guachinches/data/model/Visit.dart';
 import 'package:guachinches/data/model/block_user.dart';
 import 'package:guachinches/data/model/report_review.dart';
 import 'package:guachinches/data/model/restaurant.dart';
@@ -39,6 +40,7 @@ class DetailPresenter {
 
     _view.setRestaurantVideos(videos);
   }
+
   getRestaurantById(String id) async {
     Restaurant restaurant = await _remoteRepository.getRestaurantById(id);
     FirebaseAnalytics.instance.logEvent(
@@ -47,7 +49,6 @@ class DetailPresenter {
           'id': '${restaurant.id}',
           'name': '${restaurant.nombre}'
         });
-    // await getIsFav(id);
     try {
       String userId = await isUserLogged();
 
@@ -82,16 +83,25 @@ class DetailPresenter {
       print('error: ' + e.toString());
     }
     _view.setRestaurant(restaurant);
+
+    // Fetch visit data for editorial sections (non-blocking)
+    try {
+      final visits = await _remoteRepository.getVisitsByRestaurant(restaurant.id);
+      _view.setVisit(visits.isNotEmpty ? visits.first : null);
+    } catch (e) {
+      print('visit fetch error: $e');
+      _view.setVisit(null);
+    }
   }
 
   blockUser(String userId, String userIdToBlock) async {
     await _remoteRepository.blockUser(userId, userIdToBlock);
     _view.refreshScreen();
   }
-  reportReview(String userId, String reviewId) async{
+
+  reportReview(String userId, String reviewId) async {
     await _remoteRepository.reportReview(userId, reviewId);
     _view.refreshScreen();
-
   }
 
   Future<void> uploadVideo(MediaInfo video, String title, String restaurantId) async {
@@ -150,6 +160,8 @@ abstract class DetailView {
   setRestaurant(Restaurant restaurant);
 
   setRestaurantVideos(List<Video> videos);
+
+  setVisit(Visit? visit);
 
   updateVideos();
 }
