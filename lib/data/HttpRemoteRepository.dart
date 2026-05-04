@@ -777,15 +777,18 @@ class HttpRemoteRepository implements RemoteRepository {
     }
   }
 
-// Obtener todas las visitas
+// Obtener todas las visitas (vídeos publicados)
   Future<List<Visit>> getAllVisits() async {
-    final url = '${dotenv.env['ENDPOINT_V2']!}visits';
+    final url =
+        '${dotenv.env['ENDPOINT_V2']!}video-ingestion/restaurant-videos/published';
     final uri = Uri.parse(url);
 
     final response = await _client.get(uri);
 
     if (response.statusCode == 200) {
-      final List<dynamic> data = json.decode(response.body);
+      final decoded = json.decode(response.body);
+      final List<dynamic> data =
+          decoded is List ? decoded : (decoded['data'] as List? ?? const []);
       return data.map((e) => Visit.fromJson(e)).toList();
     } else {
       throw Exception('Error al obtener visitas: ${response.statusCode}');
@@ -794,7 +797,8 @@ class HttpRemoteRepository implements RemoteRepository {
 
 // Obtener una visita por ID
   Future<Visit> getVisitById(String id) async {
-    final url = '${dotenv.env['ENDPOINT_V2']!}visits/$id';
+    final url =
+        '${dotenv.env['ENDPOINT_V2']!}video-ingestion/restaurant-videos/$id';
     final uri = Uri.parse(url);
 
     final response = await _client.get(uri);

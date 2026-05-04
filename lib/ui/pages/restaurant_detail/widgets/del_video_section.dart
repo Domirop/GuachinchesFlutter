@@ -88,11 +88,16 @@ class _QuoteCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            '"${quote.text}"',
-            style: AppTextStyles.editorial(
-              size: 13,
-              color: context.brand.textSecondary,
+          Container(
+            color: Colors.yellow,
+            padding: const EdgeInsets.all(4),
+            child: Text(
+              '"${quote.text}" [DBG]',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: Colors.red,
+              ),
             ),
           ),
           if (quote.timestamp != null) ...[

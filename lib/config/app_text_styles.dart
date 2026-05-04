@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'app_colors.dart';
 
@@ -5,6 +7,12 @@ import 'app_colors.dart';
 /// Las TTF se declaran en pubspec.yaml bajo assets/fonts/.
 class AppTextStyles {
   AppTextStyles._();
+
+  /// Tamaño mínimo permitido (Apple Human Interface Guidelines).
+  /// Cualquier helper aplica este suelo automáticamente.
+  static const double minSize = 11.0;
+
+  static double _clamp(double s) => math.max(minSize, s);
 
   static const _display = 'Oswald';
   static const _editorial = 'Merriweather';
@@ -46,7 +54,7 @@ class AppTextStyles {
         fontFamily: _display,
         fontWeight: weight,
         fontVariations: _wght(weight.value.toDouble()),
-        fontSize: size,
+        fontSize: _clamp(size),
         height: 1.0,
         letterSpacing: -0.48,
         color: color ?? defaultTextColor,
@@ -56,16 +64,16 @@ class AppTextStyles {
         fontFamily: _display,
         fontWeight: FontWeight.w700,
         fontVariations: _wght(700),
-        fontSize: size,
+        fontSize: _clamp(size),
         letterSpacing: 1.4,
         color: color ?? defaultTextColor,
       );
 
-  static TextStyle eyebrow({double size = 9, Color? color}) => TextStyle(
+  static TextStyle eyebrow({double size = 11, Color? color}) => TextStyle(
         fontFamily: _display,
         fontWeight: FontWeight.w600,
         fontVariations: _wght(600),
-        fontSize: size,
+        fontSize: _clamp(size),
         letterSpacing: 1.6,
         color: color ?? _eyebrowColor,
       );
@@ -74,7 +82,7 @@ class AppTextStyles {
         fontFamily: _display,
         fontWeight: FontWeight.w700,
         fontVariations: _wght(700),
-        fontSize: size,
+        fontSize: _clamp(size),
         letterSpacing: 0.8,
         color: color ?? defaultTextColor,
       );
@@ -84,7 +92,7 @@ class AppTextStyles {
         fontFamily: _editorial,
         fontStyle: FontStyle.italic,
         fontWeight: FontWeight.w300,
-        fontSize: size,
+        fontSize: _clamp(size),
         height: 1.35,
         color: color ?? _editorialColor,
       );
@@ -99,15 +107,15 @@ class AppTextStyles {
       TextStyle(
         fontFamily: _ui,
         fontWeight: weight,
-        fontSize: size,
+        fontSize: _clamp(size),
         letterSpacing: letterSpacing,
         color: color ?? defaultTextColor,
       );
 
-  static TextStyle muted({double size = 9, Color? color}) => TextStyle(
+  static TextStyle muted({double size = 11, Color? color}) => TextStyle(
         fontFamily: _ui,
         fontWeight: FontWeight.w400,
-        fontSize: size,
+        fontSize: _clamp(size),
         color: color ?? _mutedColor,
       );
 }

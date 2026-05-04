@@ -8,7 +8,7 @@ import 'starfield_painter.dart';
 import 'sun_moon_arc.dart';
 
 /// Altura total del bloque hero (foto + contenido editorial).
-const double kHeroHeight = 440.0;
+const double kHeroHeight = 340.0;
 
 /// Bloque hero con:
 /// - Foto de zona con parallax

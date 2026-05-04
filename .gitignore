@@ -42,6 +42,7 @@ app.*.map.json
 
 # Secrets - never commit
 lib/config/secrets.dart
+ios/Runner/GoogleService-Info.plist
 
 # Symlink al repo de coordination (no se sube)
 .claude/coordination

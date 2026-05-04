@@ -27,8 +27,10 @@ class _CardVisitState extends State<CardVisit> {
     final photoUrl = v.thumbnail?.isNotEmpty == true
         ? v.thumbnail
         : v.restaurant?.mainFoto;
-    final name = v.restaurant?.nombre ?? '';
-    final hasYoutube = v.videoUrl != null && v.videoUrl!.isNotEmpty;
+    final name = (v.name?.isNotEmpty == true ? v.name! : v.restaurant?.nombre) ?? '';
+    final hasYoutube = (v.videoUrl != null && v.videoUrl!.isNotEmpty) ||
+        (v.youtubeVideoId != null && v.youtubeVideoId!.isNotEmpty);
+    final caption = _captionFor(v);
 
     return GestureDetector(
       onTapDown: (_) => setState(() => _pressed = true),
@@ -111,11 +113,11 @@ class _CardVisitState extends State<CardVisit> {
                 ),
               ),
               // ── Panel cita editorial ─────────────────
-              if (v.extraText != null && v.extraText!.isNotEmpty)
+              if (caption != null && caption.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
                   child: Text(
-                    '"${v.extraText!}"',
+                    '"$caption"',
                     style: AppTextStyles.editorial(
                       size: 11,
                       color: context.brand.textSecondary,
@@ -129,6 +131,14 @@ class _CardVisitState extends State<CardVisit> {
         ),
       ),
     );
+  }
+
+  String? _captionFor(Visit v) {
+    if (v.extraText?.isNotEmpty == true) return v.extraText;
+    if (v.quotes.isNotEmpty) return v.quotes.first.text;
+    if (v.summary?.isNotEmpty == true) return v.summary;
+    if (v.highlights.isNotEmpty) return v.highlights.first;
+    return null;
   }
 
   Widget _buildPhoto(BuildContext context, String? url) {
