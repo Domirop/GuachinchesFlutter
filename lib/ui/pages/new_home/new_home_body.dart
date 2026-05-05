@@ -7,11 +7,13 @@ import 'package:guachinches/data/cubit/new_home/new_home_filters_state.dart';
 import 'package:guachinches/data/cubit/new_home/visits_cubit.dart';
 import 'package:guachinches/data/model/Category.dart';
 import 'package:guachinches/data/model/SimpleMunicipality.dart';
+import 'package:guachinches/data/model/Types.dart';
 import 'package:guachinches/data/model/restaurant.dart';
 import 'package:guachinches/data/model/weather_data.dart';
 import 'package:guachinches/data/model/zone.dart';
 import 'package:guachinches/ui/pages/new_home/new_home_presenter.dart';
 import 'package:guachinches/ui/pages/new_home/sheets/zone_picker_sheet.dart';
+import 'package:guachinches/ui/pages/new_home/widgets/canarian_specialties_section.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/card_curated_list.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/card_horizontal.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/card_nearby_minimap.dart';
@@ -38,6 +40,7 @@ class NewHomeBody extends StatefulWidget {
   final WeatherData weather;
   final List<Restaurant> pool;
   final List<ModelCategory> categories;
+  final List<Types> types;
   final List<SimpleMunicipality> municipalities;
   final List<NearbyRestaurant> nearbyList;
   final List<Zone> zones;
@@ -46,6 +49,10 @@ class NewHomeBody extends StatefulWidget {
   final ValueChanged<SimpleMunicipality?> onMunicipalitySelected;
   final ValueChanged<String> onRestaurantTap;
   final VoidCallback onSearchTap;
+  final void Function({
+    List<ModelCategory>? categories,
+    List<Types>? types,
+  }) onSearchPreSelected;
 
   const NewHomeBody({
     super.key,
@@ -58,6 +65,7 @@ class NewHomeBody extends StatefulWidget {
     required this.weather,
     required this.pool,
     required this.categories,
+    required this.types,
     required this.municipalities,
     required this.nearbyList,
     required this.zones,
@@ -66,6 +74,7 @@ class NewHomeBody extends StatefulWidget {
     required this.onMunicipalitySelected,
     required this.onRestaurantTap,
     required this.onSearchTap,
+    required this.onSearchPreSelected,
   });
 
   @override
@@ -144,6 +153,15 @@ class _NewHomeBodyState extends State<NewHomeBody> {
                   : todayPool.isEmpty
                       ? const SizedBox.shrink()
                       : _buildHorizontalRow(todayPool),
+            ),
+
+            // ── ESPECIALIDADES CANARIAS ──────────────
+            SliverToBoxAdapter(
+              child: CanarianSpecialtiesSection(
+                categories: widget.categories,
+                types: widget.types,
+                onSearchPreSelected: widget.onSearchPreSelected,
+              ),
             ),
 
             // ── GUÍAS DE JONAY Y JOANA ──────────────

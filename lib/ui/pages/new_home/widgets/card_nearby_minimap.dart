@@ -1,11 +1,11 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:guachinches/config/app_colors.dart';
 import 'package:guachinches/config/brand_colors.dart';
 import 'package:guachinches/config/app_text_styles.dart';
 import 'package:guachinches/utils/distance_utils.dart';
 
-/// Card "Cerca de ti" — Fase 1: fondo estilizado con marcador.
-/// Fase 2: Google Maps Static API como imagen de fondo.
+/// Card "Cerca de ti" — foto del restaurante con pill de distancia.
 class CardNearbyMinimap extends StatefulWidget {
   final NearbyRestaurant nearby;
   final VoidCallback onTap;
@@ -23,6 +23,19 @@ class CardNearbyMinimap extends StatefulWidget {
 class _CardNearbyMinimapState extends State<CardNearbyMinimap> {
   bool _pressed = false;
 
+  Widget _buildPhoto(BuildContext context, String? url) {
+    if (url != null && url.isNotEmpty) {
+      return CachedNetworkImage(
+        imageUrl: url,
+        fit: BoxFit.cover,
+        memCacheWidth: 320,
+        placeholder: (_, __) => Container(color: context.brand.surface),
+        errorWidget: (_, __, ___) => Container(color: context.brand.surface),
+      );
+    }
+    return Container(color: context.brand.surface);
+  }
+
   @override
   Widget build(BuildContext context) {
     final r = widget.nearby.restaurant;
@@ -36,47 +49,56 @@ class _CardNearbyMinimapState extends State<CardNearbyMinimap> {
       child: AnimatedScale(
         scale: _pressed ? 0.97 : 1.0,
         duration: const Duration(milliseconds: 120),
-        child: SizedBox(
+        child: Container(
           width: 160,
           height: 160,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.10),
+                blurRadius: 12,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(16),
             child: Stack(
               fit: StackFit.expand,
               children: [
-                // Fondo mapa estilizado (placeholder Fase 1)
-                Container(
-                  decoration: BoxDecoration(
-                    gradient: RadialGradient(
-                      center: Alignment.center,
-                      radius: 0.8,
-                      colors: [
-                        AppColors.atlantico.withOpacity(0.25),
-                        context.brand.surface,
-                      ],
-                    ),
-                  ),
-                ),
-                // Grid de calles simulado
-                CustomPaint(painter: _MapGridPainter()),
-                // Marcador central
-                const Center(
-                  child: Icon(
-                    Icons.location_on_rounded,
-                    color: AppColors.atlantico,
-                    size: 28,
-                    shadows: [Shadow(blurRadius: 8, color: Colors.black38)],
-                  ),
-                ),
-                // Degradado inferior
+                // Foto del restaurante
+                _buildPhoto(context, r.mainFoto),
+                // Vignette superior (mejora contraste de la pill)
                 Positioned(
-                  bottom: 0, left: 0, right: 0, height: 90,
+                  top: 0, left: 0, right: 0, height: 60,
                   child: DecoratedBox(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
-                        colors: [Colors.transparent, context.brand.surface],
+                        colors: [
+                          Colors.black.withOpacity(0.28),
+                          Colors.transparent,
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                // Degradado inferior — más largo y suave
+                Positioned(
+                  bottom: 0, left: 0, right: 0, height: 110,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        stops: const [0.0, 0.5, 1.0],
+                        colors: [
+                          Colors.transparent,
+                          context.brand.surface.withOpacity(0.90),
+                          context.brand.surface,
+                        ],
                       ),
                     ),
                   ),
@@ -85,24 +107,24 @@ class _CardNearbyMinimapState extends State<CardNearbyMinimap> {
                 Positioned(
                   top: 10, right: 10,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: context.brand.glass,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.white10),
+                      color: Colors.black.withOpacity(0.55),
+                      borderRadius: BorderRadius.circular(999),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         const Icon(Icons.location_on_rounded,
-                            size: 9, color: AppColors.atlanticoClaro),
+                            size: 10, color: AppColors.atlanticoClaro),
                         const SizedBox(width: 3),
                         Text(
                           dist,
                           style: AppTextStyles.ui(
-                            size: 9,
-                            weight: FontWeight.w600,
-                            color: context.brand.textPrimary,
+                            size: 10,
+                            weight: FontWeight.w700,
+                            color: Colors.white,
                           ),
                         ),
                       ],
@@ -120,29 +142,36 @@ class _CardNearbyMinimapState extends State<CardNearbyMinimap> {
                       children: [
                         Text(
                           r.nombre.toUpperCase(),
-                          style: AppTextStyles.displaySection(size: 11),
+                          style: AppTextStyles.displaySection(size: 11)
+                              .copyWith(height: 1.15, letterSpacing: 0.2),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
-                        const SizedBox(height: 3),
+                        const SizedBox(height: 4),
                         Row(
                           children: [
-                            Text(
-                              r.municipio,
-                              style: AppTextStyles.muted(size: 9),
+                            Flexible(
+                              child: Text(
+                                r.municipio,
+                                style: AppTextStyles.muted(size: 9),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
-                            const SizedBox(width: 6),
-                            if (r.avgRating > 0)
-                              Row(children: [
-                                const Icon(Icons.star_rounded,
-                                    size: 9, color: AppColors.sol),
-                                const SizedBox(width: 2),
-                                Text(
-                                  r.avgRating.toStringAsFixed(1),
-                                  style: AppTextStyles.muted(size: 9,
-                                      color: AppColors.sol),
+                            if (r.avgRating > 0) ...[
+                              const SizedBox(width: 6),
+                              const Icon(Icons.star_rounded,
+                                  size: 10, color: AppColors.sol),
+                              const SizedBox(width: 2),
+                              Text(
+                                r.avgRating.toStringAsFixed(1),
+                                style: AppTextStyles.ui(
+                                  size: 9,
+                                  weight: FontWeight.w700,
+                                  color: AppColors.sol,
                                 ),
-                              ]),
+                              ),
+                            ],
                           ],
                         ),
                       ],
@@ -158,21 +187,3 @@ class _CardNearbyMinimapState extends State<CardNearbyMinimap> {
   }
 }
 
-class _MapGridPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = AppColors.crema.withOpacity(0.04)
-      ..strokeWidth = 1;
-    const step = 20.0;
-    for (double x = 0; x < size.width; x += step) {
-      canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
-    }
-    for (double y = 0; y < size.height; y += step) {
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(_) => false;
-}
