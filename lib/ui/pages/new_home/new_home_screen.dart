@@ -248,6 +248,7 @@ class _NewHomeScreenState extends State<NewHomeScreen>
                       weather: weather,
                       pool: _filteredPool,
                       categories: _categories,
+                      types: _types,
                       municipalities: _municipalitiesForPicker,
                       nearbyList: _nearbyList,
                       presenter: _presenter,
@@ -286,6 +287,19 @@ class _NewHomeScreenState extends State<NewHomeScreen>
                             municipalities: _municipalitiesOld,
                             types: _types,
                             islandId: filters.islandId,
+                          ),
+                        );
+                      },
+                      onSearchPreSelected: ({categories, types}) {
+                        GlobalMethods().pushPage(
+                          context,
+                          AdvancedSearch(
+                            categories: _categories,
+                            municipalities: _municipalitiesOld,
+                            types: _types,
+                            islandId: filters.islandId,
+                            preSelectedCategories: categories ?? const [],
+                            preSelectedTypes: types ?? const [],
                           ),
                         );
                       },

@@ -46,27 +46,54 @@ class _CardHorizontalState extends State<CardHorizontal> {
       child: AnimatedScale(
         scale: _pressed ? 0.97 : 1.0,
         duration: const Duration(milliseconds: 130),
-        child: SizedBox(
+        child: Container(
           width: 220,
           height: 200,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.10),
+                blurRadius: 14,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(16),
             child: Stack(
               fit: StackFit.expand,
               children: [
                 // Foto de fondo
                 _buildPhoto(r.mainFoto),
-                // Degradado inferior
+                // Vignette superior (mejora contraste de badges sobre fondos claros)
                 Positioned(
-                  bottom: 0, left: 0, right: 0, height: 120,
+                  top: 0, left: 0, right: 0, height: 70,
                   child: DecoratedBox(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
                         colors: [
+                          Colors.black.withOpacity(0.22),
                           Colors.transparent,
-                          context.brand.surface.withOpacity(0.85),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                // Degradado inferior — más suave y largo
+                Positioned(
+                  bottom: 0, left: 0, right: 0, height: 130,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        stops: const [0.0, 0.45, 1.0],
+                        colors: [
+                          Colors.transparent,
+                          context.brand.surface.withOpacity(0.92),
                           context.brand.surface,
                         ],
                       ),
@@ -76,7 +103,7 @@ class _CardHorizontalState extends State<CardHorizontal> {
                 // Número decorativo
                 if (widget.rankingNumber != null)
                   Positioned(
-                    right: 8, bottom: 36,
+                    right: 8, bottom: 38,
                     child: Text(
                       widget.rankingNumber!,
                       style: AppTextStyles.displayHero(size: 56)
@@ -87,14 +114,14 @@ class _CardHorizontalState extends State<CardHorizontal> {
                 Positioned(
                   top: 10, left: 10,
                   child: Row(children: [
-                    if (widget.showNewBadge) _Badge('NUEVO', AppColors.mojo),
+                    if (widget.showNewBadge) const _Badge('NUEVO', AppColors.mojo),
                     if (widget.showOpenBadge) ...[
                       if (widget.showNewBadge) const SizedBox(width: 4),
-                      _Badge('ABIERTO', AppColors.laurisilva),
+                      const _Badge('ABIERTO', AppColors.laurisilva, withDot: true),
                     ],
                     if (widget.showYoutubeBadge) ...[
                       if (widget.showOpenBadge || widget.showNewBadge) const SizedBox(width: 4),
-                      _Badge('▶ VIDEO', AppColors.mojo),
+                      const _Badge('▶ VIDEO', AppColors.mojo),
                     ],
                   ]),
                 ),
@@ -107,30 +134,54 @@ class _CardHorizontalState extends State<CardHorizontal> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        if (widget.eyebrow != null)
+                        if (widget.eyebrow != null) ...[
                           Text(
                             widget.eyebrow!,
-                            style: AppTextStyles.eyebrow(size: 8),
+                            style: AppTextStyles.eyebrow(size: 8)
+                                .copyWith(letterSpacing: 1.2),
                           ),
-                        const SizedBox(height: 3),
+                          const SizedBox(height: 4),
+                        ],
                         Text(
                           r.nombre.toUpperCase(),
-                          style: AppTextStyles.displaySection(size: 13),
+                          style: AppTextStyles.displaySection(size: 13)
+                              .copyWith(letterSpacing: 0.3, height: 1.15),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
-                        const SizedBox(height: 4),
+                        const SizedBox(height: 6),
                         Row(children: [
-                          const Icon(Icons.star_rounded, color: AppColors.sol, size: 11),
-                          const SizedBox(width: 3),
-                          Text(
-                            r.avgRating > 0 ? r.avgRating.toStringAsFixed(1) : '—',
-                            style: AppTextStyles.ui(size: 11, color: AppColors.sol),
+                          // Pill de rating
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: AppColors.sol.withOpacity(0.14),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.star_rounded,
+                                    color: AppColors.sol, size: 11),
+                                const SizedBox(width: 2),
+                                Text(
+                                  r.avgRating > 0
+                                      ? r.avgRating.toStringAsFixed(1)
+                                      : '—',
+                                  style: AppTextStyles.ui(
+                                    size: 10.5,
+                                    weight: FontWeight.w700,
+                                    color: AppColors.sol,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                           const SizedBox(width: 6),
                           Flexible(
                             child: Text(
-                              '· ${r.municipio}',
+                              r.municipio,
                               style: AppTextStyles.muted(size: 11),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -167,25 +218,48 @@ class _CardHorizontalState extends State<CardHorizontal> {
 class _Badge extends StatelessWidget {
   final String label;
   final Color color;
+  final bool withDot;
 
-  const _Badge(this.label, this.color);
+  const _Badge(this.label, this.color, {this.withDot = false});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: EdgeInsets.fromLTRB(withDot ? 7 : 10, 4, 10, 4),
       decoration: BoxDecoration(
         color: color,
         borderRadius: BorderRadius.circular(999),
+        boxShadow: [
+          BoxShadow(
+            color: color.withOpacity(0.35),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
-      child: Text(
-        label,
-        style: AppTextStyles.ui(
-          size: 9,
-          weight: FontWeight.w700,
-          color: Colors.white,
-          letterSpacing: 0.6,
-        ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (withDot) ...[
+            Container(
+              width: 6, height: 6,
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: 5),
+          ],
+          Text(
+            label,
+            style: AppTextStyles.ui(
+              size: 9,
+              weight: FontWeight.w700,
+              color: Colors.white,
+              letterSpacing: 0.6,
+            ),
+          ),
+        ],
       ),
     );
   }
