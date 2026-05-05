@@ -5,8 +5,8 @@ import 'package:guachinches/data/RemoteRepository.dart';
 import 'package:guachinches/globalMethods.dart';
 import 'package:guachinches/ui/pages/login/login.dart';
 import 'package:guachinches/ui/pages/map/map_search.dart';
-import 'package:guachinches/ui/pages/menu/menu.dart';
-import 'package:guachinches/ui/pages/home/home.dart';
+import 'package:guachinches/ui/pages/new_home/new_home_screen.dart';
+import 'package:guachinches/ui/pages/new_home/new_home_tab_scaffold.dart';
 import 'package:guachinches/ui/pages/register/register_presenter.dart';
 import 'package:guachinches/ui/pages/search_page/search_page.dart';
 import 'package:guachinches/ui/pages/splash_screen/splash_screen.dart';
@@ -62,12 +62,13 @@ class _RegisterState extends State<Register> implements RegisterView{
                 GestureDetector(
                   onTap: () => GlobalMethods().removePagesAndGoToNewScreen(
                       context,
-                      Menu([
-                        Home(),
+                      NewHomeTabScaffold(screens: [
+                        const NewHomeScreen(),
+                        const _RegisterListsTab(),
                         MapSearch(),
                         VideoScreen(index: 0),
-                        Login("Para ver tu perfíl debes iniciar sesión.")
-                      ],selectedItem: 0,)),
+                        Login("Para ver tu perfíl debes iniciar sesión."),
+                      ])),
                   child: Container(
                     alignment: Alignment.centerRight,
                     child: Icon(
@@ -462,5 +463,18 @@ class _RegisterState extends State<Register> implements RegisterView{
     setState(() {
       errorText = error;
     });
+  }
+}
+
+class _RegisterListsTab extends StatelessWidget {
+  const _RegisterListsTab();
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(
+      body: Center(
+        child: Text('LISTAS',
+            style: TextStyle(color: Colors.white, fontSize: 18)),
+      ),
+    );
   }
 }

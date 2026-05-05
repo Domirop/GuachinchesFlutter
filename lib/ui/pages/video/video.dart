@@ -52,7 +52,7 @@ class _VideoScreenState extends State<VideoScreen>
     if (state == AppLifecycleState.inactive || state == AppLifecycleState.paused) {
       _pauseAllVideos();
     } else if (state == AppLifecycleState.resumed) {
-      if (context.read<MenuCubit>().state.selectedIndex == 2) {
+      if (context.read<MenuCubit>().state.selectedIndex == 3) {
         setState(() {
           actualIndex = actualIndex == -1 && videoUrls.isNotEmpty ? 0 : actualIndex;
         });
@@ -248,7 +248,7 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
   Widget build(BuildContext context) {
     return BlocBuilder<MenuCubit, MenuState>(
       builder: (context, menuState) {
-        if (widget.index == widget.currentIndex && menuState.selectedIndex == 2) {
+        if (widget.index == widget.currentIndex && menuState.selectedIndex == 3) {
           if (!_videoPlayerController.value.isPlaying) {
             _videoPlayerController.play();
           }
@@ -265,7 +265,7 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
                 child: GestureDetector(
                   onTap: () {
                     if (widget.index == widget.currentIndex &&
-                        menuState.selectedIndex == 2) {
+                        menuState.selectedIndex == 3) {
                       if (_videoPlayerController.value.isPlaying) {
                         _videoPlayerController.pause();
                       } else {

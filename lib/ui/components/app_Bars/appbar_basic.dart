@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:guachinches/globalMethods.dart';
-import 'package:guachinches/ui/pages/menu/menu.dart';
 import 'package:guachinches/ui/pages/home/home.dart';
 
 

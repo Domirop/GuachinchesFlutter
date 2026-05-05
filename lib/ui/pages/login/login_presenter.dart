@@ -2,12 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
 import 'package:guachinches/data/cubit/user/user_cubit.dart';
-import 'package:guachinches/ui/pages/home/home.dart';
 import 'package:guachinches/ui/pages/map/map_search.dart';
-import 'package:guachinches/ui/pages/profile/profile.dart';
+import 'package:guachinches/ui/pages/new_home/new_home_screen.dart';
 import 'package:guachinches/ui/pages/profile/profile_v2.dart';
-import 'package:guachinches/ui/pages/search_page/search_page.dart';
-import 'package:guachinches/ui/pages/valoraciones/valoraciones.dart';
 import 'package:guachinches/ui/pages/video/video.dart';
 
 class LoginPresenter{
@@ -21,7 +18,13 @@ class LoginPresenter{
   login(String email, String password) async{
     try{
     var userId = await _remoteRepository.loginUser(email,password);
-    List<Widget> screens = [Home(), MapSearch(), VideoScreen(index: 0), Profilev2()];
+    List<Widget> screens = [
+      const NewHomeScreen(),
+      const _LoginListsTab(),
+      MapSearch(),
+      VideoScreen(index: 0),
+      Profilev2(),
+    ];
 
     if (userId != null){
       await storage.write(key: "userId", value: userId["id"]);
@@ -39,4 +42,17 @@ class LoginPresenter{
 abstract class LoginView{
   loginSuccess(List<Widget> screens);
   loginError();
+}
+
+class _LoginListsTab extends StatelessWidget {
+  const _LoginListsTab();
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(
+      body: Center(
+        child: Text('LISTAS',
+            style: TextStyle(color: Colors.white, fontSize: 18)),
+      ),
+    );
+  }
 }

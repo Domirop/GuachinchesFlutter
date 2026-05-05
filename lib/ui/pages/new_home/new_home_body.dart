@@ -18,7 +18,6 @@ import 'package:guachinches/ui/pages/new_home/widgets/card_curated_list.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/card_horizontal.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/card_nearby_minimap.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/card_visit.dart';
-import 'package:guachinches/ui/pages/new_home/widgets/glass_tab_bar.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/hour_aware_banner.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/parallax_hero.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/search_field_dynamic.dart';
@@ -82,8 +81,6 @@ class NewHomeBody extends StatefulWidget {
 }
 
 class _NewHomeBodyState extends State<NewHomeBody> {
-  int _tabIndex = 0;
-
   @override
   Widget build(BuildContext context) {
     final filters = widget.filters;
@@ -268,8 +265,8 @@ class _NewHomeBodyState extends State<NewHomeBody> {
               ),
             ],
 
-            // Padding inferior para la tab bar
-            const SliverToBoxAdapter(child: SizedBox(height: 100)),
+            // Padding inferior pequeño para respirar al final del scroll.
+            const SliverToBoxAdapter(child: SizedBox(height: 24)),
           ],
         ),
 
@@ -284,14 +281,6 @@ class _NewHomeBodyState extends State<NewHomeBody> {
           ),
         ),
 
-        // ── Glass Tab Bar flotante ────────────────────
-        Positioned(
-          bottom: 0, left: 0, right: 0,
-          child: GlassTabBar(
-            currentIndex: _tabIndex,
-            onTap: (i) => setState(() => _tabIndex = i),
-          ),
-        ),
       ],
     );
   }
