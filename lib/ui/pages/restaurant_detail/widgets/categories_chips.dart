@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:guachinches/config/app_colors.dart';
 import 'package:guachinches/config/brand_colors.dart';
 import 'package:guachinches/config/app_text_styles.dart';
 import 'package:guachinches/data/model/restaurant.dart';
@@ -13,30 +12,42 @@ class CategoriesChips extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final labels = restaurant.categoriaRestaurantes
+        .map((c) => c.categorias.nombre)
+        .where((l) => l.isNotEmpty)
+        .toList();
+    if (labels.isEmpty) return const SizedBox.shrink();
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 14),
       child: Wrap(
-        spacing: 6,
-        runSpacing: 6,
-        children: restaurant.categoriaRestaurantes.map((c) {
-          final label = c.categorias.nombre;
-          if (label.isEmpty) return const SizedBox.shrink();
-          return Container(
-            padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 10),
-            decoration: BoxDecoration(
-              color: context.brand.surface,
-              border: Border.all(color: Colors.white.withOpacity(0.06)),
-              borderRadius: BorderRadius.circular(9),
-            ),
-            child: Text(
-              label.toUpperCase(),
-              style: AppTextStyles.chipLabel(
-                size: 9,
-                color: AppColors.crema.withOpacity(0.75),
-              ).copyWith(letterSpacing: 0.8),
-            ),
-          );
-        }).toList(),
+        spacing: 8,
+        runSpacing: 8,
+        children: labels.map((l) => _CategoryChip(label: l)).toList(),
+      ),
+    );
+  }
+}
+
+class _CategoryChip extends StatelessWidget {
+  final String label;
+  const _CategoryChip({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        color: context.brand.elevated,
+        border: Border.all(color: context.brand.borderStrong),
+        borderRadius: BorderRadius.circular(100),
+      ),
+      child: Text(
+        label.toUpperCase(),
+        style: AppTextStyles.chipLabel(
+          size: 10,
+          color: context.brand.textPrimary,
+        ),
       ),
     );
   }

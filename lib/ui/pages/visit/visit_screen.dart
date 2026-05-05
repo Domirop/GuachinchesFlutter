@@ -18,6 +18,7 @@ import 'package:guachinches/ui/pages/restaurant_detail/widgets/services_chips_se
 import 'package:guachinches/ui/pages/restaurant_detail/widgets/ticket_card_widget.dart';
 import 'package:guachinches/ui/pages/restaurant_detail/widgets/visit_header_section.dart';
 import 'package:guachinches/ui/pages/restaurant_detail/widgets/visit_pills_row.dart';
+import 'package:guachinches/ui/components/bottom_cta_bar.dart';
 import 'package:guachinches/ui/pages/visit/visit_presenter.dart';
 import 'package:http/http.dart';
 import 'package:maps_launcher/maps_launcher.dart';
@@ -227,9 +228,9 @@ class _VisitDetailPageState extends State<VisitDetailPage>
           _buildFloatingButtons(context),
         ],
       ),
-      bottomNavigationBar: _BottomBar(
-        onDirections: _openMaps,
-        onShare: _share,
+      bottomNavigationBar: BottomCtaBar(
+        onPrimary: _openMaps,
+        onSecondary: _share,
       ),
     );
   }
@@ -493,68 +494,6 @@ class _FloatingButton extends StatelessWidget {
             child: Icon(icon, size: 16, color: Colors.white),
           ),
         ),
-      ),
-    );
-  }
-}
-
-// ── Bottom bar ────────────────────────────────────────────────────────────────
-
-class _BottomBar extends StatelessWidget {
-  final VoidCallback onDirections;
-  final VoidCallback onShare;
-
-  const _BottomBar({required this.onDirections, required this.onShare});
-
-  @override
-  Widget build(BuildContext context) {
-    final bottom = MediaQuery.of(context).padding.bottom;
-    return Container(
-      color: context.brand.base,
-      padding: EdgeInsets.fromLTRB(16, 10, 16, bottom + 10),
-      child: Row(
-        children: [
-          Expanded(
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.atlantico,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                elevation: 0,
-              ),
-              onPressed: onDirections,
-              child: Text('CÓMO LLEGAR ›',
-                  style: AppTextStyles.displaySection(size: 11)
-                      .copyWith(color: Colors.white, letterSpacing: 1.0)),
-            ),
-          ),
-          const SizedBox(width: 8),
-          _IconBtn(icon: Icons.ios_share, onTap: onShare),
-        ],
-      ),
-    );
-  }
-}
-
-class _IconBtn extends StatelessWidget {
-  final IconData icon;
-  final VoidCallback onTap;
-
-  const _IconBtn({required this.icon, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 46, height: 46,
-        decoration: BoxDecoration(
-          color: context.brand.surface,
-          border: Border.all(color: context.brand.borderStrong),
-          borderRadius: BorderRadius.circular(14),
-        ),
-        alignment: Alignment.center,
-        child: Icon(icon, size: 18, color: context.brand.textPrimary),
       ),
     );
   }
