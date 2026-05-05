@@ -41,7 +41,7 @@ app.*.symbols
 app.*.map.json
 
 # Secrets - never commit
-lib/config/secrets.dart
+# Run scripts/setup-workspace.sh after creating a new worktree to install these from ~/conductor/secrets/GuachinchesFlutter/
 ios/Runner/GoogleService-Info.plist
 
 # Symlink al repo de coordination (no se sube)

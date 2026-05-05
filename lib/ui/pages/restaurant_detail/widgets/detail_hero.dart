@@ -164,19 +164,25 @@ class _DetailHeroState extends State<DetailHero> {
                     _eyebrowText(),
                     style: AppTextStyles.eyebrow(
                       size: 8,
-                      color: context.brand.textSecondary,
-                    ).copyWith(letterSpacing: 1.8),
+                      color: AppColors.crema.withOpacity(0.75),
+                    ).copyWith(
+                      letterSpacing: 1.8,
+                      shadows: const [
+                        Shadow(blurRadius: 6, color: Colors.black54),
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     widget.restaurant.nombre.toUpperCase(),
                     style: AppTextStyles.displayHero(
                       size: 26,
-                      color: context.brand.textPrimary,
+                      color: AppColors.crema,
                     ).copyWith(
                       letterSpacing: -0.3,
                       shadows: const [
-                        Shadow(blurRadius: 12, color: Colors.black54),
+                        Shadow(blurRadius: 16, color: Colors.black87),
+                        Shadow(blurRadius: 4, color: Colors.black54),
                       ],
                     ),
                   ),
@@ -221,23 +227,37 @@ class _DetailHeroState extends State<DetailHero> {
 
   List<Widget> _badges() {
     final r = widget.restaurant;
-    final badges = <Widget>[
-      _HeroBadge(
-        text: r.open ? '● Abierto' : '● Cerrado',
-        variant: r.open ? _BadgeVariant.open : _BadgeVariant.closed,
-      ),
-    ];
+    final badges = <Widget>[_OpenBadge(isOpen: r.open)];
     if (r.avgRating > 0) {
       badges.add(_HeroBadge(
-        text: '★ ${r.avgRating.toStringAsFixed(1)}',
-        variant: _BadgeVariant.rating,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.star, size: 12, color: AppColors.sol),
+            const SizedBox(width: 4),
+            Text(
+              r.avgRating.toStringAsFixed(1),
+              style: AppTextStyles.chipLabel(size: 11, color: AppColors.sol),
+            ),
+          ],
+        ),
       ));
     }
     if (r.municipio.isNotEmpty) {
-      badges.add(_HeroBadge(text: '📍 ${r.municipio}'));
+      badges.add(_HeroBadge(
+        child: Text(
+          r.municipio.toUpperCase(),
+          style: AppTextStyles.chipLabel(size: 11, color: AppColors.crema),
+        ),
+      ));
     }
     if (r.minPrice != null && r.maxPrice != null) {
-      badges.add(_HeroBadge(text: '${r.minPrice}–${r.maxPrice}€'));
+      badges.add(_HeroBadge(
+        child: Text(
+          '${r.minPrice}–${r.maxPrice}€',
+          style: AppTextStyles.chipLabel(size: 11, color: AppColors.crema),
+        ),
+      ));
     }
     return badges;
   }
@@ -307,54 +327,64 @@ class _PhotoCounterBadge extends StatelessWidget {
   }
 }
 
-enum _BadgeVariant { neutral, open, closed, rating }
-
 class _HeroBadge extends StatelessWidget {
-  final String text;
-  final _BadgeVariant variant;
+  final Widget child;
+  final Color? borderColor;
+  final Color? backgroundColor;
 
-  const _HeroBadge({required this.text, this.variant = _BadgeVariant.neutral});
+  const _HeroBadge({
+    required this.child,
+    this.borderColor,
+    this.backgroundColor,
+  });
 
   @override
   Widget build(BuildContext context) {
-    Color borderColor = Colors.white.withOpacity(0.10);
-    Color textColor = AppColors.crema;
-    switch (variant) {
-      case _BadgeVariant.open:
-        borderColor = AppColors.laurisilva.withOpacity(0.35);
-        textColor = AppColors.laurisilva;
-        break;
-      case _BadgeVariant.closed:
-        borderColor = AppColors.mojo.withOpacity(0.35);
-        textColor = AppColors.mojo;
-        break;
-      case _BadgeVariant.rating:
-        borderColor = AppColors.sol.withOpacity(0.30);
-        textColor = AppColors.sol;
-        break;
-      case _BadgeVariant.neutral:
-        break;
-    }
     return ClipRRect(
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(100),
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
           decoration: BoxDecoration(
-            color: AppColors.glassDark,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: borderColor),
-          ),
-          child: Text(
-            text,
-            style: AppTextStyles.ui(
-              size: 9,
-              weight: FontWeight.w600,
-              color: textColor,
+            color: backgroundColor ?? AppColors.glassDark,
+            borderRadius: BorderRadius.circular(100),
+            border: Border.all(
+              color: borderColor ?? Colors.white.withOpacity(0.18),
             ),
           ),
+          child: child,
         ),
+      ),
+    );
+  }
+}
+
+class _OpenBadge extends StatelessWidget {
+  final bool isOpen;
+  const _OpenBadge({required this.isOpen});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = isOpen ? AppColors.laurisilva : AppColors.mojo;
+    final label = isOpen ? 'ABIERTO' : 'CERRADO';
+    return _HeroBadge(
+      backgroundColor: color.withOpacity(0.18),
+      borderColor: color.withOpacity(0.45),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 6,
+            height: 6,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: AppTextStyles.chipLabel(size: 11, color: color),
+          ),
+        ],
       ),
     );
   }
