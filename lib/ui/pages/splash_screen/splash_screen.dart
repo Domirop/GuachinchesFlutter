@@ -5,7 +5,7 @@ import 'package:guachinches/data/HttpRemoteRepository.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
 import 'package:guachinches/data/cubit/user/user_cubit.dart';
 import 'package:guachinches/globalMethods.dart';
-import 'package:guachinches/ui/pages/menu/menu.dart';
+import 'package:guachinches/ui/pages/new_home/new_home_tab_scaffold.dart';
 import 'package:guachinches/ui/pages/onBoarding/on_boarding.dart';
 import 'package:guachinches/ui/pages/splash_screen/splash_screen_presenter.dart';
 import 'package:guachinches/ui/pages/surveyDetails/surveyDetails.dart';
@@ -56,7 +56,10 @@ class _SplashScreenState extends State<SplashScreen>
 
   @override
   goToMenu(List<Widget> screens) {
-    GlobalMethods().pushAndReplacement(context, Menu(screens,selectedItem: 0,));
+    GlobalMethods().pushAndReplacement(
+      context,
+      NewHomeTabScaffold(screens: screens),
+    );
   }
 
   @override

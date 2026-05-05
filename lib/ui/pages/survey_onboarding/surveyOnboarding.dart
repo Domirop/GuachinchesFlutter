@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:guachinches/globalMethods.dart';
-import 'package:guachinches/ui/pages/menu/menu.dart';
+import 'package:guachinches/ui/pages/new_home/new_home_tab_scaffold.dart';
 import 'package:guachinches/ui/pages/survey_in_app/survey_in_app_page.dart';
 
 const String kSurveyOnboarding2026Key = 'surveyOnboarding2026Shown';
@@ -48,7 +48,7 @@ class _SurveyOnboardingState extends State<SurveyOnboarding>
   void _done() {
     GlobalMethods().pushAndReplacement(
       context,
-      Menu(widget.screens, selectedItem: 0),
+      NewHomeTabScaffold(screens: widget.screens),
     );
   }
 
