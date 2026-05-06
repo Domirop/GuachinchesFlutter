@@ -7,6 +7,8 @@ import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:guachinches/data/HttpRemoteRepository.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
+import 'package:guachinches/config/app_colors.dart';
+import 'package:guachinches/config/app_text_styles.dart';
 import 'package:guachinches/config/brand_colors.dart';
 import 'package:guachinches/data/cubit/restaurants/map/restaurant_map_cubit.dart';
 import 'package:guachinches/data/cubit/restaurants/map/restaurant_map_state.dart';
@@ -1097,37 +1099,109 @@ class _FloatingMapCard extends StatelessWidget {
       ),
       child: Container(
         decoration: BoxDecoration(
-          color: brand.surface,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: brand.border, width: 0.6),
+          borderRadius: BorderRadius.circular(22),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.25),
-              blurRadius: 18,
-              offset: const Offset(0, 6),
+              color: Colors.black.withOpacity(0.22),
+              blurRadius: 24,
+              offset: const Offset(0, 8),
+            ),
+            BoxShadow(
+              color: Colors.black.withOpacity(0.06),
+              blurRadius: 4,
+              offset: const Offset(0, 1),
             ),
           ],
         ),
-        padding: const EdgeInsets.all(8),
-        child: Row(
-          children: [
-            // Thumbnail
-            ClipRRect(
-              borderRadius: BorderRadius.circular(14),
-              child: Container(
-                width: 92,
-                height: 92,
-                color: brand.elevated,
-                child: r.mainFoto.isNotEmpty
-                    ? Image.network(
-                        r.mainFoto,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Icon(
-                          Icons.image_not_supported,
-                          color: brand.textMuted,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(22),
+          child: BackdropFilter(
+            // Blur fuerte para que el mapa de fondo se vea suavizado.
+            filter: ui.ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+            child: Container(
+              decoration: BoxDecoration(
+                // Doble capa: gradiente translúcido cream → cream-soft con highlight
+                // arriba simulando luz reflejada (efecto frosted real).
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: brand.textPrimary == AppColors.ink
+                      // Light mode (crema)
+                      ? const [
+                          Color(0xCCFFF8E8),
+                          Color(0xB3F2E8D5),
+                        ]
+                      // Dark mode
+                      : const [
+                          Color(0xCC1A2535),
+                          Color(0x99111820),
+                        ],
+                ),
+                borderRadius: BorderRadius.circular(22),
+                border: Border.all(
+                  color: brand.textPrimary == AppColors.ink
+                      ? Colors.white.withOpacity(0.55)
+                      : Colors.white.withOpacity(0.10),
+                  width: 1,
+                ),
+              ),
+              padding: const EdgeInsets.all(10),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  // Thumbnail con rating badge superpuesto
+            SizedBox(
+              width: 92,
+              height: 92,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: Container(
+                      color: brand.elevated,
+                      child: r.mainFoto.isNotEmpty
+                          ? Image.network(
+                              r.mainFoto,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => Icon(
+                                Icons.image_not_supported,
+                                color: brand.textMuted,
+                              ),
+                            )
+                          : Icon(Icons.restaurant, color: brand.textMuted),
+                    ),
+                  ),
+                  if (r.avgRating > 0)
+                    Positioned(
+                      left: 6,
+                      bottom: 6,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.72),
+                          borderRadius: BorderRadius.circular(999),
                         ),
-                      )
-                    : Icon(Icons.restaurant, color: brand.textMuted),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.star_rounded,
+                                color: AppColors.sol, size: 12),
+                            const SizedBox(width: 3),
+                            Text(
+                              r.avgRating.toStringAsFixed(1),
+                              style: AppTextStyles.ui(
+                                size: 11,
+                                weight: FontWeight.w700,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
             const SizedBox(width: 12),
@@ -1137,150 +1211,169 @@ class _FloatingMapCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text(
-                    _fmtDistance(distanceMeters),
-                    style: TextStyle(
-                      color: GlobalMethods.blueColor,
-                      fontFamily: 'SF Pro Display',
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1.1,
+                  // Distance pill
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: AppColors.atlantico.withOpacity(0.10),
+                      borderRadius: BorderRadius.circular(999),
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    r.nombre,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: brand.textPrimary,
-                      fontFamily: 'SF Pro Display',
-                      fontSize: 15,
-                      height: 1.15,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 0.2,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFFCB45).withOpacity(0.15),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.star_rounded,
-                                color: Color(0xFFFFCB45), size: 12),
-                            const SizedBox(width: 2),
-                            Text(
-                              r.avgRating > 0
-                                  ? r.avgRating.toStringAsFixed(1)
-                                  : '—',
-                              style: const TextStyle(
-                                color: Color(0xFFFFCB45),
-                                fontFamily: 'SF Pro Display',
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Container(
-                        width: 6,
-                        height: 6,
-                        decoration: BoxDecoration(
-                          color: r.open
-                              ? const Color.fromRGBO(149, 220, 0, 1)
-                              : const Color.fromRGBO(226, 120, 120, 1),
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        r.open ? 'Abierto' : 'Cerrado',
-                        style: TextStyle(
-                          color: r.open
-                              ? const Color.fromRGBO(149, 220, 0, 1)
-                              : const Color.fromRGBO(226, 120, 120, 1),
-                          fontFamily: 'SF Pro Display',
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      if (r.municipio.isNotEmpty) ...[
-                        const SizedBox(width: 8),
-                        Flexible(
-                          child: Text(
-                            r.municipio,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: brand.textMuted,
-                              fontFamily: 'SF Pro Display',
-                              fontSize: 11,
-                            ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.place_rounded,
+                            color: AppColors.atlantico, size: 12),
+                        const SizedBox(width: 3),
+                        Text(
+                          _fmtDistance(distanceMeters),
+                          style: AppTextStyles.ui(
+                            size: 11,
+                            weight: FontWeight.w700,
+                            color: AppColors.atlantico,
                           ),
                         ),
                       ],
-                    ],
+                    ),
                   ),
+                  const SizedBox(height: 6),
+                  Text(
+                    r.nombre.toUpperCase(),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTextStyles.displayHero(
+                      size: 16,
+                      color: brand.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  _StatusLine(restaurant: r, brand: brand),
                 ],
               ),
             ),
-            const SizedBox(width: 8),
-            // "Cómo llegar" compact button (separate tap target).
+            const SizedBox(width: 10),
+            // Botón IR (abre Google Maps con direcciones)
             GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTap: () => MapsLauncher.launchCoordinates(
                   r.lat, r.lon, r.nombre),
               child: Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 10, vertical: 8),
+                width: 64,
+                height: 76,
                 decoration: BoxDecoration(
-                  color: GlobalMethods.blueColor,
-                  borderRadius: BorderRadius.circular(12),
+                  color: AppColors.atlantico,
+                  borderRadius: BorderRadius.circular(18),
                   boxShadow: [
                     BoxShadow(
-                      color: GlobalMethods.blueColor.withOpacity(0.35),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
+                      color: AppColors.atlantico.withOpacity(0.35),
+                      blurRadius: 10,
+                      offset: const Offset(0, 3),
                     ),
                   ],
                 ),
                 child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: const [
-                    Icon(
-                      Icons.directions_rounded,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(
+                      Icons.near_me_rounded,
                       color: Colors.white,
-                      size: 18,
+                      size: 24,
                     ),
-                    SizedBox(height: 2),
+                    const SizedBox(height: 4),
                     Text(
-                      'Cómo\nllegar',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
+                      'IR',
+                      style: AppTextStyles.chipLabel(
+                        size: 12,
                         color: Colors.white,
-                        fontFamily: 'SF Pro Display',
-                        fontSize: 9,
-                        height: 1.1,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.3,
                       ),
                     ),
                   ],
                 ),
               ),
             ),
-          ],
+                  ],
+                ),
+              ),
+            ),
+          ),
         ),
+      );
+  }
+}
+
+/// Línea de estado: "● Cerrado · Candelaria · 12-22€"
+class _StatusLine extends StatelessWidget {
+  final Restaurant restaurant;
+  final BrandColors brand;
+  const _StatusLine({required this.restaurant, required this.brand});
+
+  @override
+  Widget build(BuildContext context) {
+    final r = restaurant;
+    final statusColor = r.open ? AppColors.laurisilva : AppColors.mojo;
+    final priceLabel = (r.minPrice != null && r.maxPrice != null)
+        ? '${r.minPrice}–${r.maxPrice}€'
+        : null;
+
+    final separator = Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 5),
+      child: Text(
+        '·',
+        style: AppTextStyles.ui(
+          size: 11,
+          weight: FontWeight.w700,
+          color: brand.textMuted,
+        ),
+      ),
+    );
+
+    return DefaultTextStyle.merge(
+      style: AppTextStyles.ui(
+        size: 11,
+        weight: FontWeight.w500,
+        color: brand.textSecondary,
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 6,
+            height: 6,
+            decoration: BoxDecoration(
+              color: statusColor,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 5),
+          Text(
+            r.open ? 'Abierto' : 'Cerrado',
+            style: AppTextStyles.ui(
+              size: 11,
+              weight: FontWeight.w700,
+              color: statusColor,
+            ),
+          ),
+          if (r.municipio.isNotEmpty) ...[
+            separator,
+            Flexible(
+              child: Text(
+                r.municipio,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+          if (priceLabel != null) ...[
+            separator,
+            Text(
+              priceLabel,
+              style: AppTextStyles.ui(
+                size: 11,
+                weight: FontWeight.w700,
+                color: brand.textSecondary,
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }

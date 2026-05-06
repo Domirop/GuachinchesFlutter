@@ -27,6 +27,7 @@ import 'package:guachinches/ui/pages/new_home/widgets/search_field_dynamic.dart'
 import 'package:guachinches/ui/pages/new_home/widgets/section_header.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/skeletons.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/top_filter_bar.dart';
+import 'package:guachinches/ui/pages/listas/listas_screen.dart';
 import 'package:guachinches/ui/pages/visit/visit_screen.dart';
 import 'package:guachinches/utils/distance_utils.dart';
 import 'package:guachinches/utils/open_now_utils.dart';
@@ -183,7 +184,9 @@ class _NewHomeBodyState extends State<NewHomeBody> {
               child: SectionHeader(
                 title: 'GUÍAS DE JONAY Y JOANA',
                 actionLabel: 'VER TODAS',
-                onAction: () {},
+                onAction: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const ListasScreen()),
+                ),
               ),
             ),
             SliverToBoxAdapter(

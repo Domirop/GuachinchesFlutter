@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:guachinches/data/HttpRemoteRepository.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
 import 'package:guachinches/globalMethods.dart';
+import 'package:guachinches/ui/pages/listas/listas_screen.dart';
 import 'package:guachinches/ui/pages/login/login.dart';
 import 'package:guachinches/ui/pages/map/map_search.dart';
 import 'package:guachinches/ui/pages/new_home/new_home_screen.dart';
@@ -64,7 +65,7 @@ class _RegisterState extends State<Register> implements RegisterView{
                       context,
                       NewHomeTabScaffold(screens: [
                         const NewHomeScreen(),
-                        const _RegisterListsTab(),
+                        const ListasScreen(),
                         MapSearch(),
                         VideoScreen(index: 0),
                         Login("Para ver tu perfíl debes iniciar sesión."),
@@ -466,15 +467,3 @@ class _RegisterState extends State<Register> implements RegisterView{
   }
 }
 
-class _RegisterListsTab extends StatelessWidget {
-  const _RegisterListsTab();
-  @override
-  Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(
-        child: Text('LISTAS',
-            style: TextStyle(color: Colors.white, fontSize: 18)),
-      ),
-    );
-  }
-}

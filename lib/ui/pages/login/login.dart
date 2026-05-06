@@ -4,6 +4,7 @@ import 'package:guachinches/data/HttpRemoteRepository.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
 import 'package:guachinches/data/cubit/user/user_cubit.dart';
 import 'package:guachinches/globalMethods.dart';
+import 'package:guachinches/ui/pages/listas/listas_screen.dart';
 import 'package:guachinches/ui/pages/map/map_search.dart';
 import 'package:guachinches/ui/pages/new_home/new_home_screen.dart';
 import 'package:guachinches/ui/pages/new_home/new_home_tab_scaffold.dart';
@@ -66,7 +67,7 @@ class _LoginState extends State<Login> implements LoginView {
                   context,
                   NewHomeTabScaffold(screens: [
                     const NewHomeScreen(),
-                    const _LoginListsTab(),
+                    const ListasScreen(),
                     MapSearch(),
                     VideoScreen(index: 0),
                     Login("Para ver tu perfíl debes iniciar sesión."),
@@ -250,15 +251,3 @@ class _LoginState extends State<Login> implements LoginView {
   }
 }
 
-class _LoginListsTab extends StatelessWidget {
-  const _LoginListsTab();
-  @override
-  Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(
-        child: Text('LISTAS',
-            style: TextStyle(color: Colors.white, fontSize: 18)),
-      ),
-    );
-  }
-}

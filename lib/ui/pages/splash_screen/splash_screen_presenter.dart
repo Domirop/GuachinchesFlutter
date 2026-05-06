@@ -8,6 +8,7 @@ import 'package:guachinches/data/cubit/user/user_state.dart';
 import 'package:guachinches/data/model/version.dart';
 import 'package:guachinches/ui/pages/login/login.dart';
 import 'package:guachinches/ui/pages/map/map_search.dart';
+import 'package:guachinches/ui/pages/listas/listas_screen.dart';
 import 'package:guachinches/ui/pages/new_home/new_home_screen.dart';
 import 'package:guachinches/ui/pages/profile/profile_v2.dart';
 import '../video/video.dart';
@@ -55,7 +56,7 @@ class SplashScreenPresenter {
     } catch (_) {}
     return [
       const NewHomeScreen(),
-      const _ListsPlaceholder(),
+      const ListasScreen(),
       MapSearch(),
       VideoScreen(index: 0),
       profileTab,
@@ -115,17 +116,3 @@ abstract class SplashScreenView {
   goToSurveyOnboarding(List<Widget> screens);
 }
 
-class _ListsPlaceholder extends StatelessWidget {
-  const _ListsPlaceholder();
-  @override
-  Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(
-        child: Text(
-          'LISTAS',
-          style: TextStyle(color: Colors.white, fontSize: 18),
-        ),
-      ),
-    );
-  }
-}
