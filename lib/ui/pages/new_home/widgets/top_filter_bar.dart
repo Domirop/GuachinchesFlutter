@@ -11,6 +11,7 @@ class TopFilterBar extends StatelessWidget {
   final String islandLabel;
   final String? zoneLabel;
   final WeatherData weather;
+  final VoidCallback onIslandTap;
   final VoidCallback onZoneTap;
 
   const TopFilterBar({
@@ -18,6 +19,7 @@ class TopFilterBar extends StatelessWidget {
     required this.islandLabel,
     this.zoneLabel,
     required this.weather,
+    required this.onIslandTap,
     required this.onZoneTap,
   });
 
@@ -42,7 +44,7 @@ class TopFilterBar extends StatelessWidget {
                   _Pill(
                     label: islandLabel.toUpperCase(),
                     icon: '🌋',
-                    onTap: onZoneTap,
+                    onTap: onIslandTap,
                   ),
                   const SizedBox(width: 10),
                   _Divider(),
