@@ -14,6 +14,7 @@ import 'package:guachinches/data/model/zone.dart';
 import 'package:guachinches/ui/pages/new_home/new_home_presenter.dart';
 import 'package:guachinches/ui/pages/new_home/sheets/zone_picker_sheet.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/canarian_specialties_section.dart';
+import 'package:guachinches/ui/pages/curated_list_detail/curated_list_detail_screen.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/card_curated_list.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/card_horizontal.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/card_nearby_minimap.dart';
@@ -183,7 +184,13 @@ class _NewHomeBodyState extends State<NewHomeBody> {
                         separatorBuilder: (_, __) => const SizedBox(width: 12),
                         itemBuilder: (_, i) => CardCuratedList(
                           list: state.lists[i],
-                          onTap: () {},
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => CuratedListDetailScreen(
+                                list: state.lists[i],
+                              ),
+                            ),
+                          ),
                         ),
                       );
                     }
