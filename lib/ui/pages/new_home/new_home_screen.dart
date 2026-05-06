@@ -265,6 +265,24 @@ class _NewHomeScreenState extends State<NewHomeScreen>
                         _presenter.onZoneChanged(key);
                         _loadZoneMuniIds(zone);
                       },
+                      onIslandSelected: (island) {
+                        final key = island.id ==
+                                '6f91d60f-0996-4dde-9088-167aab83a21a'
+                            ? 'GC'
+                            : 'TF';
+                        context.read<NewHomeFiltersCubit>().selectIsland(
+                              id: island.id,
+                              key: key,
+                              label: island.name,
+                            );
+                        setState(() {
+                          _filterMunicipalityId = null;
+                          _filterZoneMuniIds = const {};
+                          _filterZoneKey = null;
+                        });
+                        _presenter.onIslandChanged(island.id);
+                        _loadOldMunicipalities(island.id);
+                      },
                       onMunicipalitySelected: (muni) {
                         if (muni == null) {
                           context.read<NewHomeFiltersCubit>().clearMunicipality();

@@ -23,8 +23,10 @@ class ParallaxHero extends StatelessWidget {
   final String? assetImage; // Asset local fallback
   final String zona;
   final String islandLabel;
+  final bool zoneIsSet;
   final int openCount;
   final VoidCallback onZoneChipTap;
+  final VoidCallback onIslandChipTap;
 
   const ParallaxHero({
     super.key,
@@ -34,8 +36,10 @@ class ParallaxHero extends StatelessWidget {
     this.assetImage,
     required this.zona,
     required this.islandLabel,
+    required this.zoneIsSet,
     required this.openCount,
     required this.onZoneChipTap,
+    required this.onIslandChipTap,
   });
 
   @override
@@ -178,7 +182,10 @@ class ParallaxHero extends StatelessWidget {
               Text('HOY ',
                   style: AppTextStyles.displayHero(size: 32, color: Colors.white)
                       .copyWith(shadows: textShadows)),
-              _ZoneChip(label: zona, onTap: onZoneChipTap),
+              _ZoneChip(
+                label: zona,
+                onTap: zoneIsSet ? onZoneChipTap : onIslandChipTap,
+              ),
               Text(' ?',
                   style: AppTextStyles.displayHero(size: 32, color: Colors.white)
                       .copyWith(shadows: textShadows)),

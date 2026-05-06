@@ -12,6 +12,8 @@ import 'package:guachinches/data/model/restaurant.dart';
 import 'package:guachinches/data/model/weather_data.dart';
 import 'package:guachinches/data/model/zone.dart';
 import 'package:guachinches/ui/pages/new_home/new_home_presenter.dart';
+import 'package:guachinches/data/model/Island.dart';
+import 'package:guachinches/ui/pages/new_home/sheets/island_picker_sheet.dart';
 import 'package:guachinches/ui/pages/new_home/sheets/zone_picker_sheet.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/canarian_specialties_section.dart';
 import 'package:guachinches/ui/pages/curated_list_detail/curated_list_detail_screen.dart';
@@ -46,6 +48,7 @@ class NewHomeBody extends StatefulWidget {
   final List<Zone> zones;
   final NewHomePresenter presenter;
   final ValueChanged<Zone?> onZoneSelected;
+  final ValueChanged<Island> onIslandSelected;
   final ValueChanged<SimpleMunicipality?> onMunicipalitySelected;
   final ValueChanged<String> onRestaurantTap;
   final VoidCallback onSearchTap;
@@ -71,6 +74,7 @@ class NewHomeBody extends StatefulWidget {
     required this.zones,
     required this.presenter,
     required this.onZoneSelected,
+    required this.onIslandSelected,
     required this.onMunicipalitySelected,
     required this.onRestaurantTap,
     required this.onSearchTap,
@@ -87,11 +91,12 @@ class _NewHomeBodyState extends State<NewHomeBody> {
     final filters = widget.filters;
     final zoneLabel = filters.zoneLabel ?? filters.islandLabel;
 
-    // Restaurantes para la sección "HOY EN..."
+    // Restaurantes para la sección "HOY EN..." — solo los que tienen
+    // horariosJson y están realmente abiertos ahora. El campo `r.open`
+    // viene del parser legacy y no es de confianza.
     final openNow = widget.presenter.filterOpenNow(widget.pool);
-    final todayPool = openNow.isNotEmpty
-        ? openNow.take(5).toList()
-        : widget.pool.take(5).toList();
+    final todayPool = openNow.take(5).toList();
+    final showTodaySection = todayPool.isNotEmpty;
 
     // Cantidad de overscroll (positivo cuando el usuario tira hacia abajo)
     final overscroll = math.max(-widget.scrollOffset, 0).toDouble();
@@ -113,8 +118,10 @@ class _NewHomeBodyState extends State<NewHomeBody> {
             assetImage: _assetForIsland(filters.islandId),
             zona: filters.zoneLabel ?? filters.islandLabel,
             islandLabel: filters.islandLabel,
+            zoneIsSet: filters.zoneLabel != null,
             openCount: openNow.length,
             onZoneChipTap: () => _showZoneSheet(context),
+            onIslandChipTap: () => _showIslandSheet(context),
           ),
         ),
 
@@ -137,21 +144,30 @@ class _NewHomeBodyState extends State<NewHomeBody> {
             ),
 
             // ── HOY EN ··· (banner contextual + cards integrados) ───────
-            SliverToBoxAdapter(
-              child: HourAwareBanner(
-                hour: widget.hour,
-                zoneLabel: zoneLabel,
-                actionLabel: 'VER TODO',
-                onAction: () {},
+            // Sólo mostramos esta sección si hay restaurantes con horario
+            // confirmado abiertos ahora; si no, ocultamos banner + row para
+            // no anunciar "abiertos ahora" sobre listas dudosas.
+            if (widget.bootstrapLoading) ...[
+              SliverToBoxAdapter(
+                child: HourAwareBanner(
+                  hour: widget.hour,
+                  zoneLabel: zoneLabel,
+                  actionLabel: 'VER TODO',
+                  onAction: () {},
+                ),
               ),
-            ),
-            SliverToBoxAdapter(
-              child: widget.bootstrapLoading
-                  ? const CardRowSkeleton()
-                  : todayPool.isEmpty
-                      ? const SizedBox.shrink()
-                      : _buildHorizontalRow(todayPool),
-            ),
+              const SliverToBoxAdapter(child: CardRowSkeleton()),
+            ] else if (showTodaySection) ...[
+              SliverToBoxAdapter(
+                child: HourAwareBanner(
+                  hour: widget.hour,
+                  zoneLabel: zoneLabel,
+                  actionLabel: 'VER TODO',
+                  onAction: () {},
+                ),
+              ),
+              SliverToBoxAdapter(child: _buildHorizontalRow(todayPool)),
+            ],
 
             // ── ESPECIALIDADES CANARIAS ──────────────
             SliverToBoxAdapter(
@@ -284,6 +300,7 @@ class _NewHomeBodyState extends State<NewHomeBody> {
             islandLabel: filters.islandLabel,
             zoneLabel: filters.zoneLabel,
             weather: widget.weather,
+            onIslandTap: () => _showIslandSheet(context),
             onZoneTap: () => _showZoneSheet(context),
           ),
         ),
@@ -303,9 +320,9 @@ class _NewHomeBodyState extends State<NewHomeBody> {
         itemBuilder: (_, i) {
           final r = items[i];
           final now = DateTime.now();
-          final open = r.horariosJson != null
-              ? isOpenNow(r.horariosJson, now)
-              : r.open;
+          // Solo mostramos ABIERTO si el horario estructurado lo confirma.
+          final open =
+              r.horariosJson != null && isOpenNow(r.horariosJson, now);
           return CardHorizontal(
             restaurant: r,
             showOpenBadge: open,
@@ -326,6 +343,14 @@ class _NewHomeBodyState extends State<NewHomeBody> {
       selectedZoneKey: widget.filters.zoneKey,
       weather: widget.weather,
       onSelect: widget.onZoneSelected,
+    );
+  }
+
+  void _showIslandSheet(BuildContext context) {
+    IslandPickerSheet.show(
+      context: context,
+      selectedIslandId: widget.filters.islandId,
+      onSelect: widget.onIslandSelected,
     );
   }
 

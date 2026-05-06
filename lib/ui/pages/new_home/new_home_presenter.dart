@@ -192,8 +192,8 @@ class NewHomePresenter {
   List<Restaurant> filterOpenNow(List<Restaurant> pool) {
     final now = DateTime.now();
     return pool.where((r) {
-      if (r.horariosJson != null) return isOpenNow(r.horariosJson, now);
-      return r.open;
+      if (r.horariosJson == null) return false;
+      return isOpenNow(r.horariosJson, now);
     }).toList();
   }
 
