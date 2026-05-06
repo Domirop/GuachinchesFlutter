@@ -44,5 +44,17 @@ app.*.map.json
 # Run scripts/setup-workspace.sh after creating a new worktree to install these from ~/conductor/secrets/GuachinchesFlutter/
 ios/Runner/GoogleService-Info.plist
 
+# Android build artifacts
+android/.gradle/
+android/app/.cxx/
+android/app/build/
+android/build/
+android/app/src/main/res/drawable-hdpi/
+android/app/src/main/res/drawable-mdpi/
+android/app/src/main/res/drawable-xhdpi/
+android/app/src/main/res/drawable-xxhdpi/
+android/app/src/main/res/drawable-xxxhdpi/
+android/app/src/main/res/mipmap-anydpi-v26/
+
 # Symlink al repo de coordination (no se sube)
 .claude/coordination
