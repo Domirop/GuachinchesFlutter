@@ -6,6 +6,7 @@ import 'package:guachinches/config/brand_colors.dart';
 import 'package:guachinches/data/cubit/new_home/curated_lists_cubit.dart';
 import 'package:guachinches/data/cubit/new_home/new_home_filters_cubit.dart';
 import 'package:guachinches/data/model/curated_list.dart';
+import 'package:guachinches/ui/pages/curated_list_detail/curated_list_detail_screen.dart';
 
 /// Pantalla "Listas": catálogo de recopilatorios editoriales.
 /// Reusa los tokens de diseño (light/dark) y el modelo de [CuratedList].
@@ -30,6 +31,14 @@ class _ListasScreenState extends State<ListasScreen> {
     cubit.loadForIsland(null);
     // Pre-seleccionar la isla activa del usuario para filtrar localmente.
     _islandIdFilter = context.read<NewHomeFiltersCubit>().state.islandId;
+  }
+
+  void _openList(CuratedList list) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => CuratedListDetailScreen(list: list),
+      ),
+    );
   }
 
   List<CuratedList> _applyFilters(List<CuratedList> all) {
@@ -104,7 +113,7 @@ class _ListasScreenState extends State<ListasScreen> {
                       sliver: SliverToBoxAdapter(
                         child: _FeaturedListCard(
                           list: featured,
-                          onTap: () {},
+                          onTap: () => _openList(featured),
                         ),
                       ),
                     ),
@@ -133,7 +142,7 @@ class _ListasScreenState extends State<ListasScreen> {
                       delegate: SliverChildBuilderDelegate(
                         (_, i) => _GridListCard(
                           list: rest[i],
-                          onTap: () {},
+                          onTap: () => _openList(rest[i]),
                         ),
                         childCount: rest.length,
                       ),
@@ -156,18 +165,20 @@ class _ListasScreenState extends State<ListasScreen> {
 class _Header extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    final canPop = Navigator.of(context).canPop();
     return Padding(
-      padding: const EdgeInsets.fromLTRB(8, 8, 12, 4),
+      padding: EdgeInsets.fromLTRB(canPop ? 8 : 20, 8, 12, 4),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          IconButton(
-            icon: Icon(
-              Icons.arrow_back_rounded,
-              color: context.brand.textPrimary,
+          if (canPop)
+            IconButton(
+              icon: Icon(
+                Icons.arrow_back_rounded,
+                color: context.brand.textPrimary,
+              ),
+              onPressed: () => Navigator.of(context).maybePop(),
             ),
-            onPressed: () => Navigator.of(context).maybePop(),
-          ),
           Expanded(
             child: Padding(
               padding: const EdgeInsets.only(top: 10),

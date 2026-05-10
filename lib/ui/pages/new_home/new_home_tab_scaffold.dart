@@ -4,7 +4,7 @@ import 'package:guachinches/config/brand_colors.dart';
 import 'package:guachinches/data/cubit/menu/menu_cubit.dart';
 import 'package:guachinches/ui/pages/new_home/new_home_screen.dart';
 
-/// Tabs de la app: EXPLORA · LISTAS · MAPA · VIDEOS · PERFIL.
+/// Tabs de la app: EXPLORA · LISTAS · MAPA · VISITAS · PERFIL.
 /// Usa BottomNavigationBar clásico (Material) en la parte inferior.
 class NewHomeTabScaffold extends StatefulWidget {
   /// Lista de 5 widgets para los slots EXPLORA, LISTAS, MAPA, VIDEOS, PERFIL.
@@ -39,9 +39,9 @@ class _NewHomeTabScaffoldState extends State<NewHomeTabScaffold> {
       label: 'Mapa',
     ),
     BottomNavigationBarItem(
-      icon: Icon(Icons.play_circle_outline_rounded),
-      activeIcon: Icon(Icons.play_circle_rounded),
-      label: 'Videos',
+      icon: Icon(Icons.movie_outlined),
+      activeIcon: Icon(Icons.movie_rounded),
+      label: 'Visitas',
     ),
     BottomNavigationBarItem(
       icon: Icon(Icons.person_outline_rounded),
@@ -75,7 +75,7 @@ class _NewHomeTabScaffoldState extends State<NewHomeTabScaffold> {
           NewHomeScreen(),
           _PlaceholderTab('Listas'),
           _PlaceholderTab('Mapa'),
-          _PlaceholderTab('Videos'),
+          _PlaceholderTab('Visitas'),
           _PlaceholderTab('Perfil'),
         ];
 

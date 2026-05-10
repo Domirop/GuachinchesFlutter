@@ -2,7 +2,6 @@ import 'dart:io';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
-import 'package:guachinches/data/local/restaurant_sql_lite.dart';
 import 'package:guachinches/data/local/sql_lite_local_repository.dart';
 import 'package:guachinches/data/model/Review.dart';
 import 'package:guachinches/data/model/Video.dart';
@@ -123,28 +122,19 @@ class DetailPresenter {
   }
 
   getIsFav(String restaurantId) async {
-    RestaurantSQLLite restaurantSQLLite =
-        await sqlLiteLocalRepository.getRestaurant(restaurantId);
-    bool correct = false;
-    if (restaurantSQLLite != null) {
-      correct = true;
-    } else {
-      correct = false;
-    }
-    _view.setFav(correct);
+    final isFav = await sqlLiteLocalRepository.isFavorite(restaurantId);
+    _view.setFav(isFav);
   }
 
   saveFavRestaurant(String restaurantId) async {
-    bool correct = false;
-    RestaurantSQLLite restaurantSQLLite =
-        await sqlLiteLocalRepository.getRestaurant(restaurantId);
-    if (restaurantSQLLite != null) {
-      correct = await sqlLiteLocalRepository.removeRestaurant(restaurantId);
+    final wasFav = await sqlLiteLocalRepository.isFavorite(restaurantId);
+    if (wasFav) {
+      final ok = await sqlLiteLocalRepository.removeRestaurant(restaurantId);
+      _view.setFav(ok ? false : true);
     } else {
-      correct = await sqlLiteLocalRepository.insertRestaurant(restaurantId);
+      final ok = await sqlLiteLocalRepository.insertRestaurant(restaurantId);
+      _view.setFav(ok ? true : false);
     }
-    sqlLiteLocalRepository.getRestaurants();
-    _view.setFav(correct);
   }
 }
 

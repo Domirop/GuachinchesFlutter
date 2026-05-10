@@ -9,8 +9,9 @@ class RestaurantSQLLite {
   }
 
   RestaurantSQLLite.fromMap(Map<String, dynamic> mapa) {
-    _id = mapa["id"] as String;
-    _restaurantId = mapa["restaurantId"] as String;
+    final rawId = mapa["Id"] ?? mapa["id"];
+    _id = rawId?.toString() ?? '';
+    _restaurantId = (mapa["restaurantId"] ?? '').toString();
   }
 
   @override

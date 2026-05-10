@@ -4,42 +4,45 @@ import 'package:guachinches/data/local/restaurant_sql_lite.dart';
 import 'local_repository.dart';
 
 class SqlLiteLocalRepository implements LocalRepository {
-
-
   @override
   Future<List<RestaurantSQLLite>> getRestaurants() async {
     final db = await DBProvider.db.database;
-    var res = await db.rawQuery("select * from fav");
-    List<RestaurantSQLLite> restaurants = [];
-    if(res.isNotEmpty){
-      res.forEach((element) {
-        RestaurantSQLLite restaurantSQLLite = RestaurantSQLLite.fromMap(element);
-        restaurants.add(restaurantSQLLite);
-      });
-      return restaurants;
-    }else{
-      return [];
-    }
+    final res = await db.rawQuery("SELECT * FROM fav");
+    if (res.isEmpty) return [];
+    return res.map(RestaurantSQLLite.fromMap).toList();
   }
 
   @override
-  Future<RestaurantSQLLite> getRestaurant(String restaurantId) async {
+  Future<RestaurantSQLLite?> getRestaurant(String restaurantId) async {
     final db = await DBProvider.db.database;
-    String query = "select * from fav where restaurantId='" + restaurantId + "'";
-    var res = await db.rawQuery(query);
-    if(res.isEmpty) {
-      return RestaurantSQLLite.fromMap({});
-    } else return RestaurantSQLLite.fromMap(res[0]);
+    final res = await db.rawQuery(
+      "SELECT * FROM fav WHERE restaurantId = ? LIMIT 1",
+      [restaurantId],
+    );
+    if (res.isEmpty) return null;
+    return RestaurantSQLLite.fromMap(res.first);
+  }
+
+  @override
+  Future<bool> isFavorite(String restaurantId) async {
+    final db = await DBProvider.db.database;
+    final res = await db.rawQuery(
+      "SELECT 1 FROM fav WHERE restaurantId = ? LIMIT 1",
+      [restaurantId],
+    );
+    return res.isNotEmpty;
   }
 
   @override
   Future<bool> insertRestaurant(String restaurantId) async {
     try {
       final db = await DBProvider.db.database;
-      var res = await db.rawInsert("INSERT Into fav (restaurantId)"
-          " VALUES ('" + restaurantId + "')");
+      await db.rawInsert(
+        "INSERT INTO fav (restaurantId) VALUES (?)",
+        [restaurantId],
+      );
       return true;
-    } on Exception catch (e) {
+    } catch (_) {
       return false;
     }
   }
@@ -48,10 +51,13 @@ class SqlLiteLocalRepository implements LocalRepository {
   Future<bool> removeRestaurant(String restaurantId) async {
     try {
       final db = await DBProvider.db.database;
-      var res = await db.rawInsert("DELETE FROM fav where restaurantId='" + restaurantId + "'");
-      return false;
-    } on Exception catch (e) {
+      await db.rawDelete(
+        "DELETE FROM fav WHERE restaurantId = ?",
+        [restaurantId],
+      );
       return true;
+    } catch (_) {
+      return false;
     }
   }
 }

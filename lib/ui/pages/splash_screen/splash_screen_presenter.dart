@@ -10,8 +10,8 @@ import 'package:guachinches/ui/pages/login/login.dart';
 import 'package:guachinches/ui/pages/map/map_search.dart';
 import 'package:guachinches/ui/pages/listas/listas_screen.dart';
 import 'package:guachinches/ui/pages/new_home/new_home_screen.dart';
+import 'package:guachinches/ui/pages/discover/discover_screen.dart';
 import 'package:guachinches/ui/pages/profile/profile_v2.dart';
-import '../video/video.dart';
 
 class SplashScreenPresenter {
   final SplashScreenView _view;
@@ -41,16 +41,16 @@ class SplashScreenPresenter {
         Login("Para ver tu perfíl debes iniciar sesión.");
     try {
       String? userId = await storage.read(key: "userId");
-      if (userId != null) {
+      if (userId != null && userId.isNotEmpty) {
+        // Sesión persistida: mostramos el perfil sin gatear en el cubit.
+        // Si el fetch falla (timeout, red), Profilev2 reintenta por su cuenta;
+        // NO borramos el userId — eso causaba "logout" al hacer hot restart
+        // con red lenta.
+        profileTab = Profilev2();
         if (_userCubit.state is UserInitial) {
-          var response = await _userCubit.getUserInfo(userId);
-          if (response == true) {
-            profileTab = Profilev2();
-          } else {
-            await storage.delete(key: "userId");
-          }
-        } else if (_userCubit.state is UserLoaded) {
-          profileTab = Profilev2();
+          // Disparamos el fetch en background para precargar el cubit.
+          // ignore: unawaited_futures
+          _userCubit.getUserInfo(userId);
         }
       }
     } catch (_) {}
@@ -58,7 +58,7 @@ class SplashScreenPresenter {
       const NewHomeScreen(),
       const ListasScreen(),
       MapSearch(),
-      VideoScreen(index: 0),
+      const DiscoverScreen(),
       profileTab,
     ];
   }
@@ -94,13 +94,10 @@ class SplashScreenPresenter {
         _view.goToOnBoarding();
       }else{
         if(key == 'true'){
-          final surveyShown = await storage.read(key: 'surveyOnboarding2026Shown');
-          if (surveyShown == null || surveyShown.isEmpty) {
-            final screens = await _buildScreens();
-            _view.goToSurveyOnboarding(screens);
-          } else {
-            mainFunction();
-          }
+          // Premios Donde Comer Canarias 2026 — pausado.
+          // Restaurar leyendo 'surveyOnboarding2026Shown' y llamando a
+          // goToSurveyOnboarding() cuando esté vacío, como antes.
+          mainFunction();
         }else{
           _view.goToOnBoarding();
         }

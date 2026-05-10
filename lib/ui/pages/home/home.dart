@@ -184,10 +184,11 @@ class _HomeState extends State<Home> with WidgetsBindingObserver implements Home
     presenter.getSurveyRestaurants();
     context.read<LocationCubit>().requestLocation();
 
-    SurveyPopup.showIfNeeded(
-      context,
-      onVoted: () => presenter.getSurveyResults(allSurveyRestaurants),
-    );
+    // Premios Donde Comer Canarias 2026 — popup pausado.
+    // SurveyPopup.showIfNeeded(
+    //   context,
+    //   onVoted: () => presenter.getSurveyResults(allSurveyRestaurants),
+    // );
 
     // Escucha el desplazamiento del scroll para cambiar el fondo de la app bar
     _scrollController.addListener(() {
@@ -396,9 +397,10 @@ class _HomeState extends State<Home> with WidgetsBindingObserver implements Home
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  SurveyBanner(
-                    onVoted: () => presenter.getSurveyResults(allSurveyRestaurants),
-                  ),
+                  // Premios Donde Comer Canarias 2026 — banner inline pausado.
+                  // SurveyBanner(
+                  //   onVoted: () => presenter.getSurveyResults(allSurveyRestaurants),
+                  // ),
                   if (surveyRanking != null &&
                       (surveyGuachinchesTradicionales.isNotEmpty ||
                           surveyGuachinchesModernos.isNotEmpty))
