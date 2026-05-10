@@ -9,6 +9,7 @@ import 'package:guachinches/data/model/SimpleMunicipality.dart';
 import 'package:guachinches/data/model/TopRestaurants.dart';
 import 'package:guachinches/data/model/Types.dart';
 import 'package:guachinches/data/model/restaurant.dart';
+import 'package:guachinches/utils/contextual_pool.dart';
 import 'package:guachinches/utils/distance_utils.dart';
 import 'package:guachinches/utils/open_now_utils.dart';
 import 'package:guachinches/utils/time_of_day_engine.dart';
@@ -195,6 +196,24 @@ class NewHomePresenter {
       if (r.horariosJson == null) return false;
       return isOpenNow(r.horariosJson, now);
     }).toList();
+  }
+
+  /// Pool para la sección "HOY EN..." alineada con el copy contextual
+  /// del banner. Filtra primero por abierto ahora y luego por type/categoría
+  /// según la hora. Si la intersección queda escasa (< 2) cae al pool
+  /// abierto sin filtrar para no enseñar una sección casi vacía.
+  List<Restaurant> filterContextual(List<Restaurant> pool, int hour) {
+    final openNow = filterOpenNow(pool);
+    final cfg = contextualFilterFor(hour);
+    if (cfg.isEmpty) return openNow;
+    final filtered = openNow.where((r) {
+      final typeOk = cfg.typeIds.isEmpty || cfg.typeIds.contains(r.type);
+      final catOk = cfg.categoryIds.isEmpty ||
+          r.categoriaRestaurantes
+              .any((c) => cfg.categoryIds.contains(c.categoriaId));
+      return typeOk && catOk;
+    }).toList();
+    return filtered.length >= 2 ? filtered : openNow;
   }
 
   List<Restaurant> filterClosingSoon(List<Restaurant> pool) {

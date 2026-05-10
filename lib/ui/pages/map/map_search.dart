@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -10,6 +11,7 @@ import 'package:guachinches/data/RemoteRepository.dart';
 import 'package:guachinches/config/app_colors.dart';
 import 'package:guachinches/config/app_text_styles.dart';
 import 'package:guachinches/config/brand_colors.dart';
+import 'package:guachinches/data/cubit/menu/menu_cubit.dart';
 import 'package:guachinches/data/cubit/restaurants/map/restaurant_map_cubit.dart';
 import 'package:guachinches/data/cubit/restaurants/map/restaurant_map_state.dart';
 import 'package:guachinches/data/model/Category.dart';
@@ -18,6 +20,7 @@ import 'package:guachinches/data/model/Types.dart';
 import 'package:guachinches/data/model/restaurant.dart';
 import 'package:guachinches/globalMethods.dart';
 import 'package:guachinches/ui/pages/map/map_search_presenter.dart';
+import 'package:guachinches/ui/pages/map/map_style.dart';
 import 'package:guachinches/ui/pages/restaurant_detail/restaurant_detail_screen.dart';
 import 'package:http/http.dart';
 import 'package:maps_launcher/maps_launcher.dart';
@@ -95,6 +98,12 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
   final TextEditingController _searchController = TextEditingController();
   Timer? _searchDebounce;
 
+  // Index del tab Mapa en NewHomeTabScaffold.
+  static const int _kMapTabIndex = 2;
+  // Defer-mount: el GoogleMap solo se monta cuando el usuario entra al tab,
+  // si no las platform views fallan al renderizar tiles.
+  bool _mapMounted = false;
+
   @override
   void initState() {
     super.initState();
@@ -108,8 +117,48 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
     presenter.getAllCategories();
 
     _driving.isDriving.addListener(_onDrivingChanged);
+    _driving.shouldSuggest.addListener(_onDriveSuggested);
     _startLiveLocation();
     _buildDotIcons();
+
+    // Si abrimos directamente esta pestaña (deep-link / initialIndex), ya
+    // estamos visibles → marcamos como montado para no mostrar placeholder.
+    final menu = context.read<MenuCubit>();
+    if (menu.state.selectedIndex == _kMapTabIndex) {
+      _mapMounted = true;
+    }
+  }
+
+  bool _suggestSheetOpen = false;
+
+  void _onDriveSuggested() {
+    if (!mounted) return;
+    if (!_driving.shouldSuggest.value) return;
+    if (_suggestSheetOpen) return;
+    _suggestSheetOpen = true;
+    HapticFeedback.mediumImpact();
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _DriveModeSuggestionSheet(
+        onConfirm: () {
+          Navigator.of(ctx).pop();
+          _driving.confirmDrive();
+        },
+        onDismiss: () {
+          Navigator.of(ctx).pop();
+          _driving.dismissSuggestion();
+        },
+      ),
+    ).whenComplete(() {
+      _suggestSheetOpen = false;
+      // If sheet closed via swipe/back without an explicit choice, treat
+      // it as a dismissal so we don't re-prompt immediately.
+      if (_driving.shouldSuggest.value) {
+        _driving.dismissSuggestion();
+      }
+    });
   }
 
   Future<void> _buildDotIcons() async {
@@ -155,6 +204,7 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
   @override
   void dispose() {
     _driving.isDriving.removeListener(_onDrivingChanged);
+    _driving.shouldSuggest.removeListener(_onDriveSuggested);
     _driving.dispose();
     _locationSubscription?.cancel();
     _cardsPageController.dispose();
@@ -173,24 +223,45 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
     } catch (_) {
       return;
     }
-    final visible = _allRestaurants.where((r) {
+    final inBounds = _allRestaurants.where((r) {
       if (r.lat == 0.0 && r.lon == 0.0) return false;
       return bounds.contains(LatLng(r.lat, r.lon));
     }).toList();
+    final inBoundsIds = inBounds.map((r) => r.id).toSet();
 
-    visible.sort((a, b) => _distanceTo(a).compareTo(_distanceTo(b)));
+    // Stable order: keep already-shown restaurants in their existing slots
+    // (so swiping cards never reshuffles the carousel under the user's
+    // finger). Newly-visible restaurants are appended sorted by distance.
+    final preserved = _visibleRestaurants
+        .where((r) => inBoundsIds.contains(r.id))
+        .toList(growable: false);
+    final preservedIds = preserved.map((r) => r.id).toSet();
+    final newlyVisible = inBounds
+        .where((r) => !preservedIds.contains(r.id))
+        .toList()
+      ..sort((a, b) => _distanceTo(a).compareTo(_distanceTo(b)));
+
+    // First load (or after a hard reset): no stable order to preserve, so
+    // sort everything by distance from the user.
+    final List<Restaurant> visible;
+    if (preserved.isEmpty) {
+      visible = newlyVisible;
+    } else {
+      visible = [...preserved, ...newlyVisible];
+    }
 
     if (!mounted) return;
     setState(() {
       _visibleRestaurants = visible;
       // Keep selection if still visible, otherwise pick the closest visible.
       if (_selectedRestaurantId == null ||
-          !visible.any((r) => r.id == _selectedRestaurantId)) {
+          !inBoundsIds.contains(_selectedRestaurantId)) {
         _selectedRestaurantId = visible.isNotEmpty ? visible.first.id : null;
       }
     });
 
-    // Sync the PageView to the selected restaurant.
+    // Sync the PageView only if the selected card actually moved to a
+    // different index in the new list (rare with stable ordering).
     final idx = _selectedIndex();
     if (idx >= 0 &&
         _cardsPageController.hasClients &&
@@ -262,19 +333,49 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
       _animateToUser(zoom: 14.4746, tilt: 0, bearing: 0);
     } else if (_driving.isDriving.value) {
       _animateToUser(
-        zoom: 17,
-        tilt: 60,
+        zoom: 16,
+        tilt: 55,
         bearing: _lastHeading,
+        chase: true,
       );
     }
   }
 
-  Future<void> _animateToUser(
-      {double zoom = 15, double tilt = 0, double bearing = 0}) async {
+  /// Returns a point `meters` ahead of `origin` along `bearingDeg` (great-
+  /// circle). Used by the chase camera so the user marker sits near the
+  /// bottom of the viewport while the road ahead stays visible.
+  static LatLng _projectAhead(
+      LatLng origin, double bearingDeg, double meters) {
+    const earthR = 6371000.0;
+    final br = bearingDeg * math.pi / 180.0;
+    final dr = meters / earthR;
+    final lat1 = origin.latitude * math.pi / 180.0;
+    final lon1 = origin.longitude * math.pi / 180.0;
+    final lat2 = math.asin(
+      math.sin(lat1) * math.cos(dr) +
+          math.cos(lat1) * math.sin(dr) * math.cos(br),
+    );
+    final lon2 = lon1 +
+        math.atan2(
+          math.sin(br) * math.sin(dr) * math.cos(lat1),
+          math.cos(dr) - math.sin(lat1) * math.sin(lat2),
+        );
+    return LatLng(lat2 * 180.0 / math.pi, lon2 * 180.0 / math.pi);
+  }
+
+  Future<void> _animateToUser({
+    double zoom = 15,
+    double tilt = 0,
+    double bearing = 0,
+    bool chase = false,
+  }) async {
     final controller = await _controller.future;
+    final target = chase
+        ? _projectAhead(currentLocation, bearing, 240)
+        : currentLocation;
     controller.animateCamera(CameraUpdate.newCameraPosition(
       CameraPosition(
-        target: currentLocation,
+        target: target,
         zoom: zoom,
         tilt: tilt,
         bearing: bearing,
@@ -287,7 +388,12 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
     HapticFeedback.lightImpact();
     setState(() {});
     if (_driving.isDriving.value) {
-      _animateToUser(zoom: 17, tilt: 60, bearing: _lastHeading);
+      _animateToUser(
+        zoom: 16,
+        tilt: 55,
+        bearing: _lastHeading,
+        chase: true,
+      );
     } else {
       _animateToUser(zoom: 15, tilt: 0, bearing: 0);
     }
@@ -372,23 +478,27 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
   Future<BitmapDescriptor> _buildBubbleMarker(Restaurant r,
       {bool selected = false}) async {
     // Compact "rating pill" marker (TheFork-style).
-    final double scale = selected ? 3.6 : 3.0; // selected slightly bigger
-    const double pad = 10;
-    const double h = 30;
-    const double tailW = 8;
-    const double tailH = 6;
+    // Selected markers are noticeably larger and use the atlántico/blue
+    // brand color so they pop against the cream-toned map.
+    final double scale = selected ? 4.2 : 3.0;
+    final double pad = selected ? 14 : 10;
+    final double h = selected ? 40 : 30;
+    final double tailW = selected ? 12 : 8;
+    final double tailH = selected ? 9 : 6;
+    final double radius = selected ? 14 : 10;
+    final double fontSize = selected ? 16 : 13;
+    final double dotSize = selected ? 9 : 7;
+    final double dotGap = selected ? 7 : 5;
 
-    // Decide label text first so we can size to it.
     final ratingText =
         r.avgRating > 0 ? r.avgRating.toStringAsFixed(1) : 'n/d';
 
-    // Layout text to measure required width.
     final ratingPainter = TextPainter(
       text: TextSpan(
         text: ratingText,
-        style: const TextStyle(
+        style: TextStyle(
           color: Colors.white,
-          fontSize: 13,
+          fontSize: fontSize,
           fontFamily: 'SF Pro Display',
           fontWeight: FontWeight.w800,
           letterSpacing: 0.2,
@@ -398,61 +508,94 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
     );
     ratingPainter.layout();
 
-    const double dotSize = 7;
-    const double dotGap = 5;
     final double w = pad + dotSize + dotGap + ratingPainter.width + pad;
-    final double totalW = w;
-    final double totalH = h + tailH;
+    // Halo around selected marker so it stands out on the map. Padding only
+    // on top + sides (not below) so the tail tip stays at the bitmap bottom
+    // and the marker anchor (0.5, 1.0) lands on the restaurant coords.
+    final double haloPad = selected ? 6 : 0;
+    final double totalW = w + haloPad * 2;
+    final double totalH = h + tailH + haloPad;
+    final double originX = haloPad;
+    final double originY = haloPad;
 
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder);
     canvas.scale(scale, scale);
 
-    final bgPaint = Paint()..color = const Color(0xFF1B1D22);
+    final bgPaint = Paint()
+      ..color = selected
+          ? GlobalMethods.blueColor
+          : const Color(0xFF1B1D22);
     final pillRRect = RRect.fromRectAndRadius(
-      Rect.fromLTWH(0, 0, w, h),
-      const Radius.circular(10),
+      Rect.fromLTWH(originX, originY, w, h),
+      Radius.circular(radius),
     );
 
-    // Drop shadow
+    // Halo (outer soft ring, selected only).
+    if (selected) {
+      final haloRRect = RRect.fromRectAndRadius(
+        Rect.fromLTWH(
+          originX - haloPad,
+          originY - haloPad,
+          w + haloPad * 2,
+          h + haloPad * 2,
+        ),
+        Radius.circular(radius + haloPad),
+      );
+      canvas.drawRRect(
+        haloRRect,
+        Paint()
+          ..color = GlobalMethods.blueColor.withOpacity(0.22)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
+      );
+    }
+
+    // Drop shadow.
     canvas.drawRRect(
-      pillRRect.shift(const Offset(0, 2)),
+      pillRRect.shift(Offset(0, selected ? 3 : 2)),
       Paint()
-        ..color = const Color(0x55000000)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4),
+        ..color = Color.fromRGBO(0, 0, 0, selected ? 0.45 : 0.33)
+        ..maskFilter = MaskFilter.blur(
+            BlurStyle.normal, selected ? 6 : 4),
     );
     canvas.drawRRect(pillRRect, bgPaint);
 
-    // Border (highlighted when selected)
+    // White outline for selected (lifts pill from blurred shadow); subtle
+    // dark border for unselected.
     final borderPaint = Paint()
       ..color = selected
-          ? GlobalMethods.blueColor
+          ? Colors.white
           : Colors.white.withOpacity(0.12)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = selected ? 2 : 1;
+      ..strokeWidth = selected ? 2.5 : 1;
     canvas.drawRRect(pillRRect, borderPaint);
 
-    // Status dot (open/closed)
+    // Status dot (open/closed).
     final dotColor = r.open
         ? const Color.fromRGBO(149, 220, 0, 1)
         : const Color.fromRGBO(226, 120, 120, 1);
     canvas.drawCircle(
-      Offset(pad + dotSize / 2, h / 2),
+      Offset(originX + pad + dotSize / 2, originY + h / 2),
       dotSize / 2,
       Paint()..color = dotColor,
     );
 
-    // Rating text
+    // Rating text.
     ratingPainter.paint(
       canvas,
-      Offset(pad + dotSize + dotGap, (h - ratingPainter.height) / 2),
+      Offset(
+        originX + pad + dotSize + dotGap,
+        originY + (h - ratingPainter.height) / 2,
+      ),
     );
 
-    // Tail (downward triangle)
+    // Tail (downward triangle).
+    final tailCenterX = originX + w / 2;
+    final tailTopY = originY + h - 0.5;
     final tailPath = Path()
-      ..moveTo(w / 2 - tailW / 2, h - 0.5)
-      ..lineTo(w / 2 + tailW / 2, h - 0.5)
-      ..lineTo(w / 2, h + tailH)
+      ..moveTo(tailCenterX - tailW / 2, tailTopY)
+      ..lineTo(tailCenterX + tailW / 2, tailTopY)
+      ..lineTo(tailCenterX, originY + h + tailH)
       ..close();
     canvas.drawPath(tailPath, bgPaint);
 
@@ -520,6 +663,44 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
   // ── Build ──────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
+    return BlocListener<MenuCubit, MenuState>(
+      listenWhen: (prev, curr) =>
+          !_mapMounted && curr.selectedIndex == _kMapTabIndex,
+      listener: (_, __) {
+        // Pequeño delay: el IndexedStack acaba de hacer visible este hijo,
+        // damos un frame para que la Vista esté lista antes de montar la
+        // platform view de GoogleMap. Evita tiles en blanco.
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted || _mapMounted) return;
+          setState(() => _mapMounted = true);
+        });
+      },
+      child: _buildScaffold(context),
+    );
+  }
+
+  Widget _buildScaffold(BuildContext context) {
+    if (!_mapMounted) {
+      return Scaffold(
+        backgroundColor: context.brand.base,
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(
+                strokeWidth: 2,
+                color: AppColors.atlanticoClaro,
+              ),
+              const SizedBox(height: 14),
+              Text(
+                'Preparando el mapa…',
+                style: AppTextStyles.muted(size: 12),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
     final isDriving = _driving.isDriving.value;
 
     return Scaffold(
@@ -544,8 +725,6 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
           }
 
           final sorted = _sortedByDistance(restaurants);
-          final nearest = sorted.isNotEmpty ? sorted.first : null;
-          final others = sorted.length > 1 ? sorted.sublist(1) : <Restaurant>[];
 
           return Stack(
             fit: StackFit.expand,
@@ -553,6 +732,7 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
               Positioned.fill(
                 child: GoogleMap(
                   mapType: MapType.normal,
+                  style: kMapStyleLight,
                   myLocationEnabled: true,
                   myLocationButtonEnabled: false,
                   compassEnabled: false,
@@ -578,38 +758,24 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
               ),
 
               // ── Header (search + filter chips) ─────────────────────────
-              if (!isDriving)
-                Positioned(
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  child: _MapHeader(
-                    categories: categories,
-                    selectedCategoryId: _quickCategoryId,
-                    openActive: _quickOpen,
-                    municipalityLabel: _municipalityLabel,
-                    searchController: _searchController,
-                    onSearchChanged: _onSearchChanged,
-                    onClearSearch: _clearSearch,
-                    onToggleOpen: _toggleOpenFilter,
-                    onToggleCategory: _toggleCategory,
-                  ),
-                ),
-
-              // ── Drive-mode banner ──────────────────────────────────────
+              // In drive mode the search bar is hidden (distraction) and
+              // we show a compact chip row at the top with a "Salir" pill.
               Positioned(
                 top: 0,
                 left: 0,
                 right: 0,
-                child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 250),
-                  child: isDriving
-                      ? _DriveModeBanner(
-                          key: const ValueKey('drive-banner'),
-                          onExit: _exitDriveMode,
-                        )
-                      : const SizedBox.shrink(
-                          key: ValueKey('drive-banner-empty')),
+                child: _MapHeader(
+                  categories: categories,
+                  selectedCategoryId: _quickCategoryId,
+                  openActive: _quickOpen,
+                  municipalityLabel: _municipalityLabel,
+                  searchController: _searchController,
+                  onSearchChanged: _onSearchChanged,
+                  onClearSearch: _clearSearch,
+                  onToggleOpen: _toggleOpenFilter,
+                  onToggleCategory: _toggleCategory,
+                  driveMode: isDriving,
+                  onExitDrive: _exitDriveMode,
                 ),
               ),
 
@@ -621,14 +787,41 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
                   heroTag: 'centerOnUser',
                   backgroundColor: context.brand.surface,
                   onPressed: () => _animateToUser(
-                    zoom: isDriving ? 17 : 15,
-                    tilt: isDriving ? 60 : 0,
+                    zoom: isDriving ? 16 : 15,
+                    tilt: isDriving ? 55 : 0,
                     bearing: isDriving ? _lastHeading : 0,
+                    chase: isDriving,
                   ),
                   child: Icon(Icons.my_location,
                       color: context.brand.textPrimary, size: 20),
                 ),
               ),
+
+              // ── "Activar modo coche" shortcut ──────────────────────────
+              // Shown when we detect movement at drive speed but the user is
+              // not in drive mode (dismissed the suggestion or exited by
+              // accident). Tap to enter drive mode immediately.
+              if (!isDriving)
+                Positioned(
+                  bottom: 142,
+                  left: 16,
+                  child: ValueListenableBuilder<double>(
+                    valueListenable: _driving.currentSpeed,
+                    builder: (context, speed, _) {
+                      final visible = speed > _kEnterDriveSpeed;
+                      return AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 220),
+                        child: visible
+                            ? _EnterDrivePill(
+                                key: const ValueKey('enter-drive'),
+                                onTap: () => _driving.confirmDrive(),
+                              )
+                            : const SizedBox.shrink(
+                                key: ValueKey('enter-drive-empty')),
+                      );
+                    },
+                  ),
+                ),
 
               // ── Bottom: drive-mode pill list OR nearby carousel ────────
               if (isDriving)
@@ -637,8 +830,7 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
                   right: 0,
                   bottom: 0,
                   child: _DriveNearbyStrip(
-                    nearest: nearest,
-                    others: others.take(8).toList(),
+                    nearby: sorted.take(10).toList(),
                     distanceTo: _distanceTo,
                   ),
                 )
@@ -727,30 +919,84 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
 class _DrivingDetector {
   final List<double> _samples = [];
   final ValueNotifier<bool> isDriving = ValueNotifier<bool>(false);
+  // Fires when we detect driving but haven't asked the user yet. The UI
+  // listens and shows a confirmation sheet.
+  final ValueNotifier<bool> shouldSuggest = ValueNotifier<bool>(false);
+  // Live median speed (m/s). Used by the UI to show a "Activar modo coche"
+  // shortcut while moving but outside drive mode (e.g. after the user
+  // dismissed the suggestion or exited drive mode by mistake).
+  final ValueNotifier<double> currentSpeed = ValueNotifier<double>(0);
+  Position? _lastPos;
+  DateTime? _suppressUntil;
 
   void onPosition(Position p) {
-    final speed = p.speed.isFinite && p.speed >= 0 ? p.speed : 0.0;
+    // iOS Simulator's `simctl location start` reports CLLocation.speed=0 (or -1)
+    // even while the position is moving, so we compute speed from the
+    // distance/time delta between successive points and keep whichever value
+    // is higher. Real devices keep using the OS-provided speed.
+    double computed = 0;
+    if (_lastPos != null) {
+      final dtMs = p.timestamp
+          .difference(_lastPos!.timestamp)
+          .inMilliseconds;
+      if (dtMs > 0) {
+        final meters = Geolocator.distanceBetween(
+          _lastPos!.latitude,
+          _lastPos!.longitude,
+          p.latitude,
+          p.longitude,
+        );
+        computed = meters / (dtMs / 1000.0);
+      }
+    }
+    final raw = p.speed.isFinite && p.speed > 0 ? p.speed : 0.0;
+    final speed = raw > computed ? raw : computed;
+    _lastPos = p;
+
     _samples.add(speed);
     if (_samples.length > _kDriveSampleWindow) {
       _samples.removeAt(0);
     }
     final med = _median(_samples);
-    if (!isDriving.value &&
-        _samples.length >= _kDriveMinSamplesToEnter &&
-        med > _kEnterDriveSpeed) {
-      isDriving.value = true;
-    } else if (isDriving.value && med < _kExitDriveSpeed) {
-      isDriving.value = false;
+    currentSpeed.value = med;
+
+    if (isDriving.value) {
+      if (med < _kExitDriveSpeed) isDriving.value = false;
+      return;
     }
+    if (shouldSuggest.value) return; // already asking
+    final cooldownActive = _suppressUntil != null &&
+        DateTime.now().isBefore(_suppressUntil!);
+    if (cooldownActive) return;
+    if (_samples.length >= _kDriveMinSamplesToEnter &&
+        med > _kEnterDriveSpeed) {
+      shouldSuggest.value = true;
+    }
+  }
+
+  void confirmDrive() {
+    shouldSuggest.value = false;
+    isDriving.value = true;
+  }
+
+  void dismissSuggestion(
+      {Duration cooldown = const Duration(minutes: 5)}) {
+    shouldSuggest.value = false;
+    _suppressUntil = DateTime.now().add(cooldown);
   }
 
   void forceExit() {
     _samples.clear();
+    _lastPos = null;
+    _suppressUntil = DateTime.now().add(const Duration(minutes: 5));
     isDriving.value = false;
+    shouldSuggest.value = false;
   }
 
   void dispose() {
     isDriving.dispose();
+    shouldSuggest.dispose();
+    currentSpeed.dispose();
   }
 
   static double _median(List<double> values) {
@@ -762,85 +1008,136 @@ class _DrivingDetector {
   }
 }
 
-// ── Drive-mode banner ───────────────────────────────────────────────────
-class _DriveModeBanner extends StatelessWidget {
-  final VoidCallback onExit;
-  const _DriveModeBanner({Key? key, required this.onExit}) : super(key: key);
+// ── Drive-mode suggestion sheet ─────────────────────────────────────────
+class _DriveModeSuggestionSheet extends StatelessWidget {
+  final VoidCallback onConfirm;
+  final VoidCallback onDismiss;
+  const _DriveModeSuggestionSheet({
+    Key? key,
+    required this.onConfirm,
+    required this.onDismiss,
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
+    final brand = context.brand;
     return SafeArea(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-        child: Material(
-          color: Colors.transparent,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            decoration: BoxDecoration(
-              color: GlobalMethods.blueColor,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.25),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        child: Container(
+          decoration: BoxDecoration(
+            color: brand.surface,
+            borderRadius: BorderRadius.circular(28),
+            border: Border.all(color: brand.border),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.22),
+                blurRadius: 24,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          padding: const EdgeInsets.fromLTRB(20, 22, 20, 18),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  color: GlobalMethods.blueColor.withOpacity(0.14),
+                  shape: BoxShape.circle,
                 ),
-              ],
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.directions_car_filled,
-                    color: Colors.white, size: 22),
-                const SizedBox(width: 10),
-                const Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Modo coche',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontFamily: 'SF Pro Display',
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
+                child: Icon(
+                  Icons.directions_car_filled,
+                  color: GlobalMethods.blueColor,
+                  size: 28,
+                ),
+              ),
+              const SizedBox(height: 14),
+              Text(
+                '¿Vas en el coche?',
+                style: TextStyle(
+                  color: brand.textPrimary,
+                  fontFamily: 'SF Pro Display',
+                  fontSize: 19,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Hemos notado que te mueves a buena velocidad. ¿Activamos el modo coche para mostrarte los restaurantes mientras conduces?',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: brand.textSecondary,
+                  fontFamily: 'SF Pro Display',
+                  fontSize: 13,
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Expanded(
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: onDismiss,
+                      child: Container(
+                        height: 50,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: Colors.transparent,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                              color: brand.borderStrong, width: 1.2),
+                        ),
+                        child: Text(
+                          'Ahora no',
+                          style: TextStyle(
+                            color: brand.textPrimary,
+                            fontFamily: 'SF Pro Display',
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
-                      SizedBox(height: 2),
-                      Text(
-                        'Hemos detectado que vas en el coche. Te mostramos los restaurantes mientras conduces.',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontFamily: 'SF Pro Display',
-                          fontSize: 12,
-                          height: 1.25,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: onConfirm,
+                      child: Container(
+                        height: 50,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: GlobalMethods.blueColor,
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color:
+                                  GlobalMethods.blueColor.withOpacity(0.38),
+                              blurRadius: 14,
+                              offset: const Offset(0, 5),
+                            ),
+                          ],
+                        ),
+                        child: const Text(
+                          'Sí, activar',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontFamily: 'SF Pro Display',
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                       ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                GestureDetector(
-                  onTap: onExit,
-                  child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.18),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Text(
-                      'Salir',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontFamily: 'SF Pro Display',
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
                     ),
                   ),
-                ),
-              ],
-            ),
+                ],
+              ),
+            ],
           ),
         ),
       ),
@@ -849,20 +1146,58 @@ class _DriveModeBanner extends StatelessWidget {
 }
 
 // ── Drive-mode bottom strip (compact, large-touch) ──────────────────────
-class _DriveNearbyStrip extends StatelessWidget {
-  final Restaurant? nearest;
-  final List<Restaurant> others;
+class _DriveNearbyStrip extends StatefulWidget {
+  final List<Restaurant> nearby; // sorted by distance, nearest first
   final double Function(Restaurant) distanceTo;
 
   const _DriveNearbyStrip({
     Key? key,
-    required this.nearest,
-    required this.others,
+    required this.nearby,
     required this.distanceTo,
   }) : super(key: key);
 
   @override
+  State<_DriveNearbyStrip> createState() => _DriveNearbyStripState();
+}
+
+class _DriveNearbyStripState extends State<_DriveNearbyStrip> {
+  final PageController _pc = PageController();
+  final ScrollController _pillsScroll = ScrollController();
+  int _index = 0;
+
+  @override
+  void didUpdateWidget(covariant _DriveNearbyStrip old) {
+    super.didUpdateWidget(old);
+    if (_index >= widget.nearby.length) {
+      _index = widget.nearby.isEmpty ? 0 : widget.nearby.length - 1;
+      if (_pc.hasClients) {
+        _pc.jumpToPage(_index);
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _pc.dispose();
+    _pillsScroll.dispose();
+    super.dispose();
+  }
+
+  void _go(int i) {
+    if (i < 0 || i >= widget.nearby.length) return;
+    _pc.animateToPage(
+      i,
+      duration: const Duration(milliseconds: 240),
+      curve: Curves.easeOut,
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final list = widget.nearby;
+    if (list.isEmpty) return const SizedBox.shrink();
+    final clamped = _index.clamp(0, list.length - 1);
+
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 14, 12, 24),
       decoration: BoxDecoration(
@@ -878,19 +1213,37 @@ class _DriveNearbyStrip extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (nearest != null) _DriveNearestCard(restaurant: nearest!, distanceMeters: distanceTo(nearest!)),
-          if (others.isNotEmpty) ...[
+          // Full-width swipeable main card. Paging: swipe horizontally OR
+          // tap a pill below.
+          SizedBox(
+            height: 116,
+            child: PageView.builder(
+              controller: _pc,
+              onPageChanged: (i) => setState(() => _index = i),
+              itemCount: list.length,
+              itemBuilder: (_, i) => _DriveNearestCard(
+                restaurant: list[i],
+                distanceMeters: widget.distanceTo(list[i]),
+                index: i,
+                total: list.length,
+              ),
+            ),
+          ),
+          if (list.length > 1) ...[
             const SizedBox(height: 10),
             SizedBox(
               height: 44,
               child: ListView.separated(
+                controller: _pillsScroll,
                 scrollDirection: Axis.horizontal,
                 itemBuilder: (_, i) => _DrivePill(
-                  restaurant: others[i],
-                  distanceMeters: distanceTo(others[i]),
+                  restaurant: list[i],
+                  distanceMeters: widget.distanceTo(list[i]),
+                  active: i == clamped,
+                  onTap: () => _go(i),
                 ),
                 separatorBuilder: (_, __) => const SizedBox(width: 8),
-                itemCount: others.length,
+                itemCount: list.length,
               ),
             ),
           ],
@@ -903,13 +1256,22 @@ class _DriveNearbyStrip extends StatelessWidget {
 class _DriveNearestCard extends StatelessWidget {
   final Restaurant restaurant;
   final double distanceMeters;
-  const _DriveNearestCard(
-      {Key? key, required this.restaurant, required this.distanceMeters})
-      : super(key: key);
+  final int index;
+  final int total;
+  const _DriveNearestCard({
+    Key? key,
+    required this.restaurant,
+    required this.distanceMeters,
+    required this.index,
+    required this.total,
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
+    final label = index == 0 ? 'MÁS CERCANO' : '${index + 1} DE $total';
+    final status = _statusFor(restaurant, distanceMeters);
     return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 2),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
         color: GlobalMethods.bgColor,
@@ -928,9 +1290,10 @@ class _DriveNearestCard extends StatelessWidget {
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
-                  'MÁS CERCANO',
+                  label,
                   style: TextStyle(
                     color: GlobalMethods.blueColor,
                     fontFamily: 'SF Pro Display',
@@ -953,11 +1316,11 @@ class _DriveNearestCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '${restaurant.open ? "Abierto" : "Cerrado"} · ${_fmtDistance(distanceMeters)} · ${_fmtDriveMinutes(distanceMeters)}',
+                  '${status.label} · ${_fmtDistance(distanceMeters)} · ${_fmtDriveMinutes(distanceMeters)}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: restaurant.open
-                        ? const Color.fromRGBO(149, 220, 0, 1)
-                        : const Color.fromRGBO(226, 120, 120, 1),
+                    color: status.color,
                     fontFamily: 'SF Pro Display',
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
@@ -977,63 +1340,111 @@ class _DriveNearestCard extends StatelessWidget {
 class _DrivePill extends StatelessWidget {
   final Restaurant restaurant;
   final double distanceMeters;
-  const _DrivePill(
-      {Key? key, required this.restaurant, required this.distanceMeters})
-      : super(key: key);
+  final bool active;
+  final VoidCallback onTap;
+  const _DrivePill({
+    Key? key,
+    required this.restaurant,
+    required this.distanceMeters,
+    required this.active,
+    required this.onTap,
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => RestaurantDetailScreen(id: restaurant.id),
-        ),
-      ),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14),
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: const Color(0xFF2A2D36),
-          borderRadius: BorderRadius.circular(22),
-          border: Border.all(color: Colors.white10),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 10,
-              height: 10,
-              decoration: BoxDecoration(
-                color: _dotColorForRestaurant(restaurant),
-                shape: BoxShape.circle,
-              ),
+    final status = _statusFor(restaurant, distanceMeters);
+    final unreachable = status.color == _kStatusUrgent;
+    final closingSoon = status.color == _kStatusWarning;
+    // Trailing label: distance, but swap to time-to-close when urgent or
+    // soon so the user gets the most useful info at a glance.
+    final close = _closingTimeNow(restaurant);
+    String trailing;
+    if ((unreachable || closingSoon) && close != null) {
+      trailing = 'cierra ${_fmtClock(close)}';
+    } else {
+      trailing = _fmtDistance(distanceMeters);
+    }
+    return Opacity(
+      opacity: unreachable ? 0.55 : 1.0,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: active
+                ? GlobalMethods.blueColor
+                : const Color(0xFF2A2D36),
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(
+              color: active
+                  ? GlobalMethods.blueColor
+                  : (closingSoon || unreachable)
+                      ? status.color.withOpacity(0.6)
+                      : Colors.white10,
+              width: (closingSoon || unreachable) && !active ? 1.4 : 1,
             ),
-            const SizedBox(width: 10),
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 140),
-              child: Text(
-                restaurant.nombre.toUpperCase(),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontFamily: 'SF Pro Display',
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.4,
+            boxShadow: active
+                ? [
+                    BoxShadow(
+                      color: GlobalMethods.blueColor.withOpacity(0.32),
+                      blurRadius: 10,
+                      offset: const Offset(0, 3),
+                    ),
+                  ]
+                : const [],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 10,
+                height: 10,
+                decoration: BoxDecoration(
+                  color: status.color,
+                  shape: BoxShape.circle,
                 ),
               ),
-            ),
-            const SizedBox(width: 10),
-            Text(
-              _fmtDistance(distanceMeters),
-              style: const TextStyle(
-                color: Colors.white60,
-                fontFamily: 'SF Pro Display',
-                fontSize: 12,
+              const SizedBox(width: 10),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 140),
+                child: Text(
+                  restaurant.nombre.toUpperCase(),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontFamily: 'SF Pro Display',
+                    fontSize: 12,
+                    fontWeight: active ? FontWeight.w800 : FontWeight.w700,
+                    letterSpacing: 0.4,
+                    decoration: unreachable
+                        ? TextDecoration.lineThrough
+                        : TextDecoration.none,
+                  ),
+                ),
               ),
-            ),
-          ],
+              const SizedBox(width: 10),
+              Text(
+                trailing,
+                style: TextStyle(
+                  color: active
+                      ? Colors.white
+                      : (closingSoon || unreachable)
+                          ? status.color
+                          : Colors.white60,
+                  fontFamily: 'SF Pro Display',
+                  fontSize: 12,
+                  fontWeight: (closingSoon || unreachable)
+                      ? FontWeight.w700
+                      : FontWeight.w400,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -1247,7 +1658,11 @@ class _FloatingMapCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 6),
-                  _StatusLine(restaurant: r, brand: brand),
+                  _StatusLine(
+                    restaurant: r,
+                    brand: brand,
+                    distanceMeters: distanceMeters,
+                  ),
                 ],
               ),
             ),
@@ -1301,16 +1716,21 @@ class _FloatingMapCard extends StatelessWidget {
   }
 }
 
-/// Línea de estado: "● Cerrado · Candelaria · 12-22€"
+/// Línea de estado: "● Abierto hasta 22:30 · Candelaria · 12-22€"
 class _StatusLine extends StatelessWidget {
   final Restaurant restaurant;
   final BrandColors brand;
-  const _StatusLine({required this.restaurant, required this.brand});
+  final double distanceMeters;
+  const _StatusLine({
+    required this.restaurant,
+    required this.brand,
+    required this.distanceMeters,
+  });
 
   @override
   Widget build(BuildContext context) {
     final r = restaurant;
-    final statusColor = r.open ? AppColors.laurisilva : AppColors.mojo;
+    final status = _statusFor(r, distanceMeters);
     final priceLabel = (r.minPrice != null && r.maxPrice != null)
         ? '${r.minPrice}–${r.maxPrice}€'
         : null;
@@ -1339,17 +1759,21 @@ class _StatusLine extends StatelessWidget {
             width: 6,
             height: 6,
             decoration: BoxDecoration(
-              color: statusColor,
+              color: status.color,
               shape: BoxShape.circle,
             ),
           ),
           const SizedBox(width: 5),
-          Text(
-            r.open ? 'Abierto' : 'Cerrado',
-            style: AppTextStyles.ui(
-              size: 11,
-              weight: FontWeight.w700,
-              color: statusColor,
+          Flexible(
+            child: Text(
+              status.label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AppTextStyles.ui(
+                size: 11,
+                weight: FontWeight.w700,
+                color: status.color,
+              ),
             ),
           ),
           if (r.municipio.isNotEmpty) ...[
@@ -1432,20 +1856,85 @@ String _fmtDriveMinutes(double meters) {
   return '$mins min';
 }
 
-Color _dotColorForRestaurant(Restaurant r) {
-  // Stable color from id hash so the dot row reads as a varied palette
-  // similar to the screenshot (orange, yellow, green).
-  const palette = [
-    Color(0xFFE49B4F), // orange
-    Color(0xFFE7C34A), // yellow
-    Color(0xFF6FCF97), // green
-    Color(0xFFE2787B), // salmon
-    Color(0xFF56C7E0), // teal
-    Color(0xFFB388FF), // violet
-  ];
-  if (r.id.isEmpty) return palette[0];
-  final idx = r.id.codeUnits.fold<int>(0, (a, b) => a + b) % palette.length;
-  return palette[idx];
+int _etaMinutes(double meters) {
+  if (!meters.isFinite) return 0;
+  return (meters / 1000).ceil();
+}
+
+/// Parses `Restaurant.googleHorarios` (multi-line "Lunes: 09:00–22:30"
+/// strings) and returns the closing time of the slot the restaurant is in
+/// right now. Null if the place is closed, has no schedule, or is 24h.
+DateTime? _closingTimeNow(Restaurant r) {
+  final raw = r.googleHorarios;
+  if (raw.isEmpty) return null;
+  final lower = raw.toLowerCase();
+  if (lower == 'cerrado' || lower == 'sin horario') return null;
+  final lines = raw.split('\n');
+  final weekday = DateTime.now().toUtc().weekday - 1;
+  if (weekday < 0 || weekday >= lines.length) return null;
+  final colonIdx = lines[weekday].indexOf(': ');
+  if (colonIdx < 0) return null;
+  final hours = lines[weekday].substring(colonIdx + 2).trim();
+  final hoursLower = hours.toLowerCase();
+  if (hoursLower == 'cerrado') return null;
+  if (hoursLower.contains('24 horas')) return null;
+  final now = DateTime.now();
+  for (final range in hours.split(', ')) {
+    final hh = range.split('–');
+    if (hh.length < 2) continue;
+    final s = hh[0].split(':');
+    final e = hh[1].split(':');
+    if (s.length < 2 || e.length < 2) continue;
+    final start = DateTime(now.year, now.month, now.day,
+        int.tryParse(s[0]) ?? 0, int.tryParse(s[1]) ?? 0);
+    var end = DateTime(now.year, now.month, now.day,
+        int.tryParse(e[0]) ?? 0, int.tryParse(e[1]) ?? 0);
+    // Range crosses midnight (e.g. 19:00–01:00).
+    if (end.isBefore(start)) {
+      end = end.add(const Duration(days: 1));
+    }
+    if (now.isAfter(start) && now.isBefore(end)) return end;
+  }
+  return null;
+}
+
+String _fmtClock(DateTime dt) =>
+    '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+
+class _RestaurantStatus {
+  final String label;
+  final Color color;
+  const _RestaurantStatus(this.label, this.color);
+}
+
+const Color _kStatusOpen = Color.fromRGBO(149, 220, 0, 1);
+const Color _kStatusClosed = Color.fromRGBO(226, 120, 120, 1);
+const Color _kStatusWarning = Color.fromRGBO(245, 183, 0, 1); // sol
+const Color _kStatusUrgent = Color.fromRGBO(232, 82, 26, 1); // mojo
+
+/// Combines open/closed + closing time + ETA into a single status descriptor.
+/// "Cierra pronto" if the slot ends in <45 min. "Estará cerrado al llegar"
+/// when ETA at ~60 km/h doesn't fit before close (or <10 min remaining).
+_RestaurantStatus _statusFor(Restaurant r, double distanceMeters) {
+  if (!r.open) {
+    return const _RestaurantStatus('Cerrado', _kStatusClosed);
+  }
+  final close = _closingTimeNow(r);
+  if (close == null) {
+    return const _RestaurantStatus('Abierto', _kStatusOpen);
+  }
+  final closesIn = close.difference(DateTime.now()).inMinutes;
+  final eta = _etaMinutes(distanceMeters);
+  final hhmm = _fmtClock(close);
+
+  if (closesIn < 10 || closesIn <= eta) {
+    return _RestaurantStatus(
+        'Estará cerrado al llegar · cierra $hhmm', _kStatusUrgent);
+  }
+  if (closesIn < 45) {
+    return _RestaurantStatus('Cierra pronto · $hhmm', _kStatusWarning);
+  }
+  return _RestaurantStatus('Abierto hasta $hhmm', _kStatusOpen);
 }
 
 // ── Header (search + chips) widget ──────────────────────────────────────
@@ -1459,6 +1948,8 @@ class _MapHeader extends StatelessWidget {
   final VoidCallback onClearSearch;
   final VoidCallback onToggleOpen;
   final ValueChanged<String> onToggleCategory;
+  final bool driveMode;
+  final VoidCallback onExitDrive;
 
   const _MapHeader({
     Key? key,
@@ -1471,6 +1962,8 @@ class _MapHeader extends StatelessWidget {
     required this.onClearSearch,
     required this.onToggleOpen,
     required this.onToggleCategory,
+    this.driveMode = false,
+    required this.onExitDrive,
   }) : super(key: key);
 
   @override
@@ -1485,7 +1978,8 @@ class _MapHeader extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Search bar (live filter) with municipality chip on the right.
-            Container(
+            // Hidden in drive mode to avoid distracting input.
+            if (!driveMode) Container(
               height: 52,
               padding: const EdgeInsets.symmetric(horizontal: 14),
               decoration: BoxDecoration(
@@ -1567,18 +2061,25 @@ class _MapHeader extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(height: 12),
-            // Quick filter pills row.
+            if (!driveMode) const SizedBox(height: 12),
+            // Quick filter pills row. In drive mode it sits at the very top
+            // (no search bar above) and is prefixed by a "Salir modo coche"
+            // pill so the user can leave drive mode without hunting for it.
             SizedBox(
-              height: 36,
+              height: driveMode ? 44 : 36,
               child: ListView(
                 scrollDirection: Axis.horizontal,
                 physics: const BouncingScrollPhysics(),
                 children: [
+                  if (driveMode) ...[
+                    _DriveExitPill(onTap: onExitDrive),
+                    const SizedBox(width: 8),
+                  ],
                   _QuickPill(
                     label: 'ABIERTO AHORA',
                     active: openActive,
                     onTap: onToggleOpen,
+                    big: driveMode,
                   ),
                   for (final c in categories.take(8)) ...[
                     const SizedBox(width: 8),
@@ -1586,9 +2087,108 @@ class _MapHeader extends StatelessWidget {
                       label: c.nombre.toUpperCase(),
                       active: selectedCategoryId == c.id,
                       onTap: () => onToggleCategory(c.id),
+                      big: driveMode,
                     ),
                   ],
                 ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EnterDrivePill extends StatelessWidget {
+  final VoidCallback onTap;
+  const _EnterDrivePill({Key? key, required this.onTap}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Container(
+        height: 42,
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        decoration: BoxDecoration(
+          color: GlobalMethods.blueColor,
+          borderRadius: BorderRadius.circular(22),
+          boxShadow: [
+            BoxShadow(
+              color: GlobalMethods.blueColor.withOpacity(0.42),
+              blurRadius: 14,
+              offset: const Offset(0, 4),
+            ),
+            BoxShadow(
+              color: Colors.black.withOpacity(0.18),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: const [
+            Icon(Icons.directions_car_filled,
+                color: Colors.white, size: 18),
+            SizedBox(width: 8),
+            Text(
+              'MODO COCHE',
+              style: TextStyle(
+                color: Colors.white,
+                fontFamily: 'SF Pro Display',
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.7,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DriveExitPill extends StatelessWidget {
+  final VoidCallback onTap;
+  const _DriveExitPill({Key? key, required this.onTap}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Container(
+        height: 44,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: GlobalMethods.blueColor,
+          borderRadius: BorderRadius.circular(22),
+          boxShadow: [
+            BoxShadow(
+              color: GlobalMethods.blueColor.withOpacity(0.35),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: const [
+            Icon(Icons.directions_car_filled,
+                color: Colors.white, size: 18),
+            SizedBox(width: 6),
+            Text(
+              'SALIR MODO COCHE',
+              style: TextStyle(
+                color: Colors.white,
+                fontFamily: 'SF Pro Display',
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.6,
               ),
             ),
           ],
@@ -1602,12 +2202,14 @@ class _QuickPill extends StatelessWidget {
   final String label;
   final bool active;
   final VoidCallback onTap;
+  final bool big;
 
   const _QuickPill({
     Key? key,
     required this.label,
     required this.active,
     required this.onTap,
+    this.big = false,
   }) : super(key: key);
 
   @override
@@ -1618,11 +2220,11 @@ class _QuickPill extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         curve: Curves.easeInOut,
-        padding: const EdgeInsets.symmetric(horizontal: 18),
+        padding: EdgeInsets.symmetric(horizontal: big ? 20 : 18),
         alignment: Alignment.center,
         decoration: BoxDecoration(
           color: active ? GlobalMethods.blueColor : brand.surface,
-          borderRadius: BorderRadius.circular(22),
+          borderRadius: BorderRadius.circular(big ? 22 : 22),
           border: Border.all(
             color: active ? GlobalMethods.blueColor : brand.border,
             width: 1.2,
@@ -1642,8 +2244,8 @@ class _QuickPill extends StatelessWidget {
           style: TextStyle(
             color: active ? Colors.white : brand.textPrimary,
             fontFamily: 'SF Pro Display',
-            fontSize: 12,
-            fontWeight: active ? FontWeight.w700 : FontWeight.w600,
+            fontSize: big ? 13 : 12,
+            fontWeight: active ? FontWeight.w800 : FontWeight.w600,
             letterSpacing: 0.6,
           ),
         ),

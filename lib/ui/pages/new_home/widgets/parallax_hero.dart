@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:guachinches/config/app_colors.dart';
 import 'package:guachinches/config/brand_colors.dart';
 import 'package:guachinches/config/app_text_styles.dart';
+import 'package:guachinches/ui/components/weather_layer.dart';
 import 'package:guachinches/utils/time_of_day_engine.dart';
 import 'starfield_painter.dart';
 import 'sun_moon_arc.dart';
@@ -58,34 +59,50 @@ class ParallaxHero extends StatelessWidget {
       child: Stack(
         clipBehavior: Clip.hardEdge,
         children: [
-          // Foto con parallax
-          RepaintBoundary(
-            child: Positioned(
-              top: -scrollOffset * 0.4,
-              left: 0, right: 0,
-              height: heroH + 40,
-              child: _buildPhoto(context),
+          // Capas decorativas → IgnorePointer para que drags pasen al
+          // CustomScrollView que está detrás (sigue scrolleando al
+          // arrastrar sobre la foto). Solo el contenido editorial (chip)
+          // captura taps.
+          IgnorePointer(
+            child: Stack(
+              clipBehavior: Clip.hardEdge,
+              children: [
+                // Foto con parallax
+                RepaintBoundary(
+                  child: Positioned(
+                    top: -scrollOffset * 0.4,
+                    left: 0, right: 0,
+                    height: heroH + 40,
+                    child: _buildPhoto(context),
+                  ),
+                ),
+                // Tinte de hora
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 800),
+                  color: tint,
+                ),
+                // Capa meteorológica: consulta tiempo real (Open-Meteo) y
+                // compone nubes/lluvia según condición actual.
+                const Positioned.fill(child: WeatherLayer()),
+                // Degradado mínimo solo al final del hero
+                Positioned(
+                  bottom: 0, left: 0, right: 0, height: 30,
+                  child: _buildFadeGradient(context),
+                ),
+                // Starfield
+                if (starOpacity > 0)
+                  StarfieldWidget(
+                    opacity: starOpacity,
+                    heroSize: Size(heroW, heroH),
+                  ),
+                // Sol / Luna
+                SunMoonArc(
+                    hour: hour, heroWidth: heroW, heroHeight: heroH),
+              ],
             ),
           ),
-          // Tinte de hora
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 800),
-            color: tint,
-          ),
-          // Degradado mínimo solo al final del hero (transición foto → scaffold)
-          Positioned(
-            bottom: 0, left: 0, right: 0, height: 30,
-            child: _buildFadeGradient(context),
-          ),
-          // Starfield
-          if (starOpacity > 0)
-            StarfieldWidget(
-              opacity: starOpacity,
-              heroSize: Size(heroW, heroH),
-            ),
-          // Sol / Luna
-          SunMoonArc(hour: hour, heroWidth: heroW, heroHeight: heroH),
-          // Contenido editorial
+          // Contenido editorial — fuera del IgnorePointer, así el chip
+          // de zona/isla recibe taps.
           Positioned(
             bottom: 0, left: 0, right: 0,
             child: _buildEditorialContent(context, greeting, copy),

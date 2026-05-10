@@ -17,6 +17,7 @@ import 'package:guachinches/ui/pages/new_home/sheets/island_picker_sheet.dart';
 import 'package:guachinches/ui/pages/new_home/sheets/zone_picker_sheet.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/canarian_specialties_section.dart';
 import 'package:guachinches/ui/pages/curated_list_detail/curated_list_detail_screen.dart';
+import 'package:guachinches/ui/pages/discover/discover_screen.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/card_curated_list.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/card_horizontal.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/card_nearby_minimap.dart';
@@ -92,11 +93,15 @@ class _NewHomeBodyState extends State<NewHomeBody> {
     final filters = widget.filters;
     final zoneLabel = filters.zoneLabel ?? filters.islandLabel;
 
-    // Restaurantes para la sección "HOY EN..." — solo los que tienen
-    // horariosJson y están realmente abiertos ahora. El campo `r.open`
-    // viene del parser legacy y no es de confianza.
+    // Restaurantes para la sección "HOY EN..." — abiertos ahora y filtrados
+    // por type/categoría según la hora (Bar/Cafetería para desayunos,
+    // Terraza/Con vistas para atardecer, Restaurantes/Tascas para cenas...).
+    // Ver lib/utils/contextual_pool.dart para el mapeo. Si la intersección
+    // queda escasa cae al pool abierto sin filtrar.
     final openNow = widget.presenter.filterOpenNow(widget.pool);
-    final todayPool = openNow.take(5).toList();
+    final contextual =
+        widget.presenter.filterContextual(widget.pool, widget.hour);
+    final todayPool = contextual.take(5).toList();
     final showTodaySection = todayPool.isNotEmpty;
 
     // Cantidad de overscroll (positivo cuando el usuario tira hacia abajo)
@@ -106,27 +111,11 @@ class _NewHomeBodyState extends State<NewHomeBody> {
 
     return Stack(
       children: [
-        // ── Hero foto: anclado arriba, scroll-away en scroll normal,
-        //    se estira al hacer pull-down (sin que aparezca cream por arriba) ──
-        Positioned(
-          top: -scrollUp,
-          left: 0,
-          right: 0,
-          height: kHeroHeight + overscroll,
-          child: ParallaxHero(
-            scrollOffset: 0, // posicionamiento manejado por el outer Stack
-            hour: widget.hour,
-            assetImage: _assetForIsland(filters.islandId),
-            zona: filters.zoneLabel ?? filters.islandLabel,
-            islandLabel: filters.islandLabel,
-            zoneIsSet: filters.zoneLabel != null,
-            openCount: openNow.length,
-            onZoneChipTap: () => _showZoneSheet(context),
-            onIslandChipTap: () => _showIslandSheet(context),
-          ),
-        ),
-
         // ── Scroll principal ──────────────────────────
+        // Va PRIMERO en el Stack para que el hero (ver más abajo) quede
+        // por encima en hit-testing y sus chips reciban taps. Las zonas
+        // decorativas del hero usan IgnorePointer internamente para
+        // dejar pasar drags al scroll.
         CustomScrollView(
           controller: widget.scrollCtrl,
           physics: const BouncingScrollPhysics(),
@@ -225,7 +214,9 @@ class _NewHomeBodyState extends State<NewHomeBody> {
               child: SectionHeader(
                 title: 'ÚLTIMAS VISITAS DE JONAY Y JOANA',
                 actionLabel: 'VER TODAS',
-                onAction: () {},
+                onAction: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const DiscoverScreen()),
+                ),
               ),
             ),
             SliverToBoxAdapter(
@@ -294,6 +285,27 @@ class _NewHomeBodyState extends State<NewHomeBody> {
             // Padding inferior pequeño para respirar al final del scroll.
             const SliverToBoxAdapter(child: SizedBox(height: 24)),
           ],
+        ),
+
+        // ── Hero foto: por encima del scroll para que sus chips reciban
+        //    taps. Las capas decorativas internas usan IgnorePointer y
+        //    dejan pasar drags al scroll de fondo.
+        Positioned(
+          top: -scrollUp,
+          left: 0,
+          right: 0,
+          height: kHeroHeight + overscroll,
+          child: ParallaxHero(
+            scrollOffset: 0, // posicionamiento manejado por el outer Stack
+            hour: widget.hour,
+            assetImage: _assetForIsland(filters.islandId),
+            zona: filters.zoneLabel ?? filters.islandLabel,
+            islandLabel: filters.islandLabel,
+            zoneIsSet: filters.zoneLabel != null,
+            openCount: openNow.length,
+            onZoneChipTap: () => _showZoneSheet(context),
+            onIslandChipTap: () => _showIslandSheet(context),
+          ),
         ),
 
         // ── TopFilterBar fija (flotante sobre el scroll) ──

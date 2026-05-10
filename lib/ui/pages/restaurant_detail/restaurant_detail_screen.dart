@@ -344,7 +344,11 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen>
             key: _reviewsKey,
             child: Padding(
               padding: const EdgeInsets.only(top: 18),
-              child: ReviewsSection(restaurant: r),
+              child: ReviewsSection(
+                restaurant: r,
+                onReviewSubmitted: () =>
+                    _presenter.getRestaurantById(widget.id),
+              ),
             ),
           ),
         ],

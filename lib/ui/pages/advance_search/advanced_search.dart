@@ -158,6 +158,24 @@ class _AdvancedSearchState extends State<AdvancedSearch> {
     _runSearch();
   }
 
+  /// Header dinámico: si entras con una categoría/tipo prefiltrado desde
+  /// home, lo muestra como título; si no, "Buscar".
+  String _headerTitle() {
+    if (widget.preSelectedCategories.length == 1) {
+      return widget.preSelectedCategories.first.nombre.toUpperCase();
+    }
+    if (widget.preSelectedCategories.length > 1) {
+      return '${widget.preSelectedCategories.length} CATEGORÍAS';
+    }
+    if (widget.preSelectedTypes.length == 1) {
+      return widget.preSelectedTypes.first.nombre.toUpperCase();
+    }
+    if (widget.preSelectedTypes.length > 1) {
+      return '${widget.preSelectedTypes.length} TIPOS';
+    }
+    return 'BUSCAR';
+  }
+
   void _useRecent(String query) {
     _searchController.text = query;
     _searchController.selection = TextSelection.fromPosition(
@@ -175,7 +193,10 @@ class _AdvancedSearchState extends State<AdvancedSearch> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _Header(onBack: () => Navigator.pop(context)),
+            _Header(
+              title: _headerTitle(),
+              onBack: () => Navigator.pop(context),
+            ),
             const SizedBox(height: 8),
             _SearchRow(
               controller: _searchController,
@@ -220,8 +241,9 @@ class _AdvancedSearchState extends State<AdvancedSearch> {
 }
 
 class _Header extends StatelessWidget {
+  final String title;
   final VoidCallback onBack;
-  const _Header({required this.onBack});
+  const _Header({required this.title, required this.onBack});
 
   @override
   Widget build(BuildContext context) {
@@ -237,9 +259,13 @@ class _Header extends StatelessWidget {
             ),
             onPressed: onBack,
           ),
-          Text(
-            'BUSCAR',
-            style: AppTextStyles.displayHero(size: 26),
+          Expanded(
+            child: Text(
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AppTextStyles.displayHero(size: 26),
+            ),
           ),
         ],
       ),
