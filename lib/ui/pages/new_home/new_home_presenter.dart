@@ -2,6 +2,7 @@ import 'package:guachinches/data/RemoteRepository.dart';
 import 'package:guachinches/data/cubit/new_home/curated_lists_cubit.dart';
 import 'package:guachinches/data/cubit/new_home/visits_cubit.dart';
 import 'package:guachinches/data/cubit/new_home/weather_cubit.dart';
+import 'package:guachinches/data/cubit/new_home/zone_weather_cubit.dart';
 import 'package:guachinches/data/cubit/new_home/zones_cubit.dart';
 import 'package:guachinches/data/cubit/restaurants/basic/restaurant_cubit.dart';
 import 'package:guachinches/data/model/Category.dart';
@@ -12,6 +13,7 @@ import 'package:guachinches/data/model/restaurant.dart';
 import 'package:guachinches/utils/contextual_pool.dart';
 import 'package:guachinches/utils/distance_utils.dart';
 import 'package:guachinches/utils/open_now_utils.dart';
+import 'package:guachinches/utils/opening_later_utils.dart';
 import 'package:guachinches/utils/time_of_day_engine.dart';
 
 class NewHomePresenter {
@@ -22,6 +24,7 @@ class NewHomePresenter {
   final CuratedListsCubit _curatedListsCubit;
   final ZonesCubit _zonesCubit;
   final VisitsCubit _visitsCubit;
+  final ZoneWeatherCubit _zoneWeatherCubit;
 
   NewHomePresenter(
     this._view,
@@ -31,6 +34,7 @@ class NewHomePresenter {
     this._curatedListsCubit,
     this._zonesCubit,
     this._visitsCubit,
+    this._zoneWeatherCubit,
   );
 
   // ──────────────────────────────────────────────
@@ -51,6 +55,7 @@ class NewHomePresenter {
         _zonesCubit.loadForIsland(islandId),
         _visitsCubit.loadVisits(),
       ]);
+      _zoneWeatherCubit.loadForIsland(islandId);
     } catch (e) {
       _view.setError('bootstrap', e);
     } finally {
@@ -74,6 +79,7 @@ class NewHomePresenter {
         _curatedListsCubit.loadForIsland(islandId),
         _zonesCubit.loadForIsland(islandId),
       ]);
+      _zoneWeatherCubit.loadForIsland(islandId);
     } catch (e) {
       _view.setError('island', e);
     } finally {
@@ -86,8 +92,33 @@ class NewHomePresenter {
   // Filtros secundarios (solo cliente o re-fetch)
   // ──────────────────────────────────────────────
 
-  void onZoneChanged(String? zoneKey) {
+  /// Aplica el filtro de zona y recarga el clima al nivel correspondiente:
+  /// si hay zona seleccionada (zoneId != null) → clima de la zona;
+  /// si la zona se limpia → vuelve al clima de la isla.
+  void onZoneChanged(
+    String? zoneKey, {
+    String? zoneId,
+    required String islandId,
+  }) {
     _view.applyClientFilters(zoneKey: zoneKey);
+    if (zoneId != null) {
+      _weatherCubit.loadForZone(zoneId);
+    } else {
+      _weatherCubit.loadForIsland(islandId);
+    }
+  }
+
+  /// Refresco horario del clima. Llamado por el timer del screen cada hora.
+  /// Mantiene el nivel actual (zona si hay zona seleccionada, isla si no).
+  Future<void> refreshWeather({
+    required String islandId,
+    String? zoneId,
+  }) async {
+    if (zoneId != null) {
+      await _weatherCubit.loadForZone(zoneId);
+    } else {
+      await _weatherCubit.loadForIsland(islandId);
+    }
   }
 
   Future<void> onMunicipalityChanged(
@@ -214,6 +245,25 @@ class NewHomePresenter {
       return typeOk && catOk;
     }).toList();
     return filtered.length >= 2 ? filtered : openNow;
+  }
+
+  /// Pool de fallback para "HOY EN …" cuando no hay nada abierto AHORA.
+  /// Devuelve restaurantes que abrirán más tarde durante el mismo día
+  /// natural, ordenados por *quién abre antes*. Usado en islas donde la
+  /// cocina arranca a las 13:00-13:30 (El Hierro, La Gomera, La Palma)
+  /// para evitar que la home aparezca vacía a las 12:00.
+  ///
+  /// Excluye restaurantes sin `horariosJson` (no podemos prometer
+  /// apertura sin datos estructurados) y los que no abren hoy.
+  List<Restaurant> filterOpeningLaterToday(List<Restaurant> pool, DateTime now) {
+    final result = <MapEntry<Restaurant, int>>[];
+    for (final r in pool) {
+      final mins = minutesUntilOpenToday(r.horariosJson, now);
+      if (mins == null) continue;
+      result.add(MapEntry(r, mins));
+    }
+    result.sort((a, b) => a.value.compareTo(b.value));
+    return result.map((e) => e.key).toList();
   }
 
   List<Restaurant> filterClosingSoon(List<Restaurant> pool) {

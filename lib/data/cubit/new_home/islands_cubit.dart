@@ -1,4 +1,5 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:guachinches/core/logging/app_logger.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
 import 'package:guachinches/data/model/Island.dart';
 
@@ -24,14 +25,14 @@ class IslandsCubit extends Cubit<IslandsState> {
   IslandsCubit(this._repo) : super(IslandsInitial());
 
   Future<void> load() async {
-    print('[IslandsCubit] load() start');
+    AppLogger.info('islands-cubit', 'load() start');
     emit(IslandsLoading());
     try {
       final list = await _repo.getIslands();
-      print('[IslandsCubit] loaded ${list.length} islas');
+      AppLogger.info('islands-cubit', 'loaded ${list.length} islas');
       emit(IslandsLoaded(list));
     } catch (e, st) {
-      print('[IslandsCubit] FAIL: $e\n$st');
+      AppLogger.error('islands-cubit', e, st);
       emit(IslandsFailure(e.toString()));
     }
   }

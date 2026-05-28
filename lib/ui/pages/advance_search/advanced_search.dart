@@ -1,20 +1,28 @@
 import 'dart:convert';
 
+import 'package:firebase_analytics/firebase_analytics.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:guachinches/core/logging/app_logger.dart';
 import 'package:guachinches/config/app_colors.dart';
 import 'package:guachinches/config/app_text_styles.dart';
 import 'package:guachinches/config/brand_colors.dart';
+import 'package:guachinches/data/cubit/new_home/visits_cubit.dart';
 import 'package:guachinches/data/cubit/restaurants/basic/restaurant_cubit.dart';
 import 'package:guachinches/data/cubit/restaurants/basic/restaurant_state.dart';
+import 'package:guachinches/data/cubit/search/dish_search_cubit.dart';
 import 'package:guachinches/data/model/Category.dart';
 import 'package:guachinches/data/model/Municipality.dart';
 import 'package:guachinches/data/model/Types.dart';
+import 'package:guachinches/data/model/Visit.dart';
 import 'package:guachinches/data/model/restaurant.dart';
 import 'package:guachinches/services/app_storage.dart';
 import 'package:guachinches/ui/pages/advance_search/widgets/search_filter_sheet.dart';
 import 'package:guachinches/ui/pages/advance_search/widgets/search_result_card.dart';
 import 'package:guachinches/ui/pages/restaurant_detail/restaurant_detail_screen.dart';
+import 'package:guachinches/utils/debouncer.dart';
+import 'package:guachinches/utils/dish_search_index.dart';
 
 class AdvancedSearch extends StatefulWidget {
   final List<ModelCategory> categories;
@@ -46,11 +54,18 @@ class _AdvancedSearchState extends State<AdvancedSearch> {
 
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocus = FocusNode();
+  final Debouncer _searchDebouncer = Debouncer();
   late RestaurantCubit _restaurantsCubit;
 
   SearchFilterValues _filters = const SearchFilterValues();
   List<String> _recents = const [];
   bool _hasSearched = false;
+
+  // Dish search state — computed in _runSearch(), never via BlocListener.
+  Set<String> _dishMatchIds = const {};
+  Map<String, String> _dishFirstMatchName = const {};
+  List<Visit> _allVisits = const [];
+  bool _hasDishIndex = false;
 
   bool get _hasQuery => _searchController.text.trim().isNotEmpty;
 
@@ -75,6 +90,7 @@ class _AdvancedSearchState extends State<AdvancedSearch> {
 
   @override
   void dispose() {
+    _searchDebouncer.dispose();
     _searchController.dispose();
     _searchFocus.dispose();
     super.dispose();
@@ -114,23 +130,89 @@ class _AdvancedSearchState extends State<AdvancedSearch> {
   }
 
   void _runSearch() {
-    setState(() => _hasSearched = true);
+    final query = _searchController.text;
+
+    final dishState = context.read<DishSearchCubit>().state;
+    final visitsState = context.read<VisitsCubit>().state;
+    Set<String> newDishMatchIds = const {};
+    Map<String, String> newDishFirstMatchName = const {};
+    List<Visit> newAllVisits = const [];
+    final newHasDishIndex =
+        dishState is DishSearchReady && dishState.index.isNotEmpty;
+
+    // Diagnóstico — si el index está vacío o el cubit no ha cargado las
+    // visitas, búsqueda por plato no funcionará. Esto lo elevamos a log para
+    // poder verlo en consola sin tocar el render.
+    final dishStateName = dishState.runtimeType.toString();
+    final visitsStateName = visitsState.runtimeType.toString();
+    final indexSize =
+        dishState is DishSearchReady ? dishState.index.length : 0;
+    AppLogger.info(
+      'advanced-search',
+      'query="$query" len=${query.length} '
+          'dish_state=$dishStateName index_tokens=$indexSize '
+          'visits_state=$visitsStateName',
+    );
+
+    if (dishState is DishSearchReady && query.trim().length >= 3) {
+      newDishMatchIds = matchRestaurantIds(dishState.index, query);
+      if (newDishMatchIds.isNotEmpty) {
+        newAllVisits =
+            visitsState is VisitsLoaded ? visitsState.visits : const [];
+        newDishFirstMatchName = buildDishFirstMatchNames(
+          newAllVisits,
+          newDishMatchIds,
+          query,
+        );
+      }
+      AppLogger.info(
+        'advanced-search',
+        'dish_match_ids=${newDishMatchIds.length} '
+            'first_match_names=${newDishFirstMatchName.length}',
+      );
+    }
+
+    setState(() {
+      _hasSearched = true;
+      _dishMatchIds = newDishMatchIds;
+      _dishFirstMatchName = newDishFirstMatchName;
+      _allVisits = newAllVisits;
+      _hasDishIndex = newHasDishIndex;
+    });
+
     _restaurantsCubit.getFilterRestaurantsAdvance(
       categories: _filters.categoryIds,
       municipalities: _filters.municipalityIds,
-      text: _searchController.text,
+      text: query,
       types: _filters.typeIds,
       islandId: widget.islandId,
       isOpen: _filters.openOnly,
     );
+
+    if (query.length >= 3 && Firebase.apps.isNotEmpty) {
+      final prevServerState = _restaurantsCubit.state;
+      final prevServerIds = prevServerState is RestaurantFilterAdvanced
+          ? prevServerState.restaurantFilterAdvanced.map((r) => r.id).toSet()
+          : const <String>{};
+      FirebaseAnalytics.instance.logEvent(
+        name: 'search_dish_match',
+        parameters: {
+          'query_len': query.length,
+          'server_count': prevServerIds.length,
+          'dish_count': newDishMatchIds.length,
+          'dish_only_count': newDishMatchIds.difference(prevServerIds).length,
+        },
+      );
+    }
   }
 
   void _onQueryChanged(String _) {
     setState(() {});
-    _runSearch();
+    _searchDebouncer(() => _runSearch());
   }
 
   void _onSubmitted(String value) {
+    _searchDebouncer.cancel();
     _addRecent(value);
     _runSearch();
   }
@@ -224,6 +306,10 @@ class _AdvancedSearchState extends State<AdvancedSearch> {
                           ),
                         );
                       },
+                      dishMatchIds: _dishMatchIds,
+                      dishFirstMatchName: _dishFirstMatchName,
+                      allVisits: _allVisits,
+                      hasDishIndex: _hasDishIndex,
                     )
                   : _BrowseView(
                       recents: _recents,
@@ -316,24 +402,27 @@ class _SearchRow extends StatelessWidget {
                   ),
                   const SizedBox(width: 10),
                   Expanded(
-                    child: TextField(
-                      controller: controller,
-                      focusNode: focusNode,
-                      onChanged: onChanged,
-                      onSubmitted: onSubmitted,
-                      textInputAction: TextInputAction.search,
-                      style: AppTextStyles.ui(
-                        size: 14,
-                        color: context.brand.textPrimary,
-                      ),
-                      decoration: InputDecoration(
-                        hintText: 'Nombre, zona, plato…',
-                        hintStyle: AppTextStyles.ui(
+                    child: Semantics(
+                      identifier: 'advanced-search-input',
+                      child: TextField(
+                        controller: controller,
+                        focusNode: focusNode,
+                        onChanged: onChanged,
+                        onSubmitted: onSubmitted,
+                        textInputAction: TextInputAction.search,
+                        style: AppTextStyles.ui(
                           size: 14,
-                          color: context.brand.textMuted,
+                          color: context.brand.textPrimary,
                         ),
-                        border: InputBorder.none,
-                        isDense: true,
+                        decoration: InputDecoration(
+                          hintText: 'Nombre, zona, plato…',
+                          hintStyle: AppTextStyles.ui(
+                            size: 14,
+                            color: context.brand.textMuted,
+                          ),
+                          border: InputBorder.none,
+                          isDense: true,
+                        ),
                       ),
                     ),
                   ),
@@ -365,7 +454,10 @@ class _SearchRow extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 10),
-          _FilterButton(count: filterCount, onTap: onFilter),
+          Semantics(
+            identifier: 'advanced-search-filter-button',
+            child: _FilterButton(count: filterCount, onTap: onFilter),
+          ),
         ],
       ),
     );
@@ -447,8 +539,18 @@ class _FilterButton extends StatelessWidget {
 
 class _ResultsView extends StatelessWidget {
   final ValueChanged<Restaurant> onResultTap;
+  final Set<String> dishMatchIds;
+  final Map<String, String> dishFirstMatchName;
+  final List<Visit> allVisits;
+  final bool hasDishIndex;
 
-  const _ResultsView({required this.onResultTap});
+  const _ResultsView({
+    required this.onResultTap,
+    required this.dishMatchIds,
+    required this.dishFirstMatchName,
+    required this.allVisits,
+    required this.hasDishIndex,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -465,32 +567,73 @@ class _ResultsView extends StatelessWidget {
         if (state is! RestaurantFilterAdvanced) {
           return const SizedBox.shrink();
         }
-        final list = state.restaurantFilterAdvanced;
-        if (list.isEmpty) {
-          return _EmptyResults();
+
+        final serverList = state.restaurantFilterAdvanced;
+        final serverIds = serverList.map((r) => r.id).toSet();
+
+        // Build dish-only list (not already in server results), sorted by name.
+        final dishOnlyRestaurants = <Restaurant>[];
+        final seen = <String>{};
+        for (final visit in allVisits) {
+          final rid = visit.restaurantId;
+          if (!dishMatchIds.contains(rid)) continue;
+          if (serverIds.contains(rid)) continue;
+          if (seen.contains(rid)) continue;
+          if (visit.restaurant == null) continue;
+          seen.add(rid);
+          dishOnlyRestaurants.add(visit.restaurant!);
         }
+        dishOnlyRestaurants.sort((a, b) => a.nombre.compareTo(b.nombre));
+
+        final allItems = [...serverList, ...dishOnlyRestaurants];
+
+        if (allItems.isEmpty) {
+          return _EmptyResults(hasDishHint: hasDishIndex);
+        }
+
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-              child: Text(
-                '${list.length} resultado${list.length == 1 ? '' : 's'}',
-                style: AppTextStyles.muted(size: 12),
+              child: Semantics(
+                identifier: 'advanced-search-result-count',
+                child: Text(
+                  '${allItems.length} resultado${allItems.length == 1 ? '' : 's'}',
+                  style: AppTextStyles.muted(size: 12),
+                ),
               ),
             ),
             Expanded(
-              child: ListView.separated(
-                padding: const EdgeInsets.only(bottom: 24),
-                itemCount: list.length,
-                separatorBuilder: (_, __) => Divider(
-                  height: 1,
-                  thickness: 1,
-                  color: context.brand.border,
-                ),
-                itemBuilder: (_, i) => SearchResultCard(
-                  restaurant: list[i],
-                  onTap: () => onResultTap(list[i]),
+              child: Semantics(
+                identifier: 'advanced-search-results-list',
+                child: ListView.separated(
+                  padding: const EdgeInsets.only(bottom: 24),
+                  itemCount: allItems.length,
+                  separatorBuilder: (_, __) => Divider(
+                    height: 1,
+                    thickness: 1,
+                    color: context.brand.border,
+                  ),
+                  itemBuilder: (_, i) {
+                    final r = allItems[i];
+                    final dishName = dishFirstMatchName[r.id];
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        SearchResultCard(
+                          restaurant: r,
+                          onTap: () => onResultTap(r),
+                        ),
+                        if (dishName != null)
+                          Semantics(
+                            identifier: 'advanced-search-dish-chip-${r.id}',
+                            child: _DishChip(dishName: dishName),
+                          ),
+                      ],
+                    );
+                  },
                 ),
               ),
             ),
@@ -502,6 +645,10 @@ class _ResultsView extends StatelessWidget {
 }
 
 class _EmptyResults extends StatelessWidget {
+  final bool hasDishHint;
+
+  const _EmptyResults({this.hasDishHint = false});
+
   @override
   Widget build(BuildContext context) {
     return Center(
@@ -527,7 +674,49 @@ class _EmptyResults extends StatelessWidget {
               style: AppTextStyles.muted(size: 12),
             ),
           ),
+          if (hasDishHint) ...[
+            const SizedBox(height: 12),
+            Semantics(
+              identifier: 'advanced-search-empty-dish-hint',
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 32),
+                child: Text(
+                  'Prueba: carne de cabra, papas arrugadas, gofio…',
+                  textAlign: TextAlign.center,
+                  style: AppTextStyles.muted(size: 12),
+                ),
+              ),
+            ),
+          ],
         ],
+      ),
+    );
+  }
+}
+
+class _DishChip extends StatelessWidget {
+  final String dishName;
+
+  const _DishChip({required this.dishName});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: AppColors.atlantico.withValues(alpha: 0.12),
+          border: Border.all(color: AppColors.atlantico.withValues(alpha: 0.35)),
+          borderRadius: BorderRadius.circular(100),
+        ),
+        child: Text(
+          '🍽 «$dishName»',
+          style: AppTextStyles.chipLabel(
+            size: 11,
+            color: AppColors.atlanticoClaro,
+          ),
+        ),
       ),
     );
   }

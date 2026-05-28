@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:guachinches/core/logging/app_logger.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
 import 'package:http/http.dart' as http;
 import 'package:video_compress/video_compress.dart';
@@ -16,7 +17,7 @@ class VideoInputPresenter {
   if(response){
     _view.uploadConfirm();
   }else{
-    print('Error uploading video');
+    AppLogger.warn('video-input-presenter', 'Error uploading video');
   }
   }
 }

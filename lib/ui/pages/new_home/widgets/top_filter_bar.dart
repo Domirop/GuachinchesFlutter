@@ -25,6 +25,10 @@ class TopFilterBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // ignore: avoid_print
+    debugPrint(
+      '[TopFilterBar] build zone=$zoneLabel temp=${weather.tempC} cond=${weather.condition}',
+    );
     return Padding(
       padding: EdgeInsets.only(
         top: MediaQuery.of(context).padding.top + 8,
@@ -49,10 +53,14 @@ class TopFilterBar extends StatelessWidget {
                   const SizedBox(width: 10),
                   _Divider(),
                   const SizedBox(width: 10),
-                  _Pill(
-                    label: (zoneLabel ?? 'Zona').toUpperCase(),
-                    onTap: onZoneTap,
-                    faded: zoneLabel == null,
+                  Semantics(
+                    identifier: 'home-zone-chip',
+                    container: true,
+                    child: _Pill(
+                      label: (zoneLabel ?? 'Zona').toUpperCase(),
+                      onTap: onZoneTap,
+                      faded: zoneLabel == null,
+                    ),
                   ),
                 ],
               ),

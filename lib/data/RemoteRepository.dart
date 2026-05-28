@@ -3,6 +3,7 @@ import 'package:guachinches/data/model/Island.dart';
 import 'package:guachinches/data/model/SimpleMunicipality.dart';
 import 'package:guachinches/data/model/curated_list.dart';
 import 'package:guachinches/data/model/weather_data.dart';
+import 'package:guachinches/data/model/weather_zone_bundle.dart';
 import 'package:guachinches/data/model/zone.dart';
 import 'package:guachinches/data/model/survey_in_app_choice.dart';
 import 'package:guachinches/data/model/Cupones.dart';
@@ -25,6 +26,7 @@ import 'package:guachinches/ui/components/SurveyResults/SurveyResults.dart';
 import 'package:video_compress/video_compress.dart';
 
 import 'model/Visit.dart';
+import 'model/user_visit.dart';
 
 abstract class RemoteRepository{
   Future<List<ModelCategory>> getAllCategories();
@@ -47,7 +49,12 @@ abstract class RemoteRepository{
   Future<List<Types>> getAllTypes();
   Future<CuponesUser> getOneCupon(String userId,String id);
   Future<void> removeCupon(String id);
+  @Deprecated('Use requestAccountDeletion for App Store compliance')
   Future<void> deleteUser(String id);
+
+  Future<DateTime> requestAccountDeletion(String userId);
+  Future<void> cancelAccountDeletion(String userId);
+  Future<Map<String, dynamic>> exportUserData(String userId);
   Future<bool> blockUser(String userId,String userIdToBlock);
   Future<List<BlockUser>> getBlockUser(String userId);
   Future<List<ReportReview>> getReviewReported(String userId);
@@ -102,6 +109,7 @@ abstract class RemoteRepository{
   Future<WeatherData> getWeatherForIsland(String islandId);
   Future<WeatherData> getWeatherForMunicipality(String municipalityId);
   Future<WeatherData> getWeatherForZone(String zoneId);
+  Future<WeatherZoneBundle> getWeatherBundleForIsland(String islandId);
 
   // Islands (lista pública de las 7 habitadas)
   Future<List<Island>> getIslands();
@@ -113,4 +121,13 @@ abstract class RemoteRepository{
 
   // Municipios pertenecientes a una zona (pivot municipio_zones)
   Future<List<SimpleMunicipality>> getMunicipalitiesByZone(String zoneId);
+
+  // OAuth login (V2)
+  Future<Map<String, dynamic>> loginWithGoogle(String idToken);
+  Future<Map<String, dynamic>> loginWithApple(String idToken, {String? givenName, String? familyName});
+
+  // User visits
+  Future<List<UserVisit>> getUserVisits(String userId);
+
+  Future<void> invalidateCache(String prefix);
 }

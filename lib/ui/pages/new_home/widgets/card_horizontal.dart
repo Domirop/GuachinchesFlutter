@@ -16,6 +16,11 @@ class CardHorizontal extends StatefulWidget {
   final String? rankingNumber; // '01', '02', etc.
   final String? eyebrow;      // 'GUACHINCHE · TEMPORADA'
 
+  /// Cuando viene informado pinta un badge `ABRE HH:MM` (color sol).
+  /// Mutuamente excluyente con `showOpenBadge`: usamos uno u otro según
+  /// si el restaurante está abierto ahora o abre más tarde hoy.
+  final String? openingLabel; // ej. '13:30'
+
   const CardHorizontal({
     super.key,
     required this.restaurant,
@@ -25,6 +30,7 @@ class CardHorizontal extends StatefulWidget {
     this.showYoutubeBadge = false,
     this.rankingNumber,
     this.eyebrow,
+    this.openingLabel,
   });
 
   @override
@@ -110,7 +116,9 @@ class _CardHorizontalState extends State<CardHorizontal> {
                           .copyWith(color: Colors.white.withOpacity(0.13)),
                     ),
                   ),
-                // Badges superiores
+                // Badges superiores. ABIERTO (verde) y ABRE HH:MM (sol) son
+                // mutuamente excluyentes — uno comunica "ya puedes ir", el
+                // otro "anótalo, abre en breve".
                 Positioned(
                   top: 10, left: 10,
                   child: Row(children: [
@@ -118,9 +126,16 @@ class _CardHorizontalState extends State<CardHorizontal> {
                     if (widget.showOpenBadge) ...[
                       if (widget.showNewBadge) const SizedBox(width: 4),
                       const _Badge('ABIERTO', AppColors.laurisilva, withDot: true),
+                    ] else if (widget.openingLabel != null) ...[
+                      if (widget.showNewBadge) const SizedBox(width: 4),
+                      _Badge('ABRE ${widget.openingLabel!}',
+                          AppColors.sol, withDot: true),
                     ],
                     if (widget.showYoutubeBadge) ...[
-                      if (widget.showOpenBadge || widget.showNewBadge) const SizedBox(width: 4),
+                      if (widget.showOpenBadge ||
+                          widget.openingLabel != null ||
+                          widget.showNewBadge)
+                        const SizedBox(width: 4),
                       const _Badge('▶ VIDEO', AppColors.mojo),
                     ],
                   ]),

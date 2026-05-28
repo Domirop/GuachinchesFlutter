@@ -320,7 +320,7 @@ class _LoginState extends State<Login> implements LoginView {
 
   // ── LoginView ──────────────────────────────────────────────────────────
   @override
-  loginSuccess(List<Widget> screens) {
+  loginSuccess(List<Widget> screens, {bool deletionPending = false, String userId = ''}) {
     if (!mounted) return;
     GlobalMethods()
         .removePagesAndGoToNewScreen(context, NewHomeTabScaffold(screens: screens));

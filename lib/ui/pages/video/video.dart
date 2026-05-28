@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:guachinches/core/logging/app_logger.dart';
 import 'package:guachinches/data/HttpRemoteRepository.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
 import 'package:guachinches/data/cubit/menu/menu_cubit.dart';
@@ -89,8 +90,7 @@ class _VideoScreenState extends State<VideoScreen>
         body: videoUrls.isNotEmpty
             ? BlocBuilder<MenuCubit, MenuState>(builder: (context, menuState) {
           TopRestaurants? topRestaurant;
-          print("CURRENT INDEX");
-          print(actualIndex);
+          AppLogger.info('video-screen', 'CURRENT INDEX: $actualIndex');
           if (actualIndex >= 0 &&
               actualIndex < videos.length &&
               restaurantCache.containsKey(videos[actualIndex].restaurant.id)) {
@@ -164,8 +164,7 @@ class _VideoScreenState extends State<VideoScreen>
     setState(() {
       actualIndex = currentIndex ?? 0; // Maneja el primer índice de manera predeterminada
     });
-    print(
-        "Scroll callback received with data: {direction: $direction, success: $success and index: ${currentIndex ?? 'not given'}}");
+    AppLogger.info('video-screen', 'Scroll callback received with data: {direction: $direction, success: $success and index: ${currentIndex ?? 'not given'}}');
   }
 
   @override

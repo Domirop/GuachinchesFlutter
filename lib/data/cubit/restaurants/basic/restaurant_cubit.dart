@@ -7,6 +7,7 @@ import 'package:guachinches/data/model/restaurant_response.dart';
 class RestaurantCubit extends Cubit<RestaurantState> {
   late final RemoteRepository _remoteRepository;
   late Restaurant restaurant;
+  int _requestSeq = 0;
 
   RestaurantCubit(this._remoteRepository) : super(RestaurantInitial());
 
@@ -17,12 +18,15 @@ class RestaurantCubit extends Cubit<RestaurantState> {
   }
 
   Future<void> getAllRestaurants(int number,String islandId) async {
+    final int seq = ++_requestSeq;
     emit(RestaurantLoading());
     RestaurantResponse allRestaurants = await _remoteRepository.getAllRestaurants(0,islandId);
+    if (seq != _requestSeq) return;
     bool condition = true;
     int index= 1;
     while(condition){
       RestaurantResponse restaurantResponse = await _remoteRepository.getAllRestaurants(index*15,islandId);
+      if (seq != _requestSeq) return;
       if(restaurantResponse.restaurants.length>0){
         restaurantResponse.restaurants.forEach((element) {
           allRestaurants.restaurants.add(element);
@@ -38,16 +42,20 @@ class RestaurantCubit extends Cubit<RestaurantState> {
 
   }
   Future<void> getFilterRestaurants({List<String>? categories, List<String>? municipalities, List<String>? types, String? text,String? islandId,bool isOpen=false}) async {
-     List<Restaurant> restaurants = await _remoteRepository.getFilterRestaurants(categories!.join(";"), municipalities!.join(";"), types!.join(";"), text!,islandId!);
-     if (isOpen) {
-       restaurants = restaurants.where((element) => element.open).toList();
-     }
+    final int seq = ++_requestSeq;
+    List<Restaurant> restaurants = await _remoteRepository.getFilterRestaurants(categories!.join(";"), municipalities!.join(";"), types!.join(";"), text!,islandId!);
+    if (seq != _requestSeq) return;
+    if (isOpen) {
+      restaurants = restaurants.where((element) => element.open).toList();
+    }
 
-     emit(RestaurantFilter(restaurants));
+    emit(RestaurantFilter(restaurants));
   }
   Future<void> getFilterRestaurantsAdvance({List<String>? categories, List<String>? municipalities, List<String>? types, String? text,String? islandId,bool isOpen=false}) async {
+    final int seq = ++_requestSeq;
     emit(RestaurantLoading());
     List<Restaurant> restaurants = await _remoteRepository.getFilterRestaurants(categories!.join(";"), municipalities!.join(";"), types!.join(";"), text!,islandId!);
+    if (seq != _requestSeq) return;
     if (isOpen) {
       restaurants = restaurants.where((element) => element.open).toList();
     }

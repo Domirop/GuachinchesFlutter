@@ -1,0 +1,108 @@
+{
+  "@@locale": "es",
+
+  "homeGreetingMorning": "Buenos días",
+  "@homeGreetingMorning": {},
+
+  "homeGreetingAfternoon": "Buenas tardes",
+  "@homeGreetingAfternoon": {},
+
+  "homeGreetingEvening": "Buenas noches",
+  "@homeGreetingEvening": {},
+
+  "homeNearbySectionTitle": "Cerca de ti",
+  "@homeNearbySectionTitle": {},
+
+  "homeTopRestaurantsTitle": "Mejor valorados",
+  "@homeTopRestaurantsTitle": {},
+
+  "homeSeeAll": "Ver todos",
+  "@homeSeeAll": {},
+
+  "tabExplora": "Explora",
+  "@tabExplora": {},
+
+  "tabListas": "Listas",
+  "@tabListas": {},
+
+  "tabMapa": "Mapa",
+  "@tabMapa": {},
+
+  "tabVisitas": "Visitas",
+  "@tabVisitas": {},
+
+  "tabPerfil": "Perfil",
+  "@tabPerfil": {},
+
+  "loginWithGoogle": "Continuar con Google",
+  "@loginWithGoogle": {},
+
+  "loginWithApple": "Continuar con Apple",
+  "@loginWithApple": {},
+
+  "loginPrivacyNotice": "Al continuar, aceptas los Términos de uso y la Política de privacidad.",
+  "@loginPrivacyNotice": {},
+
+  "settingsTitle": "Perfil",
+  "@settingsTitle": {},
+
+  "settingsLogOut": "Cerrar sesión",
+  "@settingsLogOut": {},
+
+  "settingsDeleteAccount": "Eliminar cuenta",
+  "@settingsDeleteAccount": {},
+
+  "settingsMyData": "Mis datos",
+  "@settingsMyData": {},
+
+  "profileVisitsCount": "{count, plural, =0{Sin visitas} =1{1 visita} other{{count} visitas}}",
+  "@profileVisitsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+
+  "mapRestaurantsNearby": "{count, plural, =0{Sin restaurantes} =1{1 restaurante cerca} other{{count} restaurantes cerca}}",
+  "@mapRestaurantsNearby": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+
+  "listsScreenTitle": "Listas",
+  "@listsScreenTitle": {},
+
+  "listsEmpty": "No hay listas en esta isla",
+  "@listsEmpty": {},
+
+  "visitsScreenTitle": "Mis visitas",
+  "@visitsScreenTitle": {},
+
+  "visitsEmpty": "Aún no has visitado ningún restaurante",
+  "@visitsEmpty": {},
+
+  "commonRetry": "Reintentar",
+  "@commonRetry": {},
+
+  "commonCancel": "Cancelar",
+  "@commonCancel": {},
+
+  "commonConfirm": "Confirmar",
+  "@commonConfirm": {},
+
+  "commonLoading": "Cargando",
+  "@commonLoading": {},
+
+  "commonError": "Error",
+  "@commonError": {},
+
+  "openStatusOpen": "Abierto",
+  "@openStatusOpen": {},
+
+  "openStatusClosed": "Cerrado",
+  "@openStatusClosed": {}
+}

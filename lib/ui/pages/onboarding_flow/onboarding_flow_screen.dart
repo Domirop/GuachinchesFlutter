@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:guachinches/config/app_colors.dart';
 import 'package:guachinches/config/app_text_styles.dart';
 import 'package:guachinches/data/cubit/location/location_cubit.dart';
 import 'package:guachinches/data/cubit/new_home/islands_cubit.dart';
 import 'package:guachinches/data/cubit/new_home/new_home_filters_cubit.dart';
+import 'package:guachinches/data/cubit/onboarding/onboarding_cubit.dart';
 import 'package:guachinches/data/model/Island.dart';
 import 'package:guachinches/globalMethods.dart';
 import 'package:guachinches/ui/pages/login/login.dart';
@@ -25,7 +25,6 @@ class OnboardingFlow extends StatefulWidget {
 }
 
 class _OnboardingFlowState extends State<OnboardingFlow> {
-  static const _storage = FlutterSecureStorage();
   final _ctrl = PageController();
 
   // Estado recolectado
@@ -51,12 +50,13 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   }
 
   Future<void> _finish() async {
-    await _storage.write(key: 'onBoardingFinished', value: 'true');
+    final cubit = context.read<OnboardingCubit>();
+    await cubit.markFinished();
     if (_name.isNotEmpty) {
-      await _storage.write(key: 'onb_name', value: _name);
+      await cubit.setName(_name);
     }
     if (_island != null) {
-      await _storage.write(key: 'prefIslandId', value: _island!.id);
+      await cubit.setIsland(_island!.id);
       try {
         context.read<NewHomeFiltersCubit>().selectIsland(
               id: _island!.id,
@@ -66,7 +66,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
       } catch (_) {}
     }
     if (_tastes.isNotEmpty) {
-      await _storage.write(key: 'prefTastes', value: _tastes.join(','));
+      await cubit.setTastes(_tastes.toList());
     }
   }
 
@@ -905,8 +905,7 @@ class _StepLocationState extends State<_StepLocation> {
     setState(() => _requesting = true);
     try {
       await context.read<LocationCubit>().requestLocation();
-      await const FlutterSecureStorage()
-          .write(key: 'prefLocationAsked', value: 'true');
+      await context.read<OnboardingCubit>().markLocationAsked();
     } catch (_) {}
     if (!mounted) return;
     setState(() => _requesting = false);

@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:guachinches/data/HttpRemoteRepository.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
+import 'package:guachinches/data/cubit/onboarding/onboarding_cubit.dart';
 import 'package:guachinches/data/cubit/user/user_cubit.dart';
 import 'package:guachinches/globalMethods.dart';
 import 'package:guachinches/ui/pages/new_home/new_home_tab_scaffold.dart';
@@ -28,8 +29,10 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   void initState() {
     final userCubit = context.read<UserCubit>();
+    final onboardingCubit = context.read<OnboardingCubit>();
     remoteRepository = HttpRemoteRepository(Client());
-    presenter = SplashScreenPresenter(this, remoteRepository, userCubit);
+    presenter = SplashScreenPresenter(
+        this, remoteRepository, userCubit, onboardingCubit);
     presenter.getUserInfo();
 
     super.initState();

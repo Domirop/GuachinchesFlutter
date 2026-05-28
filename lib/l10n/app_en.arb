@@ -1,0 +1,44 @@
+{
+  "@@locale": "en",
+
+  "homeGreetingMorning": "Good morning",
+  "homeGreetingAfternoon": "Good afternoon",
+  "homeGreetingEvening": "Good evening",
+  "homeNearbySectionTitle": "Near you",
+  "homeTopRestaurantsTitle": "Top rated",
+  "homeSeeAll": "See all",
+
+  "tabExplora": "Explore",
+  "tabListas": "Lists",
+  "tabMapa": "Map",
+  "tabVisitas": "Visits",
+  "tabPerfil": "Profile",
+
+  "loginWithGoogle": "Continue with Google",
+  "loginWithApple": "Continue with Apple",
+  "loginPrivacyNotice": "By continuing, you accept the Terms of Use and Privacy Policy.",
+
+  "settingsTitle": "Profile",
+  "settingsLogOut": "Sign out",
+  "settingsDeleteAccount": "Delete account",
+  "settingsMyData": "My data",
+
+  "profileVisitsCount": "{count, plural, =0{No visits} =1{1 visit} other{{count} visits}}",
+
+  "mapRestaurantsNearby": "{count, plural, =0{No restaurants} =1{1 restaurant nearby} other{{count} restaurants nearby}}",
+
+  "listsScreenTitle": "Lists",
+  "listsEmpty": "No lists on this island",
+
+  "visitsScreenTitle": "My visits",
+  "visitsEmpty": "You haven't visited any restaurant yet",
+
+  "commonRetry": "Retry",
+  "commonCancel": "Cancel",
+  "commonConfirm": "Confirm",
+  "commonLoading": "Loading",
+  "commonError": "Error",
+
+  "openStatusOpen": "Open",
+  "openStatusClosed": "Closed"
+}

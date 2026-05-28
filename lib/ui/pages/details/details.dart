@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/cupertino.dart';
+import 'package:guachinches/core/logging/app_logger.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
@@ -1204,7 +1205,7 @@ Future<void> _makePhoneCall(String phoneNumber) async {
     await launch(launchUri.toString());
   } else {
     // Maneja el error si no se puede realizar la llamada
-    print('No se puede realizar la llamada al $phoneNumber');
+    AppLogger.warn('details-screen', 'No se puede realizar la llamada al $phoneNumber');
   }
 }
 

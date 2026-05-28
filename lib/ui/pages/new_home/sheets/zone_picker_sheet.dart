@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:guachinches/config/app_colors.dart';
 import 'package:guachinches/config/brand_colors.dart';
 import 'package:guachinches/config/app_text_styles.dart';
+import 'package:guachinches/data/cubit/new_home/zone_weather_cubit.dart';
 import 'package:guachinches/data/model/zone.dart';
 import 'package:guachinches/data/model/weather_data.dart';
 
@@ -9,7 +11,6 @@ class ZonePickerSheet extends StatelessWidget {
   final String islandLabel;
   final List<Zone> zones;
   final String? selectedZoneKey;
-  final WeatherData weather;
   final ValueChanged<Zone?> onSelect;
 
   const ZonePickerSheet({
@@ -17,7 +18,6 @@ class ZonePickerSheet extends StatelessWidget {
     required this.islandLabel,
     required this.zones,
     this.selectedZoneKey,
-    required this.weather,
     required this.onSelect,
   });
 
@@ -26,9 +26,9 @@ class ZonePickerSheet extends StatelessWidget {
     required String islandLabel,
     required List<Zone> zones,
     String? selectedZoneKey,
-    required WeatherData weather,
     required ValueChanged<Zone?> onSelect,
   }) {
+    final weatherCubit = context.read<ZoneWeatherCubit>();
     return showModalBottomSheet(
       context: context,
       backgroundColor: context.brand.elevated,
@@ -36,12 +36,14 @@ class ZonePickerSheet extends StatelessWidget {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
       ),
-      builder: (_) => ZonePickerSheet(
-        islandLabel: islandLabel,
-        zones: zones,
-        selectedZoneKey: selectedZoneKey,
-        weather: weather,
-        onSelect: onSelect,
+      builder: (_) => BlocProvider.value(
+        value: weatherCubit,
+        child: ZonePickerSheet(
+          islandLabel: islandLabel,
+          zones: zones,
+          selectedZoneKey: selectedZoneKey,
+          onSelect: onSelect,
+        ),
       ),
     );
   }
@@ -79,26 +81,34 @@ class ZonePickerSheet extends StatelessWidget {
               style: AppTextStyles.muted(size: 12),
             ),
             const SizedBox(height: 16),
-            Flexible(
-              child: ListView.separated(
-                shrinkWrap: true,
-                padding: EdgeInsets.zero,
-                itemCount: zones.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 10),
-                itemBuilder: (_, i) {
-                  final zone = zones[i];
-                  final active = _selectedKey == zone.key;
-                  return _ZoneListCard(
-                    zone: zone,
-                    weather: weather,
-                    active: active,
-                    onTap: () {
-                      Navigator.pop(context);
-                      onSelect(zone.key == 'all' ? null : zone);
+            BlocBuilder<ZoneWeatherCubit, ZoneWeatherState>(
+              builder: (_, weatherState) {
+                return Flexible(
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    padding: EdgeInsets.zero,
+                    itemCount: zones.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 10),
+                    itemBuilder: (_, i) {
+                      final zone = zones[i];
+                      final active = _selectedKey == zone.key;
+                      final zoneWeather = zone.id != null
+                          ? (weatherState.byZoneId[zone.id] ??
+                              const WeatherData.unknown())
+                          : const WeatherData.unknown();
+                      return _ZoneListCard(
+                        zone: zone,
+                        weather: zoneWeather,
+                        active: active,
+                        onTap: () {
+                          Navigator.pop(context);
+                          onSelect(zone.key == 'all' ? null : zone);
+                        },
+                      );
                     },
-                  );
-                },
-              ),
+                  ),
+                );
+              },
             ),
           ],
         ),
@@ -123,77 +133,85 @@ class _ZoneListCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final copy = _ZoneCopy.forKey(zone.key);
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(18),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: active
-                ? AppColors.atlantico.withOpacity(0.12)
-                : context.brand.surface,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(
+    return Semantics(
+      identifier: 'zone-picker-row-${zone.key}',
+      container: true,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(18),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
               color: active
-                  ? AppColors.atlantico.withOpacity(0.55)
-                  : context.brand.border,
-              width: active ? 1.5 : 1,
+                  ? AppColors.atlantico.withOpacity(0.12)
+                  : context.brand.surface,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(
+                color: active
+                    ? AppColors.atlantico.withOpacity(0.55)
+                    : context.brand.border,
+                width: active ? 1.5 : 1,
+              ),
             ),
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              _IconTile(emoji: zone.emoji, gradient: copy.gradient),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            zone.label.toUpperCase(),
-                            style: AppTextStyles.displaySection(size: 15),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                _IconTile(emoji: zone.emoji, gradient: copy.gradient),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              zone.label.toUpperCase(),
+                              style: AppTextStyles.displaySection(size: 15),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
-                        ),
-                        if (active) ...[
-                          const SizedBox(width: 6),
-                          const Icon(
-                            Icons.check_circle,
-                            size: 16,
-                            color: AppColors.atlantico,
-                          ),
+                          if (active) ...[
+                            const SizedBox(width: 6),
+                            const Icon(
+                              Icons.check_circle,
+                              size: 16,
+                              color: AppColors.atlantico,
+                            ),
+                          ],
                         ],
+                      ),
+                      if (copy.description != null) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          copy.description!,
+                          style: AppTextStyles.muted(size: 12),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ],
-                    ),
-                    if (copy.description != null) ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        copy.description!,
-                        style: AppTextStyles.muted(size: 12),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                      const SizedBox(height: 8),
+                      _TagRow(
+                        weather: weather,
+                        tagLabel: copy.tag ?? zone.label,
+                        zoneKey: zone.key,
                       ),
                     ],
-                    const SizedBox(height: 8),
-                    _TagRow(weather: weather, tagLabel: copy.tag ?? zone.label),
-                  ],
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Icon(
-                Icons.chevron_right,
-                size: 22,
-                color: context.brand.textMuted,
-              ),
-            ],
+                const SizedBox(width: 8),
+                Icon(
+                  Icons.chevron_right,
+                  size: 22,
+                  color: context.brand.textMuted,
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -229,8 +247,13 @@ class _IconTile extends StatelessWidget {
 class _TagRow extends StatelessWidget {
   final WeatherData weather;
   final String tagLabel;
+  final String zoneKey;
 
-  const _TagRow({required this.weather, required this.tagLabel});
+  const _TagRow({
+    required this.weather,
+    required this.tagLabel,
+    required this.zoneKey,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -239,7 +262,11 @@ class _TagRow extends StatelessWidget {
       runSpacing: 6,
       children: [
         if (weather.isAvailable)
-          _Chip(text: '${weather.emoji} ${weather.displayTemp}'),
+          Semantics(
+            identifier: 'zone-picker-weather-$zoneKey',
+            container: true,
+            child: _Chip(text: '${weather.emoji} ${weather.displayTemp}'),
+          ),
         _Chip(text: tagLabel),
       ],
     );

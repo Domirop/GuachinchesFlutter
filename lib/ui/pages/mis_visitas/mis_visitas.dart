@@ -38,6 +38,7 @@ class _MisVisitasPageState extends State<MisVisitasPage> {
                   children: [
                     Padding(
                       padding: const EdgeInsets.only(top:32.0),
+                      // TODO(i18n): migrate to AppL10n
                       child: Center(child: Text('Sin visitas')),
                     ),
                     SizedBox(height: 20.0),

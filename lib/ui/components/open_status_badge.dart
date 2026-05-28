@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:guachinches/l10n/app_localizations.dart';
 import 'package:guachinches/utils/horarios_utils.dart';
 
 class OpenStatusBadge extends StatelessWidget {
@@ -19,6 +20,13 @@ class OpenStatusBadge extends StatelessWidget {
 
     final Color color = _colorFor(status);
 
+    final l10n = AppL10n.of(context);
+    final String displayText = status == "Abierto"
+        ? l10n.openStatusOpen
+        : status == "Cerrado"
+            ? l10n.openStatusClosed
+            : status;
+
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
@@ -27,7 +35,7 @@ class OpenStatusBadge extends StatelessWidget {
         border: Border.all(color: color, width: 1),
       ),
       child: Text(
-        status,
+        displayText,
         style: TextStyle(fontSize: 12, color: color, fontWeight: FontWeight.w600),
       ),
     );

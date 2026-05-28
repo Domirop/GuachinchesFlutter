@@ -1,6 +1,8 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:guachinches/config/app_colors.dart';
+import 'package:guachinches/l10n/app_localizations.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:guachinches/data/cubit/new_home/curated_lists_cubit.dart';
 import 'package:guachinches/data/cubit/new_home/new_home_filters_state.dart';
@@ -24,14 +26,17 @@ import 'package:guachinches/ui/pages/new_home/widgets/card_nearby_minimap.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/card_visit.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/hour_aware_banner.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/parallax_hero.dart';
+import 'package:guachinches/ui/pages/cerca_abiertos/cerca_ahora_screen.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/search_field_dynamic.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/section_header.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/skeletons.dart';
+import 'package:guachinches/core/remote_config/dcc_remote_config.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/top_filter_bar.dart';
 import 'package:guachinches/ui/pages/listas/listas_screen.dart';
 import 'package:guachinches/ui/pages/visit/visit_screen.dart';
 import 'package:guachinches/utils/distance_utils.dart';
 import 'package:guachinches/utils/open_now_utils.dart';
+import 'package:guachinches/utils/opening_later_utils.dart';
 import 'package:guachinches/utils/time_of_day_engine.dart';
 
 class NewHomeBody extends StatefulWidget {
@@ -58,6 +63,7 @@ class NewHomeBody extends StatefulWidget {
     List<ModelCategory>? categories,
     List<Types>? types,
   }) onSearchPreSelected;
+  final Future<void> Function()? onRefresh;
 
   const NewHomeBody({
     super.key,
@@ -81,6 +87,7 @@ class NewHomeBody extends StatefulWidget {
     required this.onRestaurantTap,
     required this.onSearchTap,
     required this.onSearchPreSelected,
+    this.onRefresh,
   });
 
   @override
@@ -101,8 +108,21 @@ class _NewHomeBodyState extends State<NewHomeBody> {
     final openNow = widget.presenter.filterOpenNow(widget.pool);
     final contextual =
         widget.presenter.filterContextual(widget.pool, widget.hour);
+    final contextualCount = contextual.length;
     final todayPool = contextual.take(5).toList();
     final showTodaySection = todayPool.isNotEmpty;
+
+    // Fallback "abren pronto": cuando no hay nada abierto ahora pero sí
+    // restaurantes que abren más tarde HOY. Pensado para islas donde la
+    // cocina arranca a las 13:00-13:30 (El Hierro, La Gomera, La Palma).
+    // El threshold de 2 es deliberado: con 1 sólo restaurante la sección
+    // se ve triste; mejor ocultar y dejar que aparezcan otras secciones.
+    final now = DateTime.now();
+    final openingLater = showTodaySection
+        ? const <Restaurant>[]
+        : widget.presenter.filterOpeningLaterToday(widget.pool, now);
+    final showOpeningSoonSection = openingLater.length >= 2;
+    final openingSoonPool = openingLater.take(5).toList();
 
     // Cantidad de overscroll (positivo cuando el usuario tira hacia abajo)
     final overscroll = math.max(-widget.scrollOffset, 0).toDouble();
@@ -116,9 +136,16 @@ class _NewHomeBodyState extends State<NewHomeBody> {
         // por encima en hit-testing y sus chips reciban taps. Las zonas
         // decorativas del hero usan IgnorePointer internamente para
         // dejar pasar drags al scroll.
-        CustomScrollView(
+        Semantics(
+          identifier: 'home-refresh-indicator',
+          child: RefreshIndicator(
+            onRefresh: widget.onRefresh ?? () async {},
+            color: Theme.of(context).colorScheme.primary,
+            child: CustomScrollView(
           controller: widget.scrollCtrl,
-          physics: const BouncingScrollPhysics(),
+          physics: const AlwaysScrollableScrollPhysics(
+            parent: BouncingScrollPhysics(),
+          ),
           slivers: [
             // Espacio reservado para el hero (que se posiciona en el outer Stack)
             const SliverToBoxAdapter(
@@ -130,6 +157,77 @@ class _NewHomeBodyState extends State<NewHomeBody> {
               child: SearchFieldDynamic(
                 zone: filters.zoneLabel,
                 onTap: widget.onSearchTap,
+              ),
+            ),
+
+            // ── ABIERTOS CERCA AHORA ─────────────────────────────────────
+            SliverToBoxAdapter(
+              child: Semantics(
+                identifier: 'home-cerca-ahora-cta',
+                child: GestureDetector(
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const CercaAhoraScreen(),
+                    ),
+                  ),
+                  child: Container(
+                    margin: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppColors.sol.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: AppColors.sol, width: 1.5),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: AppColors.sol,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(
+                            Icons.bolt,
+                            color: Colors.black87,
+                            size: 22,
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Abiertos cerca AHORA',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                  fontSize: 15,
+                                  fontFamily: 'SF Pro Display',
+                                ),
+                              ),
+                              SizedBox(height: 2),
+                              Text(
+                                'Toca para ver disponibles',
+                                style: TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 12,
+                                  fontFamily: 'SF Pro Display',
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Icon(
+                          Icons.chevron_right,
+                          color: AppColors.sol,
+                          size: 24,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ),
             ),
 
@@ -154,9 +252,24 @@ class _NewHomeBodyState extends State<NewHomeBody> {
                   zoneLabel: zoneLabel,
                   actionLabel: 'VER TODO',
                   onAction: () {},
+                  count: contextualCount,
                 ),
               ),
               SliverToBoxAdapter(child: _buildHorizontalRow(todayPool)),
+            ] else if (showOpeningSoonSection) ...[
+              SliverToBoxAdapter(
+                child: HourAwareBanner(
+                  hour: widget.hour,
+                  zoneLabel: zoneLabel,
+                  // Sin "VER TODO" en este modo: la lista ya es pequeña y
+                  // todo el contenido relevante está en el carrusel.
+                  count: openingLater.length,
+                  mode: HourBannerMode.openingSoon,
+                ),
+              ),
+              SliverToBoxAdapter(
+                child: _buildHorizontalRowOpeningSoon(openingSoonPool, now),
+              ),
             ],
 
             // ── ESPECIALIDADES CANARIAS ──────────────
@@ -256,8 +369,8 @@ class _NewHomeBodyState extends State<NewHomeBody> {
             if (widget.nearbyList.isNotEmpty) ...[
               SliverToBoxAdapter(
                 child: SectionHeader(
-                  title: 'CERCA DE TI',
-                  actionLabel: 'VER MAPA',
+                  title: AppL10n.of(context).homeNearbySectionTitle.toUpperCase(),
+                  actionLabel: AppL10n.of(context).homeSeeAll.toUpperCase(),
                   onAction: () {},
                 ),
               ),
@@ -286,6 +399,8 @@ class _NewHomeBodyState extends State<NewHomeBody> {
             const SliverToBoxAdapter(child: SizedBox(height: 24)),
           ],
         ),
+          ),
+        ),
 
         // ── Hero foto: por encima del scroll para que sus chips reciban
         //    taps. Las capas decorativas internas usan IgnorePointer y
@@ -298,7 +413,7 @@ class _NewHomeBodyState extends State<NewHomeBody> {
           child: ParallaxHero(
             scrollOffset: 0, // posicionamiento manejado por el outer Stack
             hour: widget.hour,
-            assetImage: _assetForIsland(filters.islandId),
+            assetImage: _assetForIsland(filters.islandKey),
             zona: filters.zoneLabel ?? filters.islandLabel,
             islandLabel: filters.islandLabel,
             zoneIsSet: filters.zoneLabel != null,
@@ -314,7 +429,9 @@ class _NewHomeBodyState extends State<NewHomeBody> {
           child: TopFilterBar(
             islandLabel: filters.islandLabel,
             zoneLabel: filters.zoneLabel,
-            weather: widget.weather,
+            weather: DccRemoteConfig.instance.showWeatherChip
+                ? widget.weather
+                : const WeatherData.unknown(),
             onIslandTap: () => _showIslandSheet(context),
             onZoneTap: () => _showZoneSheet(context),
           ),
@@ -348,6 +465,31 @@ class _NewHomeBodyState extends State<NewHomeBody> {
     );
   }
 
+  /// Carrusel para el fallback "abren pronto". Mismo widget que el normal
+  /// pero el badge cambia a `ABRE HH:MM` (color sol) — pista visual clara
+  /// de que no están abiertos *ahora* pero sí hoy.
+  Widget _buildHorizontalRowOpeningSoon(
+      List<Restaurant> items, DateTime now) {
+    return SizedBox(
+      height: 210,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        itemCount: items.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 12),
+        itemBuilder: (_, i) {
+          final r = items[i];
+          final label = nextOpenLabel(r.horariosJson, now);
+          return CardHorizontal(
+            restaurant: r,
+            openingLabel: label,
+            onTap: () => widget.onRestaurantTap(r.id),
+          );
+        },
+      ),
+    );
+  }
+
   // ── Sheet helpers ─────────────────────────────────
 
   void _showZoneSheet(BuildContext context) {
@@ -356,7 +498,6 @@ class _NewHomeBodyState extends State<NewHomeBody> {
       islandLabel: widget.filters.islandLabel,
       zones: widget.zones,
       selectedZoneKey: widget.filters.zoneKey,
-      weather: widget.weather,
       onSelect: widget.onZoneSelected,
     );
   }
@@ -369,13 +510,30 @@ class _NewHomeBodyState extends State<NewHomeBody> {
     );
   }
 
-  String? _assetForIsland(String islandId) {
-    if (islandId == '76ac0bec-4bc1-41a5-bc60-e528e0c12f4d') {
-      return 'assets/images/new-home/tenerife-norte.png';
+  /// Devuelve el background del hero según la isla seleccionada.
+  /// Mapeado por `islandKey` (más estable que el UUID y cubre las 7 islas).
+  /// Si una isla no tiene asset propio aún, devuelve `null` y el hero cae
+  /// al color de marca (`context.brand.surface`).
+  String? _assetForIsland(String islandKey) {
+    const base = 'assets/images/backgrounds/ddc_island_bg';
+    switch (islandKey) {
+      case 'TF':
+        return '$base/tenerife_dcc.webp';
+      case 'GC':
+        return '$base/las_palmas_dcc.webp';
+      case 'LZ':
+        return '$base/lanzarote_dcc.webp';
+      case 'FV':
+        return '$base/fuerteventura_dcc.webp';
+      case 'GO':
+        return '$base/la_gomera_dcc.webp';
+      case 'EH':
+        return '$base/el_hierro_dcc.webp';
+      case 'LP':
+        // TODO: añadir la_palma_dcc.webp cuando esté disponible.
+        return null;
+      default:
+        return null;
     }
-    if (islandId == '6f91d60f-0996-4dde-9088-167aab83a21a') {
-      return 'assets/images/new-home/Lanzarote.png';
-    }
-    return null;
   }
 }

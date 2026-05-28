@@ -10,6 +10,7 @@ import 'package:guachinches/data/cubit/new_home/new_home_filters_cubit.dart';
 import 'package:guachinches/data/cubit/new_home/new_home_filters_state.dart';
 import 'package:guachinches/data/cubit/new_home/visits_cubit.dart';
 import 'package:guachinches/data/cubit/new_home/weather_cubit.dart';
+import 'package:guachinches/data/cubit/new_home/zone_weather_cubit.dart';
 import 'package:guachinches/data/cubit/new_home/zones_cubit.dart';
 import 'package:guachinches/data/cubit/restaurants/basic/restaurant_cubit.dart';
 import 'package:guachinches/data/cubit/restaurants/basic/restaurant_state.dart';
@@ -25,7 +26,10 @@ import 'package:guachinches/data/model/zone.dart';
 import 'package:guachinches/globalMethods.dart';
 import 'package:guachinches/ui/pages/advance_search/advanced_search.dart';
 import 'package:guachinches/ui/pages/restaurant_detail/restaurant_detail_screen.dart';
+import 'package:guachinches/core/logging/app_logger.dart';
 import 'package:guachinches/utils/distance_utils.dart';
+import 'package:guachinches/utils/open_now_utils.dart';
+import 'package:guachinches/utils/opening_later_utils.dart';
 import 'package:guachinches/utils/time_of_day_engine.dart';
 import 'package:http/http.dart' as http;
 import 'new_home_presenter.dart';
@@ -42,7 +46,9 @@ class NewHomeScreen extends StatefulWidget {
 class _NewHomeScreenState extends State<NewHomeScreen>
     implements NewHomeView {
   late final NewHomePresenter _presenter;
+  late final HttpRemoteRepository _repo;
   Timer? _minuteTimer;
+  Timer? _weatherTimer;
 
   // Estado local
   bool _bootstrapLoading = true;
@@ -53,6 +59,7 @@ class _NewHomeScreenState extends State<NewHomeScreen>
   List<Types> _types = [];
   TimeOfDayWindow _window = TimeOfDayEngine.computeWindow(DateTime.now());
   String? _filterZoneKey;
+  String? _filterZoneId;
   Set<String> _filterZoneMuniIds = const {};
   String? _filterMunicipalityId;
   Position? _userPosition;
@@ -64,20 +71,22 @@ class _NewHomeScreenState extends State<NewHomeScreen>
   @override
   void initState() {
     super.initState();
-    final repository = HttpRemoteRepository(http.Client());
+    _repo = HttpRemoteRepository(http.Client());
     _presenter = NewHomePresenter(
       this,
-      repository,
+      _repo,
       context.read<RestaurantCubit>(),
       context.read<WeatherCubit>(),
       context.read<CuratedListsCubit>(),
       context.read<ZonesCubit>(),
       context.read<VisitsCubit>(),
+      context.read<ZoneWeatherCubit>(),
     );
     final filters = context.read<NewHomeFiltersCubit>().state;
     _presenter.bootstrap(filters.islandId);
     _loadOldMunicipalities(filters.islandId);
     _startMinuteTimer();
+    _startWeatherTimer();
     _scrollCtrl.addListener(_onScroll);
     _requestLocation();
   }
@@ -85,6 +94,15 @@ class _NewHomeScreenState extends State<NewHomeScreen>
   void _startMinuteTimer() {
     _minuteTimer = Timer.periodic(const Duration(minutes: 1), (_) {
       if (mounted) _presenter.refreshTimeWindow();
+    });
+  }
+
+  /// Refresco del clima cada hora. Mantiene el nivel actual (zona o isla).
+  void _startWeatherTimer() {
+    _weatherTimer = Timer.periodic(const Duration(hours: 1), (_) {
+      if (!mounted) return;
+      final islandId = context.read<NewHomeFiltersCubit>().state.islandId;
+      _presenter.refreshWeather(islandId: islandId, zoneId: _filterZoneId);
     });
   }
 
@@ -109,13 +127,44 @@ class _NewHomeScreenState extends State<NewHomeScreen>
     } catch (_) {}
   }
 
+  /// Deriva la `islandKey` canónica (TF/GC/LZ/FV/LP/GO/EH) a partir del
+  /// nombre de la isla. Solo se usa cuando el backend no devuelve `key` en
+  /// el modelo [Island] — caso legacy.
+  String _islandKeyFromName(String name) {
+    switch (name.toLowerCase().trim()) {
+      case 'tenerife':
+        return 'TF';
+      case 'gran canaria':
+        return 'GC';
+      case 'lanzarote':
+        return 'LZ';
+      case 'fuerteventura':
+        return 'FV';
+      case 'la palma':
+        return 'LP';
+      case 'la gomera':
+        return 'GO';
+      case 'el hierro':
+        return 'EH';
+      default:
+        return 'TF';
+    }
+  }
+
   void _onScroll() {
     if (mounted) setState(() => _scrollOffset = _scrollCtrl.offset);
+  }
+
+  Future<void> _onPullRefresh() async {
+    await _repo.invalidateCache('restaurants:');
+    final islandId = context.read<NewHomeFiltersCubit>().state.islandId;
+    await _presenter.bootstrap(islandId);
   }
 
   @override
   void dispose() {
     _minuteTimer?.cancel();
+    _weatherTimer?.cancel();
     _scrollCtrl.removeListener(_onScroll);
     _scrollCtrl.dispose();
     super.dispose();
@@ -130,6 +179,36 @@ class _NewHomeScreenState extends State<NewHomeScreen>
 
   @override
   void setRestaurants(List<Restaurant> restaurants) {
+    // Diagnóstico: cuántos del pool tienen datos de horario estructurado y
+    // cuántos están realmente abiertos ahora. Si pool > 0 pero horarios = 0,
+    // el endpoint `/restaurant/pagination` no está devolviendo `horarios_json`
+    // — distinto comportamiento del `/findByFilter` que sí lo trae. Ver
+    // `.claude/coordination/migration-backend/022-pagination-horarios.md`.
+    final now = DateTime.now();
+    final withSchedule = restaurants.where((r) => r.horariosJson != null).length;
+    final openNowCount = restaurants
+        .where((r) => r.horariosJson != null && isOpenNow(r.horariosJson, now))
+        .length;
+    final opensLaterCount = restaurants
+        .where((r) => opensLaterToday(r.horariosJson, now))
+        .length;
+    final islandLabel =
+        context.read<NewHomeFiltersCubit>().state.islandLabel;
+    AppLogger.info(
+      'new-home-pool',
+      'island=$islandLabel | total=${restaurants.length} '
+          'with_schedule=$withSchedule open_now=$openNowCount '
+          'opens_later=$opensLaterCount',
+    );
+    // Si pool > 0 pero withSchedule == 0 es señal clara de problema upstream
+    // (backend no manda horarios en este endpoint). Lo elevamos a warning.
+    if (restaurants.isNotEmpty && withSchedule == 0) {
+      AppLogger.info(
+        'new-home-pool',
+        'WARNING: pool no trae horarios_json — la home aparecerá vacía aunque '
+            'haya restaurantes abiertos. Revisar payload de /restaurant/pagination.',
+      );
+    }
     if (mounted) setState(() => _pool = restaurants);
   }
 
@@ -262,14 +341,21 @@ class _NewHomeScreenState extends State<NewHomeScreen>
                           context.read<NewHomeFiltersCubit>().selectZone(
                                 key: key!, label: label!);
                         }
-                        _presenter.onZoneChanged(key);
+                        setState(() => _filterZoneId = zone?.id);
+                        _presenter.onZoneChanged(
+                          key,
+                          zoneId: zone?.id,
+                          islandId: filters.islandId,
+                        );
                         _loadZoneMuniIds(zone);
                       },
                       onIslandSelected: (island) {
-                        final key = island.id ==
-                                '6f91d60f-0996-4dde-9088-167aab83a21a'
-                            ? 'GC'
-                            : 'TF';
+                        // Preferimos `island.key` del backend; si viene null
+                        // (modelos legacy o backend antiguo), derivamos por
+                        // nombre. Última red de seguridad: TF.
+                        final key = (island.key != null && island.key!.isNotEmpty)
+                            ? island.key!
+                            : _islandKeyFromName(island.name);
                         context.read<NewHomeFiltersCubit>().selectIsland(
                               id: island.id,
                               key: key,
@@ -279,6 +365,7 @@ class _NewHomeScreenState extends State<NewHomeScreen>
                           _filterMunicipalityId = null;
                           _filterZoneMuniIds = const {};
                           _filterZoneKey = null;
+                          _filterZoneId = null;
                         });
                         _presenter.onIslandChanged(island.id);
                         _loadOldMunicipalities(island.id);
@@ -296,6 +383,7 @@ class _NewHomeScreenState extends State<NewHomeScreen>
                               muni.id, filters.islandId);
                         }
                       },
+                      onRefresh: _onPullRefresh,
                       onRestaurantTap: _onRestaurantTap,
                       onSearchTap: () {
                         GlobalMethods().pushPage(

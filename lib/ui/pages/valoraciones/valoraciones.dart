@@ -10,7 +10,7 @@ import 'package:guachinches/data/cubit/user/user_state.dart';
 import 'package:guachinches/data/model/user_info.dart';
 import 'package:guachinches/globalMethods.dart';
 import 'package:guachinches/ui/pages/login/login.dart';
-import 'package:guachinches/ui/pages/restaurant_detail/restaurant_detail_screen.dart';
+import 'package:guachinches/ui/pages/valoraciones/valoracion_detail_screen.dart';
 import 'package:guachinches/ui/pages/valoraciones/valoraciones_presenter.dart';
 import 'package:http/http.dart';
 
@@ -203,22 +203,19 @@ class _ValoracionCard extends StatelessWidget {
     final brand = context.brand;
     final ratingNum = double.tryParse(valoracion.rating)?.round() ?? 0;
     final restaurantName = valoracion.restaurantes?.nombre ?? 'Restaurante';
-    final restaurantId = valoracion.restaurantes?.id ?? '';
     final hasReview = valoracion.review.trim().isNotEmpty;
     final hasTitle = valoracion.title.trim().isNotEmpty;
 
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: restaurantId.isEmpty
-            ? null
-            : () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) =>
-                        RestaurantDetailScreen(id: restaurantId),
-                  ),
-                ),
+        onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) =>
+                    ValoracionDetailScreen(valoracion: valoracion),
+              ),
+            ),
         borderRadius: BorderRadius.circular(14),
         child: Container(
           padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),

@@ -6,7 +6,7 @@ import 'package:guachinches/data/HttpRemoteRepository.dart';
 import 'package:guachinches/data/local/sql_lite_local_repository.dart';
 import 'package:guachinches/data/model/restaurant.dart';
 import 'package:guachinches/ui/components/open_status_badge.dart';
-import 'package:guachinches/ui/pages/restaurant_detail/restaurant_detail_screen.dart';
+import 'package:guachinches/ui/pages/favoritos/favorito_detail_screen.dart';
 import 'package:http/http.dart' as http;
 
 class FavoritosPage extends StatefulWidget {
@@ -142,12 +142,15 @@ class _FavoritosPageState extends State<FavoritosPage> {
         final r = _restaurants[i - 1];
         return _FavoriteCard(
           restaurant: r,
-          onTap: () => Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => RestaurantDetailScreen(id: r.id),
-            ),
-          ).then((_) => _load()),
+          onTap: () async {
+            final result = await Navigator.push<bool>(
+              context,
+              MaterialPageRoute(
+                builder: (_) => FavoritoDetailScreen(restaurant: r),
+              ),
+            );
+            if (result == true) _load();
+          },
           onRemove: () => _remove(r),
         );
       },

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:crypto/crypto.dart';
+import 'package:guachinches/core/logging/app_logger.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
 import 'package:guachinches/data/model/survey_in_app_choice.dart';
@@ -27,11 +28,7 @@ class SurveyInAppPresenter {
       _userId = await _getOrCreateUserId();
       _deviceId = await DeviceIdService.getDeviceId();
       _deviceToken = '$_deviceId:${_computeHmac(dotenv.env['DEVICE_HMAC_SECRET']!, _deviceId)}';
-      print('── SURVEY INIT ──────────────────────');
-      print('USER_ID      = $_userId');
-      print('DEVICE_ID    = $_deviceId');
-      print('DEVICE_TOKEN = $_deviceToken');
-      print('─────────────────────────────────────');
+      AppLogger.info('survey-in-app-presenter', '── SURVEY INIT ── USER_ID=$_userId DEVICE_ID=$_deviceId DEVICE_TOKEN=$_deviceToken');
       _surveyStartTime = DateTime.now();
       await _loadChoices();
     } catch (e) {
@@ -47,8 +44,8 @@ class SurveyInAppPresenter {
       final newId = const Uuid().v4();
       await _storage.write(key: _kSurveyUserId, value: newId);
       return newId;
-    } catch (e) {
-      print('SURVEY_STORAGE ERROR: $e');
+    } catch (e, st) {
+      AppLogger.error('survey-in-app-presenter', e, st);
       return const Uuid().v4();
     }
   }
@@ -122,27 +119,24 @@ class SurveyInAppPresenter {
         ? DateTime.now().difference(_surveyStartTime!).inSeconds
         : 0;
 
-    print('── SUBMIT VOTES ─────────────────────');
-    print('votes        = $votes');
-    print('device_token = $_deviceToken');
-    print('─────────────────────────────────────');
+    AppLogger.info('survey-in-app-presenter', '── SUBMIT VOTES ── votes=$votes device_token=$_deviceToken');
     _view.setSubmitting(true);
     try {
       final success = await _repository.submitSurveyInAppVotes(
           _userId, votes, signature, duration, _deviceToken);
 
       if (success) {
-        print('SUBMIT: OK');
+        AppLogger.info('survey-in-app-presenter', 'SUBMIT: OK');
         _view.onSubmitSuccess();
       } else {
-        print('SUBMIT: FAILED (non-200/201)');
+        AppLogger.warn('survey-in-app-presenter', 'SUBMIT: FAILED (non-200/201)');
         _view.showError('No se pudo enviar tu voto. Inténtalo de nuevo.');
       }
     } on AlreadyVotedThisBusinessException {
-      print('SUBMIT: 409 already_voted_this_business');
+      AppLogger.warn('survey-in-app-presenter', 'SUBMIT: 409 already_voted_this_business');
       _view.showError('Ya has votado a este negocio anteriormente.');
-    } catch (e) {
-      print('SUBMIT: ERROR $e');
+    } catch (e, st) {
+      AppLogger.error('survey-in-app-presenter', e, st);
       _view.showError('Error al enviar: $e');
     } finally {
       _view.setSubmitting(false);

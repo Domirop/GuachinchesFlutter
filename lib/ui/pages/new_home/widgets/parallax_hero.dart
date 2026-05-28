@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:guachinches/config/app_colors.dart';
@@ -51,7 +53,7 @@ class ParallaxHero extends StatelessWidget {
 
     final tint = AppColors.tintForHour(hour);
     final starOpacity = AppColors.starsForHour(hour);
-    final greeting = TimeOfDayEngine.greeting(DateTime.now());
+    final greeting = TimeOfDayEngine.greeting(DateTime.now(), context);
     final copy = TimeOfDayEngine.editorialCopy(DateTime.now(), zona: zona);
 
     return SizedBox(
@@ -228,6 +230,27 @@ class ParallaxHero extends StatelessWidget {
   }
 }
 
+/// Chip de zona/isla con tratamiento *liquid-glass* (frosted material).
+///
+/// Por qué glass y no color sólido:
+/// - El hero pinta una foto distinta por isla + tinte por hora del día + capa
+///   meteorológica. Cualquier color fijo va a pelearse con ese fondo en algún
+///   momento del día (azul vs sunset, blanco vs nube blanca, etc.).
+/// - El glass *toma prestada* la paleta del fondo (blur 18px) y le suma un
+///   velo blanco a 30% top → 14% bottom. Resultado: el chip siempre se lee
+///   pero nunca se desentona del hero.
+///
+/// Detalles deliberados (no es solo "ponle blur"):
+/// - `BackdropFilter` necesita `ClipRRect` por encima para no sangrar fuera
+///   del radio del chip.
+/// - El shadow va en el `Container` *exterior* al `ClipRRect`; si lo metes
+///   dentro queda recortado por el clip y no se ve.
+/// - Sombra sutil sobre el texto (no la del título global) para que las
+///   letras se separen del propio cristal cuando la foto detrás es muy
+///   uniforme.
+/// - Hairline `Colors.white @ 45%` — 1px, no 1.5: a 32pt de texto, 1.5
+///   parece "borde de botón Android". 1px es Apple.
+/// - Chevron sigue siendo el affordance principal de "esto se abre".
 class _ZoneChip extends StatelessWidget {
   final String label;
   final VoidCallback onTap;
@@ -238,29 +261,72 @@ class _ZoneChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
+      behavior: HitTestBehavior.opaque,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+        // Sombra fuera del clip para que se vea — separa el chip de la foto.
         decoration: BoxDecoration(
-          color: AppColors.atlantico.withOpacity(0.22),
-          border: Border.all(
-            color: AppColors.atlantico.withOpacity(0.50),
-            width: 1.5,
-          ),
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.25),
+              blurRadius: 14,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              label.toUpperCase(),
-              style: AppTextStyles.displayHero(size: 32).copyWith(
-                color: AppColors.atlanticoClaro,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(12, 2, 8, 2),
+              decoration: BoxDecoration(
+                // Velo glass: top más opaco para enganchar el ojo en el texto,
+                // bottom más translúcido para que el blur respire.
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.white.withOpacity(0.30),
+                    Colors.white.withOpacity(0.14),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.45),
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Text(
+                    label.toUpperCase(),
+                    style: AppTextStyles.displayHero(size: 32).copyWith(
+                      color: Colors.white,
+                      shadows: [
+                        Shadow(
+                          color: Colors.black.withOpacity(0.45),
+                          blurRadius: 10,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  // Chevron en blanco para coherencia con el texto. El brand
+                  // (atlántico) ya está presente en el resto de la app —
+                  // no hace falta meterlo dentro del cristal.
+                  Icon(
+                    Icons.keyboard_arrow_down_rounded,
+                    color: Colors.white.withOpacity(0.95),
+                    size: 24,
+                  ),
+                ],
               ),
             ),
-            const SizedBox(width: 4),
-            const Icon(Icons.keyboard_arrow_down_rounded,
-                color: AppColors.atlanticoClaro, size: 22),
-          ],
+          ),
         ),
       ),
     );

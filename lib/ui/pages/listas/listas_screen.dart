@@ -1,12 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:guachinches/l10n/app_localizations.dart';
 import 'package:guachinches/config/app_colors.dart';
+import 'package:guachinches/core/remote_config/dcc_remote_config.dart';
+import 'package:guachinches/data/HttpRemoteRepository.dart';
+import 'package:http/http.dart' as http;
 import 'package:guachinches/config/app_text_styles.dart';
 import 'package:guachinches/config/brand_colors.dart';
 import 'package:guachinches/data/cubit/new_home/curated_lists_cubit.dart';
 import 'package:guachinches/data/cubit/new_home/new_home_filters_cubit.dart';
 import 'package:guachinches/data/model/curated_list.dart';
 import 'package:guachinches/ui/pages/curated_list_detail/curated_list_detail_screen.dart';
+import 'package:guachinches/ui/pages/listas/widgets/listas_filter_sheet.dart';
 
 /// Pantalla "Listas": catálogo de recopilatorios editoriales.
 /// Reusa los tokens de diseño (light/dark) y el modelo de [CuratedList].
@@ -22,6 +27,7 @@ enum _AuthorFilter { todas, guardadas, jonay, joana }
 class _ListasScreenState extends State<ListasScreen> {
   _AuthorFilter _author = _AuthorFilter.todas;
   String? _islandIdFilter;
+  ListasFilterValues _sheetFilters = const ListasFilterValues();
 
   @override
   void initState() {
@@ -31,6 +37,23 @@ class _ListasScreenState extends State<ListasScreen> {
     cubit.loadForIsland(null);
     // Pre-seleccionar la isla activa del usuario para filtrar localmente.
     _islandIdFilter = context.read<NewHomeFiltersCubit>().state.islandId;
+  }
+
+  Future<void> _openFilterSheet() async {
+    final result = await ListasFilterSheet.show(
+      context: context,
+      initial: _sheetFilters,
+    );
+    if (result != null && mounted) {
+      setState(() => _sheetFilters = result);
+    }
+  }
+
+  Future<void> _onRefresh() async {
+    final repo = HttpRemoteRepository(http.Client());
+    await repo.invalidateCache('categories');
+    final cubit = context.read<CuratedListsCubit>();
+    await cubit.refresh(null);
   }
 
   void _openList(CuratedList list) {
@@ -60,6 +83,22 @@ class _ListasScreenState extends State<ListasScreen> {
       case _AuthorFilter.todas:
         break;
     }
+    // Sheet filters (combined / AND)
+    if (_sheetFilters.authors.isNotEmpty) {
+      r = r.where((l) {
+        final up = l.eyebrow.toUpperCase();
+        return _sheetFilters.authors.any((a) => up.contains(a));
+      });
+    }
+    if (_sheetFilters.islandIds.isNotEmpty) {
+      r = r.where((l) => l.islandId != null && _sheetFilters.islandIds.contains(l.islandId));
+    }
+    if (_sheetFilters.featuredOnly) {
+      r = r.where((l) => l.position == 1);
+    }
+    if (_sheetFilters.minCount > 0) {
+      r = r.where((l) => l.count >= _sheetFilters.minCount);
+    }
     final list = r.toList()
       ..sort((a, b) => a.position.compareTo(b.position));
     return list;
@@ -73,6 +112,9 @@ class _ListasScreenState extends State<ListasScreen> {
         bottom: false,
         child: BlocBuilder<CuratedListsCubit, CuratedListsState>(
           builder: (_, state) {
+            if (!DccRemoteConfig.instance.showCuratedLists) {
+              return const SizedBox.shrink();
+            }
             final isLoading = state is CuratedListsLoading ||
                 state is CuratedListsInitial;
             final all = state is CuratedListsLoaded ? state.lists : const <CuratedList>[];
@@ -80,10 +122,22 @@ class _ListasScreenState extends State<ListasScreen> {
             final featured = filtered.isNotEmpty ? filtered.first : null;
             final rest = filtered.length > 1 ? filtered.sublist(1) : const <CuratedList>[];
 
-            return CustomScrollView(
-              physics: const BouncingScrollPhysics(),
+            return Semantics(
+              identifier: 'listas-refresh-indicator',
+              child: RefreshIndicator(
+                onRefresh: _onRefresh,
+                color: Theme.of(context).colorScheme.primary,
+                child: CustomScrollView(
+              physics: const AlwaysScrollableScrollPhysics(
+                parent: BouncingScrollPhysics(),
+              ),
               slivers: [
-                SliverToBoxAdapter(child: _Header()),
+                SliverToBoxAdapter(
+                  child: _Header(
+                    onFilterTap: _openFilterSheet,
+                    activeFilterCount: _sheetFilters.count,
+                  ),
+                ),
                 SliverToBoxAdapter(
                   child: _IslandFilterRow(
                     selectedId: _islandIdFilter,
@@ -150,6 +204,8 @@ class _ListasScreenState extends State<ListasScreen> {
                   ),
                 ],
               ],
+            ),
+              ),
             );
           },
         ),
@@ -163,6 +219,14 @@ class _ListasScreenState extends State<ListasScreen> {
 // ─────────────────────────────────────────────────────────────────────
 
 class _Header extends StatelessWidget {
+  final VoidCallback onFilterTap;
+  final int activeFilterCount;
+
+  const _Header({
+    required this.onFilterTap,
+    required this.activeFilterCount,
+  });
+
   @override
   Widget build(BuildContext context) {
     final canPop = Navigator.of(context).canPop();
@@ -194,7 +258,7 @@ class _Header extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'LISTAS',
+                    AppL10n.of(context).listsScreenTitle.toUpperCase(),
                     style: AppTextStyles.displayHero(
                       size: 36,
                       color: context.brand.textPrimary,
@@ -206,7 +270,10 @@ class _Header extends StatelessWidget {
           ),
           _RoundIconButton(icon: Icons.view_agenda_outlined, onTap: () {}),
           const SizedBox(width: 8),
-          _RoundIconButton(icon: Icons.tune_rounded, onTap: () {}),
+          _FilterIconButton(
+            onTap: onFilterTap,
+            activeCount: activeFilterCount,
+          ),
         ],
       ),
     );
@@ -232,6 +299,59 @@ class _RoundIconButton extends StatelessWidget {
           border: Border.all(color: context.brand.border),
         ),
         child: Icon(icon, size: 18, color: context.brand.textPrimary),
+      ),
+    );
+  }
+}
+
+class _FilterIconButton extends StatelessWidget {
+  final VoidCallback onTap;
+  final int activeCount;
+
+  const _FilterIconButton({required this.onTap, required this.activeCount});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: context.brand.surface,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: context.brand.border),
+            ),
+            child: Icon(
+              Icons.tune_rounded,
+              size: 18,
+              color: context.brand.textPrimary,
+            ),
+          ),
+          if (activeCount > 0)
+            Positioned(
+              top: -4,
+              right: -4,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                decoration: BoxDecoration(
+                  color: AppColors.mojo,
+                  borderRadius: BorderRadius.circular(100),
+                ),
+                child: Text(
+                  '$activeCount',
+                  style: AppTextStyles.ui(
+                    size: 11,
+                    weight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -664,6 +784,7 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppL10n.of(context);
     final (title, subtitle) = switch (author) {
       _AuthorFilter.guardadas => (
           'Aún no has guardado listas',
@@ -678,7 +799,7 @@ class _EmptyState extends StatelessWidget {
           'Prueba con otra isla o cambia de filtro.',
         ),
       _AuthorFilter.todas => (
-          'No hay listas en esta isla',
+          l10n.listsEmpty,
           'Prueba a seleccionar otra isla.',
         ),
     };

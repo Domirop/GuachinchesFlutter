@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:guachinches/core/logging/app_logger.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:guachinches/services/app_storage.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
@@ -42,7 +43,7 @@ class HomePresenter{
 
   getTopRestaurants() async {
     List<TopRestaurants> topRestaurants = await repository.getTopRestaurants();
-    print(topRestaurants.length);
+    AppLogger.info('home-presenter', 'topRestaurants count: ${topRestaurants.length}');
     _view.setTopRestaurants(topRestaurants);
   }
   getSurveyRestaurants() async {
@@ -90,7 +91,7 @@ class HomePresenter{
       }
     }
     // 4. Enviar los resultados a la vista
-    print("Survey "+ guachinchesModernos.toString());
+    AppLogger.info('home-presenter', 'Survey $guachinchesModernos');
 
     _view.setSurveyResults(guachinchesModernos, guachinchesTradicionales);
   }
@@ -98,7 +99,7 @@ class HomePresenter{
     String? surveyUserId = await storage.read(key: "surveyUserId");
 
 
-    print("DeVUELVE EL USERID "+ surveyUserId.toString());
+    AppLogger.info('home-presenter', 'DeVUELVE EL USERID $surveyUserId');
     if (surveyUserId == null) return [];
     List<String> restaurantsVoted = await repository.getVotedRestaurantsByUser("1", surveyUserId);
     return restaurantsVoted;
@@ -164,7 +165,7 @@ class HomePresenter{
 
   getAllTypes() async {
     List<Types> types = await repository.getAllTypes();
-    print('types '+types.length.toString());
+    AppLogger.info('home-presenter', 'types ${types.length}');
     _view.setTypes(types);
   }
   getAllMunicipalities(String islandId) async {

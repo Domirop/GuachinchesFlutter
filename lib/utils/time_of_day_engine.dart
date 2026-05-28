@@ -1,3 +1,6 @@
+import 'package:flutter/material.dart';
+import 'package:guachinches/l10n/app_localizations.dart';
+
 enum TimeOfDayWindow {
   madrugada,
   desayuno,
@@ -24,12 +27,13 @@ class TimeOfDayEngine {
     return TimeOfDayWindow.cierre;
   }
 
-  static String greeting(DateTime now) {
+  static String greeting(DateTime now, BuildContext context) {
+    final l10n = AppL10n.of(context);
     final h = now.hour;
-    if (h < 6) return 'Buenas noches';
-    if (h < 13) return 'Buenos días';
-    if (h < 20) return 'Buenas tardes';
-    return 'Buenas noches';
+    if (h < 6) return l10n.homeGreetingEvening;
+    if (h < 13) return l10n.homeGreetingMorning;
+    if (h < 20) return l10n.homeGreetingAfternoon;
+    return l10n.homeGreetingEvening;
   }
 
   static String editorialCopy(DateTime now, {String? zona, bool isRaining = false}) {
