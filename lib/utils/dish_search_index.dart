@@ -77,6 +77,30 @@ Set<String> matchRestaurantIds(
   return result;
 }
 
+/// For each restaurantId in [dishMatchIds], finds the thumbnail URL of the
+/// first visit available. Used as a fallback photo when the embedded
+/// `Visit.restaurant` doesn't carry `mainFoto` from the backend — instead of
+/// showing a flat color gradient, we reuse the YouTube video thumbnail
+/// (which is normally a clear shot of the place or the dish).
+///
+/// Visits without thumbnail are skipped. Returns only ids that have at least
+/// one visit with a non-empty thumbnail.
+Map<String, String> buildDishFirstVisitThumbnails(
+  List<Visit> visits,
+  Set<String> dishMatchIds,
+) {
+  final result = <String, String>{};
+  for (final visit in visits) {
+    final rid = visit.restaurantId;
+    if (!dishMatchIds.contains(rid)) continue;
+    if (result.containsKey(rid)) continue;
+    final thumb = visit.thumbnail;
+    if (thumb == null || thumb.isEmpty) continue;
+    result[rid] = thumb;
+  }
+  return result;
+}
+
 /// For each restaurantId in [dishMatchIds], finds the name of the first dish
 /// (across all matching visits) whose normalized name contains any token from
 /// the normalized [query]. Visits without an embedded restaurant are skipped.

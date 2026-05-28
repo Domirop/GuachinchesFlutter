@@ -32,4 +32,19 @@ class CuratedListsCubit extends Cubit<CuratedListsState> {
       emit(CuratedListsFailure(e.toString()));
     }
   }
+
+  /// Reload without flashing a loading skeleton. If there is already a loaded
+  /// state, it stays visible while the fetch runs. Only falls back to
+  /// CuratedListsFailure if there was no previous data.
+  Future<void> refresh(String? islandId) async {
+    final previous = state;
+    try {
+      final lists = await _repo.getCuratedLists(islandId: islandId);
+      emit(CuratedListsLoaded(lists));
+    } catch (e) {
+      if (previous is! CuratedListsLoaded) {
+        emit(CuratedListsFailure(e.toString()));
+      }
+    }
+  }
 }

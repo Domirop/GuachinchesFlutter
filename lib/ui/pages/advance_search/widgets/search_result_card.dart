@@ -10,10 +10,18 @@ class SearchResultCard extends StatelessWidget {
   final Restaurant restaurant;
   final VoidCallback onTap;
 
+  /// Cuando viene informado y el restaurante NO trae `mainFoto`, se usa
+  /// como foto de la card. Pensado para los matches que llegan vía visitas
+  /// (donde el backend del endpoint público no devuelve `fotos` en el
+  /// `restaurant` embebido). Si está vacío o el restaurante ya tiene
+  /// `mainFoto`, se ignora.
+  final String? photoUrlOverride;
+
   const SearchResultCard({
     super.key,
     required this.restaurant,
     required this.onTap,
+    this.photoUrlOverride,
   });
 
   @override
@@ -24,6 +32,8 @@ class SearchResultCard extends StatelessWidget {
         .where((n) => n.isNotEmpty)
         .toList();
     final categoryLine = categories.take(3).join(' · ');
+    final effectivePhoto =
+        r.mainFoto.isNotEmpty ? r.mainFoto : (photoUrlOverride ?? '');
 
     return InkWell(
       onTap: onTap,
@@ -32,7 +42,7 @@ class SearchResultCard extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            _Thumbnail(seed: r.id, photoUrl: r.mainFoto),
+            _Thumbnail(seed: r.id, photoUrl: effectivePhoto),
             const SizedBox(width: 14),
             Expanded(
               child: Column(

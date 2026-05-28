@@ -58,3 +58,26 @@ android/app/src/main/res/mipmap-anydpi-v26/
 
 # Symlink al repo de coordination (no se sube)
 .claude/coordination
+
+# Multi-agent harness — runs live in ~/GuachinchesHarness/ (coordination repo).
+# Local artifacts:
+.harness-smoke/
+.harness/HANDOFF.md
+.harness/smoke-marker.txt
+.mcp.json.pre-harness.bak
+
+# Claude Code local config — not portable across machines.
+.mcp.json
+.claude/agents/
+.claude/hooks/
+.claude/worktrees/
+
+# Agent bundles exported locally (zips, no van al repo).
+guachinches-agents/
+guachinches-agents.zip
+
+# Flutter-generated files that vary per machine.
+ios/Flutter/Generated.xcconfig
+ios/Flutter/flutter_export_environment.sh
+ios/Runner/GeneratedPluginRegistrant.m
+ios/Runner/GeneratedPluginRegistrant.h

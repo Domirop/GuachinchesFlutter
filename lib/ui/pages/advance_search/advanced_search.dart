@@ -64,6 +64,9 @@ class _AdvancedSearchState extends State<AdvancedSearch> {
   // Dish search state — computed in _runSearch(), never via BlocListener.
   Set<String> _dishMatchIds = const {};
   Map<String, String> _dishFirstMatchName = const {};
+  // Fallback de foto cuando el match viene por plato y `Restaurant.mainFoto`
+  // está vacío. Es el thumbnail del vídeo de la visita.
+  Map<String, String> _dishFirstVisitThumbnail = const {};
   List<Visit> _allVisits = const [];
   bool _hasDishIndex = false;
 
@@ -136,6 +139,7 @@ class _AdvancedSearchState extends State<AdvancedSearch> {
     final visitsState = context.read<VisitsCubit>().state;
     Set<String> newDishMatchIds = const {};
     Map<String, String> newDishFirstMatchName = const {};
+    Map<String, String> newDishFirstVisitThumbnail = const {};
     List<Visit> newAllVisits = const [];
     final newHasDishIndex =
         dishState is DishSearchReady && dishState.index.isNotEmpty;
@@ -164,6 +168,10 @@ class _AdvancedSearchState extends State<AdvancedSearch> {
           newDishMatchIds,
           query,
         );
+        newDishFirstVisitThumbnail = buildDishFirstVisitThumbnails(
+          newAllVisits,
+          newDishMatchIds,
+        );
       }
       AppLogger.info(
         'advanced-search',
@@ -176,6 +184,7 @@ class _AdvancedSearchState extends State<AdvancedSearch> {
       _hasSearched = true;
       _dishMatchIds = newDishMatchIds;
       _dishFirstMatchName = newDishFirstMatchName;
+      _dishFirstVisitThumbnail = newDishFirstVisitThumbnail;
       _allVisits = newAllVisits;
       _hasDishIndex = newHasDishIndex;
     });
@@ -308,6 +317,7 @@ class _AdvancedSearchState extends State<AdvancedSearch> {
                       },
                       dishMatchIds: _dishMatchIds,
                       dishFirstMatchName: _dishFirstMatchName,
+                      dishFirstVisitThumbnail: _dishFirstVisitThumbnail,
                       allVisits: _allVisits,
                       hasDishIndex: _hasDishIndex,
                     )
@@ -541,6 +551,7 @@ class _ResultsView extends StatelessWidget {
   final ValueChanged<Restaurant> onResultTap;
   final Set<String> dishMatchIds;
   final Map<String, String> dishFirstMatchName;
+  final Map<String, String> dishFirstVisitThumbnail;
   final List<Visit> allVisits;
   final bool hasDishIndex;
 
@@ -548,6 +559,7 @@ class _ResultsView extends StatelessWidget {
     required this.onResultTap,
     required this.dishMatchIds,
     required this.dishFirstMatchName,
+    required this.dishFirstVisitThumbnail,
     required this.allVisits,
     required this.hasDishIndex,
   });
@@ -618,12 +630,19 @@ class _ResultsView extends StatelessWidget {
                   itemBuilder: (_, i) {
                     final r = allItems[i];
                     final dishName = dishFirstMatchName[r.id];
+                    // Si el restaurante no trae mainFoto (típico de los
+                    // matches por plato — vienen de visita embebida sin
+                    // fotos) usamos el thumbnail del vídeo como fallback.
+                    final photoOverride = r.mainFoto.isEmpty
+                        ? dishFirstVisitThumbnail[r.id]
+                        : null;
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         SearchResultCard(
                           restaurant: r,
+                          photoUrlOverride: photoOverride,
                           onTap: () => onResultTap(r),
                         ),
                         if (dishName != null)

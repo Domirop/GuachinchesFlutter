@@ -221,8 +221,18 @@ class _Profilev2State extends State<Profilev2> implements ProfileView {
             UserInfo user = UserInfo();
             if (state is UserLoaded) user = state.user;
             final reviewCount = user.valoraciones.length;
-            return ListView(
-              physics: const BouncingScrollPhysics(),
+            return Semantics(
+              identifier: 'perfil-refresh-indicator',
+              child: RefreshIndicator(
+                onRefresh: () => Future.wait([
+                  context.read<UserCubit>().refreshFromBackend(),
+                  _loadFavCount(),
+                ]),
+                color: Theme.of(context).colorScheme.primary,
+                child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(
+                parent: BouncingScrollPhysics(),
+              ),
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
               children: [
                 _Header(),
@@ -369,6 +379,8 @@ class _Profilev2State extends State<Profilev2> implements ProfileView {
                   ),
                 ),
               ],
+            ),
+              ),
             );
           },
         ),
