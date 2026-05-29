@@ -1,5 +1,10 @@
+import 'dart:ui';
 import 'package:app_links/app_links.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:guachinches/l10n/app_localizations.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -8,8 +13,11 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:guachinches/data/HttpRemoteRepository.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
+import 'package:guachinches/core/connectivity/connectivity_cubit.dart';
 import 'package:guachinches/data/cubit/banners/banners_cubit.dart';
 import 'package:guachinches/data/cubit/cupones/cupones_cubit.dart';
+import 'package:guachinches/data/cubit/favorites/favorites_cubit.dart';
+import 'package:guachinches/data/cubit/favorites/http_favorites_repository.dart';
 import 'package:guachinches/data/cubit/filter/filter_cubit.dart';
 import 'package:guachinches/data/cubit/filter/filter_map_cubit.dart';
 import 'package:guachinches/data/cubit/location/location_cubit.dart';
@@ -19,14 +27,22 @@ import 'package:guachinches/data/cubit/new_home/islands_cubit.dart';
 import 'package:guachinches/data/cubit/new_home/new_home_filters_cubit.dart';
 import 'package:guachinches/data/cubit/new_home/weather_cubit.dart';
 import 'package:guachinches/data/cubit/new_home/visits_cubit.dart';
+import 'package:guachinches/data/cubit/search/dish_search_cubit.dart';
+import 'package:guachinches/data/cubit/onboarding/onboarding_cubit.dart';
+import 'package:guachinches/data/cubit/visits/user_visits_cubit.dart';
+import 'package:guachinches/data/cubit/new_home/zone_weather_cubit.dart';
 import 'package:guachinches/data/cubit/new_home/zones_cubit.dart';
 import 'package:guachinches/data/cubit/theme/theme_cubit.dart';
+import 'package:guachinches/data/local/favorites_local_store.dart';
+import 'package:guachinches/data/local/http_cache_store.dart';
 import 'package:guachinches/config/app_theme.dart';
 import 'package:guachinches/data/cubit/restaurants/map/restaurant_map_cubit.dart';
 import 'package:guachinches/data/cubit/restaurants/top/top_restaurants_cubit.dart';
 import 'package:guachinches/data/cubit/user/user_cubit.dart';
+import 'package:guachinches/core/remote_config/dcc_remote_config.dart';
 import 'package:guachinches/data/local/db_provider.dart';
 import 'package:guachinches/services/http_weather_service.dart';
+import 'package:guachinches/ui/pages/maintenance/maintenance_screen.dart';
 import 'package:http/http.dart';
 import 'data/cubit/restaurants/basic/restaurant_cubit.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -43,6 +59,21 @@ Future<void> main() async{
   String file = _kReleaseMode == true ? 'env_files/release.env' : 'env_files/debug.env';
   await dotenv.load(fileName: file);
   await Firebase.initializeApp();
+  await DccRemoteConfig.instance.init();
+  FlutterError.onError = (details) {
+    if (kDebugMode) {
+      FlutterError.presentError(details);
+    } else {
+      FirebaseCrashlytics.instance.recordFlutterFatalError(details);
+    }
+  };
+  PlatformDispatcher.instance.onError = (error, stack) {
+    if (!kDebugMode) {
+      FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+    }
+    return true;
+  };
+  await FirebaseCrashlytics.instance.setCrashlyticsCollectionEnabled(!kDebugMode);
   debugPaintBaselinesEnabled = false; // asegúrate de no activarlo
   WidgetsFlutterBinding.ensureInitialized();
   // Inicializar SDK de AdMob
@@ -94,8 +125,6 @@ class _MyAppState extends State<MyApp> {
   //
   //   // Genera UUID v5 basado en el ID del dispositivo
   //   final uuid = Uuid().v5(Uuid.NAMESPACE_URL, input);
-  //
-  //   print("LINK::"+uuid);
   //
   //   return uuid;
   // }
@@ -183,6 +212,9 @@ class _MyAppState extends State<MyApp> {
           create: ((context) => WeatherCubit(HttpWeatherService(remoteRepository))),
         ),
         BlocProvider(
+          create: ((context) => ZoneWeatherCubit(HttpWeatherService(remoteRepository))),
+        ),
+        BlocProvider(
           create: ((context) => CuratedListsCubit(remoteRepository)),
         ),
         BlocProvider(
@@ -196,7 +228,28 @@ class _MyAppState extends State<MyApp> {
           create: ((context) => VisitsCubit(remoteRepository)),
         ),
         BlocProvider(
+          create: ((context) => DishSearchCubit(context.read<VisitsCubit>())),
+        ),
+        BlocProvider(
+          create: ((context) => UserVisitsCubit(remoteRepository, cache: HttpCacheStore.instance)),
+        ),
+        BlocProvider(
           create: ((context) => ThemeCubit(widget.initialThemeMode)),
+        ),
+        BlocProvider(
+          lazy: false,
+          create: ((context) => ConnectivityCubit()..init()),
+        ),
+        BlocProvider(
+          create: ((context) => FavoritesCubit(
+                HttpFavoritesRepository(Client()),
+                SqliteFavoritesLocalStore(),
+                connectivityStream: context.read<ConnectivityCubit>().stream,
+              )),
+        ),
+        BlocProvider(
+          lazy: false,
+          create: ((context) => OnboardingCubit()..hydrate()),
         ),
       ],
       child: BlocBuilder<ThemeCubit, ThemeMode>(
@@ -207,7 +260,11 @@ class _MyAppState extends State<MyApp> {
           theme: appLightTheme,
           darkTheme: appDarkTheme,
           themeMode: themeMode,
-          home: SplashScreen(),
+          localizationsDelegates: AppL10n.localizationsDelegates,
+          supportedLocales: AppL10n.supportedLocales,
+          home: DccRemoteConfig.instance.maintenanceMode
+              ? const MaintenanceScreen()
+              : SplashScreen(),
         ),
       ),
     );

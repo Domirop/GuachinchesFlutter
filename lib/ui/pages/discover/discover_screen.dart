@@ -5,12 +5,15 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:guachinches/config/app_colors.dart';
 import 'package:guachinches/config/app_text_styles.dart';
 import 'package:guachinches/config/brand_colors.dart';
+import 'package:guachinches/data/cubit/new_home/new_home_filters_cubit.dart';
+import 'package:guachinches/data/cubit/new_home/new_home_filters_state.dart';
 import 'package:guachinches/data/cubit/new_home/visits_cubit.dart';
 import 'package:guachinches/data/model/Visit.dart';
 import 'package:guachinches/ui/pages/discover/widgets/sort_sheet.dart';
 import 'package:guachinches/ui/pages/discover/widgets/visit_filter_sheet.dart';
 import 'package:guachinches/ui/pages/discover/widgets/visit_list_tile.dart';
 import 'package:guachinches/ui/pages/visit/visit_screen.dart';
+import 'package:guachinches/utils/island_key_utils.dart';
 
 /// Catálogo de visitas (Jonay, Joana…). Permite buscar texto libre,
 /// filtrar por creador / sentimiento / zona, y ordenar por fecha,
@@ -29,6 +32,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
 
   VisitFilterValues _filters = const VisitFilterValues();
   VisitSort _sort = VisitSort.newest;
+  bool _islandFilterDisabled = false;
 
   @override
   void initState() {
@@ -96,6 +100,19 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
       setState(() => _filters = const VisitFilterValues());
 
   // ── Filtering / sorting ────────────────────────────────────────────────
+
+  List<Visit> _applyIslandFilter(List<Visit> source, String islandName) {
+    if (islandName.isEmpty) return source;
+    final needle = islandName.toLowerCase().trim();
+    return source.where((v) {
+      final rIsland = (v.restaurant?.island ?? '').toLowerCase().trim();
+      if (rIsland.isEmpty) return true;
+      return rIsland == needle ||
+          rIsland.contains(needle) ||
+          needle.contains(rIsland);
+    }).toList();
+  }
+
   List<String> _uniqueCreators(List<Visit> visits) {
     final set = <String>{};
     for (final v in visits) {
@@ -216,74 +233,110 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
   // ── Build ──────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: context.brand.base,
-      body: SafeArea(
-        child: BlocBuilder<VisitsCubit, VisitsState>(
-          builder: (context, state) {
-            final allVisits = state is VisitsLoaded ? state.visits : <Visit>[];
-            final isLoading = state is VisitsLoading;
-            final isFailure = state is VisitsFailure;
-            final filtered = _applyFilters(allVisits);
-            final creators = _uniqueCreators(allVisits);
+    return BlocBuilder<NewHomeFiltersCubit, NewHomeFiltersState>(
+      builder: (context, filtersState) {
+        final islandKey = filtersState.islandKey;
+        final islandLabel = filtersState.islandLabel;
+        return Scaffold(
+          backgroundColor: context.brand.base,
+          body: SafeArea(
+            child: BlocBuilder<VisitsCubit, VisitsState>(
+              builder: (context, state) {
+                final allVisits = state is VisitsLoaded ? state.visits : <Visit>[];
+                final isLoading = state is VisitsLoading;
+                final isFailure = state is VisitsFailure;
 
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _DiscoverHeader(
-                  total: filtered.length,
-                  isLoading: isLoading && allVisits.isEmpty,
-                  sortLabel: _sort.label,
-                  filterCount: _filters.count,
-                  onSort: _openSort,
-                  onFilter: () => _openFilters(allVisits),
-                ),
-                const SizedBox(height: 12),
-                _SearchRow(
-                  controller: _searchCtrl,
-                  onChanged: _onSearchChanged,
-                  onClear: _clearSearch,
-                ),
-                const SizedBox(height: 8),
-                _CreatorChipsRow(
-                  creators: creators,
-                  selected: _filters.creators,
-                  onTap: _toggleCreator,
-                  onMore: () => _openFilters(allVisits),
-                ),
-                if (_filters.count > 0)
-                  _ActiveFiltersBar(
-                    filters: _filters,
-                    onRemoveCreator: _toggleCreator,
-                    onRemoveSentiment: (s) {
-                      final next = Set<String>.from(_filters.sentiments)..remove(s);
-                      setState(
-                          () => _filters = _filters.copyWith(sentiments: next));
-                    },
-                    onRemoveZone: (z) {
-                      final next = Set<String>.from(_filters.zones)..remove(z);
-                      setState(
-                          () => _filters = _filters.copyWith(zones: next));
-                    },
-                    onToggleVideo: () => setState(() => _filters =
-                        _filters.copyWith(onlyWithVideo: false)),
-                    onClearAll: _clearAllFilters,
-                  ),
-                const SizedBox(height: 4),
-                Expanded(
-                  child: _buildBody(
-                    state: state,
-                    isLoading: isLoading,
-                    isFailure: isFailure,
-                    filtered: filtered,
-                    hasFilters: _filters.count > 0 || _searchText.isNotEmpty,
-                  ),
-                ),
-              ],
-            );
-          },
-        ),
-      ),
+                final islandFilteredVisits = _islandFilterDisabled
+                    ? allVisits
+                    : _applyIslandFilter(allVisits, islandNameFromKey(islandKey));
+
+                final isIslandEmpty = !_islandFilterDisabled &&
+                    !isLoading &&
+                    allVisits.isNotEmpty &&
+                    islandFilteredVisits.isEmpty;
+
+                final filtered = _applyFilters(islandFilteredVisits);
+                final creators = _uniqueCreators(allVisits);
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Semantics(
+                      identifier: 'discover-active-island-label',
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+                        child: Text(
+                          islandLabel.toUpperCase(),
+                          style: AppTextStyles.eyebrow(
+                            size: 10,
+                            color: AppColors.atlanticoClaro,
+                          ),
+                        ),
+                      ),
+                    ),
+                    _DiscoverHeader(
+                      total: filtered.length,
+                      isLoading: isLoading && allVisits.isEmpty,
+                      sortLabel: _sort.label,
+                      filterCount: _filters.count,
+                      onSort: _openSort,
+                      onFilter: () => _openFilters(allVisits),
+                    ),
+                    const SizedBox(height: 12),
+                    _SearchRow(
+                      controller: _searchCtrl,
+                      onChanged: _onSearchChanged,
+                      onClear: _clearSearch,
+                    ),
+                    const SizedBox(height: 8),
+                    _CreatorChipsRow(
+                      creators: creators,
+                      selected: _filters.creators,
+                      onTap: _toggleCreator,
+                      onMore: () => _openFilters(allVisits),
+                    ),
+                    if (_filters.count > 0)
+                      _ActiveFiltersBar(
+                        filters: _filters,
+                        onRemoveCreator: _toggleCreator,
+                        onRemoveSentiment: (s) {
+                          final next = Set<String>.from(_filters.sentiments)..remove(s);
+                          setState(
+                              () => _filters = _filters.copyWith(sentiments: next));
+                        },
+                        onRemoveZone: (z) {
+                          final next = Set<String>.from(_filters.zones)..remove(z);
+                          setState(
+                              () => _filters = _filters.copyWith(zones: next));
+                        },
+                        onToggleVideo: () => setState(() => _filters =
+                            _filters.copyWith(onlyWithVideo: false)),
+                        onClearAll: _clearAllFilters,
+                      ),
+                    const SizedBox(height: 4),
+                    Expanded(
+                      child: isIslandEmpty
+                          ? _IslandEmptyState(
+                              islandLabel: islandLabel,
+                              onShowAll: () =>
+                                  setState(() => _islandFilterDisabled = true),
+                            )
+                          : _buildBody(
+                              state: state,
+                              isLoading: isLoading,
+                              isFailure: isFailure,
+                              filtered: filtered,
+                              hasFilters:
+                                  _filters.count > 0 || _searchText.isNotEmpty,
+                            ),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -741,6 +794,68 @@ class _RemovableChip extends StatelessWidget {
 }
 
 // ── States ────────────────────────────────────────────────────────────────
+
+class _IslandEmptyState extends StatelessWidget {
+  final String islandLabel;
+  final VoidCallback onShowAll;
+
+  const _IslandEmptyState({
+    required this.islandLabel,
+    required this.onShowAll,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.explore_off_rounded,
+                size: 56, color: context.brand.textMuted),
+            const SizedBox(height: 16),
+            Text(
+              'Sin visitas en $islandLabel',
+              textAlign: TextAlign.center,
+              style: AppTextStyles.displaySection(size: 16),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Todavía no hay visitas publicadas en esta isla.',
+              textAlign: TextAlign.center,
+              style: AppTextStyles.muted(size: 12),
+            ),
+            const SizedBox(height: 18),
+            Semantics(
+              identifier: 'discover-show-all-islands-button',
+              child: GestureDetector(
+                onTap: onShowAll,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 18, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: AppColors.atlantico,
+                    borderRadius: BorderRadius.circular(100),
+                  ),
+                  child: Text(
+                    'Ver todas las visitas',
+                    style: AppTextStyles.ui(
+                      size: 13,
+                      weight: FontWeight.w700,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _EmptyState extends StatelessWidget {
   final bool hasFilters;
   final VoidCallback onClear;

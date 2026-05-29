@@ -6,7 +6,7 @@ import 'package:guachinches/config/brand_colors.dart';
 import 'package:guachinches/config/app_text_styles.dart';
 import 'package:guachinches/data/model/restaurant.dart';
 import 'package:guachinches/data/model/short_quote.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:guachinches/ui/components/video/youtube_embed_sheet.dart';
 
 class YoutubeShortSection extends StatelessWidget {
   final Restaurant restaurant;
@@ -16,11 +16,8 @@ class YoutubeShortSection extends StatelessWidget {
   static bool shouldRender(Restaurant r) =>
       r.shortVideoId != null && r.shortVideoId!.isNotEmpty;
 
-  Future<void> _open() async {
-    final url = Uri.parse('https://youtube.com/shorts/${restaurant.shortVideoId}');
-    if (await canLaunchUrl(url)) {
-      await launchUrl(url, mode: LaunchMode.externalApplication);
-    }
+  Future<void> _open(BuildContext context) async {
+    await YoutubeEmbedSheet.show(context, videoId: restaurant.shortVideoId!);
   }
 
   @override
@@ -36,7 +33,7 @@ class YoutubeShortSection extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           GestureDetector(
-            onTap: _open,
+            onTap: () => _open(context),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(14),
               child: AspectRatio(

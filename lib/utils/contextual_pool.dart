@@ -53,19 +53,19 @@ class ContextualFilter {
 /// Devuelve el filtro temático que cuadra con el copy del HourAwareBanner.
 ///
 /// Mapeo:
-///   7-11  Desayunos             → Bar/Cafetería
-///   13    Menú · cierra en 1h   → Restaurantes / Tascas / Bodegones / Guachinches
-///   14-16 Sobremesa             → ídem
-///   17-19 Terrazas con atardecer → categorías Terraza / Con vistas
-///   20+   Cenas                 → Restaurantes / Tascas / Bodegones / Modernos / Lounge
-///   resto Madrugada             → sin filtro extra
+///   7-11  Desayunos       → type Bar/Cafetería
+///   12-13 Almuerzo         → types Restaurantes / Tascas / Bodegones / Guachinches
+///   14-16 Sobremesa        → ídem
+///   17-19 Golden hour      → categorías Terraza / Con vistas
+///   20+   Cenas             → types Restaurantes / Tascas / Bodegones / Modernos / Lounge
+///   0-6   Madrugada         → sin filtro extra (todo lo que esté abierto)
 ContextualFilter contextualFilterFor(int hour) {
   if (hour >= 7 && hour <= 11) {
     return const ContextualFilter(
       typeIds: {RestaurantTypeIds.barCafeteria},
     );
   }
-  if (hour == 13 || (hour >= 14 && hour <= 16)) {
+  if (hour >= 12 && hour <= 16) {
     return const ContextualFilter(
       typeIds: {
         RestaurantTypeIds.restaurantes,
@@ -77,15 +77,10 @@ ContextualFilter contextualFilterFor(int hour) {
     );
   }
   if (hour >= 17 && hour <= 19) {
-    // Idealmente filtraríamos por categoría Terraza / Con vistas, pero
-    // el endpoint /restaurant/pagination no devuelve `categoriasRestaurantes`
-    // (ver migration-backend/2026-add-categorias-to-pagination.md). Como
-    // workaround usamos los types más asociados con terraza/vistas.
     return const ContextualFilter(
-      typeIds: {
-        RestaurantTypeIds.loungeTenerife,
-        RestaurantTypeIds.cofradia,
-        RestaurantTypeIds.bodegones,
+      categoryIds: {
+        CategoryIds.terraza,
+        CategoryIds.conVistas,
       },
     );
   }

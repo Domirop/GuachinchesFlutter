@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:guachinches/l10n/app_localizations.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:geolocator/geolocator.dart';
@@ -823,6 +824,29 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
                   ),
                 ),
 
+              // ── Refresh FAB (hidden in drive mode) ────────────────────
+              if (!isDriving)
+                Positioned(
+                  bottom: 140,
+                  right: 16,
+                  child: Semantics(
+                    identifier: 'mapa-refresh-fab',
+                    child: FloatingActionButton.small(
+                      heroTag: 'refreshMap',
+                      backgroundColor: context.brand.surface,
+                      onPressed: () async {
+                        await remoteRepository.invalidateCache('restaurants:');
+                        restaurantsCubit.refresh();
+                      },
+                      child: Icon(
+                        Icons.refresh_rounded,
+                        color: context.brand.textPrimary,
+                        size: 20,
+                      ),
+                    ),
+                  ),
+                ),
+
               // ── Bottom: drive-mode pill list OR nearby carousel ────────
               if (isDriving)
                 Positioned(
@@ -838,13 +862,49 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
                 Positioned(
                   left: 0,
                   right: 0,
-                  bottom: 12,
-                  height: 116,
-                  child: _FloatingCardCarousel(
-                    restaurants: _visibleRestaurants,
-                    pageController: _cardsPageController,
-                    onPageChanged: _onCardPageChanged,
-                    distanceTo: _distanceTo,
+                  bottom: 8,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(left: 16, bottom: 6),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: context.brand.surface,
+                            borderRadius: BorderRadius.circular(999),
+                            border: Border.all(color: context.brand.border),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.15),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Text(
+                            AppL10n.of(context).mapRestaurantsNearby(
+                                _visibleRestaurants.length),
+                            style: AppTextStyles.ui(
+                              size: 12,
+                              weight: FontWeight.w700,
+                              color: context.brand.textPrimary,
+                            ),
+                          ),
+                        ),
+                      ),
+                      SizedBox(
+                        height: 116,
+                        child: _FloatingCardCarousel(
+                          restaurants: _visibleRestaurants,
+                          pageController: _cardsPageController,
+                          onPageChanged: _onCardPageChanged,
+                          distanceTo: _distanceTo,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
             ],

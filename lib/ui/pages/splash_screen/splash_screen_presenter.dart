@@ -3,15 +3,16 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
 import 'package:flutter/material.dart';
+import 'package:guachinches/data/cubit/onboarding/onboarding_cubit.dart';
+import 'package:guachinches/data/cubit/onboarding/onboarding_state.dart';
 import 'package:guachinches/data/cubit/user/user_cubit.dart';
 import 'package:guachinches/data/cubit/user/user_state.dart';
 import 'package:guachinches/data/model/version.dart';
-import 'package:guachinches/ui/pages/login/login.dart';
 import 'package:guachinches/ui/pages/map/map_search.dart';
 import 'package:guachinches/ui/pages/listas/listas_screen.dart';
 import 'package:guachinches/ui/pages/new_home/new_home_screen.dart';
 import 'package:guachinches/ui/pages/discover/discover_screen.dart';
-import 'package:guachinches/ui/pages/profile/profile_v2.dart';
+import 'package:guachinches/ui/pages/settings/settings_screen.dart';
 
 class SplashScreenPresenter {
   final SplashScreenView _view;
@@ -19,9 +20,15 @@ class SplashScreenPresenter {
   final RemoteRepository _remoteRepository;
 
   final UserCubit _userCubit;
-  final storage = new FlutterSecureStorage();
+  final OnboardingCubit _onboardingCubit;
+  final storage = FlutterSecureStorage();
 
-  SplashScreenPresenter(this._view, this._remoteRepository, this._userCubit);
+  SplashScreenPresenter(
+    this._view,
+    this._remoteRepository,
+    this._userCubit,
+    this._onboardingCubit,
+  );
 
   checkVersion(String versionBD) async {
     String versionApp;
@@ -37,16 +44,12 @@ class SplashScreenPresenter {
 
 
   Future<List<Widget>> _buildScreens() async {
-    Widget profileTab =
-        Login("Para ver tu perfíl debes iniciar sesión.");
+    // SettingsScreen manages its own state via UserCubit —
+    // shows logged-in view, not-logged-in view, and loading/error states.
+    const Widget profileTab = SettingsScreen();
     try {
       String? userId = await storage.read(key: "userId");
       if (userId != null && userId.isNotEmpty) {
-        // Sesión persistida: mostramos el perfil sin gatear en el cubit.
-        // Si el fetch falla (timeout, red), Profilev2 reintenta por su cuenta;
-        // NO borramos el userId — eso causaba "logout" al hacer hot restart
-        // con red lenta.
-        profileTab = Profilev2();
         if (_userCubit.state is UserInitial) {
           // Disparamos el fetch en background para precargar el cubit.
           // ignore: unawaited_futures
@@ -84,23 +87,19 @@ class SplashScreenPresenter {
       versionBD = version.androidVersion;
     }
     bool check = await checkVersion(versionBD);
-    if(check) {
+    if (check) {
       _view.goToUpdateScreen();
-    }
-    else {
-      String? key = await storage.read(key: 'onBoardingFinished') ;
-      if(key==null|| key.length==0){
-        await storage.write(key: 'onBoardingFinished',value: 'false');
+    } else {
+      if (_onboardingCubit.state is OnboardingInitial) {
+        await _onboardingCubit.hydrate();
+      }
+      if (_onboardingCubit.isFinished) {
+        // Premios Donde Comer Canarias 2026 — pausado.
+        // Restaurar leyendo surveyShown del cubit y llamando a
+        // goToSurveyOnboarding() cuando sea false, como antes.
+        mainFunction();
+      } else {
         _view.goToOnBoarding();
-      }else{
-        if(key == 'true'){
-          // Premios Donde Comer Canarias 2026 — pausado.
-          // Restaurar leyendo 'surveyOnboarding2026Shown' y llamando a
-          // goToSurveyOnboarding() cuando esté vacío, como antes.
-          mainFunction();
-        }else{
-          _view.goToOnBoarding();
-        }
       }
     }
   }

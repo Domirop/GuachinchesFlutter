@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:guachinches/core/logging/app_logger.dart';
 import 'package:guachinches/Categorias/categorias.dart';
 import 'package:guachinches/data/HttpRemoteRepository.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
@@ -14,6 +15,7 @@ import 'package:guachinches/globalMethods.dart';
 import 'package:guachinches/ui/components/cards/restaurantListCard.dart';
 import 'package:guachinches/ui/pages/map/map_search.dart';
 import 'package:guachinches/ui/pages/map/search_text_presenter.dart';
+import 'package:guachinches/utils/debouncer.dart';
 import 'package:http/http.dart';
 
 class SearchText extends StatefulWidget {
@@ -30,6 +32,7 @@ class SearchText extends StatefulWidget {
 class _SearchTextState extends State<SearchText> implements SearchTextView{
   late FocusNode _focusNode;
   TextEditingController _textEditingController = TextEditingController();
+  final Debouncer _debouncer = Debouncer();
   late RemoteRepository remoteRepository;
   late SearchTextPresenter presenter;
   late RestaurantMapCubit restaurantsCubit;
@@ -56,6 +59,7 @@ class _SearchTextState extends State<SearchText> implements SearchTextView{
 
   @override
   void dispose() {
+    _debouncer.dispose();
     _focusNode.dispose();
     super.dispose();
   }
@@ -92,12 +96,14 @@ class _SearchTextState extends State<SearchText> implements SearchTextView{
                     categories = state.categorySelected;
                     types = state.typesSelected;
                 }
-              return TextField(
-
+              return Semantics(
+                identifier: 'map-search-input',
+                child: TextField(
                 onChanged: (value){
-                  presenter.getAllRestaurantsFilterByText(value);
+                  _debouncer(() => presenter.getAllRestaurantsFilterByText(value));
                 },
                 onSubmitted: (value){
+                  _debouncer.cancel();
                   restaurantsCubit.getFilterMapRestaurants(
                       categories: categories,
                       municipalities:municipalities,
@@ -146,6 +152,7 @@ class _SearchTextState extends State<SearchText> implements SearchTextView{
                     onPressed: _clearText,
                   ),
                 ),
+              ),
               );
               }
 
@@ -170,7 +177,7 @@ class _SearchTextState extends State<SearchText> implements SearchTextView{
 
   @override
   setRestaurantsFilter(List<Restaurant> restaurants) {
-    print('restaurants: '+restaurants.length.toString());
+    AppLogger.info('search-text', 'restaurants: ${restaurants.length}');
     setState(() {
       this.restaurants = restaurants;
     });

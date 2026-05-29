@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:guachinches/config/app_colors.dart';
+import 'package:guachinches/data/cubit/onboarding/onboarding_cubit.dart';
 import 'package:guachinches/config/app_text_styles.dart';
 import 'package:guachinches/config/brand_colors.dart';
 import 'package:guachinches/data/HttpRemoteRepository.dart';
@@ -15,6 +16,10 @@ import 'package:guachinches/data/model/Cupones.dart';
 import 'package:guachinches/data/model/restaurant.dart';
 import 'package:guachinches/data/model/user_info.dart';
 import 'package:guachinches/ui/pages/favoritos/favoritos.dart';
+import 'package:guachinches/ui/pages/profile/about_page.dart';
+import 'package:guachinches/ui/pages/profile/edit_profile_page.dart';
+import 'package:guachinches/ui/pages/profile/help_page.dart';
+import 'package:guachinches/ui/pages/profile/notifications_page.dart';
 import 'package:guachinches/ui/pages/profile/profile_presenter.dart';
 import 'package:guachinches/ui/pages/splash_screen/splash_screen.dart';
 import 'package:guachinches/ui/pages/valoraciones/valoraciones.dart';
@@ -79,24 +84,46 @@ class _Profilev2State extends State<Profilev2> implements ProfileView {
   }
 
   Future<void> _resetOnboarding() async {
-    final ok = await _showConfirm(
-      title: 'Reiniciar onboarding (DEV)',
-      message:
-          'Se borrarán tu nombre, isla preferida, gustos y el flag de onboarding completado. Volverás a la pantalla de bienvenida al reiniciar.',
-      confirmLabel: 'Reiniciar',
-      destructive: true,
-    );
-    if (ok != true) return;
-    await _storage.delete(key: 'onBoardingFinished');
-    await _storage.delete(key: 'onb_name');
-    await _storage.delete(key: 'prefIslandId');
-    await _storage.delete(key: 'prefTastes');
-    await _storage.delete(key: 'prefLocationAsked');
-    await _storage.delete(key: 'surveyOnboarding2026Shown');
+    final confirmed = await _showResetOnboardingDialog();
+    if (confirmed != true) return;
+    await context.read<OnboardingCubit>().reset();
     if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (_) => SplashScreen()),
       (_) => false,
+    );
+  }
+
+  Future<bool?> _showResetOnboardingDialog() {
+    final brand = context.brand;
+    return showDialog<bool>(
+      context: context,
+      builder: (dialogCtx) => Semantics(
+        identifier: 'reset-onboarding-confirm-dialog',
+        child: AlertDialog(
+          backgroundColor: brand.elevated,
+          title: const Text('¿Resetear onboarding?'),
+          content: const Text(
+            'Se borrarán tus preferencias y volverás a la pantalla de bienvenida al reiniciar.',
+          ),
+          actions: [
+            Semantics(
+              identifier: 'reset-onboarding-cancel-cta',
+              child: TextButton(
+                onPressed: () => Navigator.of(dialogCtx).pop(false),
+                child: const Text('Cancelar'),
+              ),
+            ),
+            Semantics(
+              identifier: 'reset-onboarding-confirm-cta',
+              child: TextButton(
+                onPressed: () => Navigator.of(dialogCtx).pop(true),
+                child: const Text('Resetear'),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -194,8 +221,18 @@ class _Profilev2State extends State<Profilev2> implements ProfileView {
             UserInfo user = UserInfo();
             if (state is UserLoaded) user = state.user;
             final reviewCount = user.valoraciones.length;
-            return ListView(
-              physics: const BouncingScrollPhysics(),
+            return Semantics(
+              identifier: 'perfil-refresh-indicator',
+              child: RefreshIndicator(
+                onRefresh: () => Future.wait([
+                  context.read<UserCubit>().refreshFromBackend(),
+                  _loadFavCount(),
+                ]),
+                color: Theme.of(context).colorScheme.primary,
+                child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(
+                parent: BouncingScrollPhysics(),
+              ),
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
               children: [
                 _Header(),
@@ -257,6 +294,60 @@ class _Profilev2State extends State<Profilev2> implements ProfileView {
                 const SizedBox(height: 24),
                 _SectionLabel('AJUSTES'),
                 const _ThemeTile(),
+                const SizedBox(height: 24),
+                _SectionLabel('PREFERENCIAS'),
+                Semantics(
+                  identifier: 'profile-menu-editar-perfil',
+                  child: _MenuTile(
+                    icon: Icons.person_outline_rounded,
+                    iconColor: AppColors.atlanticoClaro,
+                    title: 'Editar perfil',
+                    subtitle: 'Nombre, email e isla',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const EditarPerfilPage()),
+                    ),
+                  ),
+                ),
+                Semantics(
+                  identifier: 'profile-menu-notificaciones',
+                  child: _MenuTile(
+                    icon: Icons.notifications_outlined,
+                    iconColor: AppColors.sol,
+                    title: 'Notificaciones',
+                    subtitle: 'Gestiona tus alertas',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const NotificacionesPage()),
+                    ),
+                  ),
+                ),
+                Semantics(
+                  identifier: 'profile-menu-ayuda',
+                  child: _MenuTile(
+                    icon: Icons.help_outline_rounded,
+                    iconColor: AppColors.laurisilva,
+                    title: 'Ayuda y soporte',
+                    subtitle: 'Preguntas frecuentes y contacto',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const AyudaPage()),
+                    ),
+                  ),
+                ),
+                Semantics(
+                  identifier: 'profile-menu-acerca-de',
+                  child: _MenuTile(
+                    icon: Icons.info_outline_rounded,
+                    iconColor: AppColors.atlantico,
+                    title: 'Acerca de',
+                    subtitle: 'Versión, términos y privacidad',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const AcercaDePage()),
+                    ),
+                  ),
+                ),
                 const SizedBox(height: 28),
                 _DangerZone(
                   onLogout: _confirmLogout,
@@ -265,13 +356,16 @@ class _Profilev2State extends State<Profilev2> implements ProfileView {
                 if (kDebugMode) ...[
                   const SizedBox(height: 28),
                   _SectionLabel('DEV'),
-                  _MenuTile(
-                    icon: Icons.refresh_rounded,
-                    iconColor: AppColors.mojo,
-                    title: 'Reiniciar onboarding',
-                    subtitle:
-                        'Borra preferencias y vuelve a la pantalla de bienvenida',
-                    onTap: _resetOnboarding,
+                  Semantics(
+                    identifier: 'profile-reset-onboarding-button',
+                    child: _MenuTile(
+                      icon: Icons.refresh_rounded,
+                      iconColor: AppColors.mojo,
+                      title: 'Reiniciar onboarding',
+                      subtitle:
+                          'Borra preferencias y vuelve a la pantalla de bienvenida',
+                      onTap: _resetOnboarding,
+                    ),
                   ),
                 ],
                 const SizedBox(height: 24),
@@ -285,6 +379,8 @@ class _Profilev2State extends State<Profilev2> implements ProfileView {
                   ),
                 ),
               ],
+            ),
+              ),
             );
           },
         ),

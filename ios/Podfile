@@ -31,6 +31,13 @@ target 'Runner' do
   use_frameworks!
   use_modular_headers!
 
+  # Firebase requires modular headers when consumed by Flutter Firebase plugins
+  # whose own headers do `#import <Firebase/Firebase.h>` inside a framework module.
+  pod 'Firebase', :modular_headers => true
+  pod 'FirebaseCore', :modular_headers => true
+  pod 'FirebaseCoreInternal', :modular_headers => true
+  pod 'GoogleUtilities', :modular_headers => true
+
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 end
 
@@ -39,7 +46,21 @@ post_install do |installer|
     flutter_additional_ios_build_settings(target)
     target.build_configurations.each do |config|
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '14.0'
+      config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
     end
+  end
+
+  # Xcode 15+ compat: replace deprecated DT_TOOLCHAIN_DIR with TOOLCHAIN_DIR
+  # AND inject CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES into every
+  # Firebase-related xcconfig (the build reads xcconfig, not the pbxproj target settings
+  # we set above — those land too late for the precompile of plugin headers).
+  Dir.glob(File.join(installer.config.installation_root, 'Pods/Target Support Files/**/*.xcconfig')).each do |path|
+    contents = File.read(path)
+    new_contents = contents.gsub('DT_TOOLCHAIN_DIR', 'TOOLCHAIN_DIR')
+    unless new_contents.include?('CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES')
+      new_contents += "\nCLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES = YES\n"
+    end
+    File.write(path, new_contents) if new_contents != contents
   end
 end
 

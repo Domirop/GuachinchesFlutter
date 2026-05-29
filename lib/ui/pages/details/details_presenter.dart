@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:firebase_analytics/firebase_analytics.dart';
+import 'package:guachinches/core/logging/app_logger.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
 import 'package:guachinches/data/local/sql_lite_local_repository.dart';
@@ -22,7 +23,7 @@ class DetailPresenter {
 
   isUserLogged() async {
     String? userId = await storage.read(key: "userId");
-    print('test'+ userId.toString());
+    AppLogger.info('details-presenter', 'userId: $userId');
     if (userId != null) {
       _view.setUserId(userId);
     }
@@ -35,7 +36,7 @@ class DetailPresenter {
 
   getRestaurantVideos(String id) async {
     List<Video> videos = await _remoteRepository.getVideosRestaurant(id);
-    print('videos: ' + videos.length.toString());
+    AppLogger.info('details-presenter', 'videos: ${videos.length}');
 
     _view.setRestaurantVideos(videos);
   }
@@ -56,12 +57,12 @@ class DetailPresenter {
       List<ReportReview> reportReview =
       await _remoteRepository.getReviewReported(userId);
       List<Review> valoracionesNotBlocked = [];
-      print('val: ' + restaurant.valoraciones.length.toString());
+      AppLogger.info('details-presenter', 'val: ${restaurant.valoraciones.length}');
 
       for (var i = 0; i < restaurant.valoraciones.length; i++) {
         var condition = false;
         for (var y = 0; y < userBlocked.length; y++) {
-          print('userBlocked ' + restaurant.valoraciones[i].usuario.toString());
+          AppLogger.info('details-presenter', 'userBlocked ${restaurant.valoraciones[i].usuario}');
           if (userBlocked[y].userBlockedId ==
               restaurant.valoraciones[i].usuario!.id) {
             condition = true;
@@ -78,8 +79,8 @@ class DetailPresenter {
         }
       }
       restaurant.valoraciones = valoracionesNotBlocked;
-    } catch (e) {
-      print('error: ' + e.toString());
+    } catch (e, st) {
+      AppLogger.error('details-presenter', e, st);
     }
     _view.setRestaurant(restaurant);
 
@@ -87,8 +88,8 @@ class DetailPresenter {
     try {
       final visits = await _remoteRepository.getVisitsByRestaurant(restaurant.id);
       _view.setVisit(visits.isNotEmpty ? visits.first : null);
-    } catch (e) {
-      print('visit fetch error: $e');
+    } catch (e, st) {
+      AppLogger.error('details-presenter', e, st);
       _view.setVisit(null);
     }
   }
@@ -115,9 +116,9 @@ class DetailPresenter {
     var response = await request.send();
 
     if (response.statusCode == 201) {
-      print('Video uploaded successfully!');
+      AppLogger.info('details-presenter', 'Video uploaded successfully!');
     } else {
-      print('Video upload failed with status: ${response.statusCode}');
+      AppLogger.warn('details-presenter', 'Video upload failed with status: ${response.statusCode}');
     }
   }
 

@@ -1,4 +1,5 @@
 
+import 'package:guachinches/core/logging/app_logger.dart';
 import 'package:guachinches/data/model/Menu.dart';
 import 'package:guachinches/data/model/fotos.dart';
 import 'package:guachinches/data/model/short_quote.dart';
@@ -137,9 +138,9 @@ class Restaurant {
       try{
         mainFoto = json["fotos"][0]["photoUrl"];
 
-      }catch(e) {
+      }catch(e, st) {
         mainFoto = '';
-        print(e);
+        AppLogger.error('restaurant-model', e, st);
       }
     }else {
       if (json["fotos.photoUrl"] != null) {
@@ -164,14 +165,19 @@ class Restaurant {
     if (json["google_horarios"] != null) {
       googleHorarios = json["google_horarios"];
     }
-    if (json["municipios.Nombre"] != null){
+    // Dos shapes válidos: clave plana "municipios.Nombre" (endpoint legacy)
+    // o nested "municipios": { "Nombre": "..." } (endpoint nuevo).
+    // Cuando el Restaurant viene embebido dentro de un Visit (`getAllVisits`)
+    // el payload puede no traer NINGUNO de los dos — ahí `municipio` queda
+    // como '' y seguimos. Sin null-checks aquí petaba en línea 173 con
+    // `null["Nombre"]` y spameaba la consola con NoSuchMethodError, aunque
+    // el catch lo atrapaba.
+    if (json["municipios.Nombre"] != null) {
       municipio = json["municipios.Nombre"];
-
-    }else{
-      try {
-        municipio = json["municipios"]["Nombre"];
-      } catch (e) {
-        print(e);
+    } else {
+      final muniNested = json["municipios"];
+      if (muniNested is Map && muniNested["Nombre"] != null) {
+        municipio = muniNested["Nombre"].toString();
       }
     }
     if (json["municipios.area_municipiosId"] != null){

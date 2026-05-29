@@ -1,5 +1,10 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:guachinches/core/logging/app_logger.dart';
+import 'package:guachinches/data/HttpCachePolicy.dart';
+import 'package:guachinches/data/local/http_cache_store.dart';
 import 'package:guachinches/ui/pages/survey_in_app/survey_in_app_presenter.dart'
     show AlreadyVotedThisBusinessException;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -8,6 +13,7 @@ import 'package:guachinches/data/model/Island.dart';
 import 'package:guachinches/data/model/SimpleMunicipality.dart';
 import 'package:guachinches/data/model/curated_list.dart';
 import 'package:guachinches/data/model/weather_data.dart';
+import 'package:guachinches/data/model/weather_zone_bundle.dart';
 import 'package:guachinches/data/model/zone.dart';
 import 'package:guachinches/data/model/survey_in_app_choice.dart';
 import 'package:guachinches/data/model/Cupones.dart';
@@ -32,25 +38,89 @@ import 'package:video_compress/src/media/media_info.dart';
 import 'package:http/http.dart' as http;
 import 'RemoteRepository.dart';
 import 'model/Visit.dart';
+import 'model/user_visit.dart';
 
 class HttpRemoteRepository implements RemoteRepository {
   final Client _client;
+  final HttpCacheStore _cache;
+  final bool _backgroundEnabled;
 
-  HttpRemoteRepository(this._client);
+  HttpRemoteRepository(
+    this._client, {
+    HttpCacheStore? cache,
+    bool backgroundEnabled = true,
+  })  : _cache = cache ?? HttpCacheStore.instance,
+        _backgroundEnabled = backgroundEnabled;
+
+  Future<T> _withSwr<T>(
+    String key, {
+    required Duration ttl,
+    required Future<String> Function() fetchBody,
+    required T Function(String body) parse,
+  }) async {
+    final cached = await _cache.read(key, maxAge: ttl);
+    if (cached != null) {
+      if (_backgroundEnabled) {
+        unawaited(Future.delayed(Duration.zero, () async {
+          try {
+            if (await _isOffline()) return;
+            final fresh = await fetchBody();
+            await _cache.write(key, fresh);
+          } catch (_) {}
+        }));
+      }
+      return parse(cached);
+    }
+
+    if (await _isOffline()) {
+      final stale = await _cache.readStale(key);
+      if (stale != null) return parse(stale);
+      throw Exception('offline:no-cache:$key');
+    }
+
+    try {
+      final body = await fetchBody();
+      try {
+        await _cache.write(key, body);
+      } catch (_) {}
+      return parse(body);
+    } on Exception {
+      final stale = await _cache.readStale(key);
+      if (stale != null) return parse(stale);
+      rethrow;
+    }
+  }
+
+  static Future<bool> _isOffline() async {
+    try {
+      final result = await Connectivity().checkConnectivity();
+      return result == ConnectivityResult.none;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  @override
+  Future<void> invalidateCache(String prefix) => _cache.invalidate(prefix);
 
   @override
   Future<UserInfo> getUserInfo(String userId) async {
-    var uri = Uri.parse(dotenv.env['ENDPOINT_V1']! + "user/" + userId);
-    var response = await _client.get(uri);
-
-    var data = json.decode(response.body)['result'];
-
-    if (data['Usuario'] == null) {
-      throw Error();
+    final uri = Uri.parse(dotenv.env['ENDPOINT_V2']! + 'user/' + userId);
+    AppLogger.info('http-repo', '[getUserInfo] GET $uri');
+    final response = await _client.get(uri);
+    AppLogger.info('http-repo', '[getUserInfo] status=${response.statusCode} bodyLen=${response.body.length}');
+    if (response.statusCode == 404) {
+      throw Exception('User not found');
     }
-    UserInfo user = UserInfo.fromJson(data['Usuario']);
-
-    return user;
+    if (response.statusCode != 200) {
+      AppLogger.warn('http-repo', '[getUserInfo] FAILED body=${response.body}');
+      throw Exception('getUserInfo failed: ${response.statusCode}');
+    }
+    final decoded = json.decode(response.body);
+    if (decoded is! Map<String, dynamic>) {
+      throw Exception('getUserInfo: unexpected body shape');
+    }
+    return UserInfo.fromJson(decoded);
   }
   @override
   Future<List<SurveyResult>> getSurveyResults(int surveyId, String surveyName,List<Restaurant> allRestaurants) async {
@@ -75,26 +145,22 @@ class HttpRemoteRepository implements RemoteRepository {
 
   @override
   Future<RestaurantResponse> getAllRestaurants(int number,
-      [String islandId = "76ac0bec-4bc1-41a5-bc60-e528e0c12f4d"]) async {
-    try {
-      String islandQuery = islandId == null ? '' : '&island=' + islandId;
-      String url = dotenv.env['ENDPOINT_V2']! +
-          "restaurant/pagination?from=" +
-          number.toString() +
-          islandQuery;
-
-      var uri = Uri.parse(url);
-      print('[getAllRestaurants] GET $url');
-      var response = await _client.get(uri);
-      print('[getAllRestaurants] status=${response.statusCode} bodyLen=${response.body.length}');
-      RestaurantResponse restaurantResponse =
-          RestaurantResponse.fromJson(json.decode(response.body));
-      print('[getAllRestaurants] parsed count=${restaurantResponse.restaurants.length}');
-      return restaurantResponse;
-    } on Exception catch (e) {
-      print('[getAllRestaurants] EXCEPTION: $e');
-      throw e;
-    }
+      [String islandId = "76ac0bec-4bc1-41a5-bc60-e528e0c12f4d"]) {
+    final key = 'restaurants:all:$islandId:from$number';
+    return _withSwr<RestaurantResponse>(
+      key,
+      ttl: HttpCachePolicy.listTtl,
+      fetchBody: () async {
+        final islandQuery = islandId == null ? '' : '&island=$islandId';
+        final url = dotenv.env['ENDPOINT_V2']! +
+            'restaurant/pagination?from=$number$islandQuery';
+        final response = await _client
+            .get(Uri.parse(url))
+            .timeout(const Duration(seconds: 15));
+        return response.body;
+      },
+      parse: (body) => RestaurantResponse.fromJson(json.decode(body)),
+    );
   }
 
   Future<List<Restaurant>> getFilterRestaurants(
@@ -133,18 +199,20 @@ class HttpRemoteRepository implements RemoteRepository {
   }
 
   @override
-  Future<Restaurant> getRestaurantById(String id) async {
-    try {
-      String url = dotenv.env['ENDPOINT_V2']! + "restaurant/" + id;
-
-      var uri = Uri.parse(url);
-      var response = await _client.get(uri);
-
-      Restaurant restaurant = Restaurant.fromJson(json.decode(response.body));
-      return restaurant;
-    } on Exception catch (e) {
-      throw e;
-    }
+  Future<Restaurant> getRestaurantById(String id) {
+    final key = 'restaurant:detail:$id';
+    return _withSwr<Restaurant>(
+      key,
+      ttl: HttpCachePolicy.detailTtl,
+      fetchBody: () async {
+        final url = dotenv.env['ENDPOINT_V2']! + 'restaurant/$id';
+        final response = await _client
+            .get(Uri.parse(url))
+            .timeout(const Duration(seconds: 15));
+        return response.body;
+      },
+      parse: (body) => Restaurant.fromJson(json.decode(body)),
+    );
   }
 
   Future<List<String>> getVotedRestaurantsByUser(String surveySchemaId, String userId) async {
@@ -169,30 +237,45 @@ class HttpRemoteRepository implements RemoteRepository {
   }
 
   @override
-  Future<List<ModelCategory>> getAllCategories() async {
-    var uri = Uri.parse(dotenv.env['ENDPOINT_V2']! + "categorias");
-    var response = await _client.get(uri);
-    List<dynamic> data = json.decode(response.body);
-
-    List<ModelCategory> categories = [];
-    for (var i = 0; i < data.length; i++) {
-      ModelCategory category = ModelCategory.fromJson(data[i]);
-      categories.add(category);
-    }
-    return categories;
+  Future<List<ModelCategory>> getAllCategories() {
+    return _withSwr<List<ModelCategory>>(
+      'categories',
+      ttl: HttpCachePolicy.referenceTtl,
+      fetchBody: () async {
+        final response = await _client
+            .get(Uri.parse(dotenv.env['ENDPOINT_V2']! + 'categorias'))
+            .timeout(const Duration(seconds: 15));
+        return response.body;
+      },
+      parse: (body) {
+        final data = json.decode(body) as List<dynamic>;
+        return data
+            .whereType<Map<String, dynamic>>()
+            .map(ModelCategory.fromJson)
+            .toList();
+      },
+    );
   }
 
   @override
-  Future<List<Municipality>> getAllMunicipalities() async {
-    var uri = Uri.parse(dotenv.env['ENDPOINT_V1']! + "municipality");
-    var response = await _client.get(uri);
-    List<dynamic> data = json.decode(response.body)['result'];
-    List<Municipality> municipalities = [];
-    for (var i = 0; i < data.length; i++) {
-      Municipality municipality = Municipality.fromJson(data[i]);
-      municipalities.add(municipality);
-    }
-    return municipalities;
+  Future<List<Municipality>> getAllMunicipalities() {
+    return _withSwr<List<Municipality>>(
+      'municipalities',
+      ttl: HttpCachePolicy.referenceTtl,
+      fetchBody: () async {
+        final response = await _client
+            .get(Uri.parse(dotenv.env['ENDPOINT_V1']! + 'municipality'))
+            .timeout(const Duration(seconds: 15));
+        return response.body;
+      },
+      parse: (body) {
+        final data = json.decode(body)['result'] as List<dynamic>;
+        return data
+            .whereType<Map<String, dynamic>>()
+            .map(Municipality.fromJson)
+            .toList();
+      },
+    );
   }
 
   @override
@@ -322,17 +405,14 @@ class HttpRemoteRepository implements RemoteRepository {
         try {
           TopRestaurants restaurant = TopRestaurants.fromJson(data[i]);
           restaurants.add(restaurant);
-          print(restaurant);
         } catch (e, stackTrace) {
-          print("ERROR restaurante: ${data[i].toString()}");
-          print("EXCEPCIÓN: $e");
-          print("STACK TRACE: $stackTrace");
+          AppLogger.error('http-repo', e, stackTrace);
         }
 
       }
       return restaurants;
     } on Exception catch (e) {
-      print("ERROR GRAVE "+e.toString());
+      AppLogger.error('http-repo', e);
       return [];
     }
   }
@@ -380,9 +460,9 @@ class HttpRemoteRepository implements RemoteRepository {
     });
     var response = await _client.post(uri,
         headers: {"Content-Type": "application/json"}, body: body);
-    print(response);
+    AppLogger.info('http-repo', 'activateCoupon response: $response');
     var x = json.decode(response.body);
-    print(x['id']);
+    AppLogger.info('http-repo', 'coupon id: ${x['id']}');
     couponId = x['id'];
 
     if (x["statusCode"] != null && x["statusCode"] == 500)
@@ -424,21 +504,24 @@ class HttpRemoteRepository implements RemoteRepository {
   }
 
   @override
-  Future<List<Types>> getAllTypes() async {
-    try {
-      List<Types> typesList = [];
-      String url = dotenv.env['ENDPOINT_V2']! + "types";
-      var uri = Uri.parse(url);
-      var response = await _client.get(uri);
-      var data = json.decode(response.body);
-      for (var i = 0; i < data.length; i++) {
-        Types types = Types.fromJson(data[i]);
-        typesList.add(types);
-      }
-      return typesList;
-    } on Exception catch (e) {
-      return [];
-    }
+  Future<List<Types>> getAllTypes() {
+    return _withSwr<List<Types>>(
+      'types',
+      ttl: HttpCachePolicy.referenceTtl,
+      fetchBody: () async {
+        final response = await _client
+            .get(Uri.parse(dotenv.env['ENDPOINT_V2']! + 'types'))
+            .timeout(const Duration(seconds: 15));
+        return response.body;
+      },
+      parse: (body) {
+        final data = json.decode(body) as List<dynamic>;
+        return data
+            .whereType<Map<String, dynamic>>()
+            .map(Types.fromJson)
+            .toList();
+      },
+    );
   }
 
   @override
@@ -542,7 +625,7 @@ class HttpRemoteRepository implements RemoteRepository {
 
     return _client.post(uri,
         headers: {"Content-Type": "application/json"}, body: body).then((response) {
-          print(response.body);
+          AppLogger.info('http-repo', 'insertPhoto response: ${response.body}');
       return true;
     });
   }
@@ -695,7 +778,7 @@ class HttpRemoteRepository implements RemoteRepository {
       });
       final response = await _client.post(uri,
           headers: {'Content-Type': 'application/json'}, body: body);
-      print('HTTP POST $url → ${response.statusCode} | ${response.body}');
+      AppLogger.info('http-repo', 'HTTP POST $url → ${response.statusCode} | ${response.body}');
       if (response.statusCode == 409) {
         throw AlreadyVotedThisBusinessException();
       }
@@ -711,7 +794,7 @@ class HttpRemoteRepository implements RemoteRepository {
   Future<bool> checkUserSurveyStatus(String userId) {
 
     String url = dotenv.env['ENDPOINT_V2']! + "surveys/results/1/" + userId+ "/completed";
-    print(url);
+    AppLogger.info('http-repo', '[checkUserSurveyStatus] GET $url');
     var uri = Uri.parse(url);
     return _client.get(uri).then((response) {
       var data = json.decode(response.body);
@@ -741,8 +824,8 @@ class HttpRemoteRepository implements RemoteRepository {
       } else {
         throw Exception("Error al cargar los restaurantes: ${response.statusCode}");
       }
-    } catch (e) {
-      print("Error en getAllSurveyRestaurants: $e");
+    } catch (e, st) {
+      AppLogger.error('http-repo', e, st);
       throw Exception("Fallo al obtener restaurantes de encuesta");
     }
   }
@@ -783,13 +866,38 @@ class HttpRemoteRepository implements RemoteRepository {
         '${dotenv.env['ENDPOINT_V2']!}video-ingestion/restaurant-videos/published';
     final uri = Uri.parse(url);
 
+    AppLogger.info('get-all-visits', 'GET $url');
     final response = await _client.get(uri);
+    AppLogger.info(
+      'get-all-visits',
+      'status=${response.statusCode} body_len=${response.body.length}',
+    );
 
     if (response.statusCode == 200) {
       final decoded = json.decode(response.body);
       final List<dynamic> data =
           decoded is List ? decoded : (decoded['data'] as List? ?? const []);
-      return data.map((e) => Visit.fromJson(e)).toList();
+      AppLogger.info('get-all-visits', 'parsed array length=${data.length}');
+      final visits = <Visit>[];
+      var parseErrors = 0;
+      for (final e in data) {
+        try {
+          visits.add(Visit.fromJson(e));
+        } catch (err, st) {
+          // Si una visita concreta tiene un shape raro y peta su parser,
+          // no debe tumbar TODA la pantalla. Antes el `.map(...).toList()`
+          // propagaba la excepción y `loadVisits` quemaba con VisitsFailure
+          // → "No hemos podido cargar las visitas" pero por una sola fila
+          // mala. Ahora la saltamos y seguimos con el resto.
+          parseErrors++;
+          AppLogger.error('get-all-visits-parser', err, st);
+        }
+      }
+      AppLogger.info(
+        'get-all-visits',
+        'visits_built=${visits.length} parse_errors=$parseErrors',
+      );
+      return visits;
     } else {
       throw Exception('Error al obtener visitas: ${response.statusCode}');
     }
@@ -887,14 +995,14 @@ class HttpRemoteRepository implements RemoteRepository {
     final url = islandId != null && islandId.isNotEmpty
         ? '$base?islandId=$islandId'
         : base;
-    print('[getCuratedLists] GET $url');
+    AppLogger.info('http-repo', '[getCuratedLists] GET $url');
     final response = await _client.get(Uri.parse(url));
-    print('[getCuratedLists] status=${response.statusCode} body=${response.body.substring(0, response.body.length > 200 ? 200 : response.body.length)}');
+    AppLogger.info('http-repo', '[getCuratedLists] status=${response.statusCode} body=${response.body.substring(0, response.body.length > 200 ? 200 : response.body.length)}');
     if (response.statusCode != 200) {
       throw Exception('Error getCuratedLists: ${response.statusCode}');
     }
     final List<dynamic> data = json.decode(response.body);
-    print('[getCuratedLists] count=${data.length}');
+    AppLogger.info('http-repo', '[getCuratedLists] count=${data.length}');
     return data
         .whereType<Map<String, dynamic>>()
         .map(CuratedList.fromJson)
@@ -914,15 +1022,15 @@ class HttpRemoteRepository implements RemoteRepository {
   @override
   Future<List<Zone>> getZonesByIsland(String islandId) async {
     final url = dotenv.env['ENDPOINT_V2']! + 'zones/island/' + islandId;
-    print('[getZonesByIsland] GET $url');
+    AppLogger.info('http-repo', '[getZonesByIsland] GET $url');
     final response = await _client.get(Uri.parse(url));
-    print('[getZonesByIsland] status=${response.statusCode}');
+    AppLogger.info('http-repo', '[getZonesByIsland] status=${response.statusCode}');
     if (response.statusCode != 200) {
-      print('[getZonesByIsland] body=${response.body}');
+      AppLogger.warn('http-repo', '[getZonesByIsland] body=${response.body}');
       throw Exception('Error getZonesByIsland: ${response.statusCode}');
     }
     final List<dynamic> data = json.decode(response.body);
-    print('[getZonesByIsland] count=${data.length}');
+    AppLogger.info('http-repo', '[getZonesByIsland] count=${data.length}');
     return data
         .whereType<Map<String, dynamic>>()
         .map(Zone.fromJson)
@@ -942,21 +1050,38 @@ class HttpRemoteRepository implements RemoteRepository {
       _fetchWeather('weather/zone/' + zoneId);
 
   @override
-  Future<List<Island>> getIslands() async {
-    final url = dotenv.env['ENDPOINT_V2']! + 'islands';
-    print('[getIslands] GET $url');
+  Future<WeatherZoneBundle> getWeatherBundleForIsland(String islandId) async {
+    final url = dotenv.env['ENDPOINT_V2']! + 'weather/island/' + islandId + '/zones';
+    AppLogger.info('http-repo', '[getWeatherBundleForIsland] GET $url');
     final response = await _client.get(Uri.parse(url));
-    print('[getIslands] status=${response.statusCode}');
+    AppLogger.info('http-repo', '[getWeatherBundleForIsland] status=${response.statusCode}');
     if (response.statusCode != 200) {
-      print('[getIslands] body=${response.body}');
-      throw Exception('Error getIslands: ${response.statusCode}');
+      throw Exception('Error getWeatherBundleForIsland: ${response.statusCode}');
     }
-    final List<dynamic> data = json.decode(response.body);
-    print('[getIslands] count=${data.length}');
-    return data
-        .whereType<Map<String, dynamic>>()
-        .map(Island.fromJson)
-        .toList();
+    final data = json.decode(response.body) as Map<String, dynamic>;
+    return WeatherZoneBundle.fromJson(data);
+  }
+
+  @override
+  Future<List<Island>> getIslands() {
+    return _withSwr<List<Island>>(
+      'islands',
+      ttl: HttpCachePolicy.referenceTtl,
+      fetchBody: () async {
+        final url = dotenv.env['ENDPOINT_V2']! + 'islands';
+        final response = await _client
+            .get(Uri.parse(url))
+            .timeout(const Duration(seconds: 15));
+        if (response.statusCode != 200) {
+          throw Exception('Error getIslands: ${response.statusCode}');
+        }
+        return response.body;
+      },
+      parse: (body) => (json.decode(body) as List<dynamic>)
+          .whereType<Map<String, dynamic>>()
+          .map(Island.fromJson)
+          .toList(),
+    );
   }
 
   @override
@@ -967,16 +1092,16 @@ class HttpRemoteRepository implements RemoteRepository {
         'municipios/islands/' +
         islandId +
         '?onlyOfficial=true';
-    print('[getOfficialMunicipalities] GET $url');
+    AppLogger.info('http-repo', '[getOfficialMunicipalities] GET $url');
     final response = await _client.get(Uri.parse(url));
-    print('[getOfficialMunicipalities] status=${response.statusCode}');
+    AppLogger.info('http-repo', '[getOfficialMunicipalities] status=${response.statusCode}');
     if (response.statusCode != 200) {
-      print('[getOfficialMunicipalities] body=${response.body}');
+      AppLogger.warn('http-repo', '[getOfficialMunicipalities] body=${response.body}');
       throw Exception(
           'Error getOfficialMunicipalitiesByIsland: ${response.statusCode}');
     }
     final List<dynamic> data = json.decode(response.body);
-    print('[getOfficialMunicipalities] count=${data.length}');
+    AppLogger.info('http-repo', '[getOfficialMunicipalities] count=${data.length}');
     return data
         .whereType<Map<String, dynamic>>()
         .map(SimpleMunicipality.fromJson)
@@ -988,35 +1113,133 @@ class HttpRemoteRepository implements RemoteRepository {
     String zoneId,
   ) async {
     final url = dotenv.env['ENDPOINT_V2']! + 'municipios/zone/' + zoneId;
-    print('[getMunicipalitiesByZone] GET $url');
+    AppLogger.info('http-repo', '[getMunicipalitiesByZone] GET $url');
     final response = await _client.get(Uri.parse(url));
-    print('[getMunicipalitiesByZone] status=${response.statusCode}');
+    AppLogger.info('http-repo', '[getMunicipalitiesByZone] status=${response.statusCode}');
     if (response.statusCode != 200) {
       throw Exception(
           'Error getMunicipalitiesByZone: ${response.statusCode}');
     }
     final List<dynamic> data = json.decode(response.body);
-    print('[getMunicipalitiesByZone] count=${data.length}');
+    AppLogger.info('http-repo', '[getMunicipalitiesByZone] count=${data.length}');
     return data
         .whereType<Map<String, dynamic>>()
         .map(SimpleMunicipality.fromJson)
         .toList();
   }
 
+  @override
+  Future<Map<String, dynamic>> loginWithGoogle(String idToken) async {
+    final uri = Uri.parse(dotenv.env['ENDPOINT_V2']! + 'auth/google');
+    AppLogger.info('http-repo', '[loginWithGoogle] POST $uri idTokenLen=${idToken.length}');
+    final response = await _client.post(
+      uri,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'idToken': idToken}),
+    );
+    AppLogger.info('http-repo', '[loginWithGoogle] status=${response.statusCode} body=${response.body}');
+    if (response.statusCode != 200 && response.statusCode != 201) {
+      throw Exception('loginWithGoogle failed: ${response.statusCode}');
+    }
+    return jsonDecode(response.body) as Map<String, dynamic>;
+  }
+
+  @override
+  Future<Map<String, dynamic>> loginWithApple(String idToken, {String? givenName, String? familyName}) async {
+    final uri = Uri.parse(dotenv.env['ENDPOINT_V2']! + 'auth/apple');
+    final Map<String, dynamic> bodyMap = {'idToken': idToken};
+    if (givenName != null || familyName != null) {
+      final Map<String, dynamic> fullName = {};
+      if (givenName != null) fullName['givenName'] = givenName;
+      if (familyName != null) fullName['familyName'] = familyName;
+      bodyMap['fullName'] = fullName;
+    }
+    final response = await _client.post(
+      uri,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(bodyMap),
+    );
+    if (response.statusCode != 200 && response.statusCode != 201) {
+      throw Exception('loginWithApple failed: ${response.statusCode}');
+    }
+    return jsonDecode(response.body) as Map<String, dynamic>;
+  }
+
+  @override
+  Future<List<UserVisit>> getUserVisits(String userId) async {
+    final uri = Uri.parse('${dotenv.env['ENDPOINT_V2']!}visits/user/$userId');
+    final response = await _client.get(uri).timeout(const Duration(seconds: 15));
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      final decoded = json.decode(response.body);
+      final List<dynamic> data =
+          decoded is List ? decoded : (decoded['data'] as List? ?? const []);
+      return data
+          .whereType<Map<String, dynamic>>()
+          .map(UserVisit.fromJson)
+          .toList();
+    } else {
+      throw Exception('getUserVisits failed: ${response.statusCode}');
+    }
+  }
+
   Future<WeatherData> _fetchWeather(String path) async {
     final url = dotenv.env['ENDPOINT_V2']! + path;
-    print('[weather] GET $url');
+    AppLogger.info('http-repo', '[weather] GET $url');
     final response = await _client.get(Uri.parse(url));
-    print('[weather] status=${response.statusCode} body=${response.body}');
+    AppLogger.info('http-repo', '[weather] status=${response.statusCode} body=${response.body}');
     if (response.statusCode != 200) {
       return const WeatherData.unknown();
     }
     final data = json.decode(response.body) as Map<String, dynamic>;
     final tempRaw = data['tempC'];
+    final condition = (data['condition'] ?? 'unknown') as String;
+    final rawEmoji = data['emoji'] as String?;
+    final emoji = (rawEmoji == null || rawEmoji.isEmpty || rawEmoji == '—')
+        ? _emojiForCondition(condition)
+        : rawEmoji;
     return WeatherData(
       tempC: tempRaw == null ? null : (tempRaw as num).toDouble(),
-      condition: (data['condition'] ?? 'unknown') as String,
-      emoji: (data['emoji'] ?? '—') as String,
+      condition: condition,
+      emoji: emoji,
     );
+  }
+
+  static String _emojiForCondition(String condition) => switch (condition) {
+        'sunny' => '☀️',
+        'cloudy' => '⛅',
+        'rain' => '🌧️',
+        'fog' => '🌫️',
+        'storm' => '⛈️',
+        _ => '—',
+      };
+
+  @override
+  Future<DateTime> requestAccountDeletion(String userId) async {
+    final uri = Uri.parse(dotenv.env['ENDPOINT_V1']! + 'user/$userId/request-deletion');
+    final response = await _client.post(uri).timeout(const Duration(seconds: 15));
+    if (response.statusCode >= 400) {
+      throw Exception('requestAccountDeletion failed: ${response.statusCode}');
+    }
+    final body = json.decode(response.body) as Map<String, dynamic>;
+    return DateTime.parse(body['deletionScheduledAt'] as String);
+  }
+
+  @override
+  Future<void> cancelAccountDeletion(String userId) async {
+    final uri = Uri.parse(dotenv.env['ENDPOINT_V1']! + 'user/$userId/cancel-deletion');
+    final response = await _client.post(uri).timeout(const Duration(seconds: 15));
+    if (response.statusCode >= 400) {
+      throw Exception('cancelAccountDeletion failed: ${response.statusCode}');
+    }
+  }
+
+  @override
+  Future<Map<String, dynamic>> exportUserData(String userId) async {
+    final uri = Uri.parse(dotenv.env['ENDPOINT_V1']! + 'user/$userId/export');
+    final response = await _client.get(uri).timeout(const Duration(seconds: 15));
+    if (response.statusCode >= 400) {
+      throw Exception('exportUserData failed: ${response.statusCode}');
+    }
+    return json.decode(response.body) as Map<String, dynamic>;
   }
 }

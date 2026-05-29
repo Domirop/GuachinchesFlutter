@@ -1,5 +1,6 @@
 import 'package:guachinches/data/RemoteRepository.dart';
 import 'package:guachinches/data/model/weather_data.dart';
+import 'package:guachinches/data/model/weather_zone_bundle.dart';
 import 'package:guachinches/services/weather_service.dart';
 
 /// Implementación HTTP del WeatherService — delega en RemoteRepository.
@@ -33,6 +34,15 @@ class HttpWeatherService implements WeatherService {
       return await _repo.getWeatherForZone(zoneId);
     } catch (_) {
       return const WeatherData.unknown();
+    }
+  }
+
+  @override
+  Future<WeatherZoneBundle> bundleForIsland(String islandId) async {
+    try {
+      return await _repo.getWeatherBundleForIsland(islandId);
+    } catch (_) {
+      return WeatherZoneBundle(islandId: islandId, generatedAt: '', zones: []);
     }
   }
 }

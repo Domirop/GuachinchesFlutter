@@ -1,3 +1,4 @@
+import 'package:guachinches/core/logging/app_logger.dart';
 import '../model/Island.dart';
 
 class AllIsland{
@@ -6,7 +7,7 @@ class AllIsland{
     new Island('6f91d60f-0996-4dde-9088-167aab83a21a', 'Gran_Canaria.png', 'Gran Canaria')
   ];
   getIslandById (String islandId){
-    print(islandId);
+    AppLogger.info('all-island', islandId);
     return allIsland.firstWhere((element) => element.id==islandId);
   }
 }

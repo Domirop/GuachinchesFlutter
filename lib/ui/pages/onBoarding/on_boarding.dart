@@ -1,6 +1,7 @@
 import 'package:animated_text_kit/animated_text_kit.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:guachinches/data/cubit/onboarding/onboarding_cubit.dart';
 import 'package:guachinches/globalMethods.dart';
 import 'package:guachinches/ui/pages/login/login.dart';
 import 'package:guachinches/ui/pages/register/register.dart';
@@ -16,9 +17,8 @@ class OnBoarding extends StatefulWidget {
 class _OnBoardingState extends State<OnBoarding> {
   @override
   void initState() {
-    final storage = new FlutterSecureStorage();
-    storage.write(key: 'onBoardingFinished',value: 'true');
     super.initState();
+    context.read<OnboardingCubit>().markFinished();
   }
   @override
   Widget build(BuildContext context) {

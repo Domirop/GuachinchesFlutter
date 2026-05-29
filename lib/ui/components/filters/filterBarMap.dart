@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:guachinches/core/logging/app_logger.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:guachinches/data/cubit/filter/filter_cubit.dart';
@@ -419,7 +420,7 @@ class _FilterBarMapState extends State<FilterBarMap> {
                             if (widget
                                 .municipalities[i].municipalities[y].nombre
                                 .contains(text.toUpperCase())) {
-                              print(widget.municipalities[i].municipalities[y]);
+                              AppLogger.info('filter-bar-map', widget.municipalities[i].municipalities[y].toString());
                               auxmunicipalitiesFilter.add(
                                   widget.municipalities[i].municipalities[y]);
                             }

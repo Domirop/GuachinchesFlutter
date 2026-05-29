@@ -1,3 +1,4 @@
+import 'package:guachinches/core/logging/app_logger.dart';
 import 'package:guachinches/globalMethods.dart';
 
 class TopRestaurants {
@@ -74,8 +75,8 @@ class TopRestaurants {
           auxOpen = true;
           auxOpen = alwaysOpen = true;
         }
-      }catch(e){
-        print(nombre);
+      }catch(e, st){
+        AppLogger.error('top-restaurants-model', e, st);
       }
     }
     if (auxOpen && !alwaysOpen) {
