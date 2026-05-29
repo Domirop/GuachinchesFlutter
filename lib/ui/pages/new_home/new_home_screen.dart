@@ -28,6 +28,7 @@ import 'package:guachinches/ui/pages/advance_search/advanced_search.dart';
 import 'package:guachinches/ui/pages/restaurant_detail/restaurant_detail_screen.dart';
 import 'package:guachinches/core/logging/app_logger.dart';
 import 'package:guachinches/utils/distance_utils.dart';
+import 'package:guachinches/utils/island_key_utils.dart';
 import 'package:guachinches/utils/open_now_utils.dart';
 import 'package:guachinches/utils/opening_later_utils.dart';
 import 'package:guachinches/utils/time_of_day_engine.dart';
@@ -125,30 +126,6 @@ class _NewHomeScreenState extends State<NewHomeScreen>
       final munis = await repo.getAllMunicipalitiesFiltered(islandId);
       if (mounted) setState(() => _municipalitiesOld = munis);
     } catch (_) {}
-  }
-
-  /// Deriva la `islandKey` canónica (TF/GC/LZ/FV/LP/GO/EH) a partir del
-  /// nombre de la isla. Solo se usa cuando el backend no devuelve `key` en
-  /// el modelo [Island] — caso legacy.
-  String _islandKeyFromName(String name) {
-    switch (name.toLowerCase().trim()) {
-      case 'tenerife':
-        return 'TF';
-      case 'gran canaria':
-        return 'GC';
-      case 'lanzarote':
-        return 'LZ';
-      case 'fuerteventura':
-        return 'FV';
-      case 'la palma':
-        return 'LP';
-      case 'la gomera':
-        return 'GO';
-      case 'el hierro':
-        return 'EH';
-      default:
-        return 'TF';
-    }
   }
 
   void _onScroll() {
@@ -355,7 +332,7 @@ class _NewHomeScreenState extends State<NewHomeScreen>
                         // nombre. Última red de seguridad: TF.
                         final key = (island.key != null && island.key!.isNotEmpty)
                             ? island.key!
-                            : _islandKeyFromName(island.name);
+                            : islandKeyFromName(island.name);
                         context.read<NewHomeFiltersCubit>().selectIsland(
                               id: island.id,
                               key: key,

@@ -1,4 +1,5 @@
 import 'package:firebase_remote_config/firebase_remote_config.dart';
+import 'package:flutter/foundation.dart';
 import 'package:guachinches/core/logging/app_logger.dart';
 
 /// Abstraction over FirebaseRemoteConfig, exposed so tests can inject a fake.
@@ -42,7 +43,13 @@ class _FirebaseRcBridge implements RemoteConfigBridge {
 }
 
 class DccRemoteConfig {
-  static final DccRemoteConfig instance = DccRemoteConfig._internal(
+  /// Set before the first widget build in tests to avoid Firebase initialization.
+  @visibleForTesting
+  static DccRemoteConfig? testOverride;
+
+  static DccRemoteConfig get instance => testOverride ?? _productionInstance;
+
+  static final DccRemoteConfig _productionInstance = DccRemoteConfig._internal(
     _FirebaseRcBridge(FirebaseRemoteConfig.instance),
   );
 

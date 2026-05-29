@@ -5,32 +5,27 @@ import 'package:guachinches/config/brand_colors.dart';
 
 class ListasFilterValues {
   final List<String> authors;
-  final List<String> islandIds;
   final bool featuredOnly;
   final int minCount;
 
   const ListasFilterValues({
     this.authors = const [],
-    this.islandIds = const [],
     this.featuredOnly = false,
     this.minCount = 0,
   });
 
   int get count =>
       authors.length +
-      islandIds.length +
       (featuredOnly ? 1 : 0) +
       (minCount > 0 ? 1 : 0);
 
   ListasFilterValues copyWith({
     List<String>? authors,
-    List<String>? islandIds,
     bool? featuredOnly,
     int? minCount,
   }) =>
       ListasFilterValues(
         authors: authors ?? this.authors,
-        islandIds: islandIds ?? this.islandIds,
         featuredOnly: featuredOnly ?? this.featuredOnly,
         minCount: minCount ?? this.minCount,
       );
@@ -68,16 +63,6 @@ class _ListasFilterSheetState extends State<ListasFilterSheet> {
     ('JOANA', 'Joana'),
   ];
 
-  static const _kIslands = [
-    ('TF', '76ac0bec-4bc1-41a5-bc60-e528e0c12f4d'),
-    ('GC', null),
-    ('LZ', null),
-    ('FV', null),
-    ('LP', null),
-    ('LG', null),
-    ('EH', null),
-  ];
-
   static const _kMinCounts = [
     (5, '≥ 5 sitios'),
     (10, '≥ 10 sitios'),
@@ -99,16 +84,6 @@ class _ListasFilterSheetState extends State<ListasFilterSheet> {
       next.add(key);
     }
     setState(() => _values = _values.copyWith(authors: next));
-  }
-
-  void _toggleIsland(String id) {
-    final next = List<String>.from(_values.islandIds);
-    if (next.contains(id)) {
-      next.remove(id);
-    } else {
-      next.add(id);
-    }
-    setState(() => _values = _values.copyWith(islandIds: next));
   }
 
   @override
@@ -170,23 +145,6 @@ class _ListasFilterSheetState extends State<ListasFilterSheet> {
                           label: label,
                           selected: _values.authors.contains(key),
                           onTap: () => _toggleAuthor(key),
-                        );
-                      }).toList(),
-                    ),
-                    const SizedBox(height: 22),
-                    _SheetSectionLabel(title: 'ISLA'),
-                    const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: _kIslands.map((entry) {
-                        final (label, id) = entry;
-                        final selected = id != null && _values.islandIds.contains(id);
-                        return _SheetChip(
-                          label: label,
-                          selected: selected,
-                          enabled: id != null,
-                          onTap: id != null ? () => _toggleIsland(id) : null,
                         );
                       }).toList(),
                     ),

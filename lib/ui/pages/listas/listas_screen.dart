@@ -2,16 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:guachinches/l10n/app_localizations.dart';
 import 'package:guachinches/config/app_colors.dart';
-import 'package:guachinches/core/remote_config/dcc_remote_config.dart';
-import 'package:guachinches/data/HttpRemoteRepository.dart';
-import 'package:http/http.dart' as http;
 import 'package:guachinches/config/app_text_styles.dart';
 import 'package:guachinches/config/brand_colors.dart';
+import 'package:guachinches/core/remote_config/dcc_remote_config.dart';
+import 'package:guachinches/data/HttpRemoteRepository.dart';
 import 'package:guachinches/data/cubit/new_home/curated_lists_cubit.dart';
+import 'package:guachinches/data/cubit/new_home/islands_cubit.dart';
 import 'package:guachinches/data/cubit/new_home/new_home_filters_cubit.dart';
+import 'package:guachinches/data/cubit/new_home/new_home_filters_state.dart';
+import 'package:guachinches/data/model/Island.dart';
 import 'package:guachinches/data/model/curated_list.dart';
 import 'package:guachinches/ui/pages/curated_list_detail/curated_list_detail_screen.dart';
 import 'package:guachinches/ui/pages/listas/widgets/listas_filter_sheet.dart';
+import 'package:guachinches/utils/island_key_utils.dart';
+import 'package:http/http.dart' as http;
 
 /// Pantalla "Listas": catálogo de recopilatorios editoriales.
 /// Reusa los tokens de diseño (light/dark) y el modelo de [CuratedList].
@@ -90,9 +94,6 @@ class _ListasScreenState extends State<ListasScreen> {
         return _sheetFilters.authors.any((a) => up.contains(a));
       });
     }
-    if (_sheetFilters.islandIds.isNotEmpty) {
-      r = r.where((l) => l.islandId != null && _sheetFilters.islandIds.contains(l.islandId));
-    }
     if (_sheetFilters.featuredOnly) {
       r = r.where((l) => l.position == 1);
     }
@@ -106,7 +107,13 @@ class _ListasScreenState extends State<ListasScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return BlocListener<NewHomeFiltersCubit, NewHomeFiltersState>(
+      listener: (context, state) {
+        if (state.islandId != _islandIdFilter) {
+          setState(() => _islandIdFilter = state.islandId);
+        }
+      },
+      child: Scaffold(
       backgroundColor: context.brand.base,
       body: SafeArea(
         bottom: false,
@@ -139,10 +146,7 @@ class _ListasScreenState extends State<ListasScreen> {
                   ),
                 ),
                 SliverToBoxAdapter(
-                  child: _IslandFilterRow(
-                    selectedId: _islandIdFilter,
-                    onSelect: (id) => setState(() => _islandIdFilter = id),
-                  ),
+                  child: _IslandFilterRow(selectedId: _islandIdFilter),
                 ),
                 SliverToBoxAdapter(
                   child: _AuthorFilterRow(
@@ -209,6 +213,7 @@ class _ListasScreenState extends State<ListasScreen> {
             );
           },
         ),
+      ),
       ),
     );
   }
@@ -361,67 +366,66 @@ class _FilterIconButton extends StatelessWidget {
 // Filtros: islas (chips) y autor (chips)
 // ─────────────────────────────────────────────────────────────────────
 
-class _IslandOption {
-  final String key;
-  final String? id;
-  const _IslandOption(this.key, this.id);
-}
-
-const List<_IslandOption> _kIslands = [
-  _IslandOption('TF', '76ac0bec-4bc1-41a5-bc60-e528e0c12f4d'),
-  _IslandOption('GC', null),
-  _IslandOption('LZ', null),
-  _IslandOption('FV', null),
-  _IslandOption('LP', null),
-  _IslandOption('LG', null),
-  _IslandOption('EH', null),
-];
-
 class _IslandFilterRow extends StatelessWidget {
   final String? selectedId;
-  final ValueChanged<String?> onSelect;
 
-  const _IslandFilterRow({required this.selectedId, required this.onSelect});
+  const _IslandFilterRow({required this.selectedId});
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 44,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: _kIslands.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 8),
-        itemBuilder: (_, i) {
-          final opt = _kIslands[i];
-          final active = opt.id != null && opt.id == selectedId;
-          return GestureDetector(
-            onTap: opt.id == null ? null : () => onSelect(opt.id),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 160),
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: active ? AppColors.atlantico : context.brand.surface,
-                borderRadius: BorderRadius.circular(12),
-                border: active
-                    ? null
-                    : Border.all(color: context.brand.border),
-              ),
-              child: Opacity(
-                opacity: opt.id == null ? 0.45 : 1.0,
-                child: Text(
-                  opt.key,
-                  style: AppTextStyles.chipLabel(
-                    size: 12,
-                    color: active ? Colors.white : context.brand.textSecondary,
+    return BlocBuilder<IslandsCubit, IslandsState>(
+      builder: (context, state) {
+        final islands = state is IslandsLoaded ? state.islands : <Island>[];
+        if (islands.isEmpty) return const SizedBox(height: 44);
+        return SizedBox(
+          height: 44,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            itemCount: islands.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 8),
+            itemBuilder: (_, i) {
+              final island = islands[i];
+              final key = (island.key != null && island.key!.isNotEmpty)
+                  ? island.key!
+                  : islandKeyFromName(island.name);
+              final active = island.id == selectedId;
+              return Semantics(
+                identifier: 'listas-island-chip-${key.toLowerCase()}',
+                child: GestureDetector(
+                  onTap: () {
+                    context.read<NewHomeFiltersCubit>().selectIsland(
+                          id: island.id,
+                          key: key,
+                          label: island.name,
+                        );
+                  },
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 160),
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: active ? AppColors.atlantico : context.brand.surface,
+                      borderRadius: BorderRadius.circular(12),
+                      border: active
+                          ? null
+                          : Border.all(color: context.brand.border),
+                    ),
+                    child: Text(
+                      key,
+                      style: AppTextStyles.chipLabel(
+                        size: 12,
+                        color:
+                            active ? Colors.white : context.brand.textSecondary,
+                      ),
+                    ),
                   ),
                 ),
-              ),
-            ),
-          );
-        },
-      ),
+              );
+            },
+          ),
+        );
+      },
     );
   }
 }
