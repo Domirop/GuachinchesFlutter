@@ -3,6 +3,7 @@ import 'package:guachinches/config/app_colors.dart';
 import 'package:guachinches/config/brand_colors.dart';
 import 'package:guachinches/config/app_text_styles.dart';
 import 'package:guachinches/data/model/curated_list.dart';
+import 'package:guachinches/ui/components/curated_hero_image.dart';
 
 /// Card grande estilo revista para recopilatorios editoriales.
 class CardCuratedList extends StatelessWidget {
@@ -54,9 +55,9 @@ class CardCuratedList extends StatelessWidget {
                       ),
                     ),
                   ),
-                  // Emoji gigante decorativo
+                  // Portada: URL remota (S3) o asset local — el helper decide.
                   if (list.heroAsset != null)
-                    Image.asset(list.heroAsset!, fit: BoxFit.cover)
+                    CuratedHeroImage(source: list.heroAsset!)
                   else if (list.heroEmoji != null)
                     Positioned(
                       right: -14,

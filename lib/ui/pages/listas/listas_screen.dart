@@ -12,6 +12,7 @@ import 'package:guachinches/data/cubit/new_home/new_home_filters_cubit.dart';
 import 'package:guachinches/data/cubit/new_home/new_home_filters_state.dart';
 import 'package:guachinches/data/model/Island.dart';
 import 'package:guachinches/data/model/curated_list.dart';
+import 'package:guachinches/ui/components/curated_hero_image.dart';
 import 'package:guachinches/ui/pages/curated_list_detail/curated_list_detail_screen.dart';
 import 'package:guachinches/ui/pages/listas/widgets/listas_filter_sheet.dart';
 import 'package:guachinches/utils/island_key_utils.dart';
@@ -540,10 +541,10 @@ class _FeaturedListCard extends StatelessWidget {
                 ),
               ),
             ),
-            // Hero (asset o emoji)
+            // Hero (URL remota / asset local / emoji)
             if (list.heroAsset != null)
               Positioned.fill(
-                child: Image.asset(list.heroAsset!, fit: BoxFit.cover),
+                child: CuratedHeroImage(source: list.heroAsset!),
               )
             else if (list.heroEmoji != null)
               Positioned(
@@ -668,7 +669,7 @@ class _GridListCard extends StatelessWidget {
             ),
             if (list.heroAsset != null)
               Positioned.fill(
-                child: Image.asset(list.heroAsset!, fit: BoxFit.cover),
+                child: CuratedHeroImage(source: list.heroAsset!),
               )
             else if (list.heroEmoji != null)
               Positioned(
