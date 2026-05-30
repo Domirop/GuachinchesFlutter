@@ -45,7 +45,7 @@ class _ShimmerState extends State<_Shimmer>
         width: widget.width,
         height: widget.height,
         decoration: BoxDecoration(
-          color: AppColors.crema.withOpacity(_anim.value),
+          color: AppColors.crema.withValues(alpha: _anim.value),
           borderRadius: BorderRadius.circular(widget.radius),
         ),
       ),
@@ -97,6 +97,64 @@ class RankingRowSkeleton extends StatelessWidget {
                     SizedBox(height: 6),
                     _Shimmer(width: 120, height: 10, radius: 4),
                   ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Placeholder del slot "Abiertos cerca ahora" durante bootstrap.
+///
+/// Replica el layout de [OpenNowCallout] con tres barras shimmer (eyebrow,
+/// headline, support) y banda lateral neutra. Sin LiveDot, chevron ni
+/// GestureDetector — no afirma ningún estado de datos.
+class OpenNowCalloutSkeleton extends StatelessWidget {
+  const OpenNowCalloutSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      identifier: 'home-cerca-ahora-skeleton',
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+        decoration: BoxDecoration(
+          color: context.brand.surface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: context.brand.border, width: 1),
+        ),
+        clipBehavior: Clip.hardEdge,
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Container(
+                width: 4,
+                decoration: BoxDecoration(
+                  color: context.brand.border,
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(16),
+                    bottomLeft: Radius.circular(16),
+                  ),
+                ),
+              ),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 14, 12, 14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: const [
+                      _Shimmer(width: 100, height: 10, radius: 4),
+                      SizedBox(height: 8),
+                      _Shimmer(width: double.infinity, height: 18, radius: 6),
+                      SizedBox(height: 6),
+                      _Shimmer(width: 140, height: 11, radius: 4),
+                    ],
+                  ),
                 ),
               ),
             ],

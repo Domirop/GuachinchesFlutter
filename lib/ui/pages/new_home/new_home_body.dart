@@ -27,8 +27,8 @@ import 'package:guachinches/ui/pages/new_home/widgets/card_visit.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/hour_aware_banner.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/parallax_hero.dart';
 import 'package:guachinches/ui/components/location_prompt_banner.dart';
-import 'package:guachinches/ui/components/open_now_callout.dart';
 import 'package:guachinches/ui/pages/cerca_abiertos/cerca_ahora_screen.dart';
+import 'package:guachinches/ui/pages/new_home/widgets/open_now_callout_slot.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/card_horizontal.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/contextual_section_card.dart';
 import 'package:guachinches/utils/contextual_pool.dart';
@@ -193,11 +193,11 @@ class _NewHomeBodyState extends State<NewHomeBody> {
             const SliverToBoxAdapter(child: LocationPromptBanner()),
 
             // ── ABIERTOS CERCA AHORA ─────────────────────────────────────
-            // Callout rediseñado con LIVE dot pulsante, número real de
-            // abiertos y banda lateral verde "laurisilva". Ver
-            // [OpenNowCallout] para el rationale del diseño.
+            // Slot que elige skeleton / oculto / callout real según estado
+            // de bootstrap y permisos de ubicación. Ver [OpenNowCalloutSlot].
             SliverToBoxAdapter(
-              child: OpenNowCallout(
+              child: OpenNowCalloutSlot(
+                bootstrapLoading: widget.bootstrapLoading,
                 count: openNow.length,
                 contextLabel: zoneLabel,
                 onTap: () => Navigator.push(
