@@ -30,6 +30,7 @@ import 'package:guachinches/ui/components/open_now_callout.dart';
 import 'package:guachinches/ui/pages/cerca_abiertos/cerca_ahora_screen.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/card_horizontal.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/contextual_section_card.dart';
+import 'package:guachinches/utils/contextual_pool.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/search_field_dynamic.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/section_header.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/skeletons.dart';
@@ -65,6 +66,7 @@ class NewHomeBody extends StatefulWidget {
   final void Function({
     List<ModelCategory>? categories,
     List<Types>? types,
+    bool openOnly,
   }) onSearchPreSelected;
   final Future<void> Function()? onRefresh;
 
@@ -205,7 +207,7 @@ class _NewHomeBodyState extends State<NewHomeBody> {
                         hour: widget.hour,
                         zoneLabel: zoneLabel,
                         actionLabel: 'VER TODO',
-                        onAction: () {},
+                        onAction: _openContextualSearch,
                       ),
                       const CardRowSkeleton(),
                     ],
@@ -222,7 +224,7 @@ class _NewHomeBodyState extends State<NewHomeBody> {
                         hour: widget.hour,
                         zoneLabel: zoneLabel,
                         actionLabel: 'VER TODO',
-                        onAction: () {},
+                        onAction: _openContextualSearch,
                         count: contextualCount,
                       ),
                       _buildHorizontalRow(todayPool),
@@ -421,6 +423,24 @@ class _NewHomeBodyState extends State<NewHomeBody> {
         ),
 
       ],
+    );
+  }
+
+  /// Abre `AdvancedSearch` con los filtros contextuales correspondientes al
+  /// slot horario actual (ej. desayuno → type Bar/Cafetería) y
+  /// `openOnly: true`. Usado por el "VER TODO" del banner.
+  void _openContextualSearch() {
+    final cfg = contextualFilterFor(widget.hour);
+    final types = widget.types
+        .where((t) => cfg.typeIds.contains(t.id))
+        .toList(growable: false);
+    final categories = widget.categories
+        .where((c) => cfg.categoryIds.contains(c.id))
+        .toList(growable: false);
+    widget.onSearchPreSelected(
+      types: types.isEmpty ? null : types,
+      categories: categories.isEmpty ? null : categories,
+      openOnly: true,
     );
   }
 

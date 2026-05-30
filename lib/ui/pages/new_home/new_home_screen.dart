@@ -373,7 +373,7 @@ class _NewHomeScreenState extends State<NewHomeScreen>
                           ),
                         );
                       },
-                      onSearchPreSelected: ({categories, types}) {
+                      onSearchPreSelected: ({categories, types, openOnly = false}) {
                         GlobalMethods().pushPage(
                           context,
                           AdvancedSearch(
@@ -383,6 +383,7 @@ class _NewHomeScreenState extends State<NewHomeScreen>
                             islandId: filters.islandId,
                             preSelectedCategories: categories ?? const [],
                             preSelectedTypes: types ?? const [],
+                            preSelectedOpenOnly: openOnly,
                           ),
                         );
                       },
