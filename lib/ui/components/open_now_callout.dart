@@ -117,7 +117,9 @@ class _OpenNowCalloutState extends State<OpenNowCallout>
                               Row(
                                 children: [
                                   if (hasOpen) ...[
-                                    _LiveDot(controller: _pulse, color: accent),
+                                    ExcludeSemantics(
+                                      child: _LiveDot(controller: _pulse, color: accent),
+                                    ),
                                     const SizedBox(width: 6),
                                   ],
                                   Flexible(

@@ -220,59 +220,68 @@ class _NewHomeBodyState extends State<NewHomeBody> {
             // sigue siendo el `CardHorizontal` clásico (no se toca).
             if (widget.bootstrapLoading) ...[
               SliverToBoxAdapter(
-                child: ContextualSectionCard(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      HourAwareBanner(
-                        hour: widget.hour,
-                        zoneLabel: zoneLabel,
-                        actionLabel: AppL10n.of(context).homeSeeAll.toUpperCase(),
-                        onAction: _openContextualSearch,
-                      ),
-                      const CardRowSkeleton(),
-                    ],
+                child: Semantics(
+                  identifier: 'home-section-today',
+                  child: ContextualSectionCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        HourAwareBanner(
+                          hour: widget.hour,
+                          zoneLabel: zoneLabel,
+                          actionLabel: AppL10n.of(context).homeSeeAll.toUpperCase(),
+                          onAction: _openContextualSearch,
+                        ),
+                        const CardRowSkeleton(),
+                      ],
+                    ),
                   ),
                 ),
               ),
             ] else if (showTodaySection) ...[
               SliverToBoxAdapter(
-                child: ContextualSectionCard(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      HourAwareBanner(
-                        hour: widget.hour,
-                        zoneLabel: zoneLabel,
-                        actionLabel: AppL10n.of(context).homeSeeAll.toUpperCase(),
-                        onAction: _openContextualSearch,
-                        count: contextualCount,
-                      ),
-                      _buildHorizontalRow(todayPool),
-                    ],
+                child: Semantics(
+                  identifier: 'home-section-today',
+                  child: ContextualSectionCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        HourAwareBanner(
+                          hour: widget.hour,
+                          zoneLabel: zoneLabel,
+                          actionLabel: AppL10n.of(context).homeSeeAll.toUpperCase(),
+                          onAction: _openContextualSearch,
+                          count: contextualCount,
+                        ),
+                        _buildHorizontalRow(todayPool),
+                      ],
+                    ),
                   ),
                 ),
               ),
             ] else if (showOpeningSoonSection) ...[
               SliverToBoxAdapter(
-                child: ContextualSectionCard(
-                  // Banda lateral en `sol` (amarillo cálido) para
-                  // distinguir visualmente "abren pronto" del modo normal.
-                  accent: AppColors.sol,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      HourAwareBanner(
-                        hour: widget.hour,
-                        zoneLabel: zoneLabel,
-                        // Sin "VER TODO" en este modo: la lista ya es
-                        // pequeña y todo el contenido relevante está en
-                        // el carrusel.
-                        count: openingLater.length,
-                        mode: HourBannerMode.openingSoon,
-                      ),
-                      _buildHorizontalRowOpeningSoon(openingSoonPool, now),
-                    ],
+                child: Semantics(
+                  identifier: 'home-section-today',
+                  child: ContextualSectionCard(
+                    // Banda lateral en `sol` (amarillo cálido) para
+                    // distinguir visualmente "abren pronto" del modo normal.
+                    accent: AppColors.sol,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        HourAwareBanner(
+                          hour: widget.hour,
+                          zoneLabel: zoneLabel,
+                          // Sin "VER TODO" en este modo: la lista ya es
+                          // pequeña y todo el contenido relevante está en
+                          // el carrusel.
+                          count: openingLater.length,
+                          mode: HourBannerMode.openingSoon,
+                        ),
+                        _buildHorizontalRowOpeningSoon(openingSoonPool, now),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -331,104 +340,116 @@ class _NewHomeBodyState extends State<NewHomeBody> {
 
             // ── GUÍAS DE JONAY Y JOANA ──────────────
             SliverToBoxAdapter(
-              child: SectionHeader(
-                title: 'GUÍAS DE JONAY Y JOANA',
-                actionLabel: AppL10n.of(context).homeSeeAll.toUpperCase(),
-                onAction: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const ListasScreen()),
-                ),
-              ),
-            ),
-            SliverToBoxAdapter(
-              child: SizedBox(
-                height: 320,
-                child: BlocBuilder<CuratedListsCubit, CuratedListsState>(
-                  builder: (_, state) {
-                    if (state is CuratedListsLoaded) {
-                      if (state.lists.isEmpty) return const SizedBox.shrink();
-                      return ListView.separated(
-                        scrollDirection: Axis.horizontal,
-                        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.gutter),
-                        itemCount: state.lists.length,
-                        separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.cardGap),
-                        itemBuilder: (_, i) => RepaintBoundary(
-                          child: CardCuratedList(
-                            list: state.lists[i],
-                            onTap: () => Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => CuratedListDetailScreen(
+              child: Semantics(
+                identifier: 'home-section-curated-lists',
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SectionHeader(
+                      title: 'GUÍAS DE JONAY Y JOANA',
+                      actionLabel: AppL10n.of(context).homeSeeAll.toUpperCase(),
+                      onAction: () => Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const ListasScreen()),
+                      ),
+                    ),
+                    SizedBox(
+                      height: 320,
+                      child: BlocBuilder<CuratedListsCubit, CuratedListsState>(
+                        builder: (_, state) {
+                          if (state is CuratedListsLoaded) {
+                            if (state.lists.isEmpty) return const SizedBox.shrink();
+                            return ListView.separated(
+                              scrollDirection: Axis.horizontal,
+                              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.gutter),
+                              itemCount: state.lists.length,
+                              separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.cardGap),
+                              itemBuilder: (_, i) => RepaintBoundary(
+                                child: CardCuratedList(
                                   list: state.lists[i],
+                                  onTap: () => Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (_) => CuratedListDetailScreen(
+                                        list: state.lists[i],
+                                      ),
+                                    ),
+                                  ),
                                 ),
                               ),
-                            ),
-                          ),
-                        ),
-                      );
-                    }
-                    if (state is CuratedListsFailure) {
-                      return SectionErrorRetry(
-                        message: 'No pudimos cargar esta sección',
-                        retryAnchor: 'home-curated-retry',
-                        onRetry: () => context
-                            .read<CuratedListsCubit>()
-                            .loadForIsland(widget.filters.islandId),
-                      );
-                    }
-                    return const CardRowSkeleton();
-                  },
+                            );
+                          }
+                          if (state is CuratedListsFailure) {
+                            return SectionErrorRetry(
+                              message: 'No pudimos cargar esta sección',
+                              retryAnchor: 'home-curated-retry',
+                              onRetry: () => context
+                                  .read<CuratedListsCubit>()
+                                  .loadForIsland(widget.filters.islandId),
+                            );
+                          }
+                          return const CardRowSkeleton();
+                        },
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
 
             // ── ÚLTIMAS VISITAS DE JONAY Y JOANA ───
             SliverToBoxAdapter(
-              child: SectionHeader(
-                title: 'ÚLTIMAS VISITAS DE JONAY Y JOANA',
-                actionLabel: AppL10n.of(context).homeSeeAll.toUpperCase(),
-                onAction: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const DiscoverScreen()),
-                ),
-              ),
-            ),
-            SliverToBoxAdapter(
-              child: SizedBox(
-                height: 300,
-                child: BlocBuilder<VisitsCubit, VisitsState>(
-                  builder: (_, state) {
-                    if (state is VisitsLoaded) {
-                      if (state.visits.isEmpty) return const SizedBox.shrink();
-                      return ListView.separated(
-                        scrollDirection: Axis.horizontal,
-                        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.gutter),
-                        itemCount: state.visits.length,
-                        separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.cardGap),
-                        itemBuilder: (_, i) {
-                          final v = state.visits[i];
-                          return RepaintBoundary(
-                            child: CardVisit(
-                              visit: v,
-                              onTap: () => Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) =>
-                                      VisitDetailPage(visitId: v.id),
-                                ),
-                              ),
-                            ),
-                          );
+              child: Semantics(
+                identifier: 'home-section-visits',
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SectionHeader(
+                      title: 'ÚLTIMAS VISITAS DE JONAY Y JOANA',
+                      actionLabel: AppL10n.of(context).homeSeeAll.toUpperCase(),
+                      onAction: () => Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const DiscoverScreen()),
+                      ),
+                    ),
+                    SizedBox(
+                      height: 300,
+                      child: BlocBuilder<VisitsCubit, VisitsState>(
+                        builder: (_, state) {
+                          if (state is VisitsLoaded) {
+                            if (state.visits.isEmpty) return const SizedBox.shrink();
+                            return ListView.separated(
+                              scrollDirection: Axis.horizontal,
+                              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.gutter),
+                              itemCount: state.visits.length,
+                              separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.cardGap),
+                              itemBuilder: (_, i) {
+                                final v = state.visits[i];
+                                return RepaintBoundary(
+                                  child: CardVisit(
+                                    visit: v,
+                                    onTap: () => Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) =>
+                                            VisitDetailPage(visitId: v.id),
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              },
+                            );
+                          }
+                          if (state is VisitsFailure) {
+                            return SectionErrorRetry(
+                              message: 'No pudimos cargar esta sección',
+                              retryAnchor: 'home-visits-retry',
+                              onRetry: () =>
+                                  context.read<VisitsCubit>().loadVisits(),
+                            );
+                          }
+                          return const CardRowSkeleton();
                         },
-                      );
-                    }
-                    if (state is VisitsFailure) {
-                      return SectionErrorRetry(
-                        message: 'No pudimos cargar esta sección',
-                        retryAnchor: 'home-visits-retry',
-                        onRetry: () =>
-                            context.read<VisitsCubit>().loadVisits(),
-                      );
-                    }
-                    return const CardRowSkeleton();
-                  },
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -448,16 +469,19 @@ class _NewHomeBodyState extends State<NewHomeBody> {
           left: 0,
           right: 0,
           height: kHeroHeight + overscroll,
-          child: ParallaxHero(
-            scrollOffset: 0, // posicionamiento manejado por el outer Stack
-            hour: widget.hour,
-            assetImage: _assetForIsland(filters.islandKey),
-            zona: filters.zoneLabel ?? filters.islandLabel,
-            islandLabel: filters.islandLabel,
-            zoneIsSet: filters.zoneLabel != null,
-            openCount: openNow.length,
-            onZoneChipTap: () => _showZoneSheet(context),
-            onIslandChipTap: () => _showIslandSheet(context),
+          child: Semantics(
+            identifier: 'home-hero',
+            child: ParallaxHero(
+              scrollOffset: 0, // posicionamiento manejado por el outer Stack
+              hour: widget.hour,
+              assetImage: _assetForIsland(filters.islandKey),
+              zona: filters.zoneLabel ?? filters.islandLabel,
+              islandLabel: filters.islandLabel,
+              zoneIsSet: filters.zoneLabel != null,
+              openCount: openNow.length,
+              onZoneChipTap: () => _showZoneSheet(context),
+              onIslandChipTap: () => _showIslandSheet(context),
+            ),
           ),
         ),
 

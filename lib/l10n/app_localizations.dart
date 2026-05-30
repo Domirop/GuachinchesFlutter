@@ -130,7 +130,7 @@ abstract class AppL10n {
   /// No description provided for @homeSeeAll.
   ///
   /// In es, this message translates to:
-  /// **'Ver todos'**
+  /// **'Ver todo'**
   String get homeSeeAll;
 
   /// No description provided for @tabExplora.

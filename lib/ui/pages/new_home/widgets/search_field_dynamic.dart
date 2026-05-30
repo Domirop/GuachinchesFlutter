@@ -19,37 +19,40 @@ class SearchFieldDynamic extends StatelessWidget {
         ? 'Buscar en $zone...'
         : 'Buscar restaurante...';
 
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        margin: const EdgeInsets.fromLTRB(16, 6, 16, 10),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-        decoration: BoxDecoration(
-          color: context.brand.surface.withOpacity(0.6),
-          border: Border.all(
-            color: context.brand.border,
-            width: 1,
-          ),
-          borderRadius: BorderRadius.circular(AppRadius.pill),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              Icons.search_rounded,
-              color: context.brand.textSecondary,
-              size: 18,
+    return Semantics(
+      identifier: 'home-search-field',
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          margin: const EdgeInsets.fromLTRB(16, 6, 16, 10),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+          decoration: BoxDecoration(
+            color: context.brand.surface.withOpacity(0.6),
+            border: Border.all(
+              color: context.brand.border,
+              width: 1,
             ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                placeholder,
-                style: AppTextStyles.editorial(
-                  size: 13,
-                  color: context.brand.textMuted,
+            borderRadius: BorderRadius.circular(AppRadius.pill),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                Icons.search_rounded,
+                color: context.brand.textSecondary,
+                size: 18,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  placeholder,
+                  style: AppTextStyles.editorial(
+                    size: 13,
+                    color: context.brand.textSecondary,
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
