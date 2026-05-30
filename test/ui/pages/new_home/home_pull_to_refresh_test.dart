@@ -125,7 +125,7 @@ Widget _wrap({required Future<void> Function() onRefresh}) {
           onMunicipalitySelected: (_) {},
           onRestaurantTap: (_) {},
           onSearchTap: () {},
-          onSearchPreSelected: ({categories, types}) {},
+          onSearchPreSelected: ({categories, types, openOnly = false}) {},
           onRefresh: onRefresh,
         ),
       ),
