@@ -24,7 +24,7 @@ class AppL10nEs extends AppL10n {
   String get homeTopRestaurantsTitle => 'Mejor valorados';
 
   @override
-  String get homeSeeAll => 'Ver todos';
+  String get homeSeeAll => 'Ver todo';
 
   @override
   String get tabExplora => 'Explora';

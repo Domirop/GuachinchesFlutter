@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:guachinches/config/app_colors.dart';
 import 'package:guachinches/config/app_text_styles.dart';
 import 'package:guachinches/config/brand_colors.dart';
+import 'package:guachinches/utils/eyebrow_format.dart';
 
 /// Callout "Abiertos AHORA" — entry point a [CercaAhoraScreen].
 ///
@@ -64,8 +65,8 @@ class _OpenNowCalloutState extends State<OpenNowCallout>
     // Color semántico: verde si hay abiertos, sol (cálido) si toca esperar.
     final accent = hasOpen ? AppColors.laurisilva : AppColors.sol;
     final eyebrowText = hasOpen
-        ? 'ABIERTOS AHORA · ${widget.contextLabel.toUpperCase()}'
-        : 'ABRE PRONTO · ${widget.contextLabel.toUpperCase()}';
+        ? eyebrowJoin(['ABIERTOS AHORA', widget.contextLabel.toUpperCase()])
+        : eyebrowJoin(['ABRE PRONTO', widget.contextLabel.toUpperCase()]);
     final headlineText = hasOpen
         ? _headlineForCount(widget.count)
         : 'Sin abiertos cerca';
@@ -143,8 +144,8 @@ class _OpenNowCalloutState extends State<OpenNowCallout>
                                 headlineText,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: AppTextStyles.displayHero(
-                                  size: 22,
+                                style: AppTextStyles.displaySection(
+                                  size: AppTextStyles.sectionHeadlineSize,
                                   color: context.brand.textPrimary,
                                 ),
                               ),

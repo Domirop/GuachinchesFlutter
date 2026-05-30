@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:guachinches/config/app_colors.dart';
 import 'package:guachinches/config/brand_colors.dart';
 import 'package:guachinches/config/app_text_styles.dart';
+import 'package:guachinches/utils/eyebrow_format.dart';
 
 class _BannerState {
   final String icon;
@@ -145,7 +146,7 @@ class HourAwareBanner extends StatelessWidget {
     // En modo openingSoon el label ya incluye la zona; en openNow seguimos
     // el formato clásico `12:00 · MEDIODÍA · HOY EN TENERIFE`.
     final eyebrowText = (mode == HourBannerMode.openNow && zoneLabel != null)
-        ? '${s.label}  ·  HOY EN ${zoneLabel!.toUpperCase()}'
+        ? eyebrowJoin([s.label, 'HOY EN ${zoneLabel!.toUpperCase()}'])
         : s.label;
 
     return Padding(
@@ -193,7 +194,7 @@ class HourAwareBanner extends StatelessWidget {
                 Text(
                   s.title,
                   style: AppTextStyles.displaySection(
-                    size: 18,
+                    size: AppTextStyles.sectionHeadlineSize,
                     color: context.brand.textPrimary,
                   ),
                 ),

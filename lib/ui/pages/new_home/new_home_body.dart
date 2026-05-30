@@ -227,7 +227,7 @@ class _NewHomeBodyState extends State<NewHomeBody> {
                       HourAwareBanner(
                         hour: widget.hour,
                         zoneLabel: zoneLabel,
-                        actionLabel: 'VER TODO',
+                        actionLabel: AppL10n.of(context).homeSeeAll.toUpperCase(),
                         onAction: _openContextualSearch,
                       ),
                       const CardRowSkeleton(),
@@ -244,7 +244,7 @@ class _NewHomeBodyState extends State<NewHomeBody> {
                       HourAwareBanner(
                         hour: widget.hour,
                         zoneLabel: zoneLabel,
-                        actionLabel: 'VER TODO',
+                        actionLabel: AppL10n.of(context).homeSeeAll.toUpperCase(),
                         onAction: _openContextualSearch,
                         count: contextualCount,
                       ),
@@ -333,7 +333,7 @@ class _NewHomeBodyState extends State<NewHomeBody> {
             SliverToBoxAdapter(
               child: SectionHeader(
                 title: 'GUÍAS DE JONAY Y JOANA',
-                actionLabel: 'VER TODAS',
+                actionLabel: AppL10n.of(context).homeSeeAll.toUpperCase(),
                 onAction: () => Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => const ListasScreen()),
                 ),
@@ -384,7 +384,7 @@ class _NewHomeBodyState extends State<NewHomeBody> {
             SliverToBoxAdapter(
               child: SectionHeader(
                 title: 'ÚLTIMAS VISITAS DE JONAY Y JOANA',
-                actionLabel: 'VER TODAS',
+                actionLabel: AppL10n.of(context).homeSeeAll.toUpperCase(),
                 onAction: () => Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => const DiscoverScreen()),
                 ),

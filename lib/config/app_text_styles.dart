@@ -5,12 +5,21 @@ import 'app_colors.dart';
 
 /// Tres familias: display (Oswald), editorial (Merriweather italic), ui (Inter).
 /// Las TTF se declaran en pubspec.yaml bajo assets/fonts/.
+///
+/// Escala tipográfica canónica de la app:
+///   Hero        (~32 pt) — [displayHero] — único por viewport, solo en ParallaxHero.
+///   Section headline (~18 pt) — [displaySection] con [sectionHeadlineSize] — banners y callouts.
+///   Eyebrow     (~10 pt) — [eyebrow] — labels secundarios sobre-sección.
 class AppTextStyles {
   AppTextStyles._();
 
   /// Tamaño mínimo permitido (Apple Human Interface Guidelines).
   /// Cualquier helper aplica este suelo automáticamente.
   static const double minSize = 11.0;
+
+  /// Tamaño canónico para titulares de sección (banners, callouts).
+  /// Nivel intermedio entre el Hero (~32) y los eyebrows (~10).
+  static const double sectionHeadlineSize = 18.0;
 
   static double _clamp(double s) => math.max(minSize, s);
 
