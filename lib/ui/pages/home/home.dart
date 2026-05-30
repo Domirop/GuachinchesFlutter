@@ -488,7 +488,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver implements Home
                           ),
                           VisitsHorizontalList(visits: allVisits),
                           BannerAdWidget(),
-                          SectionHeader(title: '📋 Listas de expertos'),
+                          SectionHeader(title: 'Listas de expertos'),
                           Padding(
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 24.0, vertical: 16),
@@ -501,7 +501,8 @@ class _HomeState extends State<Home> with WidgetsBindingObserver implements Home
                           ),
                           SectionHeader(
                             title: 'Explora las categorías',
-                            onTap: () => GlobalMethods().pushPage(
+                            actionLabel: 'Ver todos →',
+                            onAction: () => GlobalMethods().pushPage(
                               context,
                               AdvancedSearch(
                                 categories: categories,
@@ -539,7 +540,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver implements Home
                             ),
                           ),
                           const SizedBox(height: 4),
-                          SectionHeader(title: '🏅 Los favoritos'),
+                          SectionHeader(title: 'Los favoritos'),
                           SizedBox(
                             height: 280,
                             child: PageView.builder(
@@ -594,8 +595,9 @@ class _HomeState extends State<Home> with WidgetsBindingObserver implements Home
                                 return Column(
                                   children: [
                                     SectionHeader(
-                                      title: '🏆 Los más visitados',
-                                      onTap: () => GlobalMethods().pushPage(
+                                      title: 'Los más visitados',
+                                      actionLabel: 'Ver todos →',
+                                      onAction: () => GlobalMethods().pushPage(
                                         context,
                                         RestaurantList(restaurants: restaurants),
                                       ),

@@ -33,6 +33,7 @@ import 'package:guachinches/utils/open_now_utils.dart';
 import 'package:guachinches/utils/opening_later_utils.dart';
 import 'package:guachinches/utils/time_of_day_engine.dart';
 import 'package:http/http.dart' as http;
+import 'package:guachinches/ui/pages/map/map_search.dart';
 import 'new_home_presenter.dart';
 import 'new_home_body.dart';
 
@@ -361,6 +362,12 @@ class _NewHomeScreenState extends State<NewHomeScreen>
                         }
                       },
                       onRefresh: _onPullRefresh,
+                      onShowAllNearby: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const MapSearch(),
+                        ),
+                      ),
                       onRestaurantTap: _onRestaurantTap,
                       onSearchTap: () {
                         GlobalMethods().pushPage(

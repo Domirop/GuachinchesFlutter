@@ -1,47 +1,47 @@
 import 'package:flutter/material.dart';
-import 'package:guachinches/globalMethods.dart';
+import 'package:guachinches/config/app_colors.dart';
+import 'package:guachinches/config/app_text_styles.dart';
+import 'package:guachinches/config/brand_colors.dart';
 
-/// Reusable section header with title + optional "Ver todos →" CTA.
-/// Used across Home (Cerca de ti, Categorías, Top, Favoritos, Videos).
 class SectionHeader extends StatelessWidget {
   final String title;
-  final VoidCallback? onTap;
-  final String actionLabel;
+  final String? actionLabel;
+  final VoidCallback? onAction;
 
   const SectionHeader({
-    Key? key,
+    super.key,
     required this.title,
-    this.onTap,
-    this.actionLabel = 'Ver todos →',
-  }) : super(key: key);
+    this.actionLabel,
+    this.onAction,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 20, 16, 10),
+      padding: const EdgeInsets.fromLTRB(14, 20, 14, 10),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-              fontFamily: 'SF Pro Display',
+          Expanded(
+            child: Text(
+              title,
+              style: AppTextStyles.eyebrow(
+                size: 10,
+                color: context.brand.textSecondary,
+              ),
             ),
           ),
-          if (onTap != null)
-            GestureDetector(
-              onTap: onTap,
-              child: Text(
-                actionLabel,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: GlobalMethods.blueColor,
-                  fontFamily: 'SF Pro Display',
-                  fontWeight: FontWeight.w500,
+          if (actionLabel != null && onAction != null)
+            Semantics(
+              identifier: 'section-header-cta',
+              child: GestureDetector(
+                onTap: onAction,
+                child: Text(
+                  '$actionLabel ›',
+                  style: AppTextStyles.ui(
+                    size: 11,
+                    color: AppColors.atlanticoClaro,
+                    weight: FontWeight.w600,
+                  ),
                 ),
               ),
             ),

@@ -45,7 +45,7 @@ class NearbySection extends StatelessWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            SectionHeader(title: '📍 Cerca de ti'),
+            SectionHeader(title: 'Cerca de ti'),
             isLoadingRestaurants ? _shimmerRow() : _buildList(),
           ],
         );

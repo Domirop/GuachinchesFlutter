@@ -32,7 +32,7 @@ import 'package:guachinches/ui/pages/new_home/widgets/card_horizontal.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/contextual_section_card.dart';
 import 'package:guachinches/utils/contextual_pool.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/search_field_dynamic.dart';
-import 'package:guachinches/ui/pages/new_home/widgets/section_header.dart';
+import 'package:guachinches/ui/components/section_header.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/skeletons.dart';
 import 'package:guachinches/core/remote_config/dcc_remote_config.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/top_filter_bar.dart';
@@ -69,6 +69,7 @@ class NewHomeBody extends StatefulWidget {
     bool openOnly,
   }) onSearchPreSelected;
   final Future<void> Function()? onRefresh;
+  final VoidCallback? onShowAllNearby;
 
   const NewHomeBody({
     super.key,
@@ -93,6 +94,7 @@ class NewHomeBody extends StatefulWidget {
     required this.onSearchTap,
     required this.onSearchPreSelected,
     this.onRefresh,
+    this.onShowAllNearby,
   });
 
   @override
@@ -100,8 +102,26 @@ class NewHomeBody extends StatefulWidget {
 }
 
 class _NewHomeBodyState extends State<NewHomeBody> {
+  // Memoized filter results: only recomputed when (pool, hour) changes.
+  List<Restaurant>? _memoPool;
+  int? _memoHour;
+  List<Restaurant> _openNowCache = const [];
+  List<Restaurant> _contextualCache = const [];
+
+  void _refreshMemoIfNeeded() {
+    if (!identical(_memoPool, widget.pool) || _memoHour != widget.hour) {
+      _memoPool = widget.pool;
+      _memoHour = widget.hour;
+      _openNowCache = widget.presenter.filterOpenNow(widget.pool);
+      _contextualCache =
+          widget.presenter.filterContextual(widget.pool, widget.hour);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    _refreshMemoIfNeeded();
+
     final filters = widget.filters;
     final zoneLabel = filters.zoneLabel ?? filters.islandLabel;
 
@@ -110,9 +130,8 @@ class _NewHomeBodyState extends State<NewHomeBody> {
     // Terraza/Con vistas para atardecer, Restaurantes/Tascas para cenas...).
     // Ver lib/utils/contextual_pool.dart para el mapeo. Si la intersección
     // queda escasa cae al pool abierto sin filtrar.
-    final openNow = widget.presenter.filterOpenNow(widget.pool);
-    final contextual =
-        widget.presenter.filterContextual(widget.pool, widget.hour);
+    final openNow = _openNowCache;
+    final contextual = _contextualCache;
     final contextualCount = contextual.length;
     final todayPool = contextual.take(5).toList();
     final showTodaySection = todayPool.isNotEmpty;
@@ -288,12 +307,14 @@ class _NewHomeBodyState extends State<NewHomeBody> {
                         padding: const EdgeInsets.symmetric(horizontal: 14),
                         itemCount: state.lists.length,
                         separatorBuilder: (_, __) => const SizedBox(width: 12),
-                        itemBuilder: (_, i) => CardCuratedList(
-                          list: state.lists[i],
-                          onTap: () => Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => CuratedListDetailScreen(
-                                list: state.lists[i],
+                        itemBuilder: (_, i) => RepaintBoundary(
+                          child: CardCuratedList(
+                            list: state.lists[i],
+                            onTap: () => Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => CuratedListDetailScreen(
+                                  list: state.lists[i],
+                                ),
                               ),
                             ),
                           ),
@@ -331,12 +352,15 @@ class _NewHomeBodyState extends State<NewHomeBody> {
                         separatorBuilder: (_, __) => const SizedBox(width: 12),
                         itemBuilder: (_, i) {
                           final v = state.visits[i];
-                          return CardVisit(
-                            visit: v,
-                            onTap: () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => VisitDetailPage(visitId: v.id),
+                          return RepaintBoundary(
+                            child: CardVisit(
+                              visit: v,
+                              onTap: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) =>
+                                      VisitDetailPage(visitId: v.id),
+                                ),
                               ),
                             ),
                           );
@@ -355,8 +379,10 @@ class _NewHomeBodyState extends State<NewHomeBody> {
               SliverToBoxAdapter(
                 child: SectionHeader(
                   title: AppL10n.of(context).homeNearbySectionTitle.toUpperCase(),
-                  actionLabel: AppL10n.of(context).homeSeeAll.toUpperCase(),
-                  onAction: () {},
+                  actionLabel: widget.onShowAllNearby != null
+                      ? AppL10n.of(context).homeSeeAll.toUpperCase()
+                      : null,
+                  onAction: widget.onShowAllNearby,
                 ),
               ),
               SliverToBoxAdapter(
@@ -369,10 +395,12 @@ class _NewHomeBodyState extends State<NewHomeBody> {
                     separatorBuilder: (_, __) => const SizedBox(width: 10),
                     itemBuilder: (_, i) {
                       final nearby = widget.nearbyList[i];
-                      return CardNearbyMinimap(
-                        nearby: nearby,
-                        onTap: () =>
-                            widget.onRestaurantTap(nearby.restaurant.id),
+                      return RepaintBoundary(
+                        child: CardNearbyMinimap(
+                          nearby: nearby,
+                          onTap: () =>
+                              widget.onRestaurantTap(nearby.restaurant.id),
+                        ),
                       );
                     },
                   ),
