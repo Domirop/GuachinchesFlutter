@@ -422,7 +422,11 @@ class HttpRemoteRepository implements RemoteRepository {
     String url = dotenv.env['ENDPOINT_V2']! + "version";
     try {
       var uri = Uri.parse(url);
-      var response = await _client.get(uri);
+      // Timeout duro de 6s: si el backend no responde en ese plazo, el
+      // splash NO debe colgarse — caemos al fallback en el caller.
+      var response = await _client
+          .get(uri)
+          .timeout(const Duration(seconds: 6));
       Version data = Version.fromJson(json.decode(response.body));
       return data;
     } on Exception catch (e) {

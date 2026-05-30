@@ -21,12 +21,15 @@ import 'package:guachinches/ui/pages/new_home/widgets/canarian_specialties_secti
 import 'package:guachinches/ui/pages/curated_list_detail/curated_list_detail_screen.dart';
 import 'package:guachinches/ui/pages/discover/discover_screen.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/card_curated_list.dart';
-import 'package:guachinches/ui/pages/new_home/widgets/card_horizontal.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/card_nearby_minimap.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/card_visit.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/hour_aware_banner.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/parallax_hero.dart';
+import 'package:guachinches/ui/components/location_prompt_banner.dart';
+import 'package:guachinches/ui/components/open_now_callout.dart';
 import 'package:guachinches/ui/pages/cerca_abiertos/cerca_ahora_screen.dart';
+import 'package:guachinches/ui/pages/new_home/widgets/card_horizontal.dart';
+import 'package:guachinches/ui/pages/new_home/widgets/contextual_section_card.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/search_field_dynamic.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/section_header.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/skeletons.dart';
@@ -160,72 +163,24 @@ class _NewHomeBodyState extends State<NewHomeBody> {
               ),
             ),
 
+            // ── LOCATION PROMPT (si no hay permiso) ──────────────────────
+            // Banner adaptativo: si LocationDenied → tap dispara modal nativo;
+            // si LocationPermanentlyDenied/ServiceDisabled → push guía a
+            // Ajustes. Auto-oculto cuando hay permiso (LocationLoaded).
+            const SliverToBoxAdapter(child: LocationPromptBanner()),
+
             // ── ABIERTOS CERCA AHORA ─────────────────────────────────────
+            // Callout rediseñado con LIVE dot pulsante, número real de
+            // abiertos y banda lateral verde "laurisilva". Ver
+            // [OpenNowCallout] para el rationale del diseño.
             SliverToBoxAdapter(
-              child: Semantics(
-                identifier: 'home-cerca-ahora-cta',
-                child: GestureDetector(
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const CercaAhoraScreen(),
-                    ),
-                  ),
-                  child: Container(
-                    margin: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: AppColors.sol.withOpacity(0.12),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: AppColors.sol, width: 1.5),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: AppColors.sol,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: const Icon(
-                            Icons.bolt,
-                            color: Colors.black87,
-                            size: 22,
-                          ),
-                        ),
-                        const SizedBox(width: 14),
-                        const Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Abiertos cerca AHORA',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                  fontSize: 15,
-                                  fontFamily: 'SF Pro Display',
-                                ),
-                              ),
-                              SizedBox(height: 2),
-                              Text(
-                                'Toca para ver disponibles',
-                                style: TextStyle(
-                                  color: Colors.white70,
-                                  fontSize: 12,
-                                  fontFamily: 'SF Pro Display',
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const Icon(
-                          Icons.chevron_right,
-                          color: AppColors.sol,
-                          size: 24,
-                        ),
-                      ],
-                    ),
+              child: OpenNowCallout(
+                count: openNow.length,
+                contextLabel: zoneLabel,
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const CercaAhoraScreen(),
                   ),
                 ),
               ),
@@ -235,40 +190,68 @@ class _NewHomeBodyState extends State<NewHomeBody> {
             // Sólo mostramos esta sección si hay restaurantes con horario
             // confirmado abiertos ahora; si no, ocultamos banner + row para
             // no anunciar "abiertos ahora" sobre listas dudosas.
+            //
+            // Banner + carrusel van envueltos en [ContextualSectionCard]
+            // (fondo crema + banda lateral) para que se lean como una unidad
+            // visual, en lugar de dos elementos sueltos. El scroll interno
+            // sigue siendo el `CardHorizontal` clásico (no se toca).
             if (widget.bootstrapLoading) ...[
               SliverToBoxAdapter(
-                child: HourAwareBanner(
-                  hour: widget.hour,
-                  zoneLabel: zoneLabel,
-                  actionLabel: 'VER TODO',
-                  onAction: () {},
+                child: ContextualSectionCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      HourAwareBanner(
+                        hour: widget.hour,
+                        zoneLabel: zoneLabel,
+                        actionLabel: 'VER TODO',
+                        onAction: () {},
+                      ),
+                      const CardRowSkeleton(),
+                    ],
+                  ),
                 ),
               ),
-              const SliverToBoxAdapter(child: CardRowSkeleton()),
             ] else if (showTodaySection) ...[
               SliverToBoxAdapter(
-                child: HourAwareBanner(
-                  hour: widget.hour,
-                  zoneLabel: zoneLabel,
-                  actionLabel: 'VER TODO',
-                  onAction: () {},
-                  count: contextualCount,
+                child: ContextualSectionCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      HourAwareBanner(
+                        hour: widget.hour,
+                        zoneLabel: zoneLabel,
+                        actionLabel: 'VER TODO',
+                        onAction: () {},
+                        count: contextualCount,
+                      ),
+                      _buildHorizontalRow(todayPool),
+                    ],
+                  ),
                 ),
               ),
-              SliverToBoxAdapter(child: _buildHorizontalRow(todayPool)),
             ] else if (showOpeningSoonSection) ...[
               SliverToBoxAdapter(
-                child: HourAwareBanner(
-                  hour: widget.hour,
-                  zoneLabel: zoneLabel,
-                  // Sin "VER TODO" en este modo: la lista ya es pequeña y
-                  // todo el contenido relevante está en el carrusel.
-                  count: openingLater.length,
-                  mode: HourBannerMode.openingSoon,
+                child: ContextualSectionCard(
+                  // Banda lateral en `sol` (amarillo cálido) para
+                  // distinguir visualmente "abren pronto" del modo normal.
+                  accent: AppColors.sol,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      HourAwareBanner(
+                        hour: widget.hour,
+                        zoneLabel: zoneLabel,
+                        // Sin "VER TODO" en este modo: la lista ya es
+                        // pequeña y todo el contenido relevante está en
+                        // el carrusel.
+                        count: openingLater.length,
+                        mode: HourBannerMode.openingSoon,
+                      ),
+                      _buildHorizontalRowOpeningSoon(openingSoonPool, now),
+                    ],
+                  ),
                 ),
-              ),
-              SliverToBoxAdapter(
-                child: _buildHorizontalRowOpeningSoon(openingSoonPool, now),
               ),
             ],
 

@@ -14,6 +14,7 @@ import 'package:guachinches/data/cubit/restaurants/basic/restaurant_state.dart';
 import 'package:guachinches/data/local/http_cache_store.dart';
 import 'package:guachinches/data/model/restaurant.dart';
 import 'package:guachinches/ui/components/cards/nearby_restaurant_card.dart';
+import 'package:guachinches/utils/location_prompt_action.dart';
 
 class CercaAhoraScreen extends StatefulWidget {
   final int initialLimit;
@@ -41,13 +42,20 @@ class _CercaAhoraScreenState extends State<CercaAhoraScreen> {
     _maxRadiusKm = widget.maxRadiusKm;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      final locState = context.read<LocationCubit>().state;
+      final cubit = context.read<LocationCubit>();
+      final locState = cubit.state;
       _logEvent('cerca_ahora_opened', {
         'has_location': locState is LocationLoaded ? 1 : 0,
       });
       if (locState is LocationLoaded && !_initialized) {
         _initialized = true;
         _fetchRestaurants(locState);
+      } else if (locState is LocationInitial) {
+        // Si el cubit aún no ha arrancado (caso típico al entrar desde el
+        // callout antes de que termine el bootstrap del home), pedimos la
+        // ubicación aquí. Si el user tiene permisos esto resuelve a
+        // LocationLoaded sin mostrar el empty state.
+        unawaited(cubit.requestLocation());
       }
     });
   }
@@ -139,10 +147,18 @@ class _CercaAhoraScreenState extends State<CercaAhoraScreen> {
           ),
           body: BlocBuilder<LocationCubit, LocationState>(
             builder: (context, locationState) {
-              if (locationState is! LocationLoaded) {
-                return _buildLocationRequired(context, locationState);
+              // Loading / Initial: spinner mientras el cubit resuelve.
+              // Evita mostrar "Necesitamos ubicación" prematuramente cuando
+              // el usuario SÍ tiene permisos pero el cubit aún no terminó.
+              if (locationState is LocationInitial ||
+                  locationState is LocationLoading) {
+                return const Center(child: CircularProgressIndicator());
               }
-              return _buildContent(context, locationState);
+              if (locationState is LocationLoaded) {
+                return _buildContent(context, locationState);
+              }
+              // LocationDenied (y sub-tipos) + LocationUnavailable.
+              return _buildLocationRequired(context, locationState);
             },
           ),
         ),
@@ -195,13 +211,7 @@ class _CercaAhoraScreenState extends State<CercaAhoraScreen> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  onPressed: () {
-                    if (state is LocationDenied) {
-                      Geolocator.openAppSettings();
-                    } else {
-                      context.read<LocationCubit>().requestLocation();
-                    }
-                  },
+                  onPressed: () => handleLocationPromptTap(context),
                   child: const Text(
                     'Activar ubicación',
                     style: TextStyle(fontFamily: 'SF Pro Display'),
