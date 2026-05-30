@@ -1,5 +1,4 @@
-import 'dart:math' as math;
-
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:guachinches/config/app_colors.dart';
 import 'package:guachinches/config/app_spacing.dart';
@@ -26,6 +25,7 @@ import 'package:guachinches/ui/pages/new_home/widgets/card_nearby_minimap.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/card_visit.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/hour_aware_banner.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/parallax_hero.dart';
+import 'package:guachinches/ui/pages/new_home/widgets/parallax_hero_slot.dart';
 import 'package:guachinches/ui/components/location_prompt_banner.dart';
 import 'package:guachinches/ui/pages/cerca_abiertos/cerca_ahora_screen.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/open_now_callout_slot.dart';
@@ -47,7 +47,7 @@ import 'package:guachinches/utils/time_of_day_engine.dart';
 
 class NewHomeBody extends StatefulWidget {
   final ScrollController scrollCtrl;
-  final double scrollOffset;
+  final ValueListenable<double> scrollListenable;
   final bool bootstrapLoading;
   final int hour;
   final TimeOfDayWindow window;
@@ -76,7 +76,7 @@ class NewHomeBody extends StatefulWidget {
   const NewHomeBody({
     super.key,
     required this.scrollCtrl,
-    required this.scrollOffset,
+    required this.scrollListenable,
     required this.bootstrapLoading,
     required this.hour,
     required this.window,
@@ -149,11 +149,6 @@ class _NewHomeBodyState extends State<NewHomeBody> {
         : widget.presenter.filterOpeningLaterToday(widget.pool, now);
     final showOpeningSoonSection = openingLater.length >= 2;
     final openingSoonPool = openingLater.take(5).toList();
-
-    // Cantidad de overscroll (positivo cuando el usuario tira hacia abajo)
-    final overscroll = math.max(-widget.scrollOffset, 0).toDouble();
-    // Cantidad de scroll normal (positivo al subir el contenido)
-    final scrollUp = math.max(widget.scrollOffset, 0).toDouble();
 
     return Stack(
       children: [
@@ -338,119 +333,15 @@ class _NewHomeBodyState extends State<NewHomeBody> {
               ),
             ),
 
-            // ── GUÍAS DE JONAY Y JOANA ──────────────
-            SliverToBoxAdapter(
-              child: Semantics(
-                identifier: 'home-section-curated-lists',
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    SectionHeader(
-                      title: 'GUÍAS DE JONAY Y JOANA',
-                      actionLabel: AppL10n.of(context).homeSeeAll.toUpperCase(),
-                      onAction: () => Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => const ListasScreen()),
-                      ),
-                    ),
-                    SizedBox(
-                      height: 320,
-                      child: BlocBuilder<CuratedListsCubit, CuratedListsState>(
-                        builder: (_, state) {
-                          if (state is CuratedListsLoaded) {
-                            if (state.lists.isEmpty) return const SizedBox.shrink();
-                            return ListView.separated(
-                              scrollDirection: Axis.horizontal,
-                              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.gutter),
-                              itemCount: state.lists.length,
-                              separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.cardGap),
-                              itemBuilder: (_, i) => RepaintBoundary(
-                                child: CardCuratedList(
-                                  list: state.lists[i],
-                                  onTap: () => Navigator.of(context).push(
-                                    MaterialPageRoute(
-                                      builder: (_) => CuratedListDetailScreen(
-                                        list: state.lists[i],
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            );
-                          }
-                          if (state is CuratedListsFailure) {
-                            return SectionErrorRetry(
-                              message: 'No pudimos cargar esta sección',
-                              retryAnchor: 'home-curated-retry',
-                              onRetry: () => context
-                                  .read<CuratedListsCubit>()
-                                  .loadForIsland(widget.filters.islandId),
-                            );
-                          }
-                          return const CardRowSkeleton();
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-            // ── ÚLTIMAS VISITAS DE JONAY Y JOANA ───
-            SliverToBoxAdapter(
-              child: Semantics(
-                identifier: 'home-section-visits',
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    SectionHeader(
-                      title: 'ÚLTIMAS VISITAS DE JONAY Y JOANA',
-                      actionLabel: AppL10n.of(context).homeSeeAll.toUpperCase(),
-                      onAction: () => Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => const DiscoverScreen()),
-                      ),
-                    ),
-                    SizedBox(
-                      height: 300,
-                      child: BlocBuilder<VisitsCubit, VisitsState>(
-                        builder: (_, state) {
-                          if (state is VisitsLoaded) {
-                            if (state.visits.isEmpty) return const SizedBox.shrink();
-                            return ListView.separated(
-                              scrollDirection: Axis.horizontal,
-                              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.gutter),
-                              itemCount: state.visits.length,
-                              separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.cardGap),
-                              itemBuilder: (_, i) {
-                                final v = state.visits[i];
-                                return RepaintBoundary(
-                                  child: CardVisit(
-                                    visit: v,
-                                    onTap: () => Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (_) =>
-                                            VisitDetailPage(visitId: v.id),
-                                      ),
-                                    ),
-                                  ),
-                                );
-                              },
-                            );
-                          }
-                          if (state is VisitsFailure) {
-                            return SectionErrorRetry(
-                              message: 'No pudimos cargar esta sección',
-                              retryAnchor: 'home-visits-retry',
-                              onRetry: () =>
-                                  context.read<VisitsCubit>().loadVisits(),
-                            );
-                          }
-                          return const CardRowSkeleton();
-                        },
-                      ),
-                    ),
-                  ],
-                ),
+            // ── GUÍAS + VISITAS (lazy, on-demand via SliverChildBuilderDelegate) ─
+            SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (c, i) {
+                  if (i == 0) return _buildCuratedListsSection(c);
+                  if (i == 1) return _buildVisitsSection(c);
+                  return null;
+                },
+                childCount: 2,
               ),
             ),
 
@@ -461,14 +352,11 @@ class _NewHomeBodyState extends State<NewHomeBody> {
           ),
         ),
 
-        // ── Hero foto: por encima del scroll para que sus chips reciban
-        //    taps. Las capas decorativas internas usan IgnorePointer y
-        //    dejan pasar drags al scroll de fondo.
-        Positioned(
-          top: -scrollUp,
-          left: 0,
-          right: 0,
-          height: kHeroHeight + overscroll,
+        // ── Hero foto: posicionado por ParallaxHeroSlot sin reconstruirse
+        //    en cada tick de scroll. Las capas decorativas internas usan
+        //    IgnorePointer y dejan pasar drags al scroll de fondo.
+        ParallaxHeroSlot(
+          offset: widget.scrollListenable,
           child: Semantics(
             identifier: 'home-hero',
             child: ParallaxHero(
@@ -500,6 +388,118 @@ class _NewHomeBodyState extends State<NewHomeBody> {
         ),
 
       ],
+    );
+  }
+
+  Widget _buildCuratedListsSection(BuildContext context) {
+    return Semantics(
+      identifier: 'home-section-curated-lists',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SectionHeader(
+            title: 'GUÍAS DE JONAY Y JOANA',
+            actionLabel: AppL10n.of(context).homeSeeAll.toUpperCase(),
+            onAction: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const ListasScreen()),
+            ),
+          ),
+          SizedBox(
+            height: 320,
+            child: BlocBuilder<CuratedListsCubit, CuratedListsState>(
+              builder: (_, state) {
+                if (state is CuratedListsLoaded) {
+                  if (state.lists.isEmpty) return const SizedBox.shrink();
+                  return ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.gutter),
+                    itemCount: state.lists.length,
+                    separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.cardGap),
+                    itemBuilder: (_, i) => RepaintBoundary(
+                      child: CardCuratedList(
+                        list: state.lists[i],
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => CuratedListDetailScreen(
+                              list: state.lists[i],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                }
+                if (state is CuratedListsFailure) {
+                  return SectionErrorRetry(
+                    message: 'No pudimos cargar esta sección',
+                    retryAnchor: 'home-curated-retry',
+                    onRetry: () => context
+                        .read<CuratedListsCubit>()
+                        .loadForIsland(widget.filters.islandId),
+                  );
+                }
+                return const CardRowSkeleton();
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildVisitsSection(BuildContext context) {
+    return Semantics(
+      identifier: 'home-section-visits',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SectionHeader(
+            title: 'ÚLTIMAS VISITAS DE JONAY Y JOANA',
+            actionLabel: AppL10n.of(context).homeSeeAll.toUpperCase(),
+            onAction: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const DiscoverScreen()),
+            ),
+          ),
+          SizedBox(
+            height: 300,
+            child: BlocBuilder<VisitsCubit, VisitsState>(
+              builder: (_, state) {
+                if (state is VisitsLoaded) {
+                  if (state.visits.isEmpty) return const SizedBox.shrink();
+                  return ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.gutter),
+                    itemCount: state.visits.length,
+                    separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.cardGap),
+                    itemBuilder: (_, i) {
+                      final v = state.visits[i];
+                      return RepaintBoundary(
+                        child: CardVisit(
+                          visit: v,
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => VisitDetailPage(visitId: v.id),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  );
+                }
+                if (state is VisitsFailure) {
+                  return SectionErrorRetry(
+                    message: 'No pudimos cargar esta sección',
+                    retryAnchor: 'home-visits-retry',
+                    onRetry: () => context.read<VisitsCubit>().loadVisits(),
+                  );
+                }
+                return const CardRowSkeleton();
+              },
+            ),
+          ),
+        ],
+      ),
     );
   }
 

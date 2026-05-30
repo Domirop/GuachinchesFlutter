@@ -68,7 +68,7 @@ class _NewHomeScreenState extends State<NewHomeScreen>
 
   // Scroll para parallax
   final ScrollController _scrollCtrl = ScrollController();
-  double _scrollOffset = 0;
+  final ValueNotifier<double> _scrollOffset = ValueNotifier<double>(0);
 
   @override
   void initState() {
@@ -130,7 +130,7 @@ class _NewHomeScreenState extends State<NewHomeScreen>
   }
 
   void _onScroll() {
-    if (mounted) setState(() => _scrollOffset = _scrollCtrl.offset);
+    _scrollOffset.value = _scrollCtrl.offset;
   }
 
   Future<void> _onPullRefresh() async {
@@ -145,6 +145,7 @@ class _NewHomeScreenState extends State<NewHomeScreen>
     _weatherTimer?.cancel();
     _scrollCtrl.removeListener(_onScroll);
     _scrollCtrl.dispose();
+    _scrollOffset.dispose();
     super.dispose();
   }
 
@@ -297,7 +298,7 @@ class _NewHomeScreenState extends State<NewHomeScreen>
                     extendBody: true,
                     body: NewHomeBody(
                       scrollCtrl: _scrollCtrl,
-                      scrollOffset: _scrollOffset,
+                      scrollListenable: _scrollOffset,
                       bootstrapLoading: _bootstrapLoading,
                       hour: DateTime.now().hour,
                       window: _window,

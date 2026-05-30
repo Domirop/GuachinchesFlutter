@@ -107,7 +107,7 @@ Widget _wrap({required Future<void> Function() onRefresh}) {
       home: Scaffold(
         body: NewHomeBody(
           scrollCtrl: ScrollController(),
-          scrollOffset: 0,
+          scrollListenable: ValueNotifier<double>(0),
           bootstrapLoading: false,
           hour: 12,
           window: TimeOfDayEngine.computeWindow(DateTime(2024, 6, 1, 12)),
