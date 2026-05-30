@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:guachinches/config/app_colors.dart';
+import 'package:guachinches/config/brand_colors.dart';
 import 'package:guachinches/data/cubit/location/location_cubit.dart';
 import 'package:guachinches/data/cubit/location/location_state.dart';
 import 'package:guachinches/data/cubit/new_home/new_home_filters_cubit.dart';
@@ -135,14 +136,14 @@ class _CercaAhoraScreenState extends State<CercaAhoraScreen> {
       child: Semantics(
         identifier: 'cerca-ahora-screen-root',
         child: Scaffold(
-          backgroundColor: AppColors.base,
+          backgroundColor: context.brand.base,
           appBar: AppBar(
             title: const Text(
               'Abiertos cerca de ti',
               style: TextStyle(fontFamily: 'SF Pro Display'),
             ),
-            backgroundColor: AppColors.surface,
-            foregroundColor: Colors.white,
+            backgroundColor: context.brand.surface,
+            foregroundColor: context.brand.textPrimary,
             elevation: 0,
           ),
           body: BlocBuilder<LocationCubit, LocationState>(
@@ -175,28 +176,28 @@ class _CercaAhoraScreenState extends State<CercaAhoraScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(
+              Icon(
                 Icons.location_off_rounded,
                 size: 52,
-                color: Colors.white38,
+                color: context.brand.textMuted,
               ),
               const SizedBox(height: 20),
-              const Text(
+              Text(
                 'Necesitamos tu ubicación',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: Colors.white,
+                  color: context.brand.textPrimary,
                   fontSize: 17,
                   fontWeight: FontWeight.bold,
                   fontFamily: 'SF Pro Display',
                 ),
               ),
               const SizedBox(height: 8),
-              const Text(
+              Text(
                 'Para mostrarte locales abiertos cerca de ti',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: Colors.white54,
+                  color: context.brand.textSecondary,
                   fontFamily: 'SF Pro Display',
                 ),
               ),
@@ -206,7 +207,7 @@ class _CercaAhoraScreenState extends State<CercaAhoraScreen> {
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.atlantico,
-                    foregroundColor: Colors.white,
+                    foregroundColor: context.brand.textPrimary,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -252,11 +253,11 @@ class _CercaAhoraScreenState extends State<CercaAhoraScreen> {
     if (all.isEmpty) {
       return Semantics(
         identifier: 'cerca-ahora-empty',
-        child: const Center(
+        child: Center(
           child: Text(
             'Nada abierto cerca ahora',
             style: TextStyle(
-              color: Colors.white,
+              color: context.brand.textPrimary,
               fontFamily: 'SF Pro Display',
             ),
           ),
@@ -273,17 +274,17 @@ class _CercaAhoraScreenState extends State<CercaAhoraScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(
+                Icon(
                   Icons.search_off_rounded,
                   size: 52,
-                  color: Colors.white38,
+                  color: context.brand.textMuted,
                 ),
                 const SizedBox(height: 20),
                 Text(
                   'Nada abierto a menos de ${_maxRadiusKm.toStringAsFixed(0)} km.',
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: context.brand.textPrimary,
                     fontFamily: 'SF Pro Display',
                   ),
                 ),
@@ -291,7 +292,7 @@ class _CercaAhoraScreenState extends State<CercaAhoraScreen> {
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.atlantico,
-                    foregroundColor: Colors.white,
+                    foregroundColor: context.brand.textPrimary,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -317,8 +318,8 @@ class _CercaAhoraScreenState extends State<CercaAhoraScreen> {
           child: Text(
             '${filtered.length} restaurantes abiertos a menos de '
             '${_maxRadiusKm.toStringAsFixed(0)} km',
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: context.brand.textPrimary,
               fontWeight: FontWeight.bold,
               fontSize: 15,
               fontFamily: 'SF Pro Display',

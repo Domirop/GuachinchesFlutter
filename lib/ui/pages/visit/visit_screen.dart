@@ -9,6 +9,7 @@ import 'package:guachinches/data/RemoteRepository.dart';
 import 'package:guachinches/data/model/Visit.dart' as vm;
 import 'package:guachinches/data/model/short_quote.dart';
 import 'package:guachinches/ui/pages/restaurant_detail/restaurant_detail_screen.dart';
+import 'package:guachinches/ui/pages/restaurant_detail/widgets/floating_buttons.dart';
 import 'package:guachinches/ui/pages/restaurant_detail/widgets/del_video_section.dart';
 import 'package:guachinches/ui/pages/restaurant_detail/widgets/dishes_section.dart';
 import 'package:guachinches/ui/pages/restaurant_detail/widgets/ntk_box.dart';
@@ -325,15 +326,11 @@ class _VisitDetailPageState extends State<VisitDetailPage>
       children: [
         Positioned(
           top: top, left: 12,
-          child: _FloatingButton(icon: Icons.arrow_back_ios_new, onTap: () => Navigator.pop(context)),
+          child: FloatingCircleButton(icon: Icons.arrow_back_ios_new, onTap: () => Navigator.pop(context)),
         ),
         Positioned(
           top: top, right: 12,
-          child: _FloatingButton(icon: Icons.ios_share, onTap: _share),
-        ),
-        Positioned(
-          top: top, right: 56,
-          child: _FloatingButton(icon: Icons.storefront_outlined, onTap: _goToRestaurant),
+          child: FloatingCircleButton(icon: Icons.storefront_outlined, onTap: _goToRestaurant),
         ),
       ],
     );
@@ -464,37 +461,6 @@ class _DurationBadge extends StatelessWidget {
       decoration: BoxDecoration(color: AppColors.glassDark, borderRadius: BorderRadius.circular(7)),
       child: Text('$m:${s.toString().padLeft(2, '0')}',
           style: AppTextStyles.ui(size: 10, weight: FontWeight.w600, color: Colors.white)),
-    );
-  }
-}
-
-// ── Botón flotante ────────────────────────────────────────────────────────────
-
-class _FloatingButton extends StatelessWidget {
-  final IconData icon;
-  final VoidCallback onTap;
-
-  const _FloatingButton({required this.icon, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipOval(
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-        child: GestureDetector(
-          onTap: onTap,
-          child: Container(
-            width: 36, height: 36,
-            decoration: BoxDecoration(
-              color: AppColors.glassDark,
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.white.withOpacity(0.15)),
-            ),
-            alignment: Alignment.center,
-            child: Icon(icon, size: 16, color: Colors.white),
-          ),
-        ),
-      ),
     );
   }
 }

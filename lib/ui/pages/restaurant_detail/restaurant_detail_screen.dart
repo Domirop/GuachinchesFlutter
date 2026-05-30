@@ -287,7 +287,6 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen>
             isSaved: _isSaved,
             onBack: () => Navigator.pop(context),
             onToggleSave: _toggleSave,
-            onShare: _share,
           ),
         ],
       ),
@@ -516,7 +515,7 @@ class _SectionDivider extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 18),
       child: Container(
         height: 1,
-        color: Colors.white.withOpacity(0.04),
+        color: context.brand.border,
       ),
     );
   }

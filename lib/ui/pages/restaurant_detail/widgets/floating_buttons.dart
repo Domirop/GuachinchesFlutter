@@ -1,7 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:guachinches/config/app_colors.dart';
-import 'package:guachinches/config/brand_colors.dart';
 
 class FloatingCircleButton extends StatelessWidget {
   final IconData icon;
@@ -43,14 +42,12 @@ class DetailFloatingButtons extends StatelessWidget {
   final bool isSaved;
   final VoidCallback onBack;
   final VoidCallback onToggleSave;
-  final VoidCallback onShare;
 
   const DetailFloatingButtons({
     super.key,
     required this.isSaved,
     required this.onBack,
     required this.onToggleSave,
-    required this.onShare,
   });
 
   @override
@@ -68,19 +65,11 @@ class DetailFloatingButtons extends StatelessWidget {
         ),
         Positioned(
           top: top,
-          right: 56,
+          right: 12,
           child: FloatingCircleButton(
             icon: isSaved ? Icons.favorite : Icons.favorite_border,
             iconColor: isSaved ? AppColors.mojo : Colors.white,
             onTap: onToggleSave,
-          ),
-        ),
-        Positioned(
-          top: top,
-          right: 12,
-          child: FloatingCircleButton(
-            icon: Icons.ios_share,
-            onTap: onShare,
           ),
         ),
       ],
