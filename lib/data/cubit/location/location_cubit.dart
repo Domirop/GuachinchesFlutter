@@ -6,18 +6,27 @@ import 'location_state.dart';
 class LocationCubit extends Cubit<LocationState> {
   LocationCubit() : super(LocationInitial());
 
-  /// Called once on app start. May show the system permission dialog.
+  /// Llamado al arranque y cuando el usuario tap el banner / botón "Activar".
+  /// Puede disparar el modal nativo de iOS si el permiso aún no fue rechazado
+  /// permanentemente.
   Future<void> requestLocation() async {
     try {
       final serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
-        emit(LocationDenied());
+        emit(LocationServiceDisabled());
         return;
       }
 
       LocationPermission permission = await Geolocator.checkPermission();
+      // `denied` puede pedirse de nuevo. `deniedForever` no — iOS ignora
+      // el request y devuelve el mismo valor sin mostrar modal.
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        emit(LocationPermanentlyDenied());
+        return;
       }
 
       final granted = permission == LocationPermission.always ||
@@ -34,9 +43,18 @@ class LocationCubit extends Cubit<LocationState> {
     }
   }
 
-  /// Called every time the app resumes. Never shows any system dialog.
+  /// Llamado al resume de la app. Nunca muestra modal del sistema. Si el
+  /// usuario activó el permiso en Ajustes y volvió, recogemos el cambio.
   Future<void> checkLocationSilently() async {
     try {
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        if (state is! LocationServiceDisabled) {
+          emit(LocationServiceDisabled());
+        }
+        return;
+      }
+
       final permission = await Geolocator.checkPermission();
       final granted = permission == LocationPermission.always ||
           permission == LocationPermission.whileInUse;
@@ -44,7 +62,9 @@ class LocationCubit extends Cubit<LocationState> {
       if (granted && state is! LocationLoaded && state is! LocationLoading) {
         await _fetchAndEmitLocation();
       } else if (!granted && state is LocationLoaded) {
-        emit(LocationDenied());
+        emit(permission == LocationPermission.deniedForever
+            ? LocationPermanentlyDenied()
+            : LocationDenied());
       }
     } catch (_) {}
   }

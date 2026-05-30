@@ -73,20 +73,31 @@ class SplashScreenPresenter {
 
 
   getUserInfo() async {
-    Version version = await _remoteRepository.getVersion();
-
+    // Si `getVersion` falla (timeout, offline, backend caído), seguimos
+    // adelante con `versionBD = "1.0.0"`. Esto NO debe bloquear el arranque
+    // de la app: en el peor caso saltamos la comprobación de versión y el
+    // usuario ve el home igualmente. El check de "actualiza la app" se hará
+    // la próxima vez que el backend responda.
     String versionBD = "1.0.0";
-
-
-
-
-
-    if (Platform.isIOS == true) {
-      versionBD = version.iosVersion;
-    } else {
-      versionBD = version.androidVersion;
+    try {
+      final Version version = await _remoteRepository.getVersion();
+      if (Platform.isIOS == true) {
+        versionBD = version.iosVersion;
+      } else {
+        versionBD = version.androidVersion;
+      }
+    } catch (_) {
+      // Continuamos con versionBD = "1.0.0" → check devuelve false → no
+      // forzamos UpdateScreen y el flujo sigue.
     }
-    bool check = await checkVersion(versionBD);
+
+    bool check = false;
+    try {
+      check = await checkVersion(versionBD);
+    } catch (_) {
+      check = false;
+    }
+
     if (check) {
       _view.goToUpdateScreen();
     } else {

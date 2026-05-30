@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:guachinches/core/logging/app_logger.dart';
 import 'package:guachinches/data/HttpRemoteRepository.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
 import 'package:guachinches/data/cubit/onboarding/onboarding_cubit.dart';
@@ -24,6 +26,8 @@ class _SplashScreenState extends State<SplashScreen>
     implements SplashScreenView {
   late RemoteRepository remoteRepository;
   late SplashScreenPresenter presenter;
+  Timer? _watchdog;
+  bool _navigated = false;
 
 
   @override
@@ -35,7 +39,23 @@ class _SplashScreenState extends State<SplashScreen>
         this, remoteRepository, userCubit, onboardingCubit);
     presenter.getUserInfo();
 
+    // Watchdog: si en 12s no se ha navegado, forzamos el flujo principal
+    // para evitar que el splash quede colgado por una respuesta del
+    // backend que no llega. El presenter ya tiene timeouts en getVersion,
+    // pero esto cubre cualquier futuro await sin timeout en la cadena.
+    _watchdog = Timer(const Duration(seconds: 12), () {
+      if (_navigated || !mounted) return;
+      AppLogger.warn('splash', 'watchdog_fired forcing_main_function');
+      presenter.mainFunction();
+    });
+
     super.initState();
+  }
+
+  @override
+  void dispose() {
+    _watchdog?.cancel();
+    super.dispose();
   }
 
   @override
@@ -59,6 +79,9 @@ class _SplashScreenState extends State<SplashScreen>
 
   @override
   goToMenu(List<Widget> screens) {
+    if (_navigated || !mounted) return;
+    _navigated = true;
+    _watchdog?.cancel();
     GlobalMethods().pushAndReplacement(
       context,
       NewHomeTabScaffold(screens: screens),
@@ -67,15 +90,24 @@ class _SplashScreenState extends State<SplashScreen>
 
   @override
   goToUpdateScreen() {
+    if (_navigated || !mounted) return;
+    _navigated = true;
+    _watchdog?.cancel();
     GlobalMethods().pushAndReplacement(context, UpdateAppScreen());
   }
   @override
   goToOnBoarding() {
+    if (_navigated || !mounted) return;
+    _navigated = true;
+    _watchdog?.cancel();
     GlobalMethods().pushAndReplacement(context, const OnboardingFlow());
   }
 
   @override
   goToSurveyOnboarding(List<Widget> screens) {
+    if (_navigated || !mounted) return;
+    _navigated = true;
+    _watchdog?.cancel();
     GlobalMethods().pushAndReplacement(context, SurveyOnboarding(screens: screens));
   }
 }
