@@ -13,4 +13,6 @@ class AppSpacing {
   static const double sectionHeaderTop = 20;
   static const double sectionHeaderBottom = 10;
   static const double scrollBottom = 24;
+
+  static const double accentBand = 4;
 }

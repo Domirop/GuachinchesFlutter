@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:guachinches/config/app_colors.dart';
+import 'package:guachinches/config/app_shapes.dart';
 import 'package:guachinches/config/brand_colors.dart';
 import 'package:guachinches/config/app_text_styles.dart';
 
@@ -30,13 +30,13 @@ class SearchFieldDynamic extends StatelessWidget {
             color: context.brand.border,
             width: 1,
           ),
-          borderRadius: BorderRadius.circular(32),
+          borderRadius: BorderRadius.circular(AppRadius.pill),
         ),
         child: Row(
           children: [
             Icon(
               Icons.search_rounded,
-              color: AppColors.atlanticoClaro,
+              color: context.brand.textSecondary,
               size: 18,
             ),
             const SizedBox(width: 10),

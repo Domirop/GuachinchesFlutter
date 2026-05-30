@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:guachinches/config/app_colors.dart';
+import 'package:guachinches/config/app_shapes.dart';
+import 'package:guachinches/config/app_spacing.dart';
 import 'package:guachinches/config/app_text_styles.dart';
 import 'package:guachinches/config/brand_colors.dart';
 import 'package:guachinches/utils/eyebrow_format.dart';
@@ -82,17 +84,9 @@ class _OpenNowCalloutState extends State<OpenNowCallout>
           margin: const EdgeInsets.fromLTRB(16, 12, 16, 4),
           decoration: BoxDecoration(
             color: context.brand.surface,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(AppRadius.md),
             border: Border.all(color: context.brand.border, width: 1),
-            boxShadow: widget.onTap == null
-                ? null
-                : [
-                    BoxShadow(
-                      color: accent.withOpacity(0.08),
-                      blurRadius: 18,
-                      offset: const Offset(0, 6),
-                    ),
-                  ],
+            boxShadow: widget.onTap == null ? null : AppShadows.accent(accent),
           ),
           clipBehavior: Clip.hardEdge,
           child: IntrinsicHeight(
@@ -101,12 +95,12 @@ class _OpenNowCalloutState extends State<OpenNowCallout>
               children: [
                 // Banda lateral: indicador semántico de "estado en vivo".
                 Container(
-                  width: 4,
+                  width: AppSpacing.accentBand,
                   decoration: BoxDecoration(
                     color: accent,
                     borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(16),
-                      bottomLeft: Radius.circular(16),
+                      topLeft: Radius.circular(AppRadius.md),
+                      bottomLeft: Radius.circular(AppRadius.md),
                     ),
                   ),
                 ),
@@ -168,7 +162,7 @@ class _OpenNowCalloutState extends State<OpenNowCallout>
                             height: 36,
                             decoration: BoxDecoration(
                               color: accent.withOpacity(0.12),
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(AppRadius.sm),
                             ),
                             child: Icon(
                               Icons.arrow_forward_rounded,

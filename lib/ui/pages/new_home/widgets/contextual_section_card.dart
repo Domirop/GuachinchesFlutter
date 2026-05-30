@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:guachinches/config/app_colors.dart';
+import 'package:guachinches/config/app_shapes.dart';
+import 'package:guachinches/config/app_spacing.dart';
 import 'package:guachinches/config/brand_colors.dart';
 
 /// Envoltorio visual de la sección "HOY EN ..." (banner contextual + carrusel
@@ -37,17 +39,9 @@ class ContextualSectionCard extends StatelessWidget {
       child: Container(
         decoration: BoxDecoration(
           color: AppColors.cremaSoft,
-          borderRadius: BorderRadius.circular(22),
+          borderRadius: BorderRadius.circular(AppRadius.lg),
           border: Border.all(color: context.brand.border, width: 1),
-          boxShadow: [
-            // Sombra más amplia y suave → la card se siente "asentada"
-            // sobre el fondo en vez de pegada como un parche.
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 22,
-              offset: const Offset(0, 6),
-            ),
-          ],
+          boxShadow: AppShadows.soft(),
         ),
         clipBehavior: Clip.hardEdge,
         child: IntrinsicHeight(
@@ -55,8 +49,7 @@ class ContextualSectionCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               // Banda lateral cálida — pista visual de "bloque contextual".
-              // 3px se integra mejor (4px llamaba demasiado la atención).
-              Container(width: 3, color: accent),
+              Container(width: AppSpacing.accentBand, color: accent),
               Expanded(
                 child: Padding(
                   // Interior: respiro arriba (10) y abajo (20) para que el
