@@ -31,9 +31,31 @@ class CuratedListDetailScreen extends StatelessWidget {
 }
 
 /// Forces light tokens for this screen regardless of global theme.
-class _LightTheme extends StatelessWidget {
+class _LightTheme extends StatefulWidget {
   final Widget child;
   const _LightTheme({required this.child});
+
+  @override
+  State<_LightTheme> createState() => _LightThemeState();
+}
+
+class _LightThemeState extends State<_LightTheme> {
+  Color? _previousDefault;
+
+  @override
+  void initState() {
+    super.initState();
+    _previousDefault = AppTextStyles.defaultTextColor;
+    AppTextStyles.defaultTextColor = AppColors.ink;
+  }
+
+  @override
+  void dispose() {
+    if (_previousDefault != null) {
+      AppTextStyles.defaultTextColor = _previousDefault!;
+    }
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -47,11 +69,7 @@ class _LightTheme extends StatelessWidget {
           statusBarColor: Colors.transparent,
           systemNavigationBarColor: AppColors.crema,
         ),
-        child: Builder(builder: (context) {
-          // Re-sync default text color so AppTextStyles use ink, not crema.
-          AppTextStyles.defaultTextColor = AppColors.ink;
-          return child;
-        }),
+        child: widget.child,
       ),
     );
   }

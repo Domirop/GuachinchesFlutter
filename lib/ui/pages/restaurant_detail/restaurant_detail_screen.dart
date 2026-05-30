@@ -3,7 +3,9 @@ import 'package:flutter/rendering.dart';
 import 'package:guachinches/config/app_colors.dart';
 import 'package:guachinches/config/brand_colors.dart';
 import 'package:guachinches/config/app_text_styles.dart';
+import 'package:guachinches/core/logging/app_logger.dart';
 import 'package:guachinches/data/HttpRemoteRepository.dart';
+import 'package:guachinches/data/RemoteRepository.dart';
 import 'package:guachinches/data/model/Video.dart';
 import 'package:guachinches/data/model/Visit.dart';
 import 'package:guachinches/data/model/restaurant.dart';
@@ -28,8 +30,13 @@ import 'widgets/youtube_short_section.dart';
 
 class RestaurantDetailScreen extends StatefulWidget {
   final String id;
+  final RemoteRepository? repository;
 
-  const RestaurantDetailScreen({super.key, required this.id});
+  const RestaurantDetailScreen({
+    super.key,
+    required this.id,
+    this.repository,
+  });
 
   @override
   State<RestaurantDetailScreen> createState() => _RestaurantDetailScreenState();
@@ -37,7 +44,7 @@ class RestaurantDetailScreen extends StatefulWidget {
 
 class _RestaurantDetailScreenState extends State<RestaurantDetailScreen>
     implements DetailView {
-  late final HttpRemoteRepository _repo;
+  late final RemoteRepository _repo;
   late final DetailPresenter _presenter;
   final ScrollController _scrollCtrl = ScrollController();
 
@@ -45,6 +52,7 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen>
   List<Visit> _visits = const [];
   List<ListAppearance> _listAppearances = const [];
   bool _loading = true;
+  bool _error = false;
   bool _isSaved = false;
   int _activeSection = 0;
 
@@ -60,13 +68,45 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen>
   @override
   void initState() {
     super.initState();
-    _repo = HttpRemoteRepository(http.Client());
+    _repo = widget.repository ?? HttpRemoteRepository(http.Client());
     _presenter = DetailPresenter(_repo, this);
-    _presenter.getRestaurantById(widget.id);
-    _presenter.getIsFav(widget.id);
+    _loadRestaurant();
+    _loadIsFav();
     _loadVisits();
     _loadListAppearances();
     _scrollCtrl.addListener(_onScroll);
+  }
+
+  /// Favorito es secundario: si la capa local falla (DB no disponible) sólo se
+  /// pierde el estado del icono, nunca debe tumbar la pantalla ni filtrar un
+  /// error async sin capturar.
+  Future<void> _loadIsFav() async {
+    try {
+      await _presenter.getIsFav(widget.id);
+    } catch (e, st) {
+      AppLogger.error('restaurant-detail', e, st);
+    }
+  }
+
+  Future<void> _loadRestaurant() async {
+    try {
+      await _presenter.getRestaurantById(widget.id);
+    } catch (e, st) {
+      AppLogger.error('restaurant-detail', e, st);
+      if (!mounted) return;
+      setState(() {
+        _error = true;
+        _loading = false;
+      });
+    }
+  }
+
+  void _retryLoad() {
+    setState(() {
+      _error = false;
+      _loading = true;
+    });
+    _loadRestaurant();
   }
 
   Future<void> _loadListAppearances() async {
@@ -225,6 +265,15 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen>
 
   @override
   Widget build(BuildContext context) {
+    if (_error) {
+      return Scaffold(
+        backgroundColor: context.brand.base,
+        body: _DetailError(
+          onBack: () => Navigator.pop(context),
+          onRetry: _retryLoad,
+        ),
+      );
+    }
     final r = _restaurant;
     return Scaffold(
       backgroundColor: context.brand.base,
@@ -352,6 +401,107 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen>
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _DetailError extends StatelessWidget {
+  final VoidCallback onBack;
+  final VoidCallback onRetry;
+
+  const _DetailError({required this.onBack, required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    final brand = context.brand;
+    return Semantics(
+      identifier: 'restaurant-detail-error',
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Semantics(
+                identifier: 'restaurant-detail-error-back',
+                child: GestureDetector(
+                  onTap: onBack,
+                  child: Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: brand.surface,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: brand.border),
+                    ),
+                    child: Icon(
+                      Icons.arrow_back_rounded,
+                      size: 18,
+                      color: brand.textPrimary,
+                    ),
+                  ),
+                ),
+              ),
+              const Spacer(),
+              Center(
+                child: Column(
+                  children: [
+                    Icon(
+                      Icons.cloud_off_rounded,
+                      size: 64,
+                      color: brand.textMuted,
+                    ),
+                    const SizedBox(height: 18),
+                    Text(
+                      'No pudimos cargar el restaurante',
+                      textAlign: TextAlign.center,
+                      style: AppTextStyles.displayHero(
+                        size: 22,
+                        color: brand.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Revisa tu conexión e inténtalo de nuevo.',
+                      textAlign: TextAlign.center,
+                      style: AppTextStyles.editorial(
+                        size: 14,
+                        color: brand.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    Semantics(
+                      identifier: 'restaurant-detail-retry-button',
+                      child: GestureDetector(
+                        onTap: onRetry,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 28,
+                            vertical: 14,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.atlantico,
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: Text(
+                            'Reintentar',
+                            style: AppTextStyles.ui(
+                              size: 15,
+                              weight: FontWeight.w700,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Spacer(),
+            ],
+          ),
+        ),
       ),
     );
   }
