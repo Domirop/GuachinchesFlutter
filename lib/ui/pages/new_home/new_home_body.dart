@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:guachinches/config/app_colors.dart';
+import 'package:guachinches/config/app_spacing.dart';
 import 'package:guachinches/l10n/app_localizations.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:guachinches/data/cubit/new_home/curated_lists_cubit.dart';
@@ -33,6 +34,7 @@ import 'package:guachinches/ui/pages/new_home/widgets/contextual_section_card.da
 import 'package:guachinches/utils/contextual_pool.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/search_field_dynamic.dart';
 import 'package:guachinches/ui/components/section_header.dart';
+import 'package:guachinches/ui/pages/new_home/widgets/section_error_retry.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/skeletons.dart';
 import 'package:guachinches/core/remote_config/dcc_remote_config.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/top_filter_bar.dart';
@@ -276,12 +278,54 @@ class _NewHomeBodyState extends State<NewHomeBody> {
               ),
             ],
 
+            // ── CERCA DE TI ────────────────────────
+            if (widget.nearbyList.isNotEmpty)
+              SliverToBoxAdapter(
+                child: Semantics(
+                  identifier: 'home-section-nearby',
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SectionHeader(
+                        title: AppL10n.of(context).homeNearbySectionTitle.toUpperCase(),
+                        actionLabel: widget.onShowAllNearby != null
+                            ? AppL10n.of(context).homeSeeAll.toUpperCase()
+                            : null,
+                        onAction: widget.onShowAllNearby,
+                      ),
+                      SizedBox(
+                        height: 172,
+                        child: ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.gutter),
+                          itemCount: widget.nearbyList.take(8).length,
+                          separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.cardGap),
+                          itemBuilder: (_, i) {
+                            final nearby = widget.nearbyList[i];
+                            return RepaintBoundary(
+                              child: CardNearbyMinimap(
+                                nearby: nearby,
+                                onTap: () =>
+                                    widget.onRestaurantTap(nearby.restaurant.id),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
             // ── ESPECIALIDADES CANARIAS ──────────────
             SliverToBoxAdapter(
-              child: CanarianSpecialtiesSection(
-                categories: widget.categories,
-                types: widget.types,
-                onSearchPreSelected: widget.onSearchPreSelected,
+              child: Semantics(
+                identifier: 'home-section-specialties',
+                child: CanarianSpecialtiesSection(
+                  categories: widget.categories,
+                  types: widget.types,
+                  onSearchPreSelected: widget.onSearchPreSelected,
+                ),
               ),
             ),
 
@@ -304,9 +348,9 @@ class _NewHomeBodyState extends State<NewHomeBody> {
                       if (state.lists.isEmpty) return const SizedBox.shrink();
                       return ListView.separated(
                         scrollDirection: Axis.horizontal,
-                        padding: const EdgeInsets.symmetric(horizontal: 14),
+                        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.gutter),
                         itemCount: state.lists.length,
-                        separatorBuilder: (_, __) => const SizedBox(width: 12),
+                        separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.cardGap),
                         itemBuilder: (_, i) => RepaintBoundary(
                           child: CardCuratedList(
                             list: state.lists[i],
@@ -321,7 +365,15 @@ class _NewHomeBodyState extends State<NewHomeBody> {
                         ),
                       );
                     }
-                    if (state is CuratedListsFailure) return const SizedBox.shrink();
+                    if (state is CuratedListsFailure) {
+                      return SectionErrorRetry(
+                        message: 'No pudimos cargar esta sección',
+                        retryAnchor: 'home-curated-retry',
+                        onRetry: () => context
+                            .read<CuratedListsCubit>()
+                            .loadForIsland(widget.filters.islandId),
+                      );
+                    }
                     return const CardRowSkeleton();
                   },
                 ),
@@ -347,9 +399,9 @@ class _NewHomeBodyState extends State<NewHomeBody> {
                       if (state.visits.isEmpty) return const SizedBox.shrink();
                       return ListView.separated(
                         scrollDirection: Axis.horizontal,
-                        padding: const EdgeInsets.symmetric(horizontal: 14),
+                        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.gutter),
                         itemCount: state.visits.length,
-                        separatorBuilder: (_, __) => const SizedBox(width: 12),
+                        separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.cardGap),
                         itemBuilder: (_, i) {
                           final v = state.visits[i];
                           return RepaintBoundary(
@@ -367,49 +419,22 @@ class _NewHomeBodyState extends State<NewHomeBody> {
                         },
                       );
                     }
-                    if (state is VisitsFailure) return const SizedBox.shrink();
+                    if (state is VisitsFailure) {
+                      return SectionErrorRetry(
+                        message: 'No pudimos cargar esta sección',
+                        retryAnchor: 'home-visits-retry',
+                        onRetry: () =>
+                            context.read<VisitsCubit>().loadVisits(),
+                      );
+                    }
                     return const CardRowSkeleton();
                   },
                 ),
               ),
             ),
 
-            // ── CERCA DE TI ────────────────────────
-            if (widget.nearbyList.isNotEmpty) ...[
-              SliverToBoxAdapter(
-                child: SectionHeader(
-                  title: AppL10n.of(context).homeNearbySectionTitle.toUpperCase(),
-                  actionLabel: widget.onShowAllNearby != null
-                      ? AppL10n.of(context).homeSeeAll.toUpperCase()
-                      : null,
-                  onAction: widget.onShowAllNearby,
-                ),
-              ),
-              SliverToBoxAdapter(
-                child: SizedBox(
-                  height: 172,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 14),
-                    itemCount: widget.nearbyList.take(8).length,
-                    separatorBuilder: (_, __) => const SizedBox(width: 10),
-                    itemBuilder: (_, i) {
-                      final nearby = widget.nearbyList[i];
-                      return RepaintBoundary(
-                        child: CardNearbyMinimap(
-                          nearby: nearby,
-                          onTap: () =>
-                              widget.onRestaurantTap(nearby.restaurant.id),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ),
-            ],
-
             // Padding inferior pequeño para respirar al final del scroll.
-            const SliverToBoxAdapter(child: SizedBox(height: 24)),
+            const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.scrollBottom)),
           ],
         ),
           ),
