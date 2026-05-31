@@ -4,6 +4,7 @@ import 'package:guachinches/config/app_colors.dart';
 import 'package:guachinches/config/app_text_styles.dart';
 import 'package:guachinches/config/brand_colors.dart';
 import 'package:guachinches/data/model/Visit.dart';
+import 'package:guachinches/ui/pages/discover/visit_sentiment.dart';
 
 /// Tarjeta horizontal de visita pensada para listado vertical (browser),
 /// **expandible**: tap → despliega resumen completo, platos destacados,
@@ -139,29 +140,33 @@ class _VisitListTileState extends State<VisitListTile> {
                     const SizedBox(width: 6),
                     // Solo este botón controla expandir/colapsar; el resto
                     // de la tarjeta navega al detalle.
-                    GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: _toggle,
-                      child: Padding(
-                        padding: const EdgeInsets.all(6),
-                        child: AnimatedRotation(
-                          turns: _expanded ? 0.5 : 0.0,
-                          duration: const Duration(milliseconds: 220),
-                          child: Container(
-                            width: 28,
-                            height: 28,
-                            decoration: BoxDecoration(
-                              color: _expanded
-                                  ? AppColors.atlantico.withOpacity(0.18)
-                                  : brand.elevated,
-                              shape: BoxShape.circle,
-                            ),
-                            child: Icon(
-                              Icons.keyboard_arrow_down_rounded,
-                              size: 18,
-                              color: _expanded
-                                  ? AppColors.atlanticoClaro
-                                  : brand.textPrimary,
+                    Semantics(
+                      button: true,
+                      label: _expanded ? 'Plegar' : 'Desplegar',
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: _toggle,
+                        child: Padding(
+                          padding: const EdgeInsets.all(6),
+                          child: AnimatedRotation(
+                            turns: _expanded ? 0.5 : 0.0,
+                            duration: const Duration(milliseconds: 220),
+                            child: Container(
+                              width: 28,
+                              height: 28,
+                              decoration: BoxDecoration(
+                                color: _expanded
+                                    ? AppColors.atlantico.withOpacity(0.18)
+                                    : brand.elevated,
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                Icons.keyboard_arrow_down_rounded,
+                                size: 18,
+                                color: _expanded
+                                    ? AppColors.atlanticoClaro
+                                    : brand.textPrimary,
+                              ),
                             ),
                           ),
                         ),
@@ -183,6 +188,7 @@ class _VisitListTileState extends State<VisitListTile> {
                     child: _ExpandedBody(
                       visit: v,
                       onOpen: widget.onTap,
+                      collapsedCaption: caption,
                     ),
                   ),
                 ),
@@ -230,8 +236,13 @@ class _VisitListTileState extends State<VisitListTile> {
 class _ExpandedBody extends StatelessWidget {
   final Visit visit;
   final VoidCallback onOpen;
+  final String? collapsedCaption;
 
-  const _ExpandedBody({required this.visit, required this.onOpen});
+  const _ExpandedBody({
+    required this.visit,
+    required this.onOpen,
+    this.collapsedCaption,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -265,7 +276,7 @@ class _ExpandedBody extends StatelessWidget {
             margin: const EdgeInsets.only(bottom: 14),
             color: brand.border,
           ),
-          if (quote != null && quote.isNotEmpty) ...[
+          if (quote != null && quote.isNotEmpty && quote != collapsedCaption) ...[
             _Quote(text: quote, brand: brand),
             const SizedBox(height: 14),
           ],
@@ -772,13 +783,8 @@ class _MetaLine extends StatelessWidget {
 
   Widget? _sentimentChip(String? sentiment) {
     if (sentiment == null || sentiment.isEmpty) return null;
-    final (label, color) = switch (sentiment) {
-      'muy_positivo' => ('Muy bueno', AppColors.laurisilva),
-      'positivo' => ('Bueno', AppColors.atlantico),
-      'neutro' => ('Neutro', AppColors.arena),
-      'negativo' => ('Flojo', AppColors.mojo),
-      _ => (null, null),
-    };
+    final label = kSentimentLabels[sentiment];
+    final color = sentimentColor(sentiment);
     if (label == null || color == null) return null;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),

@@ -9,6 +9,7 @@ import 'package:guachinches/data/cubit/new_home/new_home_filters_cubit.dart';
 import 'package:guachinches/data/cubit/new_home/new_home_filters_state.dart';
 import 'package:guachinches/data/cubit/new_home/visits_cubit.dart';
 import 'package:guachinches/data/model/Visit.dart';
+import 'package:guachinches/ui/pages/discover/visit_sentiment.dart';
 import 'package:guachinches/ui/pages/discover/widgets/sort_sheet.dart';
 import 'package:guachinches/ui/pages/discover/widgets/visit_filter_sheet.dart';
 import 'package:guachinches/ui/pages/discover/widgets/visit_list_tile.dart';
@@ -32,7 +33,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
 
   VisitFilterValues _filters = const VisitFilterValues();
   VisitSort _sort = VisitSort.newest;
-  bool _islandFilterDisabled = false;
+  String? _islandFilterDisabledForKey;
 
   @override
   void initState() {
@@ -69,12 +70,10 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
   }
 
   Future<void> _openFilters(List<Visit> all) async {
-    final creators = _uniqueCreators(all);
     final zones = _uniqueZones(all);
     final result = await VisitFilterSheet.show(
       context: context,
       initial: _filters,
-      creators: creators,
       zones: zones,
     );
     if (result != null) setState(() => _filters = result);
@@ -246,11 +245,11 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                 final isLoading = state is VisitsLoading;
                 final isFailure = state is VisitsFailure;
 
-                final islandFilteredVisits = _islandFilterDisabled
+                final islandFilteredVisits = _islandFilterDisabledForKey == islandKey
                     ? allVisits
                     : _applyIslandFilter(allVisits, islandNameFromKey(islandKey));
 
-                final isIslandEmpty = !_islandFilterDisabled &&
+                final isIslandEmpty = _islandFilterDisabledForKey != islandKey &&
                     !isLoading &&
                     allVisits.isNotEmpty &&
                     islandFilteredVisits.isEmpty;
@@ -283,17 +282,19 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                       onFilter: () => _openFilters(allVisits),
                     ),
                     const SizedBox(height: 12),
-                    _SearchRow(
-                      controller: _searchCtrl,
-                      onChanged: _onSearchChanged,
-                      onClear: _clearSearch,
+                    Semantics(
+                      identifier: 'discover-search-field',
+                      child: _SearchRow(
+                        controller: _searchCtrl,
+                        onChanged: _onSearchChanged,
+                        onClear: _clearSearch,
+                      ),
                     ),
                     const SizedBox(height: 8),
                     _CreatorChipsRow(
                       creators: creators,
                       selected: _filters.creators,
                       onTap: _toggleCreator,
-                      onMore: () => _openFilters(allVisits),
                     ),
                     if (_filters.count > 0)
                       _ActiveFiltersBar(
@@ -319,7 +320,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                           ? _IslandEmptyState(
                               islandLabel: islandLabel,
                               onShowAll: () =>
-                                  setState(() => _islandFilterDisabled = true),
+                                  setState(() => _islandFilterDisabledForKey = islandKey),
                             )
                           : _buildBody(
                               state: state,
@@ -376,11 +377,15 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         itemCount: filtered.length,
         separatorBuilder: (_, __) => const SizedBox(height: 12),
-        itemBuilder: (_, i) => VisitListTile(
-          visit: filtered[i],
-          onTap: () => Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => VisitDetailPage(visitId: filtered[i].id),
+        itemBuilder: (_, i) => Semantics(
+          identifier: 'discover-visit-card-${filtered[i].id}',
+          button: true,
+          child: VisitListTile(
+            visit: filtered[i],
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => VisitDetailPage(visitId: filtered[i].id),
+              ),
             ),
           ),
         ),
@@ -432,12 +437,22 @@ class _DiscoverHeader extends StatelessWidget {
               ],
             ),
           ),
-          _IconBubble(icon: Icons.swap_vert_rounded, onTap: onSort),
+          Semantics(
+            identifier: 'discover-sort-button',
+            label: 'Ordenar visitas',
+            button: true,
+            child: _IconBubble(icon: Icons.swap_vert_rounded, onTap: onSort),
+          ),
           const SizedBox(width: 8),
-          _IconBubble(
-            icon: Icons.tune_rounded,
-            onTap: onFilter,
-            badge: filterCount > 0 ? '$filterCount' : null,
+          Semantics(
+            identifier: 'discover-filter-button',
+            label: 'Filtrar visitas',
+            button: true,
+            child: _IconBubble(
+              icon: Icons.tune_rounded,
+              onTap: onFilter,
+              badge: filterCount > 0 ? '$filterCount' : null,
+            ),
           ),
         ],
       ),
@@ -585,13 +600,11 @@ class _CreatorChipsRow extends StatelessWidget {
   final List<String> creators;
   final Set<String> selected;
   final ValueChanged<String> onTap;
-  final VoidCallback onMore;
 
   const _CreatorChipsRow({
     required this.creators,
     required this.selected,
     required this.onTap,
-    required this.onMore,
   });
 
   @override
@@ -602,40 +615,9 @@ class _CreatorChipsRow extends StatelessWidget {
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: creators.length + 1,
+        itemCount: creators.length,
         separatorBuilder: (_, __) => const SizedBox(width: 8),
         itemBuilder: (_, i) {
-          if (i == creators.length) {
-            return GestureDetector(
-              onTap: onMore,
-              child: Container(
-                height: 38,
-                padding: const EdgeInsets.symmetric(horizontal: 14),
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: context.brand.surface,
-                  borderRadius: BorderRadius.circular(100),
-                  border: Border.all(color: context.brand.borderStrong),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.tune_rounded,
-                        size: 14, color: context.brand.textPrimary),
-                    const SizedBox(width: 6),
-                    Text(
-                      'Más filtros',
-                      style: AppTextStyles.ui(
-                        size: 12,
-                        weight: FontWeight.w600,
-                        color: context.brand.textPrimary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }
           final c = creators[i];
           final active = selected.contains(c);
           return GestureDetector(

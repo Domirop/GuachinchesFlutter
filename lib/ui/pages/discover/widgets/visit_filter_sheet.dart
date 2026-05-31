@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:guachinches/config/app_colors.dart';
 import 'package:guachinches/config/app_text_styles.dart';
 import 'package:guachinches/config/brand_colors.dart';
+import 'package:guachinches/ui/pages/discover/visit_sentiment.dart';
 
 /// Active filters for the visits browser.
 class VisitFilterValues {
@@ -37,29 +38,19 @@ class VisitFilterValues {
       );
 }
 
-const Map<String, String> kSentimentLabels = {
-  'muy_positivo': 'Muy positivo',
-  'positivo': 'Positivo',
-  'neutro': 'Neutro',
-  'negativo': 'Negativo',
-};
-
 class VisitFilterSheet extends StatefulWidget {
   final VisitFilterValues initial;
-  final List<String> creators;
   final List<String> zones;
 
   const VisitFilterSheet({
     super.key,
     required this.initial,
-    required this.creators,
     required this.zones,
   });
 
   static Future<VisitFilterValues?> show({
     required BuildContext context,
     required VisitFilterValues initial,
-    required List<String> creators,
     required List<String> zones,
   }) {
     return showModalBottomSheet<VisitFilterValues>(
@@ -71,7 +62,6 @@ class VisitFilterSheet extends StatefulWidget {
       ),
       builder: (_) => VisitFilterSheet(
         initial: initial,
-        creators: creators,
         zones: zones,
       ),
     );
@@ -88,14 +78,6 @@ class _VisitFilterSheetState extends State<VisitFilterSheet> {
   void initState() {
     super.initState();
     _values = widget.initial;
-  }
-
-  void _toggleCreator(String c) {
-    setState(() {
-      final next = Set<String>.from(_values.creators);
-      next.contains(c) ? next.remove(c) : next.add(c);
-      _values = _values.copyWith(creators: next);
-    });
   }
 
   void _toggleSentiment(String s) {
@@ -172,23 +154,6 @@ class _VisitFilterSheetState extends State<VisitFilterSheet> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if (widget.creators.isNotEmpty) ...[
-                      _SectionTitle('Creador'),
-                      const SizedBox(height: 10),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          for (final c in widget.creators)
-                            _PickerChip(
-                              label: c,
-                              selected: _values.creators.contains(c),
-                              onTap: () => _toggleCreator(c),
-                            ),
-                        ],
-                      ),
-                      const SizedBox(height: 22),
-                    ],
                     _SectionTitle('Sentimiento'),
                     const SizedBox(height: 10),
                     Wrap(
@@ -199,7 +164,7 @@ class _VisitFilterSheetState extends State<VisitFilterSheet> {
                           _PickerChip(
                             label: entry.value,
                             selected: _values.sentiments.contains(entry.key),
-                            color: _sentimentColor(entry.key),
+                            color: sentimentColor(entry.key),
                             onTap: () => _toggleSentiment(entry.key),
                           ),
                       ],
@@ -277,19 +242,6 @@ class _VisitFilterSheetState extends State<VisitFilterSheet> {
     );
   }
 
-  Color? _sentimentColor(String s) {
-    switch (s) {
-      case 'muy_positivo':
-        return AppColors.laurisilva;
-      case 'positivo':
-        return AppColors.atlantico;
-      case 'neutro':
-        return AppColors.arena;
-      case 'negativo':
-        return AppColors.mojo;
-    }
-    return null;
-  }
 }
 
 class _SectionTitle extends StatelessWidget {
