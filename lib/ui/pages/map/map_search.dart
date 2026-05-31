@@ -531,7 +531,7 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
 
     final bgPaint = Paint()
       ..color = selected
-          ? GlobalMethods.blueColor
+          ? AppColors.atlantico
           : const Color(0xFF1B1D22);
     final pillRRect = RRect.fromRectAndRadius(
       Rect.fromLTWH(originX, originY, w, h),
@@ -552,7 +552,7 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
       canvas.drawRRect(
         haloRRect,
         Paint()
-          ..color = GlobalMethods.blueColor.withOpacity(0.22)
+          ..color = AppColors.atlantico.withOpacity(0.22)
           ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
       );
     }
@@ -1149,12 +1149,12 @@ class _DriveModeSuggestionSheet extends StatelessWidget {
                 width: 56,
                 height: 56,
                 decoration: BoxDecoration(
-                  color: GlobalMethods.blueColor.withOpacity(0.14),
+                  color: AppColors.atlantico.withOpacity(0.14),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
                   Icons.directions_car_filled,
-                  color: GlobalMethods.blueColor,
+                  color: AppColors.atlantico,
                   size: 28,
                 ),
               ),
@@ -1216,12 +1216,12 @@ class _DriveModeSuggestionSheet extends StatelessWidget {
                         height: 50,
                         alignment: Alignment.center,
                         decoration: BoxDecoration(
-                          color: GlobalMethods.blueColor,
+                          color: AppColors.atlantico,
                           borderRadius: BorderRadius.circular(16),
                           boxShadow: [
                             BoxShadow(
                               color:
-                                  GlobalMethods.blueColor.withOpacity(0.38),
+                                  AppColors.atlantico.withOpacity(0.38),
                               blurRadius: 14,
                               offset: const Offset(0, 5),
                             ),
@@ -1399,7 +1399,7 @@ class _DriveNearestCard extends StatelessWidget {
                 Text(
                   label,
                   style: TextStyle(
-                    color: GlobalMethods.blueColor,
+                    color: AppColors.atlantico,
                     fontFamily: 'SF Pro Display',
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
@@ -1480,12 +1480,12 @@ class _DrivePill extends StatelessWidget {
           alignment: Alignment.center,
           decoration: BoxDecoration(
             color: active
-                ? GlobalMethods.blueColor
+                ? AppColors.atlantico
                 : const Color(0xFF2A2D36),
             borderRadius: BorderRadius.circular(22),
             border: Border.all(
               color: active
-                  ? GlobalMethods.blueColor
+                  ? AppColors.atlantico
                   : (closingSoon || unreachable)
                       ? status.color.withOpacity(0.6)
                       : Colors.white10,
@@ -1494,7 +1494,7 @@ class _DrivePill extends StatelessWidget {
             boxShadow: active
                 ? [
                     BoxShadow(
-                      color: GlobalMethods.blueColor.withOpacity(0.32),
+                      color: AppColors.atlantico.withOpacity(0.32),
                       blurRadius: 10,
                       offset: const Offset(0, 3),
                     ),
@@ -1930,11 +1930,11 @@ class _IrButton extends StatelessWidget {
         height: size,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: GlobalMethods.blueColor,
+          color: AppColors.atlantico,
           borderRadius: BorderRadius.circular(big ? 20 : 12),
           boxShadow: [
             BoxShadow(
-              color: GlobalMethods.blueColor.withOpacity(0.35),
+              color: AppColors.atlantico.withOpacity(0.35),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
@@ -2118,7 +2118,7 @@ class _MapHeader extends StatelessWidget {
                         controller: searchController,
                         onChanged: onSearchChanged,
                         textInputAction: TextInputAction.search,
-                        cursorColor: GlobalMethods.blueColor,
+                        cursorColor: AppColors.atlantico,
                         style: TextStyle(
                           color: brand.textPrimary,
                           fontFamily: 'SF Pro Display',
@@ -2168,7 +2168,7 @@ class _MapHeader extends StatelessWidget {
                           color: Colors.transparent,
                           borderRadius: BorderRadius.circular(20),
                           border: Border.all(
-                              color: GlobalMethods.blueColor, width: 1.4),
+                              color: AppColors.atlantico, width: 1.4),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
@@ -2176,7 +2176,7 @@ class _MapHeader extends StatelessWidget {
                             Text(
                               municipalityLabel,
                               style: TextStyle(
-                                color: GlobalMethods.blueColor,
+                                color: AppColors.atlantico,
                                 fontFamily: 'SF Pro Display',
                                 fontSize: 12,
                                 fontWeight: FontWeight.w700,
@@ -2185,7 +2185,7 @@ class _MapHeader extends StatelessWidget {
                             ),
                             const SizedBox(width: 4),
                             Icon(Icons.expand_more,
-                                size: 16, color: GlobalMethods.blueColor),
+                                size: 16, color: AppColors.atlantico),
                           ],
                         ),
                       ),
@@ -2248,11 +2248,11 @@ class _EnterDrivePill extends StatelessWidget {
         height: 42,
         padding: const EdgeInsets.symmetric(horizontal: 14),
         decoration: BoxDecoration(
-          color: GlobalMethods.blueColor,
+          color: AppColors.atlantico,
           borderRadius: BorderRadius.circular(22),
           boxShadow: [
             BoxShadow(
-              color: GlobalMethods.blueColor.withOpacity(0.42),
+              color: AppColors.atlantico.withOpacity(0.42),
               blurRadius: 14,
               offset: const Offset(0, 4),
             ),
@@ -2300,11 +2300,11 @@ class _DriveExitPill extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16),
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: GlobalMethods.blueColor,
+          color: AppColors.atlantico,
           borderRadius: BorderRadius.circular(22),
           boxShadow: [
             BoxShadow(
-              color: GlobalMethods.blueColor.withOpacity(0.35),
+              color: AppColors.atlantico.withOpacity(0.35),
               blurRadius: 10,
               offset: const Offset(0, 3),
             ),
@@ -2365,16 +2365,16 @@ class _QuickPill extends StatelessWidget {
         padding: EdgeInsets.symmetric(horizontal: big ? 20 : 18),
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: active ? GlobalMethods.blueColor : brand.surface,
+          color: active ? AppColors.atlantico : brand.surface,
           borderRadius: BorderRadius.circular(big ? 22 : 22),
           border: Border.all(
-            color: active ? GlobalMethods.blueColor : brand.border,
+            color: active ? AppColors.atlantico : brand.border,
             width: 1.2,
           ),
           boxShadow: active
               ? [
                   BoxShadow(
-                    color: GlobalMethods.blueColor.withOpacity(0.35),
+                    color: AppColors.atlantico.withOpacity(0.35),
                     blurRadius: 8,
                     offset: const Offset(0, 3),
                   ),
