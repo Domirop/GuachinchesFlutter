@@ -763,6 +763,8 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
           }
 
           final sorted = _sortedByDistance(restaurants);
+          final double mapBottomInset =
+              isDriving ? 210 : (_visibleRestaurants.isNotEmpty ? 165 : 0);
 
           return Stack(
             fit: StackFit.expand,
@@ -775,6 +777,7 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
                   myLocationButtonEnabled: false,
                   compassEnabled: false,
                   zoomControlsEnabled: false,
+                  padding: EdgeInsets.only(bottom: mapBottomInset),
                   initialCameraPosition: _initialCamera,
                   onMapCreated: (controller) {
                     if (!_controller.isCompleted) {
