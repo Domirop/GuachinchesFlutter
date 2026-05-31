@@ -88,13 +88,6 @@ class _ListasScreenState extends State<ListasScreen> {
       case _AuthorFilter.todas:
         break;
     }
-    // Sheet filters (combined / AND)
-    if (_sheetFilters.authors.isNotEmpty) {
-      r = r.where((l) {
-        final up = l.eyebrow.toUpperCase();
-        return _sheetFilters.authors.any((a) => up.contains(a));
-      });
-    }
     if (_sheetFilters.featuredOnly) {
       r = r.where((l) => l.position == 1);
     }
@@ -261,37 +254,11 @@ class _Header extends StatelessWidget {
               ),
             ),
           ),
-          _RoundIconButton(icon: Icons.view_agenda_outlined, onTap: () {}),
-          const SizedBox(width: 8),
           _FilterIconButton(
             onTap: onFilterTap,
             activeCount: activeFilterCount,
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _RoundIconButton extends StatelessWidget {
-  final IconData icon;
-  final VoidCallback onTap;
-
-  const _RoundIconButton({required this.icon, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          color: context.brand.surface,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: context.brand.border),
-        ),
-        child: Icon(icon, size: 18, color: context.brand.textPrimary),
       ),
     );
   }
@@ -426,7 +393,6 @@ class _AuthorFilterRow extends StatelessWidget {
 
   static const _items = [
     (_AuthorFilter.todas, 'Todas'),
-    (_AuthorFilter.guardadas, 'Guardadas'),
     (_AuthorFilter.jonay, 'Jonay'),
     (_AuthorFilter.joana, 'Joana'),
   ];
@@ -572,14 +538,27 @@ class _FeaturedListCard extends StatelessWidget {
                       foreground: AppColors.crema.withOpacity(0.9),
                     ),
                   const Spacer(),
-                  // Numeral grande del puesto
+                  // Numeral grande (recuento de sitios)
                   if (list.count > 0)
-                    Text(
-                      '${list.count}',
-                      style: AppTextStyles.displayHero(
-                        size: 64,
-                        color: Colors.white.withOpacity(0.95),
-                      ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          '${list.count}',
+                          style: AppTextStyles.displayHero(
+                            size: 64,
+                            color: Colors.white.withOpacity(0.95),
+                          ),
+                        ),
+                        Text(
+                          'SITIOS',
+                          style: AppTextStyles.eyebrow(
+                            size: 9,
+                            color: Colors.white.withOpacity(0.8),
+                          ),
+                        ),
+                      ],
                     ),
                 ],
               ),
@@ -594,7 +573,7 @@ class _FeaturedListCard extends StatelessWidget {
                 children: [
                   if (list.position > 0)
                     Text(
-                      'Nº ${list.position} · ${list.count} sitios',
+                      'Nº ${list.position}',
                       style: AppTextStyles.eyebrow(
                         size: 10,
                         color: Colors.white.withOpacity(0.85),

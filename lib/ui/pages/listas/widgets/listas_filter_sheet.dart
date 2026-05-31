@@ -4,28 +4,23 @@ import 'package:guachinches/config/app_text_styles.dart';
 import 'package:guachinches/config/brand_colors.dart';
 
 class ListasFilterValues {
-  final List<String> authors;
   final bool featuredOnly;
   final int minCount;
 
   const ListasFilterValues({
-    this.authors = const [],
     this.featuredOnly = false,
     this.minCount = 0,
   });
 
   int get count =>
-      authors.length +
       (featuredOnly ? 1 : 0) +
       (minCount > 0 ? 1 : 0);
 
   ListasFilterValues copyWith({
-    List<String>? authors,
     bool? featuredOnly,
     int? minCount,
   }) =>
       ListasFilterValues(
-        authors: authors ?? this.authors,
         featuredOnly: featuredOnly ?? this.featuredOnly,
         minCount: minCount ?? this.minCount,
       );
@@ -58,11 +53,6 @@ class ListasFilterSheet extends StatefulWidget {
 class _ListasFilterSheetState extends State<ListasFilterSheet> {
   late ListasFilterValues _values;
 
-  static const _kAuthors = [
-    ('JONAY', 'Jonay'),
-    ('JOANA', 'Joana'),
-  ];
-
   static const _kMinCounts = [
     (5, '≥ 5 sitios'),
     (10, '≥ 10 sitios'),
@@ -75,16 +65,6 @@ class _ListasFilterSheetState extends State<ListasFilterSheet> {
   }
 
   void _clearAll() => setState(() => _values = const ListasFilterValues());
-
-  void _toggleAuthor(String key) {
-    final next = List<String>.from(_values.authors);
-    if (next.contains(key)) {
-      next.remove(key);
-    } else {
-      next.add(key);
-    }
-    setState(() => _values = _values.copyWith(authors: next));
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -134,21 +114,6 @@ class _ListasFilterSheetState extends State<ListasFilterSheet> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _SheetSectionLabel(title: 'AUTOR'),
-                    const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: _kAuthors.map((entry) {
-                        final (key, label) = entry;
-                        return _SheetChip(
-                          label: label,
-                          selected: _values.authors.contains(key),
-                          onTap: () => _toggleAuthor(key),
-                        );
-                      }).toList(),
-                    ),
-                    const SizedBox(height: 22),
                     _SheetSectionLabel(title: 'DESTACADAS'),
                     const SizedBox(height: 10),
                     _SheetChip(
