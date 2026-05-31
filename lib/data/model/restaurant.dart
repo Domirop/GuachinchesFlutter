@@ -134,20 +134,17 @@ class Restaurant {
       double resultado = double.parse(json['lon'].toString());
       lon = resultado;
     }
-    if (json["fotos"] is List) {
-      try{
-        mainFoto = json["fotos"][0]["photoUrl"];
-
-      }catch(e, st) {
+    if (json["fotos"] is List && (json["fotos"] as List).isNotEmpty) {
+      try {
+        mainFoto = json["fotos"][0]["photoUrl"] ?? '';
+      } catch (e, st) {
         mainFoto = '';
         AppLogger.error('restaurant-model', e, st);
       }
-    }else {
-      if (json["fotos.photoUrl"] != null) {
-        mainFoto = json["fotos.photoUrl"];
-      } else {
-        mainFoto = "";
-      }
+    } else if (json["fotos.photoUrl"] != null) {
+      mainFoto = json["fotos.photoUrl"];
+    } else {
+      mainFoto = "";
     }
 
     if (json["avgRating"] != null) {
