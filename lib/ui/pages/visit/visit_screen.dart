@@ -8,16 +8,13 @@ import 'package:guachinches/data/HttpRemoteRepository.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
 import 'package:guachinches/data/http_client.dart';
 import 'package:guachinches/data/model/Visit.dart' as vm;
-import 'package:guachinches/data/model/short_quote.dart';
 import 'package:guachinches/ui/pages/restaurant_detail/restaurant_detail_screen.dart';
 import 'package:guachinches/ui/pages/restaurant_detail/widgets/floating_buttons.dart';
-import 'package:guachinches/ui/pages/restaurant_detail/widgets/del_video_section.dart';
 import 'package:guachinches/ui/pages/restaurant_detail/widgets/dishes_section.dart';
 import 'package:guachinches/ui/pages/restaurant_detail/widgets/ntk_box.dart';
 import 'package:guachinches/ui/pages/restaurant_detail/widgets/pros_cons_section.dart';
 import 'package:guachinches/ui/pages/restaurant_detail/widgets/restaurant_info_card.dart';
 import 'package:guachinches/ui/pages/restaurant_detail/widgets/services_chips_section.dart';
-import 'package:guachinches/ui/pages/restaurant_detail/widgets/ticket_card_widget.dart';
 import 'package:guachinches/ui/pages/restaurant_detail/widgets/visit_header_section.dart';
 import 'package:guachinches/ui/pages/restaurant_detail/widgets/visit_pills_row.dart';
 import 'package:guachinches/ui/components/bottom_cta_bar.dart';
@@ -288,21 +285,6 @@ class _VisitDetailPageState extends State<VisitDetailPage>
             const SizedBox(height: 20),
           ],
 
-          // ⑥ Ticket "42€ PARA DOS" — ocultado: dato no fiable de momento
-          // if (TicketCardWidget.shouldRender(v)) ...[
-          //   TicketCardWidget(visit: v),
-          //   const SizedBox(height: 20),
-          // ],
-
-          // ⑦ DEL VIDEO — ocultado temporalmente (problema de render por investigar)
-          // if (_videoQuotes(v).isNotEmpty) ...[
-          //   DelVideoSection(
-          //     quotes: _videoQuotes(v),
-          //     videoId: v.youtubeVideoId,
-          //   ),
-          //   const SizedBox(height: 20),
-          // ],
-
           // ⑧ LO QUE PEDIMOS
           if (DishesSection.shouldRender(v.dishes)) ...[
             DishesSection(dishes: v.dishes),
@@ -350,15 +332,6 @@ class _VisitDetailPageState extends State<VisitDetailPage>
     return null;
   }
 
-  List<ShortQuote> _videoQuotes(vm.Visit v) {
-    if (v.quotes.isNotEmpty) {
-      return v.quotes
-          .where((q) => q.text.isNotEmpty)
-          .map((q) => ShortQuote(text: q.text, timestamp: q.timestamp))
-          .toList();
-    }
-    return v.restaurant?.shortQuotes ?? const [];
-  }
 }
 
 // ── Thumbnail estático (sin video ID válido) ──────────────────────────────────

@@ -122,7 +122,8 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen>
             }
           }
           return null;
-        } catch (_) {
+        } catch (e) {
+          AppLogger.warn('restaurant-detail', 'Error loading list ${l.id}: $e');
           return null;
         }
       });
@@ -131,8 +132,8 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen>
         ..sort((a, b) => a.position.compareTo(b.position));
       if (!mounted) return;
       setState(() => _listAppearances = appearances);
-    } catch (_) {
-      // silent — listas opcionales
+    } catch (e) {
+      AppLogger.warn('restaurant-detail', 'Error loading curated lists: $e');
     }
   }
 
@@ -144,8 +145,8 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen>
       // Compat endpoint omite highlights/lowlights/quotes — los traemos vía
       // getVisitById en paralelo para alimentar la sección de IA.
       _enrichVisits(basics);
-    } catch (_) {
-      // silent — visits are optional
+    } catch (e) {
+      AppLogger.warn('restaurant-detail', 'Error loading visits: $e');
     }
   }
 
@@ -154,7 +155,8 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen>
       basics.map((v) async {
         try {
           return await _repo.getVisitById(v.id);
-        } catch (_) {
+        } catch (e) {
+          AppLogger.warn('restaurant-detail', 'Error enriching visit ${v.id}: $e');
           return v;
         }
       }),
