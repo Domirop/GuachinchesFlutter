@@ -2079,10 +2079,21 @@ class _MapHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final brand = context.brand;
-    return SafeArea(
-      bottom: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            brand.base.withOpacity(0.92),
+            brand.base.withOpacity(0.0),
+          ],
+        ),
+      ),
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 16),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -2230,7 +2241,8 @@ class _MapHeader extends StatelessWidget {
           ],
         ),
       ),
-    );
+    ),
+  );
   }
 }
 
