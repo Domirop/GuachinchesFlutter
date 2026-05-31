@@ -127,8 +127,6 @@ class _ListasScreenState extends State<ListasScreen> {
                 state is CuratedListsInitial;
             final all = state is CuratedListsLoaded ? state.lists : const <CuratedList>[];
             final filtered = _applyFilters(all);
-            final featured = filtered.isNotEmpty ? filtered.first : null;
-            final rest = filtered.length > 1 ? filtered.sublist(1) : const <CuratedList>[];
 
             return Semantics(
               identifier: 'listas-refresh-indicator',
@@ -166,18 +164,8 @@ class _ListasScreenState extends State<ListasScreen> {
                     child: _EmptyState(author: _author),
                   )
                 else ...[
-                  if (featured != null)
-                    SliverPadding(
-                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-                      sliver: SliverToBoxAdapter(
-                        child: _FeaturedListCard(
-                          list: featured,
-                          onTap: () => _openList(featured),
-                        ),
-                      ),
-                    ),
                   SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 6),
+                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
                     sliver: SliverToBoxAdapter(
                       child: Text(
                         '${filtered.length} listas',
@@ -190,20 +178,19 @@ class _ListasScreenState extends State<ListasScreen> {
                   ),
                   SliverPadding(
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
-                    sliver: SliverGrid(
-                      gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2,
-                        mainAxisSpacing: 12,
-                        crossAxisSpacing: 12,
-                        childAspectRatio: 0.72,
-                      ),
+                    sliver: SliverList(
                       delegate: SliverChildBuilderDelegate(
-                        (_, i) => _GridListCard(
-                          list: rest[i],
-                          onTap: () => _openList(rest[i]),
+                        (_, i) => Padding(
+                          padding: EdgeInsets.only(
+                            bottom: i == filtered.length - 1 ? 0 : 14,
+                          ),
+                          child: _FeaturedListCard(
+                            list: filtered[i],
+                            showFeaturedBadge: i == 0,
+                            onTap: () => _openList(filtered[i]),
+                          ),
                         ),
-                        childCount: rest.length,
+                        childCount: filtered.length,
                       ),
                     ),
                   ),
@@ -511,12 +498,20 @@ class _AuthorFilterRow extends StatelessWidget {
 class _FeaturedListCard extends StatelessWidget {
   final CuratedList list;
   final VoidCallback onTap;
+  final bool showFeaturedBadge;
 
-  const _FeaturedListCard({required this.list, required this.onTap});
+  const _FeaturedListCard({
+    required this.list,
+    required this.onTap,
+    this.showFeaturedBadge = false,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return Semantics(
+      identifier: 'listas-card-${list.id}',
+      button: true,
+      child: GestureDetector(
       onTap: onTap,
       child: Container(
         height: 220,
@@ -562,12 +557,14 @@ class _FeaturedListCard extends StatelessWidget {
               right: 16,
               child: Row(
                 children: [
-                  _Badge(
-                    label: 'DESTACADA',
-                    background: AppColors.mojo,
-                    foreground: Colors.white,
-                  ),
-                  const SizedBox(width: 6),
+                  if (showFeaturedBadge) ...[
+                    _Badge(
+                      label: 'DESTACADA',
+                      background: AppColors.mojo,
+                      foreground: Colors.white,
+                    ),
+                    const SizedBox(width: 6),
+                  ],
                   if (list.eyebrow.isNotEmpty)
                     _Badge(
                       label: list.eyebrow.toUpperCase(),
@@ -631,121 +628,6 @@ class _FeaturedListCard extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-class _GridListCard extends StatelessWidget {
-  final CuratedList list;
-  final VoidCallback onTap;
-
-  const _GridListCard({required this.list, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(18),
-          color: list.accent,
-        ),
-        clipBehavior: Clip.hardEdge,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            // Degradado oscuro para legibilidad del título inferior
-            DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.black.withOpacity(0.05),
-                    Colors.black.withOpacity(0.55),
-                  ],
-                ),
-              ),
-            ),
-            if (list.heroAsset != null)
-              Positioned.fill(
-                child: CuratedHeroImage(source: list.heroAsset!),
-              )
-            else if (list.heroEmoji != null)
-              Positioned(
-                right: -10,
-                bottom: -16,
-                child: Text(
-                  list.heroEmoji!,
-                  style: const TextStyle(fontSize: 110),
-                ),
-              ),
-            // Badge autor + bookmark
-            Positioned(
-              left: 10,
-              top: 10,
-              right: 10,
-              child: Row(
-                children: [
-                  if (list.eyebrow.isNotEmpty)
-                    _Badge(
-                      label: list.eyebrow.toUpperCase(),
-                      background: Colors.black.withOpacity(0.45),
-                      foreground: AppColors.crema.withOpacity(0.9),
-                    ),
-                  const Spacer(),
-                  Icon(
-                    Icons.bookmark_outline_rounded,
-                    size: 18,
-                    color: Colors.white.withOpacity(0.9),
-                  ),
-                ],
-              ),
-            ),
-            // Contador grande lateral derecho
-            if (list.count > 0)
-              Positioned(
-                right: 10,
-                top: 36,
-                child: Text(
-                  '${list.count}',
-                  style: AppTextStyles.displayHero(
-                    size: 44,
-                    color: Colors.white.withOpacity(0.85),
-                  ),
-                ),
-              ),
-            // Pie con nº y título
-            Positioned(
-              left: 10,
-              right: 10,
-              bottom: 10,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (list.position > 0)
-                    Text(
-                      'Nº ${list.position}',
-                      style: AppTextStyles.eyebrow(
-                        size: 9,
-                        color: Colors.white.withOpacity(0.8),
-                      ),
-                    ),
-                  const SizedBox(height: 2),
-                  Text(
-                    list.title.toUpperCase(),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTextStyles.displayHero(
-                      size: 14,
-                      color: Colors.white,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
