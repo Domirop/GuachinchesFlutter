@@ -20,6 +20,8 @@ import 'package:guachinches/data/model/Municipality.dart';
 import 'package:guachinches/data/model/Types.dart';
 import 'package:guachinches/data/model/restaurant.dart';
 import 'package:guachinches/globalMethods.dart';
+import 'package:guachinches/data/cubit/new_home/new_home_filters_cubit.dart';
+import 'package:guachinches/data/cubit/new_home/new_home_filters_state.dart';
 import 'package:guachinches/ui/pages/map/map_search_presenter.dart';
 import 'package:guachinches/ui/pages/map/map_style.dart';
 import 'package:guachinches/ui/pages/restaurant_detail/restaurant_detail_screen.dart';
@@ -70,7 +72,6 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
   bool _quickOpen = false;
   String? _quickCategoryId;
   String _searchText = '';
-  String _municipalityLabel = 'TENERIFE';
 
   StreamSubscription<Position>? _locationSubscription;
   final _DrivingDetector _driving = _DrivingDetector();
@@ -112,10 +113,13 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
     restaurantsCubit = context.read<RestaurantMapCubit>();
     presenter = MapSearchPresenter(this, remoteRepository, restaurantsCubit);
 
-    presenter.getIsland();
+    final filtersState = context.read<NewHomeFiltersCubit>().state;
+    islandId = filtersState.islandId;
+
     presenter.getAllTypes();
-    presenter.getAllMunicipalities('76ac0bec-4bc1-41a5-bc60-e528e0c12f4d');
+    presenter.getAllMunicipalities(islandId);
     presenter.getAllCategories();
+    presenter.getAllRestaurants(islandId);
 
     _driving.isDriving.addListener(_onDrivingChanged);
     _driving.shouldSuggest.addListener(_onDriveSuggested);
@@ -676,8 +680,23 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
           setState(() => _mapMounted = true);
         });
       },
-      child: _buildScaffold(context),
+      child: BlocListener<NewHomeFiltersCubit, NewHomeFiltersState>(
+        listenWhen: (prev, curr) => prev.islandId != curr.islandId,
+        listener: (_, state) => _onIslandChanged(state.islandId),
+        child: _buildScaffold(context),
+      ),
     );
+  }
+
+  void _onIslandChanged(String newIslandId) {
+    if (!mounted) return;
+    setState(() => islandId = newIslandId);
+    presenter.getAllMunicipalities(newIslandId);
+    if (_quickOpen || _quickCategoryId != null || _searchText.isNotEmpty) {
+      _applyQuickFilters();
+    } else {
+      presenter.getAllRestaurants(newIslandId);
+    }
   }
 
   Widget _buildScaffold(BuildContext context) {
@@ -769,7 +788,7 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
                   categories: categories,
                   selectedCategoryId: _quickCategoryId,
                   openActive: _quickOpen,
-                  municipalityLabel: _municipalityLabel,
+                  municipalityLabel: context.read<NewHomeFiltersCubit>().state.islandLabel.toUpperCase(),
                   searchController: _searchController,
                   onSearchChanged: _onSearchChanged,
                   onClearSearch: _clearSearch,
@@ -921,9 +940,7 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
       types: const <String>[],
       text: _searchText,
       isOpen: _quickOpen,
-      islandId: islandId.isEmpty
-          ? '76ac0bec-4bc1-41a5-bc60-e528e0c12f4d'
-          : islandId,
+      islandId: islandId,
     );
   }
 
