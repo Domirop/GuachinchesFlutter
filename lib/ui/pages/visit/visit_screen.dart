@@ -6,6 +6,7 @@ import 'package:guachinches/config/brand_colors.dart';
 import 'package:guachinches/config/app_text_styles.dart';
 import 'package:guachinches/data/HttpRemoteRepository.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
+import 'package:guachinches/data/http_client.dart';
 import 'package:guachinches/data/model/Visit.dart' as vm;
 import 'package:guachinches/data/model/short_quote.dart';
 import 'package:guachinches/ui/pages/restaurant_detail/restaurant_detail_screen.dart';
@@ -22,7 +23,6 @@ import 'package:guachinches/ui/pages/restaurant_detail/widgets/visit_pills_row.d
 import 'package:guachinches/ui/components/bottom_cta_bar.dart';
 import 'package:guachinches/ui/components/shimmer_box.dart';
 import 'package:guachinches/ui/pages/visit/visit_presenter.dart';
-import 'package:http/http.dart';
 import 'package:maps_launcher/maps_launcher.dart';
 import 'package:share_plus/share_plus.dart' show SharePlus, ShareParams;
 import 'package:url_launcher/url_launcher.dart';
@@ -56,7 +56,7 @@ class _VisitDetailPageState extends State<VisitDetailPage>
   @override
   void initState() {
     super.initState();
-    _repo = HttpRemoteRepository(Client());
+    _repo = HttpRemoteRepository(sharedHttpClient);
     _presenter = VisitDetailPresenter(_repo, this);
     _presenter.loadVisit(widget.visitId);
   }

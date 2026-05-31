@@ -340,18 +340,13 @@ class _CercaAhoraScreenState extends State<CercaAhoraScreen> {
                 itemCount: filtered.length,
                 separatorBuilder: (_, __) => const SizedBox(height: 12),
                 itemBuilder: (_, i) {
-                  final r = filtered[i];
-                  final distM = Geolocator.distanceBetween(
-                    loc.latitude,
-                    loc.longitude,
-                    r.lat,
-                    r.lon,
-                  );
+                  final entry = filtered[i];
+                  final distM = entry.distanceMeters;
                   final distStr = distM < 1000
                       ? '${distM.toStringAsFixed(0)} m'
                       : '${(distM / 1000).toStringAsFixed(1)} km';
                   return NearbyRestaurantCard(
-                    restaurant: r,
+                    restaurant: entry.restaurant,
                     distance: distStr,
                   );
                 },
@@ -363,36 +358,38 @@ class _CercaAhoraScreenState extends State<CercaAhoraScreen> {
     );
   }
 
-  List<Restaurant> _computeFiltered(List<Restaurant> all, LocationLoaded loc) {
+  List<_RestaurantWithDistance> _computeFiltered(
+    List<Restaurant> all,
+    LocationLoaded loc,
+  ) {
+    final radiusM = _maxRadiusKm * 1000;
     final result = all
-        .where(
-          (r) =>
-              Geolocator.distanceBetween(
-                loc.latitude,
-                loc.longitude,
-                r.lat,
-                r.lon,
-              ) <=
-              _maxRadiusKm * 1000,
+        .map(
+          (r) => _RestaurantWithDistance(
+            restaurant: r,
+            distanceMeters: Geolocator.distanceBetween(
+              loc.latitude,
+              loc.longitude,
+              r.lat,
+              r.lon,
+            ),
+          ),
         )
-        .toList();
-    result.sort((a, b) {
-      final da = Geolocator.distanceBetween(
-        loc.latitude,
-        loc.longitude,
-        a.lat,
-        a.lon,
-      );
-      final db = Geolocator.distanceBetween(
-        loc.latitude,
-        loc.longitude,
-        b.lat,
-        b.lon,
-      );
-      return da.compareTo(db);
-    });
+        .where((e) => e.distanceMeters <= radiusM)
+        .toList()
+      ..sort((a, b) => a.distanceMeters.compareTo(b.distanceMeters));
     return result;
   }
+}
+
+class _RestaurantWithDistance {
+  final Restaurant restaurant;
+  final double distanceMeters;
+
+  const _RestaurantWithDistance({
+    required this.restaurant,
+    required this.distanceMeters,
+  });
 }
 
 class _CercaListSkeleton extends StatelessWidget {

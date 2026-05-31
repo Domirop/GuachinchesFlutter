@@ -10,7 +10,7 @@ import 'package:guachinches/data/model/Video.dart';
 import 'package:guachinches/data/model/Visit.dart';
 import 'package:guachinches/data/model/restaurant.dart';
 import 'package:guachinches/ui/pages/details/details_presenter.dart';
-import 'package:http/http.dart' as http;
+import 'package:guachinches/data/http_client.dart';
 import 'package:maps_launcher/maps_launcher.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -69,7 +69,7 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen>
   @override
   void initState() {
     super.initState();
-    _repo = widget.repository ?? HttpRemoteRepository(http.Client());
+    _repo = widget.repository ?? HttpRemoteRepository(sharedHttpClient);
     _presenter = DetailPresenter(_repo, this);
     _loadRestaurant();
     _loadIsFav();

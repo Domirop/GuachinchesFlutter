@@ -6,13 +6,13 @@ import 'package:guachinches/config/app_text_styles.dart';
 import 'package:guachinches/config/brand_colors.dart';
 import 'package:guachinches/data/HttpRemoteRepository.dart';
 import 'package:guachinches/data/cubit/curated_list_detail/curated_list_detail_cubit.dart';
+import 'package:guachinches/data/http_client.dart';
 import 'package:guachinches/data/model/curated_list.dart';
 import 'package:guachinches/globalMethods.dart';
 import 'package:share_plus/share_plus.dart' show SharePlus, ShareParams;
 import 'package:guachinches/ui/components/shimmer_box.dart';
 import 'package:guachinches/ui/pages/curated_list_detail/widgets/curated_list_item_card.dart';
 import 'package:guachinches/ui/pages/restaurant_detail/restaurant_detail_screen.dart';
-import 'package:http/http.dart' as http;
 
 enum _SortMode { byPosition, alphabetical }
 
@@ -25,7 +25,7 @@ class CuratedListDetailScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocProvider(
       create: (_) => CuratedListDetailCubit(
-        HttpRemoteRepository(http.Client()),
+        HttpRemoteRepository(sharedHttpClient),
       )..load(list.id),
       child: _LightTheme(child: _CuratedListDetailView(list: list)),
     );
