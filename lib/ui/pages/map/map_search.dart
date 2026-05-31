@@ -798,6 +798,18 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
                 ),
               ),
 
+              // ── Empty state (loaded, no results, not in drive mode) ────
+              if ((state is AllRestaurantMapLoaded ||
+                      state is RestaurantFilterMap) &&
+                  restaurants.isEmpty &&
+                  !isDriving)
+                Positioned.fill(
+                  child: Align(
+                    alignment: Alignment.center,
+                    child: _buildEmptyState(context),
+                  ),
+                ),
+
               // ── Header (search + filter chips) ─────────────────────────
               // In drive mode the search bar is hidden (distraction) and
               // we show a compact chip row at the top with a "Salir" pill.
@@ -996,6 +1008,105 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
     _searchController.clear();
     setState(() => _searchText = '');
     _applyQuickFilters();
+  }
+
+  void _clearAllQuickFilters() {
+    _searchDebounce?.cancel();
+    _searchController.clear();
+    setState(() {
+      _quickOpen = false;
+      _quickCategoryId = null;
+      _searchText = '';
+    });
+    presenter.getAllRestaurants(islandId);
+  }
+
+  Widget _buildEmptyState(BuildContext context) {
+    final brand = context.brand;
+    final l10n = AppL10n.of(context);
+    final hasFilters =
+        _quickOpen || _quickCategoryId != null || _searchText.isNotEmpty;
+    return Semantics(
+      identifier: 'mapa-empty-state',
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 320),
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 20),
+          padding:
+              const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+          decoration: BoxDecoration(
+            color: brand.surface,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: brand.border),
+            boxShadow: [
+              BoxShadow(
+                color: const Color.fromRGBO(0, 0, 0, 0.15),
+                blurRadius: 20,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.location_off_outlined,
+                  color: brand.textMuted, size: 48),
+              const SizedBox(height: 16),
+              Text(
+                l10n.mapEmptyTitle,
+                style: TextStyle(
+                  color: brand.textPrimary,
+                  fontFamily: 'SF Pro Display',
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                hasFilters
+                    ? l10n.mapEmptyWithFilters
+                    : l10n.mapEmptyNoFilters,
+                style: TextStyle(
+                  color: brand.textSecondary,
+                  fontFamily: 'SF Pro Display',
+                  fontSize: 13,
+                  height: 1.4,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              if (hasFilters) ...[
+                const SizedBox(height: 20),
+                Semantics(
+                  identifier: 'mapa-clear-filters',
+                  button: true,
+                  child: GestureDetector(
+                    onTap: _clearAllQuickFilters,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 24, vertical: 13),
+                      decoration: BoxDecoration(
+                        color: AppColors.atlantico,
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Text(
+                        l10n.mapClearFilters,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontFamily: 'SF Pro Display',
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   // ── MapSearchView ──────────────────────────────────────────────────────

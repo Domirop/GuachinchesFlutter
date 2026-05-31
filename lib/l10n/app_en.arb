@@ -40,5 +40,17 @@
   "commonError": "Error",
 
   "openStatusOpen": "Open",
-  "openStatusClosed": "Closed"
+  "openStatusClosed": "Closed",
+
+  "mapEmptyTitle": "No restaurants",
+  "@mapEmptyTitle": {},
+
+  "mapEmptyWithFilters": "No places match these filters. Try clearing them or switching island.",
+  "@mapEmptyWithFilters": {},
+
+  "mapEmptyNoFilters": "There are no restaurants on this island yet.",
+  "@mapEmptyNoFilters": {},
+
+  "mapClearFilters": "Clear filters",
+  "@mapClearFilters": {}
 }

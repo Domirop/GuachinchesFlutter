@@ -119,4 +119,17 @@ class AppL10nEs extends AppL10n {
 
   @override
   String get openStatusClosed => 'Cerrado';
+
+  @override
+  String get mapEmptyTitle => 'Sin restaurantes';
+
+  @override
+  String get mapEmptyWithFilters =>
+      'No encontramos sitios con estos filtros. Prueba a quitarlos o cambiar de isla.';
+
+  @override
+  String get mapEmptyNoFilters => 'Todavía no hay restaurantes en esta isla.';
+
+  @override
+  String get mapClearFilters => 'Quitar filtros';
 }

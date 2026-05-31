@@ -282,6 +282,30 @@ abstract class AppL10n {
   /// In es, this message translates to:
   /// **'Cerrado'**
   String get openStatusClosed;
+
+  /// No description provided for @mapEmptyTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Sin restaurantes'**
+  String get mapEmptyTitle;
+
+  /// No description provided for @mapEmptyWithFilters.
+  ///
+  /// In es, this message translates to:
+  /// **'No encontramos sitios con estos filtros. Prueba a quitarlos o cambiar de isla.'**
+  String get mapEmptyWithFilters;
+
+  /// No description provided for @mapEmptyNoFilters.
+  ///
+  /// In es, this message translates to:
+  /// **'Todavía no hay restaurantes en esta isla.'**
+  String get mapEmptyNoFilters;
+
+  /// No description provided for @mapClearFilters.
+  ///
+  /// In es, this message translates to:
+  /// **'Quitar filtros'**
+  String get mapClearFilters;
 }
 
 class _AppL10nDelegate extends LocalizationsDelegate<AppL10n> {

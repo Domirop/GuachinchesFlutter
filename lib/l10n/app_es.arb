@@ -104,5 +104,17 @@
   "@openStatusOpen": {},
 
   "openStatusClosed": "Cerrado",
-  "@openStatusClosed": {}
+  "@openStatusClosed": {},
+
+  "mapEmptyTitle": "Sin restaurantes",
+  "@mapEmptyTitle": {},
+
+  "mapEmptyWithFilters": "No encontramos sitios con estos filtros. Prueba a quitarlos o cambiar de isla.",
+  "@mapEmptyWithFilters": {},
+
+  "mapEmptyNoFilters": "Todavía no hay restaurantes en esta isla.",
+  "@mapEmptyNoFilters": {},
+
+  "mapClearFilters": "Quitar filtros",
+  "@mapClearFilters": {}
 }
