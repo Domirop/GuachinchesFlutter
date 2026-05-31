@@ -27,6 +27,8 @@ import 'package:guachinches/ui/pages/map/map_style.dart';
 import 'package:guachinches/ui/pages/restaurant_detail/restaurant_detail_screen.dart';
 import 'package:http/http.dart';
 import 'package:maps_launcher/maps_launcher.dart';
+import 'package:guachinches/ui/pages/new_home/sheets/island_picker_sheet.dart';
+import 'package:guachinches/utils/island_key_utils.dart';
 
 const double _markerHueOpen = BitmapDescriptor.hueGreen;
 const double _markerHueClosed = BitmapDescriptor.hueRed;
@@ -699,6 +701,23 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
     }
   }
 
+  void _showIslandSheet(BuildContext context) {
+    IslandPickerSheet.show(
+      context: context,
+      selectedIslandId: context.read<NewHomeFiltersCubit>().state.islandId,
+      onSelect: (island) {
+        final key = (island.key != null && island.key!.isNotEmpty)
+            ? island.key!
+            : islandKeyFromName(island.name);
+        context.read<NewHomeFiltersCubit>().selectIsland(
+              id: island.id,
+              key: key,
+              label: island.name,
+            );
+      },
+    );
+  }
+
   Widget _buildScaffold(BuildContext context) {
     if (!_mapMounted) {
       return Scaffold(
@@ -796,6 +815,7 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
                   onToggleCategory: _toggleCategory,
                   driveMode: isDriving,
                   onExitDrive: _exitDriveMode,
+                  onIslandTap: () => _showIslandSheet(context),
                 ),
               ),
 
@@ -2027,6 +2047,7 @@ class _MapHeader extends StatelessWidget {
   final ValueChanged<String> onToggleCategory;
   final bool driveMode;
   final VoidCallback onExitDrive;
+  final VoidCallback onIslandTap;
 
   const _MapHeader({
     Key? key,
@@ -2041,6 +2062,7 @@ class _MapHeader extends StatelessWidget {
     required this.onToggleCategory,
     this.driveMode = false,
     required this.onExitDrive,
+    required this.onIslandTap,
   }) : super(key: key);
 
   @override
@@ -2115,23 +2137,40 @@ class _MapHeader extends StatelessWidget {
                       );
                     },
                   ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: Colors.transparent,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                          color: GlobalMethods.blueColor, width: 1.4),
-                    ),
-                    child: Text(
-                      municipalityLabel,
-                      style: TextStyle(
-                        color: GlobalMethods.blueColor,
-                        fontFamily: 'SF Pro Display',
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.6,
+                  Semantics(
+                    identifier: 'mapa-island-chip',
+                    button: true,
+                    label: 'Cambiar de isla',
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: onIslandTap,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.transparent,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                              color: GlobalMethods.blueColor, width: 1.4),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              municipalityLabel,
+                              style: TextStyle(
+                                color: GlobalMethods.blueColor,
+                                fontFamily: 'SF Pro Display',
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.6,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Icon(Icons.expand_more,
+                                size: 16, color: GlobalMethods.blueColor),
+                          ],
+                        ),
                       ),
                     ),
                   ),
