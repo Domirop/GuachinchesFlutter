@@ -823,17 +823,22 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
               Positioned(
                 bottom: isDriving ? 140 : 142,
                 right: 16,
-                child: FloatingActionButton.small(
-                  heroTag: 'centerOnUser',
-                  backgroundColor: context.brand.surface,
-                  onPressed: () => _animateToUser(
-                    zoom: isDriving ? 16 : 15,
-                    tilt: isDriving ? 55 : 0,
-                    bearing: isDriving ? _lastHeading : 0,
-                    chase: isDriving,
+                child: Semantics(
+                  identifier: 'mapa-center-fab',
+                  button: true,
+                  label: 'Centrar en mi ubicación',
+                  child: FloatingActionButton.small(
+                    heroTag: 'centerOnUser',
+                    backgroundColor: context.brand.surface,
+                    onPressed: () => _animateToUser(
+                      zoom: isDriving ? 16 : 15,
+                      tilt: isDriving ? 55 : 0,
+                      bearing: isDriving ? _lastHeading : 0,
+                      chase: isDriving,
+                    ),
+                    child: Icon(Icons.my_location,
+                        color: context.brand.textPrimary, size: 20),
                   ),
-                  child: Icon(Icons.my_location,
-                      color: context.brand.textPrimary, size: 20),
                 ),
               ),
 
@@ -870,6 +875,8 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
                   right: 16,
                   child: Semantics(
                     identifier: 'mapa-refresh-fab',
+                    button: true,
+                    label: 'Refrescar restaurantes',
                     child: FloatingActionButton.small(
                       heroTag: 'refreshMap',
                       backgroundColor: context.brand.surface,
@@ -1599,13 +1606,17 @@ class _FloatingMapCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final brand = context.brand;
     final r = restaurant;
-    return GestureDetector(
-      onTap: () => Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => RestaurantDetailScreen(id: r.id),
+    return Semantics(
+      identifier: 'mapa-card-${r.id}',
+      button: true,
+      label: r.nombre,
+      child: GestureDetector(
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => RestaurantDetailScreen(id: r.id),
+          ),
         ),
-      ),
-      child: Container(
+        child: Container(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(22),
           boxShadow: [
@@ -1809,7 +1820,8 @@ class _FloatingMapCard extends StatelessWidget {
             ),
           ),
         ),
-      );
+      ),
+    );
   }
 }
 
@@ -2098,26 +2110,31 @@ class _MapHeader extends StatelessWidget {
                   Icon(Icons.search, color: brand.textMuted, size: 20),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: TextField(
-                      controller: searchController,
-                      onChanged: onSearchChanged,
-                      textInputAction: TextInputAction.search,
-                      cursorColor: GlobalMethods.blueColor,
-                      style: TextStyle(
-                        color: brand.textPrimary,
-                        fontFamily: 'SF Pro Display',
-                        fontSize: 15,
-                      ),
-                      decoration: InputDecoration(
-                        isDense: true,
-                        border: InputBorder.none,
-                        contentPadding:
-                            const EdgeInsets.symmetric(vertical: 14),
-                        hintText: 'Buscar restaurantes...',
-                        hintStyle: TextStyle(
-                          color: brand.textMuted,
+                    child: Semantics(
+                      identifier: 'mapa-search-field',
+                      textField: true,
+                      label: 'Buscar restaurantes',
+                      child: TextField(
+                        controller: searchController,
+                        onChanged: onSearchChanged,
+                        textInputAction: TextInputAction.search,
+                        cursorColor: GlobalMethods.blueColor,
+                        style: TextStyle(
+                          color: brand.textPrimary,
                           fontFamily: 'SF Pro Display',
                           fontSize: 15,
+                        ),
+                        decoration: InputDecoration(
+                          isDense: true,
+                          border: InputBorder.none,
+                          contentPadding:
+                              const EdgeInsets.symmetric(vertical: 14),
+                          hintText: 'Buscar restaurantes...',
+                          hintStyle: TextStyle(
+                            color: brand.textMuted,
+                            fontFamily: 'SF Pro Display',
+                            fontSize: 15,
+                          ),
                         ),
                       ),
                     ),
@@ -2192,6 +2209,7 @@ class _MapHeader extends StatelessWidget {
                     const SizedBox(width: 8),
                   ],
                   _QuickPill(
+                    identifier: 'mapa-pill-abierto',
                     label: 'ABIERTO AHORA',
                     active: openActive,
                     onTap: onToggleOpen,
@@ -2200,6 +2218,7 @@ class _MapHeader extends StatelessWidget {
                   for (final c in categories.take(8)) ...[
                     const SizedBox(width: 8),
                     _QuickPill(
+                      identifier: 'mapa-pill-${c.id}',
                       label: c.nombre.toUpperCase(),
                       active: selectedCategoryId == c.id,
                       onTap: () => onToggleCategory(c.id),
@@ -2319,21 +2338,28 @@ class _QuickPill extends StatelessWidget {
   final bool active;
   final VoidCallback onTap;
   final bool big;
+  final String identifier;
 
   const _QuickPill({
     Key? key,
     required this.label,
     required this.active,
     required this.onTap,
+    required this.identifier,
     this.big = false,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     final brand = context.brand;
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
+    return Semantics(
+      identifier: identifier,
+      button: true,
+      selected: active,
+      label: label,
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         curve: Curves.easeInOut,
         padding: EdgeInsets.symmetric(horizontal: big ? 20 : 18),
@@ -2366,6 +2392,7 @@ class _QuickPill extends StatelessWidget {
           ),
         ),
       ),
-    );
+    ),
+  );
   }
 }
