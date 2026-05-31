@@ -19,7 +19,6 @@ import 'package:guachinches/data/model/Category.dart';
 import 'package:guachinches/data/model/Municipality.dart';
 import 'package:guachinches/data/model/Types.dart';
 import 'package:guachinches/data/model/restaurant.dart';
-import 'package:guachinches/globalMethods.dart';
 import 'package:guachinches/data/cubit/new_home/new_home_filters_cubit.dart';
 import 'package:guachinches/data/cubit/new_home/new_home_filters_state.dart';
 import 'package:guachinches/ui/pages/map/map_search_presenter.dart';
@@ -1309,8 +1308,8 @@ class _DriveNearbyStripState extends State<_DriveNearbyStrip> {
           begin: Alignment.bottomCenter,
           end: Alignment.topCenter,
           colors: [
-            GlobalMethods.bgColor,
-            GlobalMethods.bgColor.withOpacity(0.0),
+            context.brand.base,
+            context.brand.base.withOpacity(0.0),
           ],
         ),
       ),
@@ -1378,12 +1377,12 @@ class _DriveNearestCard extends StatelessWidget {
       margin: const EdgeInsets.symmetric(horizontal: 2),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: GlobalMethods.bgColor,
+        color: context.brand.elevated,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white12, width: 1),
+        border: Border.all(color: context.brand.border, width: 1),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.4),
+            color: Colors.black.withOpacity(0.18),
             blurRadius: 14,
             offset: const Offset(0, 6),
           ),
@@ -1411,8 +1410,8 @@ class _DriveNearestCard extends StatelessWidget {
                   restaurant.nombre,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: context.brand.textPrimary,
                     fontFamily: 'SF Pro Display',
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
@@ -1481,14 +1480,14 @@ class _DrivePill extends StatelessWidget {
           decoration: BoxDecoration(
             color: active
                 ? AppColors.atlantico
-                : const Color(0xFF2A2D36),
+                : context.brand.surface,
             borderRadius: BorderRadius.circular(22),
             border: Border.all(
               color: active
                   ? AppColors.atlantico
                   : (closingSoon || unreachable)
                       ? status.color.withOpacity(0.6)
-                      : Colors.white10,
+                      : context.brand.border,
               width: (closingSoon || unreachable) && !active ? 1.4 : 1,
             ),
             boxShadow: active
@@ -1520,7 +1519,7 @@ class _DrivePill extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: Colors.white,
+                    color: active ? Colors.white : context.brand.textPrimary,
                     fontFamily: 'SF Pro Display',
                     fontSize: 12,
                     fontWeight: active ? FontWeight.w800 : FontWeight.w700,
@@ -1539,7 +1538,7 @@ class _DrivePill extends StatelessWidget {
                       ? Colors.white
                       : (closingSoon || unreachable)
                           ? status.color
-                          : Colors.white60,
+                          : context.brand.textMuted,
                   fontFamily: 'SF Pro Display',
                   fontSize: 12,
                   fontWeight: (closingSoon || unreachable)
