@@ -9,6 +9,7 @@ import 'package:guachinches/data/cubit/curated_list_detail/curated_list_detail_c
 import 'package:guachinches/data/model/curated_list.dart';
 import 'package:guachinches/globalMethods.dart';
 import 'package:share_plus/share_plus.dart' show SharePlus, ShareParams;
+import 'package:guachinches/ui/components/shimmer_box.dart';
 import 'package:guachinches/ui/pages/curated_list_detail/widgets/curated_list_item_card.dart';
 import 'package:guachinches/ui/pages/restaurant_detail/restaurant_detail_screen.dart';
 import 'package:http/http.dart' as http;
@@ -650,15 +651,36 @@ class _LoadingView extends StatelessWidget {
             items: const [],
           ),
         ),
-        SliverFillRemaining(
-          hasScrollBody: false,
-          child: Padding(
-            padding: const EdgeInsets.all(40),
-            child: Center(
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: list.accent,
+        SliverPadding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          sliver: SliverList(
+            delegate: SliverChildBuilderDelegate(
+              (context, index) => Semantics(
+                identifier: 'curated-list-skeleton',
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      ShimmerBox(width: 96, height: 96, radius: 12),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            ShimmerBox(width: double.infinity, height: 16, radius: 4),
+                            const SizedBox(height: 8),
+                            ShimmerBox(width: 160, height: 13, radius: 4),
+                            const SizedBox(height: 6),
+                            ShimmerBox(width: 100, height: 13, radius: 4),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
+              childCount: 4,
             ),
           ),
         ),

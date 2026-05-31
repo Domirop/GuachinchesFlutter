@@ -15,6 +15,7 @@ import 'package:guachinches/data/cubit/restaurants/basic/restaurant_state.dart';
 import 'package:guachinches/data/local/http_cache_store.dart';
 import 'package:guachinches/data/model/restaurant.dart';
 import 'package:guachinches/ui/components/cards/nearby_restaurant_card.dart';
+import 'package:guachinches/ui/components/shimmer_box.dart';
 import 'package:guachinches/utils/location_prompt_action.dart';
 
 class CercaAhoraScreen extends StatefulWidget {
@@ -153,7 +154,7 @@ class _CercaAhoraScreenState extends State<CercaAhoraScreen> {
               // el usuario SÍ tiene permisos pero el cubit aún no terminó.
               if (locationState is LocationInitial ||
                   locationState is LocationLoading) {
-                return const Center(child: CircularProgressIndicator());
+                return const _CercaListSkeleton();
               }
               if (locationState is LocationLoaded) {
                 return _buildContent(context, locationState);
@@ -230,13 +231,13 @@ class _CercaAhoraScreenState extends State<CercaAhoraScreen> {
     return BlocBuilder<RestaurantCubit, RestaurantState>(
       builder: (context, state) {
         if (_isLoading) {
-          return const Center(child: CircularProgressIndicator());
+          return const _CercaListSkeleton();
         }
         if (state is RestaurantFilter) {
           return _buildListOrEmpty(context, loc, state.filtersRestaurants);
         }
         if (_initialized) {
-          return const Center(child: CircularProgressIndicator());
+          return const _CercaListSkeleton();
         }
         return const SizedBox.shrink();
       },
@@ -391,5 +392,41 @@ class _CercaAhoraScreenState extends State<CercaAhoraScreen> {
       return da.compareTo(db);
     });
     return result;
+  }
+}
+
+class _CercaListSkeleton extends StatelessWidget {
+  const _CercaListSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      identifier: 'cerca-ahora-skeleton',
+      child: ListView.separated(
+        physics: const NeverScrollableScrollPhysics(),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        itemCount: 6,
+        separatorBuilder: (_, __) => const SizedBox(height: 12),
+        itemBuilder: (_, __) => Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ShimmerBox(width: 88, height: 88, radius: 12),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ShimmerBox(width: double.infinity, height: 16, radius: 4),
+                  const SizedBox(height: 8),
+                  ShimmerBox(width: 140, height: 13, radius: 4),
+                  const SizedBox(height: 6),
+                  ShimmerBox(width: 90, height: 13, radius: 4),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

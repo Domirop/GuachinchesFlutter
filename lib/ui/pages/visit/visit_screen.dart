@@ -20,6 +20,7 @@ import 'package:guachinches/ui/pages/restaurant_detail/widgets/ticket_card_widge
 import 'package:guachinches/ui/pages/restaurant_detail/widgets/visit_header_section.dart';
 import 'package:guachinches/ui/pages/restaurant_detail/widgets/visit_pills_row.dart';
 import 'package:guachinches/ui/components/bottom_cta_bar.dart';
+import 'package:guachinches/ui/components/shimmer_box.dart';
 import 'package:guachinches/ui/pages/visit/visit_presenter.dart';
 import 'package:http/http.dart';
 import 'package:maps_launcher/maps_launcher.dart';
@@ -471,17 +472,68 @@ class _LoadingView extends StatelessWidget {
   const _LoadingView();
 
   @override
-  Widget build(BuildContext context) => Center(
+  Widget build(BuildContext context) {
+    return Semantics(
+      identifier: 'visit-detail-skeleton',
+      child: SingleChildScrollView(
+        physics: const NeverScrollableScrollPhysics(),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const CircularProgressIndicator(color: AppColors.atlantico),
-            const SizedBox(height: 12),
-            Text('Cargando visita…',
-                style: AppTextStyles.ui(size: 11, color: context.brand.textMuted)),
+            // Hero 16:9
+            AspectRatio(
+              aspectRatio: 16 / 9,
+              child: ShimmerBox(
+                width: double.infinity,
+                height: 220,
+                radius: 0,
+              ),
+            ),
+            const SizedBox(height: 16),
+            // Title
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: ShimmerBox(width: 220, height: 22, radius: 6),
+            ),
+            const SizedBox(height: 10),
+            // Subtitle
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: ShimmerBox(width: 160, height: 16, radius: 6),
+            ),
+            const SizedBox(height: 20),
+            // Paragraph block 1
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ShimmerBox(width: double.infinity, height: 14, radius: 4),
+                  const SizedBox(height: 8),
+                  ShimmerBox(width: double.infinity, height: 14, radius: 4),
+                  const SizedBox(height: 8),
+                  ShimmerBox(width: 200, height: 14, radius: 4),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            // Paragraph block 2
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ShimmerBox(width: double.infinity, height: 14, radius: 4),
+                  const SizedBox(height: 8),
+                  ShimmerBox(width: 240, height: 14, radius: 4),
+                ],
+              ),
+            ),
           ],
         ),
-      );
+      ),
+    );
+  }
 }
 
 class _ErrorView extends StatelessWidget {

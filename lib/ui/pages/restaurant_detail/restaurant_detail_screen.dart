@@ -15,6 +15,7 @@ import 'package:maps_launcher/maps_launcher.dart';
 import 'package:share_plus/share_plus.dart';
 
 import 'package:guachinches/ui/components/bottom_cta_bar.dart';
+import 'package:guachinches/ui/components/shimmer_box.dart';
 import 'widgets/ai_insights_section.dart';
 import 'widgets/categories_chips.dart';
 import 'widgets/detail_hero.dart';
@@ -526,20 +527,61 @@ class _DetailSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const CircularProgressIndicator(color: AppColors.atlantico),
-          const SizedBox(height: 12),
-          Text(
-            'Cargando…',
-            style: AppTextStyles.ui(
-              size: 11,
-              color: context.brand.textMuted,
+    return Semantics(
+      identifier: 'restaurant-detail-skeleton',
+      child: SingleChildScrollView(
+        physics: const NeverScrollableScrollPhysics(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Hero
+            ShimmerBox(
+              width: double.infinity,
+              height: 340,
+              radius: 0,
             ),
-          ),
-        ],
+            const SizedBox(height: 16),
+            // Title line
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: ShimmerBox(width: 200, height: 22, radius: 6),
+            ),
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: ShimmerBox(width: 140, height: 16, radius: 6),
+            ),
+            const SizedBox(height: 16),
+            // Chips row
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                children: [
+                  ShimmerBox(width: 72, height: 28, radius: 14),
+                  const SizedBox(width: 8),
+                  ShimmerBox(width: 88, height: 28, radius: 14),
+                  const SizedBox(width: 8),
+                  ShimmerBox(width: 64, height: 28, radius: 14),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            // Paragraph lines
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ShimmerBox(width: double.infinity, height: 14, radius: 4),
+                  const SizedBox(height: 8),
+                  ShimmerBox(width: double.infinity, height: 14, radius: 4),
+                  const SizedBox(height: 8),
+                  ShimmerBox(width: 220, height: 14, radius: 4),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
