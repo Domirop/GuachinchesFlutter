@@ -10,6 +10,8 @@ class BottomCtaBar extends StatelessWidget {
   final String primaryLabel;
   final VoidCallback? onSecondary;
   final IconData secondaryIcon;
+  final String? primaryIdentifier;
+  final String? secondaryIdentifier;
 
   const BottomCtaBar({
     super.key,
@@ -17,37 +19,50 @@ class BottomCtaBar extends StatelessWidget {
     this.primaryLabel = 'CÓMO LLEGAR ›',
     this.onSecondary,
     this.secondaryIcon = Icons.ios_share,
+    this.primaryIdentifier,
+    this.secondaryIdentifier,
   });
 
   @override
   Widget build(BuildContext context) {
     final bottom = MediaQuery.of(context).padding.bottom;
+    final primaryBtn = ElevatedButton(
+      style: ElevatedButton.styleFrom(
+        backgroundColor: AppColors.atlantico,
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+        ),
+        elevation: 0,
+      ),
+      onPressed: onPrimary,
+      child: Text(
+        primaryLabel,
+        style: AppTextStyles.displaySection(size: 11)
+            .copyWith(color: Colors.white, letterSpacing: 1.0),
+      ),
+    );
     return Container(
       color: context.brand.base,
       padding: EdgeInsets.fromLTRB(16, 10, 16, bottom + 10),
       child: Row(
         children: [
           Expanded(
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.atlantico,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                elevation: 0,
-              ),
-              onPressed: onPrimary,
-              child: Text(
-                primaryLabel,
-                style: AppTextStyles.displaySection(size: 11)
-                    .copyWith(color: Colors.white, letterSpacing: 1.0),
-              ),
-            ),
+            child: primaryIdentifier != null
+                ? Semantics(
+                    identifier: primaryIdentifier!,
+                    button: true,
+                    child: primaryBtn,
+                  )
+                : primaryBtn,
           ),
           if (onSecondary != null) ...[
             const SizedBox(width: 8),
-            _SecondaryBtn(icon: secondaryIcon, onTap: onSecondary!),
+            _SecondaryBtn(
+              icon: secondaryIcon,
+              onTap: onSecondary!,
+              identifier: secondaryIdentifier,
+            ),
           ],
         ],
       ),
@@ -58,12 +73,13 @@ class BottomCtaBar extends StatelessWidget {
 class _SecondaryBtn extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;
+  final String? identifier;
 
-  const _SecondaryBtn({required this.icon, required this.onTap});
+  const _SecondaryBtn({required this.icon, required this.onTap, this.identifier});
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    final gesture = GestureDetector(
       onTap: onTap,
       child: Container(
         width: 46,
@@ -77,5 +93,9 @@ class _SecondaryBtn extends StatelessWidget {
         child: Icon(icon, size: 18, color: context.brand.textPrimary),
       ),
     );
+    if (identifier != null) {
+      return Semantics(identifier: identifier!, button: true, child: gesture);
+    }
+    return gesture;
   }
 }

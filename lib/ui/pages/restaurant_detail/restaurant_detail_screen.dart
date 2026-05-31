@@ -288,6 +288,8 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen>
             isSaved: _isSaved,
             onBack: () => Navigator.pop(context),
             onToggleSave: _toggleSave,
+            backIdentifier: 'restaurant-detail-back-button',
+            saveIdentifier: 'restaurant-detail-save-button',
           ),
         ],
       ),
@@ -296,26 +298,31 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen>
           : BottomCtaBar(
               onPrimary: _openMaps,
               onSecondary: _share,
+              primaryIdentifier: 'restaurant-detail-maps-button',
+              secondaryIdentifier: 'restaurant-detail-share-button',
             ),
     );
   }
 
   Widget _buildScrollContent() {
     final r = _restaurant!;
-    return CustomScrollView(
-      controller: _scrollCtrl,
-      slivers: [
-        SliverToBoxAdapter(child: DetailHero(restaurant: r)),
-        SliverPersistentHeader(
-          pinned: true,
-          delegate: SectionNavbarDelegate(
-            labels: _labels,
-            activeIndex: _activeSection,
-            onTap: _scrollToSection,
+    return Semantics(
+      identifier: 'restaurant-detail-content',
+      child: CustomScrollView(
+        controller: _scrollCtrl,
+        slivers: [
+          SliverToBoxAdapter(child: DetailHero(restaurant: r)),
+          SliverPersistentHeader(
+            pinned: true,
+            delegate: SectionNavbarDelegate(
+              labels: _labels,
+              activeIndex: _activeSection,
+              onTap: _scrollToSection,
+            ),
           ),
-        ),
-        SliverToBoxAdapter(child: _buildBody(r)),
-      ],
+          SliverToBoxAdapter(child: _buildBody(r)),
+        ],
+      ),
     );
   }
 

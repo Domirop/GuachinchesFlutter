@@ -117,7 +117,9 @@ class _CuratedListDetailViewState extends State<_CuratedListDetailView> {
     final municipalities = _municipalitiesFrom(detail);
     final filtered = _applyFilters(detail);
 
-    return CustomScrollView(
+    return Semantics(
+      identifier: 'curated-list-content',
+      child: CustomScrollView(
       slivers: [
         _Hero(detail: detail),
         SliverToBoxAdapter(
@@ -157,6 +159,7 @@ class _CuratedListDetailViewState extends State<_CuratedListDetailView> {
             ),
           ),
       ],
+    ),
     );
   }
 
@@ -241,6 +244,7 @@ class _Hero extends StatelessWidget {
                 _IconChip(
                   icon: Icons.arrow_back_rounded,
                   onTap: () => Navigator.of(context).maybePop(),
+                  identifier: 'curated-list-back-button',
                 ),
                 const Spacer(),
                 _IconChip(
@@ -248,6 +252,7 @@ class _Hero extends StatelessWidget {
                   onTap: () => SharePlus.instance.share(
                     ShareParams(text: '${detail.title} en ¿Dónde Comer Canarias?'),
                   ),
+                  identifier: 'curated-list-share-button',
                 ),
               ],
             ),
@@ -331,11 +336,12 @@ class _Hero extends StatelessWidget {
 class _IconChip extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;
-  const _IconChip({required this.icon, required this.onTap});
+  final String? identifier;
+  const _IconChip({required this.icon, required this.onTap, this.identifier});
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    final gesture = GestureDetector(
       onTap: onTap,
       child: Container(
         width: 40,
@@ -348,6 +354,10 @@ class _IconChip extends StatelessWidget {
         child: Icon(icon, size: 18, color: AppColors.ink),
       ),
     );
+    if (identifier != null) {
+      return Semantics(identifier: identifier!, button: true, child: gesture);
+    }
+    return gesture;
   }
 }
 
@@ -694,31 +704,34 @@ class _EmptyView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(32),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.search_off_rounded,
-              size: 48, color: AppColors.inkMuted),
-          const SizedBox(height: 12),
-          Text(
-            'Sin resultados',
-            style: AppTextStyles.displayHero(
-              size: 22,
-              color: AppColors.ink,
+    return Semantics(
+      identifier: 'curated-list-empty',
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.search_off_rounded,
+                size: 48, color: AppColors.inkMuted),
+            const SizedBox(height: 12),
+            Text(
+              'Sin resultados',
+              style: AppTextStyles.displayHero(
+                size: 22,
+                color: AppColors.ink,
+              ),
             ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'Prueba a quitar algún filtro o cambiar la búsqueda.',
-            textAlign: TextAlign.center,
-            style: AppTextStyles.editorial(
-              size: 13,
-              color: AppColors.inkSoft,
+            const SizedBox(height: 6),
+            Text(
+              'Prueba a quitar algún filtro o cambiar la búsqueda.',
+              textAlign: TextAlign.center,
+              style: AppTextStyles.editorial(
+                size: 13,
+                color: AppColors.inkSoft,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -732,19 +745,22 @@ class _ErrorView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Align(
-              alignment: Alignment.topLeft,
-              child: _IconChip(
-                icon: Icons.arrow_back_rounded,
-                onTap: () => Navigator.of(context).maybePop(),
+    return Semantics(
+      identifier: 'curated-list-error',
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Align(
+                alignment: Alignment.topLeft,
+                child: _IconChip(
+                  icon: Icons.arrow_back_rounded,
+                  onTap: () => Navigator.of(context).maybePop(),
+                  identifier: 'curated-list-error-back',
+                ),
               ),
-            ),
             const Spacer(),
             Icon(Icons.cloud_off_rounded,
                 size: 48, color: AppColors.inkMuted),
@@ -791,6 +807,7 @@ class _ErrorView extends StatelessWidget {
           ],
         ),
       ),
+    ),
     );
   }
 }

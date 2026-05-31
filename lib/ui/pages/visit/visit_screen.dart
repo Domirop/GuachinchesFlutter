@@ -233,6 +233,8 @@ class _VisitDetailPageState extends State<VisitDetailPage>
       bottomNavigationBar: BottomCtaBar(
         onPrimary: _openMaps,
         onSecondary: _share,
+        primaryIdentifier: 'visit-detail-maps-button',
+        secondaryIdentifier: 'visit-detail-share-button',
       ),
     );
   }
@@ -241,7 +243,9 @@ class _VisitDetailPageState extends State<VisitDetailPage>
     final v = _visit!;
     final r = v.restaurant;
 
-    return SingleChildScrollView(
+    return Semantics(
+      identifier: 'visit-detail-content',
+      child: SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -318,6 +322,7 @@ class _VisitDetailPageState extends State<VisitDetailPage>
           ],
         ],
       ),
+    ),
     );
   }
 
@@ -327,11 +332,11 @@ class _VisitDetailPageState extends State<VisitDetailPage>
       children: [
         Positioned(
           top: top, left: 12,
-          child: FloatingCircleButton(icon: Icons.arrow_back_ios_new, onTap: () => Navigator.pop(context)),
+          child: FloatingCircleButton(icon: Icons.arrow_back_ios_new, onTap: () => Navigator.pop(context), identifier: 'visit-detail-back-button'),
         ),
         Positioned(
           top: top, right: 12,
-          child: FloatingCircleButton(icon: Icons.storefront_outlined, onTap: _goToRestaurant),
+          child: FloatingCircleButton(icon: Icons.storefront_outlined, onTap: _goToRestaurant, identifier: 'visit-detail-restaurant-button'),
         ),
       ],
     );
@@ -543,27 +548,34 @@ class _ErrorView extends StatelessWidget {
   const _ErrorView({required this.message, required this.onRetry});
 
   @override
-  Widget build(BuildContext context) => Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.error_outline, color: context.brand.textMuted, size: 32),
-              const SizedBox(height: 12),
-              Text(message,
-                  style: AppTextStyles.ui(size: 13, color: context.brand.textSecondary),
-                  textAlign: TextAlign.center),
-              const SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: onRetry,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.atlantico,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+  Widget build(BuildContext context) => Semantics(
+        identifier: 'visit-detail-error',
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.error_outline, color: context.brand.textMuted, size: 32),
+                const SizedBox(height: 12),
+                Text(message,
+                    style: AppTextStyles.ui(size: 13, color: context.brand.textSecondary),
+                    textAlign: TextAlign.center),
+                const SizedBox(height: 20),
+                Semantics(
+                  identifier: 'visit-detail-retry-button',
+                  button: true,
+                  child: ElevatedButton(
+                    onPressed: onRetry,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.atlantico,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: const Text('Reintentar'),
+                  ),
                 ),
-                child: const Text('Reintentar'),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       );
