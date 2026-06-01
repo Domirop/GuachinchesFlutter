@@ -20,6 +20,8 @@ class VisitasScreen extends StatefulWidget {
 }
 
 class _VisitasScreenState extends State<VisitasScreen> {
+  static const int _kVisitasTabIndex = 3;
+
   String? _userId;
   bool _loadTriggered = false;
   bool _noSession = false;
@@ -64,16 +66,23 @@ class _VisitasScreenState extends State<VisitasScreen> {
       ),
       body: Semantics(
         identifier: 'visitas-screen-root',
-        child: BlocListener<UserCubit, UserState>(
-          listener: (context, userState) {
-            // Cuando el usuario termina de resolverse tras un arranque en frío
-            // (race en TestFlight: el tab monta antes de que UserCubit cargue),
-            // disparamos la carga de visitas si aún no se hizo.
-            if (userState is UserLoaded && !_loadTriggered) {
+        child: BlocListener<MenuCubit, MenuState>(
+          listenWhen: (prev, curr) => prev.selectedIndex != curr.selectedIndex,
+          listener: (context, state) {
+            if (state.selectedIndex == _kVisitasTabIndex && !_loadTriggered) {
               _resolveUserIdAndLoad();
             }
           },
-          child: BlocBuilder<UserVisitsCubit, UserVisitsState>(
+          child: BlocListener<UserCubit, UserState>(
+            listener: (context, userState) {
+              // Cuando el usuario termina de resolverse tras un arranque en frío
+              // (race en TestFlight: el tab monta antes de que UserCubit cargue),
+              // disparamos la carga de visitas si aún no se hizo.
+              if (userState is UserLoaded && !_loadTriggered) {
+                _resolveUserIdAndLoad();
+              }
+            },
+            child: BlocBuilder<UserVisitsCubit, UserVisitsState>(
             builder: (context, state) {
               if (_noSession && state is UserVisitsInitial) {
                 return _NoSessionBody(brand: brand);
@@ -107,6 +116,7 @@ class _VisitasScreenState extends State<VisitasScreen> {
               }
               return const SizedBox.shrink();
             },
+          ),
           ),
         ),
       ),
