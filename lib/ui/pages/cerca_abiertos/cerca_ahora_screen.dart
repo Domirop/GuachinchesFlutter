@@ -14,7 +14,7 @@ import 'package:guachinches/data/cubit/restaurants/basic/restaurant_cubit.dart';
 import 'package:guachinches/data/cubit/restaurants/basic/restaurant_state.dart';
 import 'package:guachinches/data/local/http_cache_store.dart';
 import 'package:guachinches/data/model/restaurant.dart';
-import 'package:guachinches/ui/components/cards/nearby_restaurant_card.dart';
+import 'package:guachinches/ui/components/cards/cerca_ahora_list_card.dart';
 import 'package:guachinches/ui/components/shimmer_box.dart';
 import 'package:guachinches/utils/location_prompt_action.dart';
 
@@ -345,7 +345,7 @@ class _CercaAhoraScreenState extends State<CercaAhoraScreen> {
                   final distStr = distM < 1000
                       ? '${distM.toStringAsFixed(0)} m'
                       : '${(distM / 1000).toStringAsFixed(1)} km';
-                  return NearbyRestaurantCard(
+                  return CercaAhoraListCard(
                     restaurant: entry.restaurant,
                     distance: distStr,
                   );
