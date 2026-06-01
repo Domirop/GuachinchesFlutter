@@ -124,14 +124,14 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
 
     _driving.isDriving.addListener(_onDrivingChanged);
     _driving.shouldSuggest.addListener(_onDriveSuggested);
-    _startLiveLocation();
     _buildDotIcons();
 
     // Si abrimos directamente esta pestaña (deep-link / initialIndex), ya
-    // estamos visibles → marcamos como montado para no mostrar placeholder.
+    // estamos visibles → marcamos como montado y arrancamos sensores.
     final menu = context.read<MenuCubit>();
     if (menu.state.selectedIndex == _kMapTabIndex) {
       _mapMounted = true;
+      _startLiveLocation();
     }
   }
 
@@ -300,6 +300,7 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
 
   // ── Location ───────────────────────────────────────────────────────────
   Future<void> _startLiveLocation() async {
+    if (_locationSubscription != null) return;
     try {
       final serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) return;
@@ -320,6 +321,16 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
       ).listen(_onPositionUpdate);
     } catch (e) {
       debugPrint('Error tracking location: $e');
+    }
+  }
+
+  void _setSensorsActive(bool active) {
+    if (active) {
+      _startLiveLocation();
+    } else {
+      _locationSubscription?.cancel();
+      _locationSubscription = null;
+      _driving.onPaused();
     }
   }
 
@@ -670,16 +681,18 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
   @override
   Widget build(BuildContext context) {
     return BlocListener<MenuCubit, MenuState>(
-      listenWhen: (prev, curr) =>
-          !_mapMounted && curr.selectedIndex == _kMapTabIndex,
-      listener: (_, __) {
-        // Pequeño delay: el IndexedStack acaba de hacer visible este hijo,
-        // damos un frame para que la Vista esté lista antes de montar la
-        // platform view de GoogleMap. Evita tiles en blanco.
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!mounted || _mapMounted) return;
-          setState(() => _mapMounted = true);
-        });
+      listenWhen: (prev, curr) => prev.selectedIndex != curr.selectedIndex,
+      listener: (_, state) {
+        final onMap = state.selectedIndex == _kMapTabIndex;
+        // Primera vez que el usuario entra al tab Mapa: montamos la
+        // platform view con un frame de delay para evitar tiles en blanco.
+        if (onMap && !_mapMounted) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted || _mapMounted) return;
+            setState(() => _mapMounted = true);
+          });
+        }
+        _setSensorsActive(onMap);
       },
       child: BlocListener<NewHomeFiltersCubit, NewHomeFiltersState>(
         listenWhen: (prev, curr) => prev.islandId != curr.islandId,
@@ -1205,6 +1218,12 @@ class _DrivingDetector {
     _suppressUntil = DateTime.now().add(const Duration(minutes: 5));
     isDriving.value = false;
     shouldSuggest.value = false;
+  }
+
+  void onPaused() {
+    _samples.clear();
+    _lastPos = null;
+    currentSpeed.value = 0;
   }
 
   void dispose() {
