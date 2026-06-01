@@ -128,17 +128,23 @@ class ParallaxHero extends StatelessWidget {
   }
 
   Widget _localPhoto(BuildContext context) {
+    // Fondo de marca sólido SIEMPRE detrás de la foto: si el asset no decodifica
+    // (p.ej. Impeller fallando con algún webp en release), el texto editorial
+    // blanco del hero queda sobre un azul atlántico legible, nunca sobre gris.
+    const fallback = AppColors.atlantico;
     if (assetImage != null) {
       return Container(
-        decoration: BoxDecoration(
-          image: DecorationImage(
-            image: AssetImage(assetImage!),
-            fit: BoxFit.cover,
-          ),
+        color: fallback,
+        child: Image.asset(
+          assetImage!,
+          fit: BoxFit.cover,
+          width: double.infinity,
+          height: double.infinity,
+          errorBuilder: (_, __, ___) => const ColoredBox(color: fallback),
         ),
       );
     }
-    return Container(color: context.brand.surface);
+    return Container(color: fallback);
   }
 
   Widget _buildFadeGradient(BuildContext context) {
