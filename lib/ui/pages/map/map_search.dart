@@ -507,8 +507,9 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
     final double dotSize = selected ? 9 : 7;
     final double dotGap = selected ? 7 : 5;
 
+    final bool hasRating = r.avgRating > 0;
     final ratingText =
-        r.avgRating > 0 ? r.avgRating.toStringAsFixed(1) : 'n/d';
+        hasRating ? r.avgRating.toStringAsFixed(1) : '';
 
     final ratingPainter = TextPainter(
       text: TextSpan(
@@ -525,7 +526,9 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
     );
     ratingPainter.layout();
 
-    final double w = pad + dotSize + dotGap + ratingPainter.width + pad;
+    final double w = hasRating
+        ? pad + dotSize + dotGap + ratingPainter.width + pad
+        : pad + dotSize + pad;
     // Halo around selected marker so it stands out on the map. Padding only
     // on top + sides (not below) so the tail tip stays at the bitmap bottom
     // and the marker anchor (0.5, 1.0) lands on the restaurant coords.
@@ -598,13 +601,15 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
     );
 
     // Rating text.
-    ratingPainter.paint(
-      canvas,
-      Offset(
-        originX + pad + dotSize + dotGap,
-        originY + (h - ratingPainter.height) / 2,
-      ),
-    );
+    if (hasRating) {
+      ratingPainter.paint(
+        canvas,
+        Offset(
+          originX + pad + dotSize + dotGap,
+          originY + (h - ratingPainter.height) / 2,
+        ),
+      );
+    }
 
     // Tail (downward triangle).
     final tailCenterX = originX + w / 2;
