@@ -1844,31 +1844,33 @@ class _FloatingMapCard extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   // Distance pill
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: AppColors.atlantico.withOpacity(0.10),
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.place_rounded,
-                            color: AppColors.atlantico, size: 12),
-                        const SizedBox(width: 3),
-                        Text(
-                          _fmtDistance(distanceMeters),
-                          style: AppTextStyles.ui(
-                            size: 11,
-                            weight: FontWeight.w700,
-                            color: AppColors.atlantico,
+                  if (distanceMeters.isFinite) ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: AppColors.atlantico.withOpacity(0.10),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.place_rounded,
+                              color: AppColors.atlantico, size: 12),
+                          const SizedBox(width: 3),
+                          Text(
+                            _fmtDistance(distanceMeters),
+                            style: AppTextStyles.ui(
+                              size: 11,
+                              weight: FontWeight.w700,
+                              color: AppColors.atlantico,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 6),
+                    const SizedBox(height: 6),
+                  ],
                   Text(
                     r.nombre.toUpperCase(),
                     maxLines: 2,
