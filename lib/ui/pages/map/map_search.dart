@@ -693,11 +693,7 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
     if (!mounted) return;
     setState(() => islandId = newIslandId);
     presenter.getAllMunicipalities(newIslandId);
-    if (_quickOpen || _quickCategoryId != null || _searchText.isNotEmpty) {
-      _applyQuickFilters();
-    } else {
-      presenter.getAllRestaurants(newIslandId);
-    }
+    presenter.getAllRestaurants(newIslandId);
   }
 
   void _showIslandSheet(BuildContext context) {
@@ -751,6 +747,7 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
           } else if (state is RestaurantFilterMap) {
             restaurants = state.filtersRestaurants;
           }
+          restaurants = _applyClientFilters(restaurants);
           final dataChanged =
               !identical(_allRestaurants, restaurants) &&
                   _allRestaurants.length != restaurants.length;
@@ -974,32 +971,34 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
     );
   }
 
-  void _applyQuickFilters() {
-    restaurantsCubit.getFilterMapRestaurants(
-      categories: _quickCategoryId == null ? <String>[] : [_quickCategoryId!],
-      municipalities: const <String>[],
-      types: const <String>[],
-      text: _searchText,
-      isOpen: _quickOpen,
-      islandId: islandId,
-    );
+  List<Restaurant> _applyClientFilters(List<Restaurant> source) {
+    if (!_quickOpen && _quickCategoryId == null && _searchText.trim().isEmpty) {
+      return source;
+    }
+    final q = _searchText.trim().toLowerCase();
+    return source.where((r) {
+      if (_quickOpen && !r.open) return false;
+      if (_quickCategoryId != null &&
+          !r.categoriaRestaurantes.any((c) => c.categoriaId == _quickCategoryId)) {
+        return false;
+      }
+      if (q.isNotEmpty && !r.nombre.toLowerCase().contains(q)) return false;
+      return true;
+    }).toList();
   }
 
   void _toggleOpenFilter() {
     setState(() => _quickOpen = !_quickOpen);
-    _applyQuickFilters();
   }
 
   void _toggleCategory(String id) {
     setState(() => _quickCategoryId = _quickCategoryId == id ? null : id);
-    _applyQuickFilters();
   }
 
   void _onSearchChanged(String value) {
     _searchDebounce?.cancel();
     _searchDebounce = Timer(const Duration(milliseconds: 350), () {
       setState(() => _searchText = value);
-      _applyQuickFilters();
     });
   }
 
@@ -1007,7 +1006,6 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
     _searchDebounce?.cancel();
     _searchController.clear();
     setState(() => _searchText = '');
-    _applyQuickFilters();
   }
 
   void _clearAllQuickFilters() {
@@ -1018,7 +1016,6 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
       _quickCategoryId = null;
       _searchText = '';
     });
-    presenter.getAllRestaurants(islandId);
   }
 
   Widget _buildEmptyState(BuildContext context) {
