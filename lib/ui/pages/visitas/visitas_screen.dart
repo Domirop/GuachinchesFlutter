@@ -21,6 +21,8 @@ class VisitasScreen extends StatefulWidget {
 
 class _VisitasScreenState extends State<VisitasScreen> {
   String? _userId;
+  bool _loadTriggered = false;
+  bool _noSession = false;
 
   @override
   void initState() {
@@ -36,8 +38,15 @@ class _VisitasScreenState extends State<VisitasScreen> {
     if (_userId == null || _userId!.isEmpty) {
       _userId = await const FlutterSecureStorage().read(key: 'userId');
     }
-    if (_userId != null && _userId!.isNotEmpty && mounted) {
+    if (!mounted) return;
+    if (_userId != null && _userId!.isNotEmpty) {
+      _loadTriggered = true;
+      if (_noSession) setState(() => _noSession = false);
       context.read<UserVisitsCubit>().load(_userId!);
+    } else {
+      // Sin userId resoluble → no dejar el skeleton girando eternamente:
+      // mostrar un estado claro de "inicia sesión".
+      if (!_noSession) setState(() => _noSession = true);
     }
   }
 
@@ -55,37 +64,50 @@ class _VisitasScreenState extends State<VisitasScreen> {
       ),
       body: Semantics(
         identifier: 'visitas-screen-root',
-        child: BlocBuilder<UserVisitsCubit, UserVisitsState>(
-          builder: (context, state) {
-            if (state is UserVisitsLoading || state is UserVisitsInitial) {
-              return _SkeletonList(brand: brand);
+        child: BlocListener<UserCubit, UserState>(
+          listener: (context, userState) {
+            // Cuando el usuario termina de resolverse tras un arranque en frío
+            // (race en TestFlight: el tab monta antes de que UserCubit cargue),
+            // disparamos la carga de visitas si aún no se hizo.
+            if (userState is UserLoaded && !_loadTriggered) {
+              _resolveUserIdAndLoad();
             }
-            if (state is UserVisitsLoaded) {
-              return _LoadedBody(
-                visits: state.visits,
-                onRefresh: () async {
-                  if (_userId != null && _userId!.isNotEmpty) {
-                    await context.read<UserVisitsCubit>().refresh(_userId!);
-                  }
-                },
-              );
-            }
-            if (state is UserVisitsEmpty) {
-              return _EmptyBody(brand: brand);
-            }
-            if (state is UserVisitsError) {
-              return _ErrorBody(
-                message: state.message,
-                brand: brand,
-                onRetry: () {
-                  if (_userId != null && _userId!.isNotEmpty) {
-                    context.read<UserVisitsCubit>().load(_userId!);
-                  }
-                },
-              );
-            }
-            return const SizedBox.shrink();
           },
+          child: BlocBuilder<UserVisitsCubit, UserVisitsState>(
+            builder: (context, state) {
+              if (_noSession && state is UserVisitsInitial) {
+                return _NoSessionBody(brand: brand);
+              }
+              if (state is UserVisitsLoading || state is UserVisitsInitial) {
+                return _SkeletonList(brand: brand);
+              }
+              if (state is UserVisitsLoaded) {
+                return _LoadedBody(
+                  visits: state.visits,
+                  onRefresh: () async {
+                    if (_userId != null && _userId!.isNotEmpty) {
+                      await context.read<UserVisitsCubit>().refresh(_userId!);
+                    }
+                  },
+                );
+              }
+              if (state is UserVisitsEmpty) {
+                return _EmptyBody(brand: brand);
+              }
+              if (state is UserVisitsError) {
+                return _ErrorBody(
+                  message: state.message,
+                  brand: brand,
+                  onRetry: () {
+                    if (_userId != null && _userId!.isNotEmpty) {
+                      context.read<UserVisitsCubit>().load(_userId!);
+                    }
+                  },
+                );
+              }
+              return const SizedBox.shrink();
+            },
+          ),
         ),
       ),
     );
@@ -162,6 +184,46 @@ class _EmptyBody extends StatelessWidget {
                 onPressed: () =>
                     context.read<MenuCubit>().updateSelectedIndex(0),
                 child: const Text('Explorar'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _NoSessionBody extends StatelessWidget {
+  final BrandColors brand;
+
+  const _NoSessionBody({required this.brand});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.lock_outline, size: 72, color: brand.textMuted),
+            const SizedBox(height: 16),
+            Text(
+              'Inicia sesión para ver tus visitas',
+              style: TextStyle(
+                color: brand.textSecondary,
+                fontSize: 16,
+                fontFamily: 'SF Pro Display',
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            Semantics(
+              identifier: 'visitas-login-cta',
+              child: ElevatedButton(
+                onPressed: () =>
+                    context.read<MenuCubit>().updateSelectedIndex(4),
+                child: const Text('Iniciar sesión'),
               ),
             ),
           ],
