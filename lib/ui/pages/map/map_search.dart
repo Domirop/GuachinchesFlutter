@@ -24,7 +24,7 @@ import 'package:guachinches/data/cubit/new_home/new_home_filters_state.dart';
 import 'package:guachinches/ui/pages/map/map_search_presenter.dart';
 import 'package:guachinches/ui/pages/map/map_style.dart';
 import 'package:guachinches/ui/pages/restaurant_detail/restaurant_detail_screen.dart';
-import 'package:http/http.dart';
+import 'package:guachinches/data/http_client.dart';
 import 'package:maps_launcher/maps_launcher.dart';
 import 'package:guachinches/ui/pages/new_home/sheets/island_picker_sheet.dart';
 import 'package:guachinches/utils/island_key_utils.dart';
@@ -110,7 +110,7 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
   @override
   void initState() {
     super.initState();
-    remoteRepository = HttpRemoteRepository(Client());
+    remoteRepository = HttpRemoteRepository(sharedHttpClient);
     restaurantsCubit = context.read<RestaurantMapCubit>();
     presenter = MapSearchPresenter(this, remoteRepository, restaurantsCubit);
 
