@@ -129,8 +129,8 @@ class ParallaxHero extends StatelessWidget {
 
   Widget _localPhoto(BuildContext context) {
     // Fondo de marca sólido SIEMPRE detrás de la foto: si el asset no decodifica
-    // (p.ej. Impeller fallando con algún webp en release), el texto editorial
-    // blanco del hero queda sobre un azul atlántico legible, nunca sobre gris.
+    // (p.ej. fallo de memoria/codec en release), el texto editorial blanco del
+    // hero queda sobre un azul atlántico legible, nunca sobre gris.
     const fallback = AppColors.atlantico;
     if (assetImage != null) {
       return Container(

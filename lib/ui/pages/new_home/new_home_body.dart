@@ -598,19 +598,19 @@ class _NewHomeBodyState extends State<NewHomeBody> {
     const base = 'assets/images/backgrounds/ddc_island_bg';
     switch (islandKey) {
       case 'TF':
-        return '$base/tenerife_dcc.webp';
+        return '$base/tenerife_dcc.jpg';
       case 'GC':
-        return '$base/las_palmas_dcc.webp';
+        return '$base/las_palmas_dcc.jpg';
       case 'LZ':
-        return '$base/lanzarote_dcc.webp';
+        return '$base/lanzarote_dcc.jpg';
       case 'FV':
-        return '$base/fuerteventura_dcc.webp';
+        return '$base/fuerteventura_dcc.jpg';
       case 'GO':
-        return '$base/la_gomera_dcc.webp';
+        return '$base/la_gomera_dcc.jpg';
       case 'EH':
-        return '$base/el_hierro_dcc.webp';
+        return '$base/el_hierro_dcc.jpg';
       case 'LP':
-        // TODO: añadir la_palma_dcc.webp cuando esté disponible.
+        // TODO: añadir la_palma_dcc.jpg cuando esté disponible.
         return null;
       default:
         return null;
