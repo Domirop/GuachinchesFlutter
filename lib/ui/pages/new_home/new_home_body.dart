@@ -26,6 +26,7 @@ import 'package:guachinches/ui/pages/new_home/widgets/card_visit.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/hour_aware_banner.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/parallax_hero.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/parallax_hero_slot.dart';
+import 'package:guachinches/ui/components/canarismo_card.dart';
 import 'package:guachinches/ui/components/location_prompt_banner.dart';
 import 'package:guachinches/ui/pages/cerca_abiertos/cerca_ahora_screen.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/open_now_callout_slot.dart';
@@ -281,6 +282,9 @@ class _NewHomeBodyState extends State<NewHomeBody> {
                 ),
               ),
             ],
+
+            // ── CANARISMO DEL DÍA (teaser colapsable) ──────────────
+            const SliverToBoxAdapter(child: CanarismoCard()),
 
             // ── CERCA DE TI ────────────────────────
             if (widget.nearbyList.isNotEmpty)
