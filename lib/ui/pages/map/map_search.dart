@@ -644,11 +644,7 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
     final idx = _visibleRestaurants.indexWhere((e) => e.id == r.id);
     if (idx >= 0 && _cardsPageController.hasClients) {
       _suppressNextPageEvent = true;
-      _cardsPageController.animateToPage(
-        idx,
-        duration: const Duration(milliseconds: 260),
-        curve: Curves.easeOut,
-      );
+      _cardsPageController.jumpToPage(idx);
     }
   }
 
@@ -1714,11 +1710,14 @@ class _FloatingCardCarousel extends StatelessWidget {
       itemCount: restaurants.length,
       itemBuilder: (_, i) {
         final r = restaurants[i];
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 6),
-          child: _FloatingMapCard(
-            restaurant: r,
-            distanceMeters: distanceTo(r),
+        return Semantics(
+          identifier: 'mapa-sheet-card',
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6),
+            child: _FloatingMapCard(
+              restaurant: r,
+              distanceMeters: distanceTo(r),
+            ),
           ),
         );
       },
@@ -1892,14 +1891,44 @@ class _FloatingMapCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 6),
                   ],
-                  Text(
-                    r.nombre.toUpperCase(),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTextStyles.displayHero(
-                      size: 16,
-                      color: brand.textPrimary,
-                    ),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          r.nombre.toUpperCase(),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTextStyles.displayHero(
+                            size: 16,
+                            color: brand.textPrimary,
+                          ),
+                        ),
+                      ),
+                      if (r.avgRating > 0)
+                        Semantics(
+                          identifier: 'mapa-sheet-rating',
+                          child: Padding(
+                            padding: const EdgeInsets.only(left: 6, top: 2),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.star_rounded,
+                                    color: AppColors.sol, size: 13),
+                                const SizedBox(width: 2),
+                                Text(
+                                  r.avgRating.toStringAsFixed(1),
+                                  style: AppTextStyles.ui(
+                                    size: 13,
+                                    weight: FontWeight.w700,
+                                    color: brand.textPrimary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                   const SizedBox(height: 6),
                   _StatusLine(
