@@ -30,6 +30,8 @@ class ParallaxHero extends StatelessWidget {
   final int openCount;
   final VoidCallback onZoneChipTap;
   final VoidCallback onIslandChipTap;
+  /// Frase editorial fija por isla. Si viene, sustituye a la copy por hora.
+  final String? islandPhrase;
 
   const ParallaxHero({
     super.key,
@@ -43,6 +45,7 @@ class ParallaxHero extends StatelessWidget {
     required this.openCount,
     required this.onZoneChipTap,
     required this.onIslandChipTap,
+    this.islandPhrase,
   });
 
   @override
@@ -54,7 +57,9 @@ class ParallaxHero extends StatelessWidget {
     final tint = AppColors.tintForHour(hour);
     final starOpacity = AppColors.starsForHour(hour);
     final greeting = TimeOfDayEngine.greeting(DateTime.now(), context);
-    final copy = TimeOfDayEngine.editorialCopy(DateTime.now(), zona: zona);
+    final copy = (islandPhrase != null && islandPhrase!.isNotEmpty)
+        ? islandPhrase!
+        : TimeOfDayEngine.editorialCopy(DateTime.now(), zona: zona);
 
     return SizedBox(
       height: heroH,
@@ -220,10 +225,10 @@ class ParallaxHero extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 8),
-          // Copy editorial
+          // Copy editorial (frase por isla)
           Text(
             '"$copy"',
-            style: AppTextStyles.editorial(size: 10, color: Colors.white.withOpacity(0.85))
+            style: AppTextStyles.editorial(size: 12, color: Colors.white.withOpacity(0.85))
                 .copyWith(shadows: textShadows),
           ),
           const SizedBox(height: 4),

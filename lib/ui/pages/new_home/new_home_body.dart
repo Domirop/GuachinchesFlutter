@@ -363,6 +363,7 @@ class _NewHomeBodyState extends State<NewHomeBody> {
               scrollOffset: 0, // posicionamiento manejado por el outer Stack
               hour: widget.hour,
               assetImage: _assetForIsland(filters.islandKey),
+              islandPhrase: _phraseForIsland(filters.islandKey),
               zona: filters.zoneLabel ?? filters.islandLabel,
               islandLabel: filters.islandLabel,
               zoneIsSet: filters.zoneLabel != null,
@@ -612,6 +613,30 @@ class _NewHomeBodyState extends State<NewHomeBody> {
       case 'LP':
         // TODO: añadir la_palma_dcc.jpg cuando esté disponible.
         return null;
+      default:
+        return null;
+    }
+  }
+
+  /// Frase editorial fija por isla (tagline del hero). Mapeado por `islandKey`.
+  /// Si una isla no tiene frase, devuelve `null` y el hero cae a la copy por
+  /// hora del día.
+  String? _phraseForIsland(String islandKey) {
+    switch (islandKey) {
+      case 'TF':
+        return 'Todos somos hijos del volcán';
+      case 'GC':
+        return 'Todos somos Costeros';
+      case 'LP':
+        return 'No hay nada como la isla bonita';
+      case 'LZ':
+        return 'Somos volcán y salitre';
+      case 'FV':
+        return 'Soñando en las mejores playas';
+      case 'GO':
+        return 'La isla del ritmo desde el mar hasta la cumbre';
+      case 'EH':
+        return 'Una isla para soñar';
       default:
         return null;
     }
