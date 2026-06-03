@@ -90,7 +90,7 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
   BitmapDescriptor? _dotIconClosed;
   double _currentZoom = 14.4746;
   static const double _kBubbleZoomThreshold = 13.0;
-  static const double _kLabelZoomThreshold = 14.0;
+  static const double _kLabelZoomThreshold = 13.5;
   static const int _kMaxLabelsInViewport = 24;
 
   // Visible-restaurants carousel
@@ -426,6 +426,12 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
   // ── Markers ────────────────────────────────────────────────────────────
   void _rebuildMarkers(List<Restaurant> restaurants) {
     final isDriving = _driving.isDriving.value;
+    // Solo son candidatos a label los restaurantes DENTRO del viewport actual
+    // (los que el mapa ya calcula en `_visibleRestaurants` vía
+    // getVisibleRegion). El cap se aplica sobre estos, no sobre la lista global
+    // de la isla — si no, los 24 etiquetados podrían caer todos fuera de
+    // pantalla y lo visible quedaría sin nombres.
+    final visibleIds = _visibleRestaurants.map((e) => e.id).toSet();
     final Set<Marker> aux = {};
     int labelCandidateIdx = 0;
     int totalLabelCandidates = 0;
@@ -435,7 +441,8 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
       if (r.lat == 0.0 && r.lon == 0.0) continue;
       if (_selectedRestaurantId != r.id &&
           !isDriving &&
-          _currentZoom >= _kLabelZoomThreshold) {
+          _currentZoom >= _kLabelZoomThreshold &&
+          visibleIds.contains(r.id)) {
         totalLabelCandidates++;
       }
     }
@@ -444,8 +451,10 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
       if (r.lat == 0.0 && r.lon == 0.0) continue;
       final isSelected = _selectedRestaurantId == r.id;
 
-      final bool isLabelCandidate =
-          !isSelected && !isDriving && _currentZoom >= _kLabelZoomThreshold;
+      final bool isLabelCandidate = !isSelected &&
+          !isDriving &&
+          _currentZoom >= _kLabelZoomThreshold &&
+          visibleIds.contains(r.id);
       final int idxForMode = isLabelCandidate ? labelCandidateIdx : 0;
 
       final mode = resolveMarkerRenderMode(
@@ -544,27 +553,107 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
     // ── Teardrop (selected) ───────────────────────────────────────────────
     if (mode == MarkerRenderMode.teardrop) {
       const double scale = 3.0;
-      const double headR = 22.0;
-      const double tipExtra = 14.0;
-      const double haloPad = 8.0;
-      const double fontSize = 17.0;
+      const double headR = 16.0;
+      const double tipExtra = 11.0;
+      const double pad = 6.0; // margen para sombra/borde alrededor del teardrop
+      const double gap = 7.0; // separacion teardrop -> nombre
+      const double ratingFont = 13.0;
+      const double nameFont = 13.0;
+      const double border = 2.5;
+      const double maxNameW = 150.0;
 
-      final double cx = haloPad + headR;
-      final double cy = haloPad + headR;
+      // El seleccionado MANTIENE el color de estado (verde abierto / rojo
+      // cerrado) y el nombre, igual que el marker no seleccionado; el dot se
+      // convierte en un teardrop con la nota dentro para marcar la seleccion.
+      final statusColor = r.open
+          ? const Color.fromRGBO(149, 220, 0, 1)
+          : const Color.fromRGBO(226, 120, 120, 1);
+
+      // Nombre: relleno tinta + borde blanco (stroke), igual que el no
+      // seleccionado.
+      const nameFill = TextStyle(
+        color: AppColors.ink,
+        fontSize: nameFont,
+        fontFamily: 'SF Pro Display',
+        fontWeight: FontWeight.w700,
+        height: 1.05,
+      );
+      final nameStroke = TextStyle(
+        fontSize: nameFont,
+        fontFamily: 'SF Pro Display',
+        fontWeight: FontWeight.w700,
+        height: 1.05,
+        foreground: Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = border
+          ..strokeJoin = StrokeJoin.round
+          ..color = Colors.white,
+      );
+      final nameFillP = TextPainter(
+        text: TextSpan(text: r.nombre, style: nameFill),
+        textDirection: TextDirection.ltr,
+        maxLines: 2,
+        ellipsis: '…',
+      )..layout(maxWidth: maxNameW);
+      final nameStrokeP = TextPainter(
+        text: TextSpan(text: r.nombre, style: nameStroke),
+        textDirection: TextDirection.ltr,
+        maxLines: 2,
+        ellipsis: '…',
+      )..layout(maxWidth: maxNameW);
+
+      final double cx = pad + headR;
+      final double cy = pad + headR;
       final double tipY = cy + headR + tipExtra;
-      final double bitmapW = headR * 2 + haloPad * 2;
-      // Tip sits exactly at bitmap bottom — anchor (0.5, 1.0) lands on the POI.
+      // La punta (cx, tipY) cae en las coords; el nombre va a la derecha,
+      // centrado con la cabeza.
+      final double bitmapW = pad + headR * 2 + gap + nameFillP.width + pad;
       final double bitmapH = tipY;
 
-      final bool hasRating = r.avgRating > 0;
-      TextPainter? ratingPainter;
-      if (hasRating) {
-        ratingPainter = TextPainter(
+      // Pin = union de circulo (cabeza) + triangulo (punta). La union evita
+      // bordes concavos (el metodo de tangentes daba una "mariposa").
+      final head = Path()
+        ..addOval(Rect.fromCircle(center: Offset(cx, cy), radius: headR));
+      final tri = Path()
+        ..moveTo(cx - headR * 0.78, cy + headR * 0.55)
+        ..lineTo(cx, tipY)
+        ..lineTo(cx + headR * 0.78, cy + headR * 0.55)
+        ..close();
+      final pin = Path.combine(PathOperation.union, head, tri);
+
+      final recorder = ui.PictureRecorder();
+      final canvas = Canvas(recorder);
+      canvas.scale(scale, scale);
+
+      // Sombra del teardrop.
+      canvas.save();
+      canvas.translate(0, 2.5);
+      canvas.drawPath(
+        pin,
+        Paint()
+          ..color = const Color(0x4D000000)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5),
+      );
+      canvas.restore();
+      // Relleno con color de estado.
+      canvas.drawPath(pin, Paint()..color = statusColor);
+      // Borde blanco.
+      canvas.drawPath(
+        pin,
+        Paint()
+          ..color = Colors.white
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = border
+          ..strokeJoin = StrokeJoin.round,
+      );
+      // Nota blanca centrada en la cabeza.
+      if (r.avgRating > 0) {
+        final ratingPainter = TextPainter(
           text: TextSpan(
             text: r.avgRating.toStringAsFixed(1),
             style: const TextStyle(
               color: Colors.white,
-              fontSize: fontSize,
+              fontSize: ratingFont,
               fontFamily: 'SF Pro Display',
               fontWeight: FontWeight.w800,
               letterSpacing: 0.2,
@@ -572,67 +661,17 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
           ),
           textDirection: TextDirection.ltr,
         )..layout();
-      }
-
-      // Tangent geometry: two lines from tip (cx, tipY) tangent to circle head.
-      final double d = tipY - cy;
-      final double sinT = math.sqrt(d * d - headR * headR) / d;
-      final double cosT = headR / d;
-      final double ltX = cx - headR * sinT;
-      final double ltY = cy + headR * cosT;
-      final double rtX = cx + headR * sinT;
-
-      // Teardrop path: right-tangent → tip → left-tangent → major arc over top.
-      final teardropPath = Path()
-        ..moveTo(rtX, ltY)
-        ..lineTo(cx, tipY)
-        ..lineTo(ltX, ltY)
-        ..arcToPoint(
-          Offset(rtX, ltY),
-          radius: Radius.circular(headR),
-          clockwise: false,
-          largeArc: true,
-        )
-        ..close();
-
-      final recorder = ui.PictureRecorder();
-      final canvas = Canvas(recorder);
-      canvas.scale(scale, scale);
-
-      // Halo blur.
-      canvas.drawPath(
-        teardropPath,
-        Paint()
-          ..color = AppColors.atlantico.withOpacity(0.24)
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 7),
-      );
-      // Drop shadow (offset 3px down).
-      canvas.save();
-      canvas.translate(0, 3);
-      canvas.drawPath(
-        teardropPath,
-        Paint()
-          ..color = const Color(0x55000000)
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
-      );
-      canvas.restore();
-      // Fill.
-      canvas.drawPath(teardropPath, Paint()..color = AppColors.atlantico);
-      // White border.
-      canvas.drawPath(
-        teardropPath,
-        Paint()
-          ..color = Colors.white
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 3.0,
-      );
-      // Rating text centered in circle head.
-      if (hasRating && ratingPainter != null) {
         ratingPainter.paint(
           canvas,
           Offset(cx - ratingPainter.width / 2, cy - ratingPainter.height / 2),
         );
       }
+
+      // Nombre a la derecha, centrado con la cabeza.
+      final double nameX = pad + headR * 2 + gap;
+      final double nameY = cy - nameFillP.height / 2;
+      nameStrokeP.paint(canvas, Offset(nameX, nameY));
+      nameFillP.paint(canvas, Offset(nameX, nameY));
 
       final picture = recorder.endRecording();
       final image = await picture.toImage(
@@ -645,87 +684,91 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
           byteData!.buffer.asUint8List(),
           imagePixelRatio: scale,
         ),
-        anchor: const Offset(0.5, 1.0),
+        anchor: Offset(cx / bitmapW, tipY / bitmapH),
       );
     }
 
-    // ── Unselected: dot de estado + nombre con halo blanco ────────────────
-    // The dot center falls exactly on the restaurant's coordinates (anchor.x
-    // = haloR / bitmapW, anchor.y = 0.5); the name label extends to the right.
+    // ── Unselected: dot de estado + nombre con borde blanco ───────────────
+    // El centro del dot cae exactamente en las coords del restaurante
+    // (anchor.x = dotCenterX/bitmapW, anchor.y = 0.5); el nombre se extiende a
+    // la derecha, hasta 2 lineas con ellipsis. Borde blanco con stroke real
+    // (foreground Paint), no la tecnica de copias desplazadas.
     const double scale = 3.0;
     const double dotR = 5.0;
-    const double haloR = 8.0;
-    const double gap = 5.0;
+    const double ringR = 7.5; // anillo blanco alrededor del dot
+    const double gap = 6.0;
     const double fontSize = 12.0;
-    const double vertPad = 2.0;
+    const double vertPad = 3.0;
+    const double maxTextW = 130.0;
+    const double outline = 2.5; // grosor del borde blanco del texto
 
     final dotColor = r.open
         ? const Color.fromRGBO(149, 220, 0, 1)
         : const Color.fromRGBO(226, 120, 120, 1);
 
-    final labelPainter = TextPainter(
-      text: TextSpan(
-        text: r.nombre,
-        style: const TextStyle(
-          color: AppColors.ink,
-          fontSize: fontSize,
-          fontFamily: 'SF Pro Display',
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-      maxLines: 1,
-    )..layout(maxWidth: 120.0);
+    const double lineHeight = 1.05;
+    const fillStyle = TextStyle(
+      color: AppColors.ink,
+      fontSize: fontSize,
+      fontFamily: 'SF Pro Display',
+      fontWeight: FontWeight.w700,
+      height: lineHeight,
+    );
+    // Borde blanco: mismo glifo con foreground stroke (sin color, son
+    // mutuamente excluyentes en TextStyle).
+    final strokeStyle = TextStyle(
+      fontSize: fontSize,
+      fontFamily: 'SF Pro Display',
+      fontWeight: FontWeight.w700,
+      height: lineHeight,
+      foreground: Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = outline
+        ..strokeJoin = StrokeJoin.round
+        ..color = Colors.white,
+    );
 
-    final double haloDiameter = haloR * 2;
-    final double bitmapH = haloDiameter + vertPad * 2;
-    final double bitmapW = haloDiameter + gap + labelPainter.width;
-    final double dotCenterX = haloR;
+    final fillPainter = TextPainter(
+      text: TextSpan(text: r.nombre, style: fillStyle),
+      textDirection: TextDirection.ltr,
+      maxLines: 2,
+      ellipsis: '…',
+    )..layout(maxWidth: maxTextW);
+    final strokePainter = TextPainter(
+      text: TextSpan(text: r.nombre, style: strokeStyle),
+      textDirection: TextDirection.ltr,
+      maxLines: 2,
+      ellipsis: '…',
+    )..layout(maxWidth: maxTextW);
+
+    final double ringD = ringR * 2;
+    final double textBlockH = fillPainter.height;
+    final double bitmapH = math.max(ringD, textBlockH) + vertPad * 2;
+    final double bitmapW = ringD + gap + fillPainter.width;
+    final double dotCenterX = ringR;
     final double dotCenterY = bitmapH / 2;
 
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder);
     canvas.scale(scale, scale);
 
-    // White halo behind dot
+    // Anillo blanco + dot de estado (verde abierto / rojo cerrado).
     canvas.drawCircle(
       Offset(dotCenterX, dotCenterY),
-      haloR,
+      ringR,
       Paint()..color = Colors.white,
     );
-    // Colored status dot
     canvas.drawCircle(
       Offset(dotCenterX, dotCenterY),
       dotR,
       Paint()..color = dotColor,
     );
 
-    final double textX = haloDiameter + gap;
-    final double textY = (bitmapH - labelPainter.height) / 2;
-
-    // White halo around text (8-direction offset draws, then ink on top)
-    final haloPainter = TextPainter(
-      text: TextSpan(
-        text: r.nombre,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: fontSize,
-          fontFamily: 'SF Pro Display',
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-      maxLines: 1,
-    )..layout(maxWidth: 120.0);
-
-    const double haloStroke = 1.5;
-    for (final dx in [-haloStroke, 0.0, haloStroke]) {
-      for (final dy in [-haloStroke, 0.0, haloStroke]) {
-        if (dx == 0.0 && dy == 0.0) continue;
-        haloPainter.paint(canvas, Offset(textX + dx, textY + dy));
-      }
-    }
-    labelPainter.paint(canvas, Offset(textX, textY));
+    // Nombre: borde blanco debajo, relleno tinta encima.
+    final double textX = ringD + gap;
+    final double textY = (bitmapH - textBlockH) / 2;
+    strokePainter.paint(canvas, Offset(textX, textY));
+    fillPainter.paint(canvas, Offset(textX, textY));
 
     final picture = recorder.endRecording();
     final image = await picture.toImage(
@@ -738,7 +781,7 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
         byteData!.buffer.asUint8List(),
         imagePixelRatio: scale,
       ),
-      anchor: Offset(haloR / bitmapW, 0.5),
+      anchor: Offset(dotCenterX / bitmapW, 0.5),
     );
   }
 
