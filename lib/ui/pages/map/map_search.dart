@@ -494,9 +494,112 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
 
   Future<BitmapDescriptor> _buildBubbleMarker(Restaurant r,
       {bool selected = false}) async {
-    // Compact "rating pill" marker (TheFork-style).
-    // Selected markers are noticeably larger and use the atlántico/blue
-    // brand color so they pop against the cream-toned map.
+    // ── Selected: teardrop marker ─────────────────────────────────────────
+    if (selected) {
+      const double scale = 3.0;
+      const double headR = 22.0;
+      const double tipExtra = 14.0;
+      const double haloPad = 8.0;
+      const double fontSize = 17.0;
+
+      final double cx = haloPad + headR;
+      final double cy = haloPad + headR;
+      final double tipY = cy + headR + tipExtra;
+      final double bitmapW = headR * 2 + haloPad * 2;
+      // Tip sits exactly at bitmap bottom — anchor (0.5, 1.0) lands on the POI.
+      final double bitmapH = tipY;
+
+      final bool hasRating = r.avgRating > 0;
+      TextPainter? ratingPainter;
+      if (hasRating) {
+        ratingPainter = TextPainter(
+          text: TextSpan(
+            text: r.avgRating.toStringAsFixed(1),
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: fontSize,
+              fontFamily: 'SF Pro Display',
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.2,
+            ),
+          ),
+          textDirection: TextDirection.ltr,
+        )..layout();
+      }
+
+      // Tangent geometry: two lines from tip (cx, tipY) tangent to circle head.
+      final double d = tipY - cy;
+      final double sinT = math.sqrt(d * d - headR * headR) / d;
+      final double cosT = headR / d;
+      final double ltX = cx - headR * sinT;
+      final double ltY = cy + headR * cosT;
+      final double rtX = cx + headR * sinT;
+
+      // Teardrop path: right-tangent → tip → left-tangent → major arc over top.
+      final teardropPath = Path()
+        ..moveTo(rtX, ltY)
+        ..lineTo(cx, tipY)
+        ..lineTo(ltX, ltY)
+        ..arcToPoint(
+          Offset(rtX, ltY),
+          radius: Radius.circular(headR),
+          clockwise: false,
+          largeArc: true,
+        )
+        ..close();
+
+      final recorder = ui.PictureRecorder();
+      final canvas = Canvas(recorder);
+      canvas.scale(scale, scale);
+
+      // Halo blur.
+      canvas.drawPath(
+        teardropPath,
+        Paint()
+          ..color = AppColors.atlantico.withOpacity(0.24)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 7),
+      );
+      // Drop shadow (offset 3px down).
+      canvas.save();
+      canvas.translate(0, 3);
+      canvas.drawPath(
+        teardropPath,
+        Paint()
+          ..color = const Color(0x55000000)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
+      );
+      canvas.restore();
+      // Fill.
+      canvas.drawPath(teardropPath, Paint()..color = AppColors.atlantico);
+      // White border.
+      canvas.drawPath(
+        teardropPath,
+        Paint()
+          ..color = Colors.white
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 3.0,
+      );
+      // Rating text centered in circle head.
+      if (hasRating && ratingPainter != null) {
+        ratingPainter.paint(
+          canvas,
+          Offset(cx - ratingPainter.width / 2, cy - ratingPainter.height / 2),
+        );
+      }
+
+      final picture = recorder.endRecording();
+      final image = await picture.toImage(
+        (bitmapW * scale).round(),
+        (bitmapH * scale).round(),
+      );
+      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      return BitmapDescriptor.bytes(
+        byteData!.buffer.asUint8List(),
+        imagePixelRatio: scale,
+      );
+    }
+
+    // ── Unselected: compact "rating pill" marker (TheFork-style) ─────────
     final double scale = selected ? 4.2 : 3.0;
     final double pad = selected ? 14 : 10;
     final double h = selected ? 40 : 30;
