@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:guachinches/config/app_colors.dart';
+import 'package:guachinches/config/app_text_styles.dart';
 import 'package:guachinches/config/brand_colors.dart';
 import 'package:guachinches/data/cubit/location/location_cubit.dart';
 import 'package:guachinches/data/cubit/location/location_state.dart';
@@ -14,8 +15,9 @@ import 'package:guachinches/data/cubit/restaurants/basic/restaurant_cubit.dart';
 import 'package:guachinches/data/cubit/restaurants/basic/restaurant_state.dart';
 import 'package:guachinches/data/local/http_cache_store.dart';
 import 'package:guachinches/data/model/restaurant.dart';
-import 'package:guachinches/ui/components/cards/cerca_ahora_list_card.dart';
 import 'package:guachinches/ui/components/shimmer_box.dart';
+import 'package:guachinches/ui/pages/advance_search/widgets/search_result_card.dart';
+import 'package:guachinches/ui/pages/restaurant_detail/restaurant_detail_screen.dart';
 import 'package:guachinches/utils/location_prompt_action.dart';
 
 class CercaAhoraScreen extends StatefulWidget {
@@ -138,30 +140,32 @@ class _CercaAhoraScreenState extends State<CercaAhoraScreen> {
         identifier: 'cerca-ahora-screen-root',
         child: Scaffold(
           backgroundColor: context.brand.base,
-          appBar: AppBar(
-            title: const Text(
-              'Abiertos cerca de ti',
-              style: TextStyle(fontFamily: 'SF Pro Display'),
+          body: SafeArea(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _CercaHeader(onBack: () => Navigator.of(context).pop()),
+                Expanded(
+                  child: BlocBuilder<LocationCubit, LocationState>(
+                    builder: (context, locationState) {
+                      // Loading / Initial: spinner mientras el cubit resuelve.
+                      // Evita mostrar "Necesitamos ubicación" prematuramente
+                      // cuando el usuario SÍ tiene permisos pero el cubit aún
+                      // no terminó.
+                      if (locationState is LocationInitial ||
+                          locationState is LocationLoading) {
+                        return const _CercaListSkeleton();
+                      }
+                      if (locationState is LocationLoaded) {
+                        return _buildContent(context, locationState);
+                      }
+                      // LocationDenied (y sub-tipos) + LocationUnavailable.
+                      return _buildLocationRequired(context, locationState);
+                    },
+                  ),
+                ),
+              ],
             ),
-            backgroundColor: context.brand.surface,
-            foregroundColor: context.brand.textPrimary,
-            elevation: 0,
-          ),
-          body: BlocBuilder<LocationCubit, LocationState>(
-            builder: (context, locationState) {
-              // Loading / Initial: spinner mientras el cubit resuelve.
-              // Evita mostrar "Necesitamos ubicación" prematuramente cuando
-              // el usuario SÍ tiene permisos pero el cubit aún no terminó.
-              if (locationState is LocationInitial ||
-                  locationState is LocationLoading) {
-                return const _CercaListSkeleton();
-              }
-              if (locationState is LocationLoaded) {
-                return _buildContent(context, locationState);
-              }
-              // LocationDenied (y sub-tipos) + LocationUnavailable.
-              return _buildLocationRequired(context, locationState);
-            },
           ),
         ),
       ),
@@ -335,19 +339,28 @@ class _CercaAhoraScreenState extends State<CercaAhoraScreen> {
               identifier: 'cerca-ahora-list',
               child: ListView.separated(
                 physics: const AlwaysScrollableScrollPhysics(),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.only(top: 4, bottom: 24),
                 itemCount: filtered.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 12),
+                separatorBuilder: (_, __) => Divider(
+                  height: 1,
+                  thickness: 1,
+                  color: context.brand.border,
+                ),
                 itemBuilder: (_, i) {
                   final entry = filtered[i];
                   final distM = entry.distanceMeters;
                   final distStr = distM < 1000
                       ? '${distM.toStringAsFixed(0)} m'
                       : '${(distM / 1000).toStringAsFixed(1)} km';
-                  return CercaAhoraListCard(
-                    restaurant: entry.restaurant,
+                  final r = entry.restaurant;
+                  return SearchResultCard(
+                    restaurant: r,
                     distance: distStr,
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => RestaurantDetailScreen(id: r.id),
+                      ),
+                    ),
                   );
                 },
               ),
@@ -392,6 +405,44 @@ class _RestaurantWithDistance {
   });
 }
 
+/// Cabecera estilo "BUSCAR": chevron de vuelta + título grande alineado a la
+/// izquierda (mismo patrón que `advanced_search.dart`), en vez del AppBar
+/// genérico de Material que no encaja con el resto de la app.
+class _CercaHeader extends StatelessWidget {
+  final VoidCallback onBack;
+  const _CercaHeader({required this.onBack});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 8, 16, 0),
+      child: Row(
+        children: [
+          Semantics(
+            identifier: 'cerca-ahora-back',
+            child: IconButton(
+              icon: Icon(
+                Icons.arrow_back_ios_new_rounded,
+                size: 18,
+                color: context.brand.textPrimary,
+              ),
+              onPressed: onBack,
+            ),
+          ),
+          Expanded(
+            child: Text(
+              'Abiertos cerca de ti',
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: AppTextStyles.displayHero(size: 26),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _CercaListSkeleton extends StatelessWidget {
   const _CercaListSkeleton();
 
@@ -401,27 +452,34 @@ class _CercaListSkeleton extends StatelessWidget {
       identifier: 'cerca-ahora-skeleton',
       child: ListView.separated(
         physics: const NeverScrollableScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.only(top: 4, bottom: 24),
         itemCount: 6,
-        separatorBuilder: (_, __) => const SizedBox(height: 12),
-        itemBuilder: (_, __) => Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            ShimmerBox(width: 88, height: 88, radius: 12),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  ShimmerBox(width: double.infinity, height: 16, radius: 4),
-                  const SizedBox(height: 8),
-                  ShimmerBox(width: 140, height: 13, radius: 4),
-                  const SizedBox(height: 6),
-                  ShimmerBox(width: 90, height: 13, radius: 4),
-                ],
+        separatorBuilder: (_, __) => Divider(
+          height: 1,
+          thickness: 1,
+          color: context.brand.border,
+        ),
+        itemBuilder: (_, __) => Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              ShimmerBox(width: 64, height: 64, radius: 14),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ShimmerBox(width: double.infinity, height: 15, radius: 4),
+                    const SizedBox(height: 8),
+                    ShimmerBox(width: 140, height: 12, radius: 4),
+                    const SizedBox(height: 6),
+                    ShimmerBox(width: 90, height: 12, radius: 4),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

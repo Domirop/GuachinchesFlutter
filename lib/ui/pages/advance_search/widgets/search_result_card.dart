@@ -17,11 +17,17 @@ class SearchResultCard extends StatelessWidget {
   /// `mainFoto`, se ignora.
   final String? photoUrlOverride;
 
+  /// Distancia ya formateada (p.ej. "88 m" / "1.6 km"). Cuando viene
+  /// informada se antepone en el meta-line con icono de pin. La usa la
+  /// pantalla "Abiertos cerca de ti"; en la búsqueda normal va null.
+  final String? distance;
+
   const SearchResultCard({
     super.key,
     required this.restaurant,
     required this.onTap,
     this.photoUrlOverride,
+    this.distance,
   });
 
   @override
@@ -56,7 +62,7 @@ class SearchResultCard extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 6),
-                  _MetaLine(restaurant: r),
+                  _MetaLine(restaurant: r, distance: distance),
                   if (categoryLine.isNotEmpty) ...[
                     const SizedBox(height: 4),
                     Text(
@@ -136,12 +142,14 @@ class _Thumbnail extends StatelessWidget {
 
 class _MetaLine extends StatelessWidget {
   final Restaurant restaurant;
+  final String? distance;
 
-  const _MetaLine({required this.restaurant});
+  const _MetaLine({required this.restaurant, this.distance});
 
   @override
   Widget build(BuildContext context) {
     final r = restaurant;
+    final hasDistance = distance != null && distance!.isNotEmpty;
     final hasRating = r.avgRating > 0;
     final hasMunicipio = r.municipio.isNotEmpty;
     final hasPrice = r.minPrice != null && r.maxPrice != null;
@@ -151,7 +159,11 @@ class _MetaLine extends StatelessWidget {
 
     final children = <Widget>[];
 
+    if (hasDistance) {
+      children.add(_distanceChunk(distance!));
+    }
     if (hasRating) {
+      if (children.isNotEmpty) children.add(_dot(context));
       children.add(_ratingChunk(r.avgRating));
     }
     if (hasMunicipio) {
@@ -170,6 +182,20 @@ class _MetaLine extends StatelessWidget {
       spacing: 0,
       runSpacing: 4,
       children: children,
+    );
+  }
+
+  Widget _distanceChunk(String text) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Icon(Icons.place_rounded, size: 13, color: AppColors.atlantico),
+        const SizedBox(width: 3),
+        Text(
+          text,
+          style: AppTextStyles.chipLabel(size: 12, color: AppColors.atlantico),
+        ),
+      ],
     );
   }
 
