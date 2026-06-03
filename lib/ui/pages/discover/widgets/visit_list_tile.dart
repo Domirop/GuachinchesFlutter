@@ -734,7 +734,16 @@ class _MetaLine extends StatelessWidget {
     }
     if (zone.isNotEmpty) {
       if (children.isNotEmpty) children.add(_dot(context));
-      children.add(Flexible(
+      // OJO: dentro de un Wrap NO se puede usar Flexible/Expanded — su
+      // parentData es WrapParentData, no FlexParentData, así que el cast en
+      // Flexible.applyParentData revienta ('type WrapParentData is not a
+      // subtype of FlexParentData') y tira TODA la fila a un ErrorWidget, que
+      // en release se ve como una caja gris. Para acotar zonas largas usamos
+      // ConstrainedBox + ellipsis (válido como hijo directo de Wrap).
+      children.add(ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.of(context).size.width * 0.5,
+        ),
         child: Text(
           zone,
           maxLines: 1,
