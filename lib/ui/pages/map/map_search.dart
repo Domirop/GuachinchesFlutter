@@ -23,6 +23,7 @@ import 'package:guachinches/data/cubit/new_home/new_home_filters_cubit.dart';
 import 'package:guachinches/data/cubit/new_home/new_home_filters_state.dart';
 import 'package:guachinches/ui/pages/map/map_search_presenter.dart';
 import 'package:guachinches/ui/pages/map/map_style.dart';
+import 'package:guachinches/ui/pages/map/marker_render_mode.dart';
 import 'package:guachinches/ui/pages/restaurant_detail/restaurant_detail_screen.dart';
 import 'package:guachinches/data/http_client.dart';
 import 'package:maps_launcher/maps_launcher.dart';
@@ -80,8 +81,8 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
   // Cached list of currently rendered restaurants (whatever the cubit emitted)
   List<Restaurant> _allRestaurants = [];
 
-  // Custom marker bitmap cache, keyed by "${id}_${open}".
-  final Map<String, BitmapDescriptor> _markerCache = {};
+  // Custom marker bitmap cache, keyed by "${id}_${open}_${mode}".
+  final Map<String, ({BitmapDescriptor bitmap, Offset anchor})> _markerCache = {};
   final Set<String> _pendingMarkerKeys = {};
 
   // Compact dot icons (zoom-out fallback)
@@ -89,6 +90,8 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
   BitmapDescriptor? _dotIconClosed;
   double _currentZoom = 14.4746;
   static const double _kBubbleZoomThreshold = 13.0;
+  static const double _kLabelZoomThreshold = 14.0;
+  static const int _kMaxLabelsInViewport = 24;
 
   // Visible-restaurants carousel
   List<Restaurant> _visibleRestaurants = [];
@@ -422,34 +425,66 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
 
   // ── Markers ────────────────────────────────────────────────────────────
   void _rebuildMarkers(List<Restaurant> restaurants) {
-    final useDot = _currentZoom < _kBubbleZoomThreshold;
+    final isDriving = _driving.isDriving.value;
     final Set<Marker> aux = {};
+    int labelCandidateIdx = 0;
+    int totalLabelCandidates = 0;
+
+    // Pre-count label candidates so we can log the cap.
+    for (final r in restaurants) {
+      if (r.lat == 0.0 && r.lon == 0.0) continue;
+      if (_selectedRestaurantId != r.id &&
+          !isDriving &&
+          _currentZoom >= _kLabelZoomThreshold) {
+        totalLabelCandidates++;
+      }
+    }
+
     for (final r in restaurants) {
       if (r.lat == 0.0 && r.lon == 0.0) continue;
       final isSelected = _selectedRestaurantId == r.id;
 
+      final bool isLabelCandidate =
+          !isSelected && !isDriving && _currentZoom >= _kLabelZoomThreshold;
+      final int idxForMode = isLabelCandidate ? labelCandidateIdx : 0;
+
+      final mode = resolveMarkerRenderMode(
+        zoom: _currentZoom,
+        isSelected: isSelected,
+        isDriving: isDriving,
+        indexInViewport: idxForMode,
+        viewportCount: totalLabelCandidates,
+        bubbleZoomThreshold: _kBubbleZoomThreshold,
+        labelZoomThreshold: _kLabelZoomThreshold,
+        maxLabelsInViewport: _kMaxLabelsInViewport,
+      );
+
+      if (isLabelCandidate) labelCandidateIdx++;
+
       BitmapDescriptor icon;
       Offset anchor;
-      if (useDot && !isSelected) {
+
+      if (mode == MarkerRenderMode.dot) {
         icon = (r.open ? _dotIconOpen : _dotIconClosed) ??
             BitmapDescriptor.defaultMarkerWithHue(
               r.open ? _markerHueOpen : _markerHueClosed,
             );
         anchor = const Offset(0.5, 0.5);
       } else {
-        final key = _markerKey(r, isSelected);
+        final key = _markerKey(r, mode);
         final cached = _markerCache[key];
         if (cached == null) {
-          _scheduleMarkerBuild(r, isSelected);
+          _scheduleMarkerBuild(r, mode);
         }
-        icon = cached ??
+        icon = cached?.bitmap ??
             (r.open ? _dotIconOpen : _dotIconClosed) ??
             BitmapDescriptor.defaultMarkerWithHue(
               r.open ? _markerHueOpen : _markerHueClosed,
             );
-        anchor = cached != null
-            ? const Offset(0.5, 1.0)
-            : const Offset(0.5, 0.5);
+        anchor = cached?.anchor ??
+            (mode == MarkerRenderMode.teardrop
+                ? const Offset(0.5, 1.0)
+                : const Offset(0.5, 0.5));
       }
 
       aux.add(Marker(
@@ -461,30 +496,42 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
         onTap: () => _onMarkerTapped(r.id),
       ));
     }
+
+    if (totalLabelCandidates > _kMaxLabelsInViewport) {
+      debugPrint(
+          'mapa: ${totalLabelCandidates - _kMaxLabelsInViewport} label(s) omitted by viewport cap ($_kMaxLabelsInViewport max)');
+    }
     _markers = aux;
   }
 
   void _onCameraMove(CameraPosition position) {
     final wasDot = _currentZoom < _kBubbleZoomThreshold;
-    final isDot = position.zoom < _kBubbleZoomThreshold;
+    final wasLabel = _currentZoom >= _kLabelZoomThreshold;
     _currentZoom = position.zoom;
-    if (wasDot != isDot && mounted) {
-      // Trigger a rebuild so markers swap between dot and bubble.
+    final isDot = position.zoom < _kBubbleZoomThreshold;
+    final isLabel = position.zoom >= _kLabelZoomThreshold;
+    if ((wasDot != isDot || wasLabel != isLabel) && mounted) {
       setState(() {});
     }
   }
 
-  String _markerKey(Restaurant r, bool selected) =>
-      '${r.id}_${r.open ? 1 : 0}_${selected ? 1 : 0}';
+  String _markerKey(Restaurant r, MarkerRenderMode mode) {
+    final modeSuffix = switch (mode) {
+      MarkerRenderMode.dot => 'd',
+      MarkerRenderMode.label => 'l',
+      MarkerRenderMode.teardrop => 't',
+    };
+    return '${r.id}_${r.open ? 1 : 0}_$modeSuffix';
+  }
 
-  void _scheduleMarkerBuild(Restaurant r, bool selected) {
-    final key = _markerKey(r, selected);
+  void _scheduleMarkerBuild(Restaurant r, MarkerRenderMode mode) {
+    final key = _markerKey(r, mode);
     if (_pendingMarkerKeys.contains(key)) return;
     _pendingMarkerKeys.add(key);
-    _buildBubbleMarker(r, selected: selected).then((bitmap) {
+    _buildBubbleMarker(r, mode).then((entry) {
       _pendingMarkerKeys.remove(key);
       if (!mounted) return;
-      _markerCache[key] = bitmap;
+      _markerCache[key] = entry;
       setState(() {});
     }).catchError((e) {
       _pendingMarkerKeys.remove(key);
@@ -492,10 +539,10 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
     });
   }
 
-  Future<BitmapDescriptor> _buildBubbleMarker(Restaurant r,
-      {bool selected = false}) async {
-    // ── Selected: teardrop marker ─────────────────────────────────────────
-    if (selected) {
+  Future<({BitmapDescriptor bitmap, Offset anchor})> _buildBubbleMarker(
+      Restaurant r, MarkerRenderMode mode) async {
+    // ── Teardrop (selected) ───────────────────────────────────────────────
+    if (mode == MarkerRenderMode.teardrop) {
       const double scale = 3.0;
       const double headR = 22.0;
       const double tipExtra = 14.0;
@@ -593,147 +640,105 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
         (bitmapH * scale).round(),
       );
       final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-      return BitmapDescriptor.bytes(
-        byteData!.buffer.asUint8List(),
-        imagePixelRatio: scale,
+      return (
+        bitmap: BitmapDescriptor.bytes(
+          byteData!.buffer.asUint8List(),
+          imagePixelRatio: scale,
+        ),
+        anchor: const Offset(0.5, 1.0),
       );
     }
 
-    // ── Unselected: compact "rating pill" marker (TheFork-style) ─────────
-    final double scale = selected ? 4.2 : 3.0;
-    final double pad = selected ? 14 : 10;
-    final double h = selected ? 40 : 30;
-    final double tailW = selected ? 12 : 8;
-    final double tailH = selected ? 9 : 6;
-    final double radius = selected ? 14 : 10;
-    final double fontSize = selected ? 16 : 13;
-    final double dotSize = selected ? 9 : 7;
-    final double dotGap = selected ? 7 : 5;
+    // ── Unselected: dot de estado + nombre con halo blanco ────────────────
+    // The dot center falls exactly on the restaurant's coordinates (anchor.x
+    // = haloR / bitmapW, anchor.y = 0.5); the name label extends to the right.
+    const double scale = 3.0;
+    const double dotR = 5.0;
+    const double haloR = 8.0;
+    const double gap = 5.0;
+    const double fontSize = 12.0;
+    const double vertPad = 2.0;
 
-    final bool hasRating = r.avgRating > 0;
-    final ratingText =
-        hasRating ? r.avgRating.toStringAsFixed(1) : '';
+    final dotColor = r.open
+        ? const Color.fromRGBO(149, 220, 0, 1)
+        : const Color.fromRGBO(226, 120, 120, 1);
 
-    final ratingPainter = TextPainter(
+    final labelPainter = TextPainter(
       text: TextSpan(
-        text: ratingText,
-        style: TextStyle(
-          color: Colors.white,
+        text: r.nombre,
+        style: const TextStyle(
+          color: AppColors.ink,
           fontSize: fontSize,
           fontFamily: 'SF Pro Display',
-          fontWeight: FontWeight.w800,
-          letterSpacing: 0.2,
+          fontWeight: FontWeight.w600,
         ),
       ),
       textDirection: TextDirection.ltr,
-    );
-    ratingPainter.layout();
+      maxLines: 1,
+    )..layout(maxWidth: 120.0);
 
-    final double w = hasRating
-        ? pad + dotSize + dotGap + ratingPainter.width + pad
-        : pad + dotSize + pad;
-    // Halo around selected marker so it stands out on the map. Padding only
-    // on top + sides (not below) so the tail tip stays at the bitmap bottom
-    // and the marker anchor (0.5, 1.0) lands on the restaurant coords.
-    final double haloPad = selected ? 6 : 0;
-    final double totalW = w + haloPad * 2;
-    final double totalH = h + tailH + haloPad;
-    final double originX = haloPad;
-    final double originY = haloPad;
+    final double haloDiameter = haloR * 2;
+    final double bitmapH = haloDiameter + vertPad * 2;
+    final double bitmapW = haloDiameter + gap + labelPainter.width;
+    final double dotCenterX = haloR;
+    final double dotCenterY = bitmapH / 2;
 
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder);
     canvas.scale(scale, scale);
 
-    final bgPaint = Paint()
-      ..color = selected
-          ? AppColors.atlantico
-          : const Color(0xFF1B1D22);
-    final pillRRect = RRect.fromRectAndRadius(
-      Rect.fromLTWH(originX, originY, w, h),
-      Radius.circular(radius),
-    );
-
-    // Halo (outer soft ring, selected only).
-    if (selected) {
-      final haloRRect = RRect.fromRectAndRadius(
-        Rect.fromLTWH(
-          originX - haloPad,
-          originY - haloPad,
-          w + haloPad * 2,
-          h + haloPad * 2,
-        ),
-        Radius.circular(radius + haloPad),
-      );
-      canvas.drawRRect(
-        haloRRect,
-        Paint()
-          ..color = AppColors.atlantico.withOpacity(0.22)
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
-      );
-    }
-
-    // Drop shadow.
-    canvas.drawRRect(
-      pillRRect.shift(Offset(0, selected ? 3 : 2)),
-      Paint()
-        ..color = Color.fromRGBO(0, 0, 0, selected ? 0.45 : 0.33)
-        ..maskFilter = MaskFilter.blur(
-            BlurStyle.normal, selected ? 6 : 4),
-    );
-    canvas.drawRRect(pillRRect, bgPaint);
-
-    // White outline for selected (lifts pill from blurred shadow); subtle
-    // dark border for unselected.
-    final borderPaint = Paint()
-      ..color = selected
-          ? Colors.white
-          : Colors.white.withOpacity(0.12)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = selected ? 2.5 : 1;
-    canvas.drawRRect(pillRRect, borderPaint);
-
-    // Status dot (open/closed).
-    final dotColor = r.open
-        ? const Color.fromRGBO(149, 220, 0, 1)
-        : const Color.fromRGBO(226, 120, 120, 1);
+    // White halo behind dot
     canvas.drawCircle(
-      Offset(originX + pad + dotSize / 2, originY + h / 2),
-      dotSize / 2,
+      Offset(dotCenterX, dotCenterY),
+      haloR,
+      Paint()..color = Colors.white,
+    );
+    // Colored status dot
+    canvas.drawCircle(
+      Offset(dotCenterX, dotCenterY),
+      dotR,
       Paint()..color = dotColor,
     );
 
-    // Rating text.
-    if (hasRating) {
-      ratingPainter.paint(
-        canvas,
-        Offset(
-          originX + pad + dotSize + dotGap,
-          originY + (h - ratingPainter.height) / 2,
-        ),
-      );
-    }
+    final double textX = haloDiameter + gap;
+    final double textY = (bitmapH - labelPainter.height) / 2;
 
-    // Tail (downward triangle).
-    final tailCenterX = originX + w / 2;
-    final tailTopY = originY + h - 0.5;
-    final tailPath = Path()
-      ..moveTo(tailCenterX - tailW / 2, tailTopY)
-      ..lineTo(tailCenterX + tailW / 2, tailTopY)
-      ..lineTo(tailCenterX, originY + h + tailH)
-      ..close();
-    canvas.drawPath(tailPath, bgPaint);
+    // White halo around text (8-direction offset draws, then ink on top)
+    final haloPainter = TextPainter(
+      text: TextSpan(
+        text: r.nombre,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: fontSize,
+          fontFamily: 'SF Pro Display',
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+      maxLines: 1,
+    )..layout(maxWidth: 120.0);
+
+    const double haloStroke = 1.5;
+    for (final dx in [-haloStroke, 0.0, haloStroke]) {
+      for (final dy in [-haloStroke, 0.0, haloStroke]) {
+        if (dx == 0.0 && dy == 0.0) continue;
+        haloPainter.paint(canvas, Offset(textX + dx, textY + dy));
+      }
+    }
+    labelPainter.paint(canvas, Offset(textX, textY));
 
     final picture = recorder.endRecording();
     final image = await picture.toImage(
-      (totalW * scale).round(),
-      (totalH * scale).round(),
+      (bitmapW * scale).ceil(),
+      (bitmapH * scale).ceil(),
     );
-    final byteData =
-        await image.toByteData(format: ui.ImageByteFormat.png);
-    return BitmapDescriptor.bytes(
-      byteData!.buffer.asUint8List(),
-      imagePixelRatio: scale,
+    final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+    return (
+      bitmap: BitmapDescriptor.bytes(
+        byteData!.buffer.asUint8List(),
+        imagePixelRatio: scale,
+      ),
+      anchor: Offset(haloR / bitmapW, 0.5),
     );
   }
 
