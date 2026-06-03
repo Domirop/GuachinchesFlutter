@@ -69,14 +69,17 @@ class ParallaxHero extends StatelessWidget {
             child: Stack(
               clipBehavior: Clip.hardEdge,
               children: [
-                // Foto con parallax
-                RepaintBoundary(
-                  child: Positioned(
-                    top: -scrollOffset * 0.4,
-                    left: 0, right: 0,
-                    height: heroH + 40,
-                    child: _buildPhoto(context),
-                  ),
+                // Foto con parallax.
+                // OJO: el Positioned debe ser hijo DIRECTO del Stack. El
+                // RepaintBoundary va DENTRO del Positioned (no fuera): si
+                // envuelve al Positioned, su parentData deja de ser
+                // StackParentData y revienta todo el hero en release
+                // ('type ParentData is not a subtype of StackParentData').
+                Positioned(
+                  top: -scrollOffset * 0.4,
+                  left: 0, right: 0,
+                  height: heroH + 40,
+                  child: RepaintBoundary(child: _buildPhoto(context)),
                 ),
                 // Tinte de hora
                 AnimatedContainer(
