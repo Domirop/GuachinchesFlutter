@@ -27,6 +27,7 @@ import 'package:guachinches/ui/pages/map/marker_render_mode.dart';
 import 'package:guachinches/ui/pages/restaurant_detail/restaurant_detail_screen.dart';
 import 'package:guachinches/data/http_client.dart';
 import 'package:maps_launcher/maps_launcher.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:guachinches/ui/pages/new_home/sheets/island_picker_sheet.dart';
 import 'package:guachinches/utils/island_key_utils.dart';
 
@@ -808,6 +809,23 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
     );
   }
 
+  /// Mueve la selección al restaurante contiguo (prev/next) en la lista
+  /// visible, de forma **cíclica**: tras el último vuelve al primero y al
+  /// revés. Lo usan el peek sheet (flechas + swipe).
+  void _selectAdjacent(int delta) {
+    final n = _visibleRestaurants.length;
+    if (n == 0) return;
+    final cur = _selectedIndex();
+    final base = cur < 0 ? 0 : cur;
+    // El % de Dart con divisor positivo siempre devuelve [0, n) -> wrap en
+    // ambos sentidos sin necesidad de ajustar el negativo.
+    final next = (base + delta) % n;
+    if (next == cur) return;
+    final r = _visibleRestaurants[next];
+    setState(() => _selectedRestaurantId = r.id);
+    _animateToRestaurant(r);
+  }
+
   // ── Distance / sort ────────────────────────────────────────────────────
   double _distanceTo(Restaurant r) {
     if (!_hasUserLocation) return double.infinity;
@@ -1081,53 +1099,28 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
                   ),
                 )
               else if (_visibleRestaurants.isNotEmpty)
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: 8,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.only(left: 16, bottom: 6),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 5),
-                          decoration: BoxDecoration(
-                            color: context.brand.surface,
-                            borderRadius: BorderRadius.circular(999),
-                            border: Border.all(color: context.brand.border),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.15),
-                                blurRadius: 8,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: Text(
-                            AppL10n.of(context).mapRestaurantsNearby(
-                                _visibleRestaurants.length),
-                            style: AppTextStyles.ui(
-                              size: 12,
-                              weight: FontWeight.w700,
-                              color: context.brand.textPrimary,
-                            ),
-                          ),
+                // PROTOTIPO ergonomia Eater: bottom sheet arrastrable que
+                // muestra el restaurante seleccionado (peek -> expandido) con
+                // acciones rapidas y navegacion prev/next, en vez del carrusel.
+                Positioned.fill(
+                  child: Builder(builder: (context) {
+                    final selIdx = _selectedIndex();
+                    final idx = selIdx < 0 ? 0 : selIdx;
+                    final sel = _visibleRestaurants[idx];
+                    return _MapPeekSheet(
+                      restaurant: sel,
+                      distanceMeters: _distanceTo(sel),
+                      index: idx,
+                      total: _visibleRestaurants.length,
+                      onPrev: () => _selectAdjacent(-1),
+                      onNext: () => _selectAdjacent(1),
+                      onOpenDetail: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => RestaurantDetailScreen(id: sel.id),
                         ),
                       ),
-                      SizedBox(
-                        height: 116,
-                        child: _FloatingCardCarousel(
-                          restaurants: _visibleRestaurants,
-                          pageController: _cardsPageController,
-                          onPageChanged: _onCardPageChanged,
-                          distanceTo: _distanceTo,
-                        ),
-                      ),
-                    ],
-                  ),
+                    );
+                  }),
                 ),
             ],
           );
@@ -1826,6 +1819,280 @@ class _DrivePill extends StatelessWidget {
                   fontWeight: (closingSoon || unreachable)
                       ? FontWeight.w700
                       : FontWeight.w400,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── PROTOTIPO: bottom sheet ergonomia Eater ─────────────────────────────
+/// Sheet arrastrable (peek -> expandido) que muestra el restaurante
+/// seleccionado. Peek = foto + nombre + estado/distancia; acciones rapidas;
+/// arrastrando arriba revela direccion y la barra prev/next "X / N sitios".
+/// Swipe horizontal y flechas son ciclicos. Tocar abre la ficha completa.
+class _MapPeekSheet extends StatelessWidget {
+  final Restaurant restaurant;
+  final double distanceMeters;
+  final int index;
+  final int total;
+  final VoidCallback onPrev;
+  final VoidCallback onNext;
+  final VoidCallback onOpenDetail;
+
+  const _MapPeekSheet({
+    Key? key,
+    required this.restaurant,
+    required this.distanceMeters,
+    required this.index,
+    required this.total,
+    required this.onPrev,
+    required this.onNext,
+    required this.onOpenDetail,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    final brand = context.brand;
+    final r = restaurant;
+    return DraggableScrollableSheet(
+      initialChildSize: 0.30,
+      minChildSize: 0.10,
+      maxChildSize: 0.6,
+      snap: true,
+      snapSizes: const [0.10, 0.30, 0.6],
+      builder: (context, scrollController) {
+        return GestureDetector(
+          // Swipe horizontal: a la derecha -> siguiente, a la izquierda ->
+          // anterior (ciclico).
+          onHorizontalDragEnd: (details) {
+            final v = details.primaryVelocity ?? 0;
+            if (v > 250) {
+              onNext();
+            } else if (v < -250) {
+              onPrev();
+            }
+          },
+          child: Container(
+            decoration: BoxDecoration(
+              color: brand.surface,
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(22)),
+              border: Border.all(color: brand.border),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.18),
+                  blurRadius: 24,
+                  offset: const Offset(0, -4),
+                ),
+              ],
+            ),
+            clipBehavior: Clip.hardEdge,
+            child: ListView(
+              controller: scrollController,
+              padding: EdgeInsets.zero,
+              children: [
+                // Asa de arrastre
+                Center(
+                  child: Container(
+                    margin: const EdgeInsets.only(top: 8, bottom: 12),
+                    width: 38,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: brand.border,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                // Contenido animado: al cambiar de restaurante hace fade +
+                // slide para que se note la transicion.
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 240),
+                  switchInCurve: Curves.easeOutCubic,
+                  switchOutCurve: Curves.easeIn,
+                  transitionBuilder: (child, anim) => FadeTransition(
+                    opacity: anim,
+                    child: SlideTransition(
+                      position: Tween<Offset>(
+                        begin: const Offset(0.08, 0),
+                        end: Offset.zero,
+                      ).animate(anim),
+                      child: child,
+                    ),
+                  ),
+                  child: Column(
+                    key: ValueKey(r.id),
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Peek: thumbnail + nombre + estado/distancia
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: GestureDetector(
+                          onTap: onOpenDetail,
+                          behavior: HitTestBehavior.opaque,
+                          child: Row(
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(14),
+                                child: SizedBox(
+                                  width: 66,
+                                  height: 66,
+                                  child: Container(
+                                    color: brand.elevated,
+                                    child: r.mainFoto.isNotEmpty
+                                        ? Image.network(
+                                            r.mainFoto,
+                                            fit: BoxFit.cover,
+                                            errorBuilder: (_, __, ___) => Icon(
+                                                Icons.restaurant,
+                                                color: brand.textMuted),
+                                          )
+                                        : Icon(Icons.restaurant,
+                                            color: brand.textMuted),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      r.nombre.toUpperCase(),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: AppTextStyles.displaySection(
+                                          size: 15),
+                                    ),
+                                    const SizedBox(height: 5),
+                                    _StatusLine(
+                                      restaurant: r,
+                                      brand: brand,
+                                      distanceMeters: distanceMeters,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Icon(Icons.chevron_right_rounded,
+                                  color: brand.textMuted),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      // Acciones rapidas (estilo Eater)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        child: Row(
+                          children: [
+                            _action(
+                                context,
+                                Icons.directions_outlined,
+                                'Cómo llegar',
+                                () => MapsLauncher.launchCoordinates(
+                                    r.lat, r.lon, r.nombre)),
+                            _action(
+                                context,
+                                Icons.ios_share,
+                                'Compartir',
+                                () => Share.share(
+                                    '${r.nombre} · ${r.municipio}')),
+                            _action(context, Icons.info_outline_rounded,
+                                'Ver ficha', onOpenDetail),
+                          ],
+                        ),
+                      ),
+                      Divider(height: 26, color: brand.border),
+                      // Contenido expandido
+                      if (r.direccion.isNotEmpty)
+                        Padding(
+                          padding:
+                              const EdgeInsets.fromLTRB(16, 0, 16, 10),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(Icons.place_outlined,
+                                  size: 16, color: brand.textMuted),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  r.direccion,
+                                  style: AppTextStyles.ui(
+                                      size: 13,
+                                      color: brand.textSecondary),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      const SizedBox(height: 4),
+                      // Navegacion prev/next ("X / N sitios")
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(8, 0, 8, 16),
+                        child: Row(
+                          children: [
+                            IconButton(
+                              onPressed: onPrev,
+                              icon: const Icon(Icons.chevron_left_rounded),
+                              color: AppColors.atlantico,
+                            ),
+                            Expanded(
+                              child: Center(
+                                child: Text(
+                                  '${index + 1} / $total sitios',
+                                  style: AppTextStyles.ui(
+                                    size: 12,
+                                    weight: FontWeight.w700,
+                                    color: brand.textPrimary,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              onPressed: onNext,
+                              icon: const Icon(Icons.chevron_right_rounded),
+                              color: AppColors.atlantico,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _action(
+      BuildContext context, IconData icon, String label, VoidCallback onTap) {
+    final brand = context.brand;
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, color: AppColors.atlantico, size: 22),
+              const SizedBox(height: 5),
+              Text(
+                label,
+                style: AppTextStyles.ui(
+                  size: 11,
+                  weight: FontWeight.w600,
+                  color: brand.textPrimary,
                 ),
               ),
             ],
