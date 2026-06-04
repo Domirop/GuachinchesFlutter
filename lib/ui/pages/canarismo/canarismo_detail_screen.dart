@@ -4,38 +4,68 @@ import 'package:guachinches/config/app_colors.dart';
 import 'package:guachinches/config/app_text_styles.dart';
 import 'package:guachinches/config/brand_colors.dart';
 import 'package:guachinches/data/canarismos.dart';
+import 'package:guachinches/ui/pages/canarismo/canarismo_visuals.dart';
 
+const _weekdays = [
+  'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo',
+];
+const _months = [
+  'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto',
+  'septiembre', 'octubre', 'noviembre', 'diciembre',
+];
+
+String _longDate(DateTime d) =>
+    '${_weekdays[d.weekday - 1]}, ${d.day} de ${_months[d.month - 1]}';
+
+String _relativeDate(DateTime d, DateTime now) {
+  final a = DateTime(d.year, d.month, d.day);
+  final b = DateTime(now.year, now.month, now.day);
+  final days = b.difference(a).inDays;
+  if (days <= 0) return 'Hoy';
+  if (days == 1) return 'Ayer';
+  return 'Hace $days días';
+}
+
+/// Pantalla de detalle del Canarismo del día: hero editorial con gradiente +
+/// greca canaria, significado, atajo de compartir y lista de canarismos
+/// anteriores (explorable). Recibe la voz inicial y su fecha (hoy por defecto).
 class CanarismoDetailScreen extends StatefulWidget {
   final Canarismo initial;
+  final DateTime? date;
 
-  const CanarismoDetailScreen({super.key, required this.initial});
+  const CanarismoDetailScreen({super.key, required this.initial, this.date});
 
   @override
   State<CanarismoDetailScreen> createState() => _CanarismoDetailScreenState();
 }
 
 class _CanarismoDetailScreenState extends State<CanarismoDetailScreen> {
-  late Canarismo _current;
-  int _shuffleSeed = 0;
+  late final Canarismo _current;
+  late final DateTime _date;
+  late final DateTime _now;
 
   @override
   void initState() {
     super.initState();
     _current = widget.initial;
-    _shuffleSeed = DateTime.now().microsecondsSinceEpoch;
-  }
-
-  void _shuffle() {
-    setState(() {
-      _shuffleSeed += 997;
-      _current = canarismoRandom(_shuffleSeed, actual: _current);
-    });
+    _now = DateTime.now();
+    _date = widget.date ?? _now;
   }
 
   void _share() {
     SharePlus.instance.share(
       ShareParams(
-        text: '"${_current.palabra}" — ${_current.significado}\n\nvía Dónde Comer Canarias',
+        text:
+            '"${_current.palabra}" — ${_current.significado}\n\nvía Dónde Comer Canarias',
+      ),
+    );
+  }
+
+  void _openHistory(Canarismo c, DateTime date) {
+    Navigator.push(
+      context,
+      MaterialPageRoute<void>(
+        builder: (_) => CanarismoDetailScreen(initial: c, date: date),
       ),
     );
   }
@@ -43,192 +73,371 @@ class _CanarismoDetailScreenState extends State<CanarismoDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final brand = context.brand;
-    final initial =
-        _current.palabra.isNotEmpty ? _current.palabra[0].toUpperCase() : '';
+
+    // 5 canarismos anteriores a la fecha mostrada.
+    final history = List.generate(5, (i) {
+      final d = _date.subtract(Duration(days: i + 1));
+      return (date: d, c: canarismoOfDay(d));
+    });
 
     return Semantics(
       identifier: 'canarismo-detail-screen',
       child: Scaffold(
         backgroundColor: brand.base,
-        body: SafeArea(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Back button
-              Padding(
-                padding: const EdgeInsets.fromLTRB(8, 8, 16, 0),
-                child: Semantics(
-                  identifier: 'canarismo-detail-back',
-                  button: true,
-                  child: GestureDetector(
-                    onTap: () => Navigator.maybePop(context),
-                    behavior: HitTestBehavior.opaque,
-                    child: Padding(
-                      padding: const EdgeInsets.all(10),
-                      child: Icon(
-                        Icons.arrow_back_ios_new_rounded,
-                        color: brand.textPrimary,
-                        size: 20,
-                      ),
+        body: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            _Hero(
+              word: _current.palabra,
+              dateLabel: _longDate(_date),
+              onBack: () => Navigator.maybePop(context),
+              onShare: _share,
+            ),
+            // Significado.
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'QUÉ SIGNIFICA',
+                    style: AppTextStyles.eyebrow(
+                      size: 12,
+                      color: AppColors.arena,
                     ),
                   ),
-                ),
-              ),
-              // Bloque central (eyebrow + palabra con inicial de marca de agua
-              // + significado) CENTRADO verticalmente, para que la pantalla no
-              // se sienta vacía con un hueco en medio.
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'CANARISMO DEL DÍA',
-                        style: AppTextStyles.eyebrow(
-                          size: 11,
+                  const SizedBox(height: 14),
+                  Text(
+                    _current.significado,
+                    style: AppTextStyles.editorial(
+                      size: 19,
+                      color: brand.textPrimary,
+                    ).copyWith(height: 1.5),
+                  ),
+                  const SizedBox(height: 28),
+                  // Compartir (primario).
+                  Semantics(
+                    identifier: 'canarismo-detail-share',
+                    button: true,
+                    child: GestureDetector(
+                      onTap: _share,
+                      behavior: HitTestBehavior.opaque,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        decoration: BoxDecoration(
                           color: AppColors.atlantico,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      // Palabra protagonista con la inicial gigante detrás.
-                      Semantics(
-                        identifier: 'canarismo-detail-word',
-                        child: Stack(
-                          clipBehavior: Clip.none,
-                          children: [
-                            Positioned(
-                              top: -44,
-                              left: -10,
-                              child: IgnorePointer(
-                                child: Text(
-                                  initial,
-                                  style: AppTextStyles.displayHero(
-                                    size: 200,
-                                    color: AppColors.atlantico
-                                        .withValues(alpha: 0.10),
-                                  ),
-                                ),
-                              ),
+                          borderRadius: BorderRadius.circular(999),
+                          boxShadow: const [
+                            BoxShadow(
+                              color: Color(0x330085C4),
+                              blurRadius: 16,
+                              offset: Offset(0, 6),
                             ),
+                          ],
+                        ),
+                        alignment: Alignment.center,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.ios_share,
+                                size: 18, color: Colors.white),
+                            const SizedBox(width: 10),
                             Text(
-                              '"${_current.palabra}"',
-                              style: AppTextStyles.displayHero(
-                                size: 44,
-                                color: brand.textPrimary,
-                              ),
+                              'COMPARTE EL CANARISMO',
+                              style: AppTextStyles.eyebrow(
+                                size: 13,
+                                color: Colors.white,
+                              ).copyWith(letterSpacing: 1.0),
                             ),
                           ],
                         ),
                       ),
-                      const SizedBox(height: 24),
-                      Text(
-                        _current.significado,
-                        style: AppTextStyles.editorial(
-                          size: 17,
-                          color: brand.textSecondary,
-                        ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Center(
+                    child: Text(
+                      'Genera una tarjeta para tus historias y enséñale a quien '
+                      'quieras una palabra nuestra.',
+                      textAlign: TextAlign.center,
+                      style: AppTextStyles.muted(size: 12),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 24),
+              child: GrecaBand(),
+            ),
+            const SizedBox(height: 24),
+            // Canarismos anteriores.
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Text(
+                'CANARISMOS ANTERIORES',
+                style:
+                    AppTextStyles.eyebrow(size: 12, color: AppColors.arena),
+              ),
+            ),
+            const SizedBox(height: 6),
+            ...history.map(
+              (e) => _HistoryTile(
+                canarismo: e.c,
+                relative: _relativeDate(e.date, _now),
+                onTap: () => _openHistory(e.c, e.date),
+              ),
+            ),
+            const SizedBox(height: 28),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _Hero extends StatelessWidget {
+  final String word;
+  final String dateLabel;
+  final VoidCallback onBack;
+  final VoidCallback onShare;
+
+  const _Hero({
+    required this.word,
+    required this.dateLabel,
+    required this.onBack,
+    required this.onShare,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    const cream = AppColors.crema;
+
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: kCanarismoGradient,
+        borderRadius: BorderRadius.only(
+          bottomLeft: Radius.circular(28),
+          bottomRight: Radius.circular(28),
+        ),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Stack(
+        children: [
+          // Marca de agua: inicial gigante.
+          Positioned(
+            right: -12,
+            bottom: 4,
+            child: IgnorePointer(
+              child: Text(
+                canarismoInitial(word),
+                style: AppTextStyles.displayHero(
+                  size: 240,
+                  color: Colors.white.withOpacity(0.08),
+                ),
+              ),
+            ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SafeArea(
+                bottom: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+                  child: Row(
+                    children: [
+                      _CircleButton(
+                        identifier: 'canarismo-detail-back',
+                        icon: Icons.arrow_back_ios_new_rounded,
+                        onTap: onBack,
+                      ),
+                      const Spacer(),
+                      _CircleButton(
+                        identifier: 'canarismo-detail-share',
+                        icon: Icons.ios_share,
+                        onTap: onShare,
                       ),
                     ],
                   ),
                 ),
               ),
-              // Actions + footer
+              const SizedBox(height: 56),
               Padding(
-                padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
+                padding: const EdgeInsets.fromLTRB(24, 0, 24, 0),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Share (primary pill)
-                    Semantics(
-                      identifier: 'canarismo-detail-share',
-                      button: true,
-                      child: GestureDetector(
-                        onTap: _share,
-                        behavior: HitTestBehavior.opaque,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          decoration: BoxDecoration(
-                            color: AppColors.atlantico,
-                            borderRadius: BorderRadius.circular(999),
-                          ),
-                          alignment: Alignment.center,
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(
-                                Icons.ios_share,
-                                size: 18,
-                                color: Colors.white,
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                'Compartir',
-                                style: AppTextStyles.ui(
-                                  size: 15,
-                                  weight: FontWeight.w700,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
+                    Text(
+                      'EL CANARISMO DEL DÍA',
+                      style: AppTextStyles.eyebrow(
+                        size: 12,
+                        color: cream.withOpacity(0.78),
                       ),
                     ),
-                    const SizedBox(height: 10),
-                    // Shuffle (secondary pill)
-                    Semantics(
-                      identifier: 'canarismo-detail-shuffle',
-                      button: true,
-                      child: GestureDetector(
-                        onTap: _shuffle,
-                        behavior: HitTestBehavior.opaque,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          decoration: BoxDecoration(
-                            color: Colors.transparent,
-                            borderRadius: BorderRadius.circular(999),
-                            border: Border.all(color: brand.borderStrong),
-                          ),
-                          alignment: Alignment.center,
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.shuffle_rounded,
-                                size: 18,
-                                color: brand.textPrimary,
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                'Otra palabra',
-                                style: AppTextStyles.ui(
-                                  size: 15,
-                                  weight: FontWeight.w600,
-                                  color: brand.textPrimary,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
+                    const SizedBox(height: 6),
+                    Text(
+                      dateLabel,
+                      style: AppTextStyles.ui(
+                        size: 14,
+                        color: cream.withOpacity(0.6),
                       ),
                     ),
-                    const SizedBox(height: 20),
-                    // Footer
-                    Center(
+                    const SizedBox(height: 14),
+                    Semantics(
+                      identifier: 'canarismo-detail-word',
                       child: Text(
-                        'Diccionario del habla canaria · Dónde Comer Canarias',
-                        style: AppTextStyles.muted(),
-                        textAlign: TextAlign.center,
+                        word.toUpperCase(),
+                        style: AppTextStyles.displayHero(
+                          size: 56,
+                          color: cream,
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 4),
                   ],
                 ),
               ),
+              const SizedBox(height: 18),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 20),
+                child: GrecaBand(),
+              ),
+              const SizedBox(height: 10),
             ],
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CircleButton extends StatelessWidget {
+  final String identifier;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _CircleButton({
+    required this.identifier,
+    required this.icon,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      identifier: identifier,
+      button: true,
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: Container(
+          width: 42,
+          height: 42,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: Colors.white.withOpacity(0.14),
+            border: Border.all(color: Colors.white.withOpacity(0.30)),
+          ),
+          child: Icon(icon, size: 18, color: AppColors.crema),
+        ),
+      ),
+    );
+  }
+}
+
+class _HistoryTile extends StatelessWidget {
+  final Canarismo canarismo;
+  final String relative;
+  final VoidCallback onTap;
+
+  const _HistoryTile({
+    required this.canarismo,
+    required this.relative,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final brand = context.brand;
+    final grad = canarismoAvatarGradient(canarismo.palabra);
+
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            // Avatar con inicial.
+            Container(
+              width: 52,
+              height: 52,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: grad,
+                ),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                canarismoInitial(canarismo.palabra),
+                style: AppTextStyles.displayHero(
+                  size: 26,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.baseline,
+                    textBaseline: TextBaseline.alphabetic,
+                    children: [
+                      Flexible(
+                        child: Text(
+                          canarismo.palabra.toUpperCase(),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTextStyles.displaySection(
+                            size: 15,
+                            color: brand.textPrimary,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        relative,
+                        style: AppTextStyles.muted(size: 11),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    canarismo.significado,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTextStyles.ui(
+                      size: 13,
+                      color: brand.textSecondary,
+                    ).copyWith(height: 1.3),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Icon(
+              Icons.arrow_forward_ios_rounded,
+              size: 14,
+              color: brand.textMuted,
+            ),
+          ],
         ),
       ),
     );

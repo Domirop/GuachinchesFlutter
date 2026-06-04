@@ -380,12 +380,18 @@ const List<Canarismo> kCanarismos = [
 ];
 
 /// Canarismo del día, determinista por fecha. [now] inyectable para tests.
+///
+/// Usamos un *stride* coprimo con el tamaño del diccionario para que días
+/// consecutivos NO caigan en voces alfabéticamente adyacentes (si no, la lista
+/// de "canarismos anteriores" saldría toda con la misma inicial). Al ser
+/// coprimo, sigue siendo una permutación completa: no repite hasta agotar.
 Canarismo canarismoOfDay([DateTime? now]) {
   final d = now ?? DateTime.now();
   final today = DateTime(d.year, d.month, d.day);
   final dayIndex = today.difference(DateTime(2020, 1, 1)).inDays;
   final n = kCanarismos.length;
-  final i = ((dayIndex % n) + n) % n;
+  const stride = 139; // coprimo con 365
+  final i = ((dayIndex * stride) % n + n) % n;
   return kCanarismos[i];
 }
 
