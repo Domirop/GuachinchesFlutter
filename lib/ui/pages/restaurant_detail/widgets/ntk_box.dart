@@ -91,9 +91,9 @@ class NTKBox extends StatelessWidget {
           Text(
             'LO QUE NECESITAS SABER',
             style: AppTextStyles.eyebrow(
-              size: 12,
+              size: 11,
               color: AppColors.atlantico,
-            ),
+            ).copyWith(letterSpacing: 1.2),
           ),
           const SizedBox(height: 12),
           for (int i = 0; i < rowBuilders.length; i++)
@@ -198,13 +198,13 @@ class _NTKRow extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             SizedBox(
-              width: 96,
+              width: 88,
               child: Text(
                 data.key,
                 style: AppTextStyles.eyebrow(
-                  size: 12,
+                  size: 11,
                   color: context.brand.textMuted,
-                ),
+                ).copyWith(letterSpacing: 1.0),
               ),
             ),
             const SizedBox(width: 8),
@@ -212,7 +212,7 @@ class _NTKRow extends StatelessWidget {
               child: Text(
                 data.value,
                 style: AppTextStyles.ui(
-                  size: 15,
+                  size: 13,
                   color: data.color ?? context.brand.textPrimary,
                 ),
               ),
@@ -265,13 +265,13 @@ class _ScheduleRowState extends State<_ScheduleRow> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 96,
+            width: 88,
             child: Text(
               'HORARIO',
               style: AppTextStyles.eyebrow(
-                size: 12,
+                size: 11,
                 color: context.brand.textMuted,
-              ),
+              ).copyWith(letterSpacing: 1.0),
             ),
           ),
           const SizedBox(width: 8),
@@ -295,7 +295,7 @@ class _ScheduleRowState extends State<_ScheduleRow> {
                       Text(
                         _expanded ? 'Ver menos' : 'Ver más',
                         style: AppTextStyles.ui(
-                          size: 13,
+                          size: 12,
                           weight: FontWeight.w600,
                           color: AppColors.atlanticoClaro,
                         ),
@@ -330,10 +330,11 @@ class _ScheduleRowState extends State<_ScheduleRow> {
       textBaseline: TextBaseline.alphabetic,
       children: [
         SizedBox(
-          width: 38,
+          width: 36,
           child: Text(
             _dayLabels[dayIndex],
-            style: AppTextStyles.eyebrow(size: 12, color: dayColor),
+            style: AppTextStyles.eyebrow(size: 11, color: dayColor)
+                .copyWith(letterSpacing: 1.0),
           ),
         ),
         const SizedBox(width: 8),
@@ -341,7 +342,7 @@ class _ScheduleRowState extends State<_ScheduleRow> {
           child: Text(
             widget.hours[dayIndex],
             style: AppTextStyles.ui(
-              size: 15,
+              size: 13,
               color: hoursColor,
               weight: isToday ? FontWeight.w700 : FontWeight.w400,
             ),

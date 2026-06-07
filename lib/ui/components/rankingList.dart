@@ -125,7 +125,10 @@ class _RankingListState extends State<RankingList> {
         Container(
           decoration: const BoxDecoration(
             image: DecorationImage(
-              image: AssetImage('assets/images/encuesta_tradicional.png'),
+              image: ResizeImage(
+                AssetImage('assets/images/encuesta_tradicional.png'),
+                width: 1000,
+              ),
               fit: BoxFit.cover,
             ),
           ),

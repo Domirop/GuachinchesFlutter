@@ -283,6 +283,14 @@ class _NewHomeScreenState extends State<NewHomeScreen>
       child: BlocBuilder<NewHomeFiltersCubit, NewHomeFiltersState>(
         builder: (_, filters) {
           return BlocBuilder<WeatherCubit, WeatherState>(
+            // El clima refresca cada hora; solo reconstruimos la home si el
+            // dato MOSTRADO (temperatura/condición) cambia de verdad. Antes
+            // cualquier emit (aunque fuera idéntico) recomponía todo el árbol.
+            buildWhen: (prev, curr) {
+              final p = prev is WeatherLoaded ? prev.data : null;
+              final c = curr is WeatherLoaded ? curr.data : null;
+              return p?.tempC != c?.tempC || p?.condition != c?.condition;
+            },
             builder: (_, weatherState) {
               final weather = weatherState is WeatherLoaded
                   ? weatherState.data

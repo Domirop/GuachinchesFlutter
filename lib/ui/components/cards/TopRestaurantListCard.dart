@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 import 'package:guachinches/data/model/TopRestaurants.dart';
@@ -38,9 +39,9 @@ class TopRestaurantListCard extends StatelessWidget {
                         fit: BoxFit.fill,
                         image:
                         restaurant.imagen != null
-                            ? NetworkImage(
-                            restaurant.imagen)
-                            : AssetImage(
+                            ? CachedNetworkImageProvider(
+                            restaurant.imagen, maxWidth: 600)
+                            : const AssetImage(
                             "assets/images/notImage.png") as ImageProvider,
                       ),
                     ),

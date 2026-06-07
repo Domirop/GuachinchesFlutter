@@ -52,7 +52,9 @@ class GlassTabBar extends StatelessWidget {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(28),
         child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 40, sigmaY: 40),
+          // sigma bajado de 40→18: el blur de la tab bar se re-renderiza cada
+          // frame de scroll; 18 es visualmente equivalente y mucho más barato.
+          filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
           child: Container(
             height: 64,
             padding: const EdgeInsets.symmetric(horizontal: 6),

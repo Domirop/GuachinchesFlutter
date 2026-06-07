@@ -1,5 +1,6 @@
 import 'dart:ffi';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 class RankingCard extends StatelessWidget {
@@ -68,7 +69,8 @@ class RankingCard extends StatelessWidget {
                     child: Row(
                       children: [
                          CircleAvatar(
-                          backgroundImage: NetworkImage(logoUrl),
+                          backgroundImage:
+                              CachedNetworkImageProvider(logoUrl, maxWidth: 120),
                           radius: 20,
                         ),
                         const SizedBox(width: 12),

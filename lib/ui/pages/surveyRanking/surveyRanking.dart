@@ -199,7 +199,10 @@ class _SurveyRankingState extends State<SurveyRanking> implements SurveyRankingV
                   Container(
                     decoration: const BoxDecoration(
                       image: DecorationImage(
-                        image: AssetImage('assets/images/encuesta_tradicional.png'),
+                        image: ResizeImage(
+                          AssetImage('assets/images/encuesta_tradicional.png'),
+                          width: 1000,
+                        ),
                         fit: BoxFit.cover,
                       ),
                     ),

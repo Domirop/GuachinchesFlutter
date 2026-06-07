@@ -80,7 +80,7 @@ class _ChangeIslandState extends State<ChangeIsland> {
             Container(
               decoration: BoxDecoration(
                 image: DecorationImage(
-                  image: AssetImage(test[_current]),
+                  image: ResizeImage(AssetImage(test[_current]), width: 1080),
                   fit: BoxFit.cover,
                 ),
               ),

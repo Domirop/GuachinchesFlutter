@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:guachinches/data/model/Category.dart';
 
@@ -19,7 +20,8 @@ class _CategoryImageCardState extends State<CategoryImageCard> {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(12),
         image: DecorationImage(
-          image: NetworkImage(widget.modelCategory.foto),
+          image: CachedNetworkImageProvider(widget.modelCategory.foto,
+              maxWidth: 300),
           fit: BoxFit.cover,
         ),
       ),

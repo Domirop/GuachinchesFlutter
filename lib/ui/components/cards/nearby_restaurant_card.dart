@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:guachinches/data/model/restaurant.dart';
 import 'package:guachinches/globalMethods.dart';
@@ -50,10 +51,12 @@ class NearbyRestaurantCard extends StatelessWidget {
                       width: _cardWidth,
                       height: _imageHeight,
                       child: restaurant.mainFoto.isNotEmpty
-                          ? Image.network(
-                              restaurant.mainFoto,
+                          ? CachedNetworkImage(
+                              imageUrl: restaurant.mainFoto,
                               fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => _placeholder(),
+                              memCacheWidth: 440,
+                              errorWidget: (_, __, ___) => _placeholder(),
+                              placeholder: (_, __) => _placeholder(),
                             )
                           : _placeholder(),
                     ),

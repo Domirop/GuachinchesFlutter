@@ -1,103 +1,84 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:guachinches/data/cubit/location/location_cubit.dart';
-import 'package:guachinches/data/cubit/location/location_state.dart';
+import 'package:guachinches/data/cubit/new_home/weather_cubit.dart';
 import 'package:guachinches/data/services/weather_service.dart';
 import 'package:guachinches/ui/components/clouds_overlay.dart';
 import 'package:guachinches/ui/components/rain_overlay.dart';
 
-/// Layer meteorológico: consulta el tiempo actual con Open-Meteo y compone
-/// nubes/lluvia/etc. encima del hero. Pensado para colocarse dentro de un
-/// `Stack` con `Clip.hardEdge`.
+/// Layer meteorológico sobre el hero: compone nubes/lluvia según la
+/// condición meteorológica de la zona seleccionada.
 ///
-/// Si no se pasa `lat`/`lon` explícito, usa la posición del `LocationCubit`
-/// global y, en su defecto, Santa Cruz de Tenerife.
-class WeatherLayer extends StatefulWidget {
-  final double? lat;
-  final double? lon;
-
-  const WeatherLayer({super.key, this.lat, this.lon});
-
-  @override
-  State<WeatherLayer> createState() => _WeatherLayerState();
-}
-
-class _WeatherLayerState extends State<WeatherLayer> {
-  WeatherCondition _condition = WeatherCondition.unknown;
-  bool _fetching = false;
-
-  // Fallback: centro de Tenerife si no hay GPS y no se pasa explícito.
-  static const double _fallbackLat = 28.4682;
-  static const double _fallbackLon = -16.2546;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _fetch());
-  }
-
-  (double, double) _resolveCoords() {
-    if (widget.lat != null && widget.lon != null) {
-      return (widget.lat!, widget.lon!);
-    }
-    final s = context.read<LocationCubit>().state;
-    if (s is LocationLoaded) return (s.latitude, s.longitude);
-    return (_fallbackLat, _fallbackLon);
-  }
-
-  Future<void> _fetch() async {
-    if (_fetching) return;
-    _fetching = true;
-    final (lat, lon) = _resolveCoords();
-    final cond = await WeatherService.instance
-        .currentCondition(lat: lat, lon: lon);
-    if (!mounted) return;
-    setState(() {
-      _condition = cond;
-      _fetching = false;
-    });
-  }
+/// Deriva la condición de la MISMA fuente que el chip del `TopFilterBar`
+/// (el [WeatherCubit], que consulta el backend por isla/zona/municipio), de
+/// modo que ambos quedan siempre sincronizados: al cambiar a una zona soleada
+/// el chip pasa a ☀️ y las nubes desaparecen en el mismo frame.
+///
+/// Pensado para colocarse dentro de un `Stack` con `Clip.hardEdge`.
+class WeatherLayer extends StatelessWidget {
+  const WeatherLayer({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return BlocListener<LocationCubit, LocationState>(
-      listenWhen: (prev, curr) =>
-          curr is LocationLoaded && prev is! LocationLoaded,
-      listener: (_, __) => _fetch(),
-      child: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 600),
-        child: _buildOverlay(),
-      ),
+    return BlocBuilder<WeatherCubit, WeatherState>(
+      builder: (context, state) {
+        final condition = state is WeatherLoaded
+            ? _conditionFromBackend(state.data.condition)
+            : WeatherCondition.unknown;
+        return AnimatedSwitcher(
+          duration: const Duration(milliseconds: 600),
+          child: _buildOverlay(condition),
+        );
+      },
     );
   }
 
-  Widget _buildOverlay() {
-    if (!_condition.hasClouds && !_condition.hasRain) {
+  /// Mapea la `condition` textual del backend
+  /// ('sunny' | 'cloudy' | 'rain' | 'fog' | 'storm' | 'unknown') al enum
+  /// visual que consumen los overlays.
+  static WeatherCondition _conditionFromBackend(String condition) {
+    switch (condition) {
+      case 'sunny':
+        return WeatherCondition.clear;
+      case 'cloudy':
+        return WeatherCondition.cloudy;
+      case 'rain':
+        return WeatherCondition.rain;
+      case 'fog':
+        return WeatherCondition.fog;
+      case 'storm':
+        return WeatherCondition.thunderstorm;
+      default:
+        return WeatherCondition.unknown;
+    }
+  }
+
+  Widget _buildOverlay(WeatherCondition condition) {
+    if (!condition.hasClouds && !condition.hasRain) {
       return const SizedBox.shrink(key: ValueKey('clear'));
     }
     return Stack(
-      key: ValueKey(_condition),
+      key: ValueKey(condition),
       children: [
-        if (_condition.hasClouds)
+        if (condition.hasClouds)
           Positioned.fill(
             child: IgnorePointer(
               child: CloudsOverlay(
-                opacity: _condition.cloudIntensity,
-                count: _condition == WeatherCondition.cloudy ||
-                        _condition == WeatherCondition.heavyRain ||
-                        _condition == WeatherCondition.thunderstorm
+                opacity: condition.cloudIntensity,
+                count: condition == WeatherCondition.cloudy ||
+                        condition == WeatherCondition.heavyRain ||
+                        condition == WeatherCondition.thunderstorm
                     ? 6
                     : 4,
               ),
             ),
           ),
-        if (_condition.hasRain)
+        if (condition.hasRain)
           Positioned.fill(
             child: IgnorePointer(
               child: RainOverlay(
-                density: _condition.rainDensity,
-                tilt: _condition.rainTilt,
-                opacity: switch (_condition) {
+                density: condition.rainDensity,
+                tilt: condition.rainTilt,
+                opacity: switch (condition) {
                   WeatherCondition.drizzle => 0.20,
                   WeatherCondition.rain => 0.30,
                   WeatherCondition.heavyRain => 0.38,

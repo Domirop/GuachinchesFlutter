@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:guachinches/data/model/TopRestaurants.dart';
 import 'package:guachinches/data/model/restaurant.dart';
@@ -42,9 +43,10 @@ class _RestaurantMainCardState extends State<RestaurantMainCard> {
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(12.0),
-                child: Image.network(
-                  widget.restaurant.mainFoto,
+                child: CachedNetworkImage(
+                  imageUrl: widget.restaurant.mainFoto,
                   fit: BoxFit.cover,
+                  memCacheWidth: 440,
                 ),
               ),
             ),

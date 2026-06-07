@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 import 'package:guachinches/data/model/TopRestaurants.dart';
@@ -50,9 +51,9 @@ class RestaurantOpenCard extends StatelessWidget {
                         fit: BoxFit.fill,
                         image:
                         restaurant.mainFoto != null
-                            ? NetworkImage(
-                            restaurant.mainFoto)
-                            : AssetImage(
+                            ? CachedNetworkImageProvider(
+                            restaurant.mainFoto, maxWidth: 600)
+                            : const AssetImage(
                             "assets/images/notImage.png") as  ImageProvider,
                       ),
                     ),

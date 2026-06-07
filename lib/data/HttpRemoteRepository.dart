@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart' show compute;
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:guachinches/core/logging/app_logger.dart';
 import 'package:guachinches/data/HttpCachePolicy.dart';
@@ -39,6 +40,24 @@ import 'package:http/http.dart' as http;
 import 'RemoteRepository.dart';
 import 'model/Visit.dart';
 import 'model/user_visit.dart';
+
+/// Parseo de visitas en isolate (vía compute). Top-level + sin logging para
+/// que sea portable al isolate (Crashlytics/AppLogger no funcionan ahí). Las
+/// filas con shape inválido se saltan silenciosamente.
+List<Visit> _parseVisits(String body) {
+  final decoded = json.decode(body);
+  final List<dynamic> data =
+      decoded is List ? decoded : (decoded['data'] as List? ?? const []);
+  final visits = <Visit>[];
+  for (final e in data) {
+    try {
+      visits.add(Visit.fromJson(e));
+    } catch (_) {
+      // fila inválida → se omite sin tumbar la lista
+    }
+  }
+  return visits;
+}
 
 class HttpRemoteRepository implements RemoteRepository {
   final Client _client;
@@ -878,29 +897,12 @@ class HttpRemoteRepository implements RemoteRepository {
     );
 
     if (response.statusCode == 200) {
-      final decoded = json.decode(response.body);
-      final List<dynamic> data =
-          decoded is List ? decoded : (decoded['data'] as List? ?? const []);
-      AppLogger.info('get-all-visits', 'parsed array length=${data.length}');
-      final visits = <Visit>[];
-      var parseErrors = 0;
-      for (final e in data) {
-        try {
-          visits.add(Visit.fromJson(e));
-        } catch (err, st) {
-          // Si una visita concreta tiene un shape raro y peta su parser,
-          // no debe tumbar TODA la pantalla. Antes el `.map(...).toList()`
-          // propagaba la excepción y `loadVisits` quemaba con VisitsFailure
-          // → "No hemos podido cargar las visitas" pero por una sola fila
-          // mala. Ahora la saltamos y seguimos con el resto.
-          parseErrors++;
-          AppLogger.error('get-all-visits-parser', err, st);
-        }
-      }
-      AppLogger.info(
-        'get-all-visits',
-        'visits_built=${visits.length} parse_errors=$parseErrors',
-      );
+      // Payload grande (N visitas, cada una con su sub-objeto). Decodificar y
+      // parsear en el hilo UI bloqueaba 200-500 ms. Lo movemos a un isolate
+      // con compute(). Las filas con shape raro se saltan dentro del isolate
+      // (no tumban toda la pantalla; antes con per-row logging, ahora silente).
+      final visits = await compute(_parseVisits, response.body);
+      AppLogger.info('get-all-visits', 'visits_built=${visits.length}');
       return visits;
     } else {
       throw Exception('Error al obtener visitas: ${response.statusCode}');

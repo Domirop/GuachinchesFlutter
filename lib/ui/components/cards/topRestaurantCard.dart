@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:guachinches/data/model/TopRestaurants.dart';
@@ -43,10 +44,12 @@ class TopRestaurantCard extends StatelessWidget {
             // ── Background photo ─────────────────────────────────────────
             Positioned.fill(
               child: restaurant.imagen.isNotEmpty
-                  ? Image.network(
-                      restaurant.imagen,
+                  ? CachedNetworkImage(
+                      imageUrl: restaurant.imagen,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => _photoPlaceholder(),
+                      memCacheWidth: 800,
+                      errorWidget: (_, __, ___) => _photoPlaceholder(),
+                      placeholder: (_, __) => _photoPlaceholder(),
                     )
                   : _photoPlaceholder(),
             ),

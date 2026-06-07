@@ -56,6 +56,7 @@ class VisitCard extends StatelessWidget {
                     ? CachedNetworkImage(
                         imageUrl: photoUrl,
                         fit: BoxFit.cover,
+                        memCacheWidth: 240,
                         placeholder: (_, __) => Container(
                           color: brand.elevated,
                         ),
