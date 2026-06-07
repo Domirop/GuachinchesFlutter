@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:guachinches/config/app_colors.dart';
 import 'package:guachinches/config/app_text_styles.dart';
+import 'package:guachinches/core/analytics/analytics.dart';
+import 'package:guachinches/core/analytics/analytics_events.dart';
 import 'package:guachinches/data/canarismos.dart';
 import 'package:guachinches/ui/pages/canarismo/canarismo_detail_screen.dart';
+import 'package:guachinches/ui/pages/canarismo/canarismo_share_card.dart';
 import 'package:guachinches/ui/pages/canarismo/canarismo_visuals.dart';
 
 /// "Canarismo del día" — banner editorial en el feed del home.
@@ -12,15 +14,6 @@ import 'package:guachinches/ui/pages/canarismo/canarismo_visuals.dart';
 /// "DESCÚBRELO Y COMPÁRTELO". Al tocar navega a [CanarismoDetailScreen].
 class CanarismoCard extends StatelessWidget {
   const CanarismoCard({super.key});
-
-  void _share(Canarismo c) {
-    SharePlus.instance.share(
-      ShareParams(
-        text:
-            '"${c.palabra}" — ${c.significado}\n\nvía Dónde Comer Canarias',
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -47,12 +40,18 @@ class CanarismoCard extends StatelessWidget {
           identifier: 'home-canarismo-toggle',
           button: true,
           child: InkWell(
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute<void>(
-                builder: (_) => CanarismoDetailScreen(initial: c),
-              ),
-            ),
+            onTap: () {
+              Analytics.I.logEvent(AnalyticsEvents.canarismoOpened, {
+                'palabra': c.palabra,
+                'source': 'home_banner',
+              });
+              Navigator.push(
+                context,
+                MaterialPageRoute<void>(
+                  builder: (_) => CanarismoDetailScreen(initial: c),
+                ),
+              );
+            },
             child: Stack(
               children: [
                 // Marca de agua: inicial gigante.
@@ -119,7 +118,7 @@ class CanarismoCard extends StatelessWidget {
                             identifier: 'home-canarismo-share',
                             button: true,
                             child: GestureDetector(
-                              onTap: () => _share(c),
+                              onTap: () => shareCanarismoAsImage(context, c),
                               behavior: HitTestBehavior.opaque,
                               child: Column(
                                 mainAxisSize: MainAxisSize.min,

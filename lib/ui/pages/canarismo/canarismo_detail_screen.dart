@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:guachinches/config/app_colors.dart';
 import 'package:guachinches/config/app_text_styles.dart';
 import 'package:guachinches/config/brand_colors.dart';
 import 'package:guachinches/data/canarismos.dart';
+import 'package:guachinches/ui/pages/canarismo/canarismo_share_card.dart';
 import 'package:guachinches/ui/pages/canarismo/canarismo_visuals.dart';
 
 const _weekdays = [
@@ -53,12 +53,7 @@ class _CanarismoDetailScreenState extends State<CanarismoDetailScreen> {
   }
 
   void _share() {
-    SharePlus.instance.share(
-      ShareParams(
-        text:
-            '"${_current.palabra}" — ${_current.significado}\n\nvía Dónde Comer Canarias',
-      ),
-    );
+    shareCanarismoAsImage(context, _current);
   }
 
   void _openHistory(Canarismo c, DateTime date) {
@@ -74,8 +69,10 @@ class _CanarismoDetailScreenState extends State<CanarismoDetailScreen> {
   Widget build(BuildContext context) {
     final brand = context.brand;
 
-    // 5 canarismos anteriores a la fecha mostrada.
-    final history = List.generate(5, (i) {
+    // Canarismos anteriores: SOLO los que ya han aparecido (días previos a la
+    // fecha mostrada, sin bajar nunca del día de lanzamiento). Máximo 5.
+    final priorDays = canarismoDayIndex(_date).clamp(0, 5);
+    final history = List.generate(priorDays, (i) {
       final d = _date.subtract(Duration(days: i + 1));
       return (date: d, c: canarismoOfDay(d));
     });
@@ -166,29 +163,31 @@ class _CanarismoDetailScreenState extends State<CanarismoDetailScreen> {
                 ],
               ),
             ),
-            const SizedBox(height: 24),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 24),
-              child: GrecaBand(),
-            ),
-            const SizedBox(height: 24),
-            // Canarismos anteriores.
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Text(
-                'CANARISMOS ANTERIORES',
-                style:
-                    AppTextStyles.eyebrow(size: 12, color: AppColors.arena),
+            // Canarismos anteriores — solo si ya ha salido alguno.
+            if (history.isNotEmpty) ...[
+              const SizedBox(height: 24),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 24),
+                child: GrecaBand(),
               ),
-            ),
-            const SizedBox(height: 6),
-            ...history.map(
-              (e) => _HistoryTile(
-                canarismo: e.c,
-                relative: _relativeDate(e.date, _now),
-                onTap: () => _openHistory(e.c, e.date),
+              const SizedBox(height: 24),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Text(
+                  'CANARISMOS ANTERIORES',
+                  style:
+                      AppTextStyles.eyebrow(size: 12, color: AppColors.arena),
+                ),
               ),
-            ),
+              const SizedBox(height: 6),
+              ...history.map(
+                (e) => _HistoryTile(
+                  canarismo: e.c,
+                  relative: _relativeDate(e.date, _now),
+                  onTap: () => _openHistory(e.c, e.date),
+                ),
+              ),
+            ],
             const SizedBox(height: 28),
           ],
         ),

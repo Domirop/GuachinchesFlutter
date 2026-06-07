@@ -379,18 +379,41 @@ const List<Canarismo> kCanarismos = [
   Canarismo('¡Que sea lo que Dios quiera!', 'Resignación ante lo inevitable.'),
 ];
 
+/// Fecha de despliegue del "Canarismo del día" (día 0 de la secuencia).
+/// El primer canarismo aparece ESTE día; la lista de "canarismos anteriores"
+/// nunca muestra fechas previas a esta (solo se enseñan los que YA han salido).
+///
+/// ⚠️ AJUSTAR a la fecha real de publicación antes de desplegar.
+final DateTime kCanarismoLaunchDate = DateTime(2026, 6, 8);
+
+/// Índice de día desde el lanzamiento: 0 el día de despliegue, 1 al siguiente…
+/// Negativo si [now] es anterior al lanzamiento (no debería pasar en prod).
+///
+/// Se calcula en UTC para evitar el bug de horario de verano (DST): restar
+/// medianoches locales con `.inDays` cruzando un cambio de hora trunca y
+/// colapsaría dos días en el mismo índice (rompiendo la permutación).
+int canarismoDayIndex([DateTime? now]) {
+  final d = now ?? DateTime.now();
+  final today = DateTime.utc(d.year, d.month, d.day);
+  final launch = DateTime.utc(
+    kCanarismoLaunchDate.year,
+    kCanarismoLaunchDate.month,
+    kCanarismoLaunchDate.day,
+  );
+  return today.difference(launch).inDays;
+}
+
 /// Canarismo del día, determinista por fecha. [now] inyectable para tests.
 ///
-/// Usamos un *stride* coprimo con el tamaño del diccionario para que días
-/// consecutivos NO caigan en voces alfabéticamente adyacentes (si no, la lista
-/// de "canarismos anteriores" saldría toda con la misma inicial). Al ser
-/// coprimo, sigue siendo una permutación completa: no repite hasta agotar.
+/// La secuencia arranca en [kCanarismoLaunchDate] (día 0). Usamos un *stride*
+/// coprimo con el tamaño del diccionario para que días consecutivos NO caigan
+/// en voces alfabéticamente adyacentes (si no, la lista de "anteriores" saldría
+/// toda con la misma inicial). Al ser coprimo, es una permutación completa: no
+/// repite hasta agotar el diccionario.
 Canarismo canarismoOfDay([DateTime? now]) {
-  final d = now ?? DateTime.now();
-  final today = DateTime(d.year, d.month, d.day);
-  final dayIndex = today.difference(DateTime(2020, 1, 1)).inDays;
   final n = kCanarismos.length;
   const stride = 139; // coprimo con 365
+  final dayIndex = canarismoDayIndex(now);
   final i = ((dayIndex * stride) % n + n) % n;
   return kCanarismos[i];
 }
