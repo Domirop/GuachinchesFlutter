@@ -1,17 +1,27 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:guachinches/config/app_colors.dart';
 import 'package:guachinches/config/app_text_styles.dart';
+import 'package:guachinches/core/analytics/analytics.dart';
+import 'package:guachinches/core/analytics/analytics_events.dart';
+import 'package:guachinches/data/HttpRemoteRepository.dart';
+import 'package:guachinches/data/RemoteRepository.dart';
 import 'package:guachinches/data/cubit/location/location_cubit.dart';
 import 'package:guachinches/data/cubit/new_home/islands_cubit.dart';
 import 'package:guachinches/data/cubit/new_home/new_home_filters_cubit.dart';
 import 'package:guachinches/data/cubit/onboarding/onboarding_cubit.dart';
+import 'package:guachinches/data/cubit/user/user_cubit.dart';
 import 'package:guachinches/data/model/Island.dart';
 import 'package:guachinches/globalMethods.dart';
 import 'package:guachinches/ui/pages/login/login.dart';
-import 'package:guachinches/ui/pages/register/register.dart';
+import 'package:guachinches/ui/pages/login/login_presenter.dart';
+import 'package:guachinches/ui/pages/login/widgets/oauth_button.dart';
+import 'package:guachinches/ui/pages/new_home/new_home_tab_scaffold.dart';
 import 'package:guachinches/ui/pages/splash_screen/splash_screen.dart';
+import 'package:http/http.dart';
 
 /// Onboarding editorial — 6 pantallas:
 ///   intro · nombre · isla · gustos · ubicación · cuenta
@@ -27,12 +37,17 @@ class OnboardingFlow extends StatefulWidget {
 class _OnboardingFlowState extends State<OnboardingFlow> {
   final _ctrl = PageController();
 
-  // Estado recolectado
-  String _name = '';
+  // Estado recolectado (el nombre se obtiene del login social, no aquí)
   Island? _island;
   final Set<String> _tastes = {};
 
-  static const _totalSteps = 4; // nombre · isla · gustos · ubicación
+  static const _totalSteps = 4; // isla · gustos · ubicación · cuenta
+
+  @override
+  void initState() {
+    super.initState();
+    Analytics.I.logEvent(AnalyticsEvents.onboardingStarted);
+  }
 
   @override
   void dispose() {
@@ -41,6 +56,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   }
 
   void _go(int next) {
+    Analytics.I.logEvent(AnalyticsEvents.onboardingStep, {'step': next});
     _ctrl.animateToPage(
       next,
       duration: const Duration(milliseconds: 320),
@@ -52,9 +68,6 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   Future<void> _finish() async {
     final cubit = context.read<OnboardingCubit>();
     await cubit.markFinished();
-    if (_name.isNotEmpty) {
-      await cubit.setName(_name);
-    }
     if (_island != null) {
       await cubit.setIsland(_island!.id);
       try {
@@ -71,12 +84,15 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   }
 
   Future<void> _skipAll() async {
+    Analytics.I.logEvent(AnalyticsEvents.onboardingFinished, {'method': 'skip'});
     await _finish();
     if (!mounted) return;
     GlobalMethods().pushAndReplacement(context, SplashScreen());
   }
 
   Future<void> _goToLogin() async {
+    Analytics.I
+        .logEvent(AnalyticsEvents.onboardingFinished, {'method': 'login_email'});
     await _finish();
     if (!mounted) return;
     // Push (no replace) para que Login pueda volver al onboarding
@@ -85,12 +101,6 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
       context,
       const Login('Inicia sesión para sincronizar tus favoritos.'),
     );
-  }
-
-  Future<void> _goToRegister() async {
-    await _finish();
-    if (!mounted) return;
-    GlobalMethods().pushPage(context, Register());
   }
 
   // ─── Build ──────────────────────────────────────────────────────
@@ -117,51 +127,46 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
                 onStart: () => _go(1),
                 onLogin: _goToLogin,
               ),
-              _StepName(
+              // El nombre ya no se pide aquí: viene del login social
+              // (Google/Apple) o del registro. Menos fricción.
+              _StepIsland(
                 step: 1,
                 total: _totalSteps,
-                initial: _name,
+                userName: '',
+                selectedId: _island?.id,
                 onBack: () => _go(0),
-                onContinue: (v) {
-                  setState(() => _name = v.trim());
+                onContinue: (island) {
+                  setState(() => _island = island);
                   _go(2);
                 },
               ),
-              _StepIsland(
+              _StepTastes(
                 step: 2,
                 total: _totalSteps,
-                userName: _name,
-                selectedId: _island?.id,
-                onBack: () => _go(1),
-                onContinue: (island) {
-                  setState(() => _island = island);
-                  _go(3);
-                },
-              ),
-              _StepTastes(
-                step: 3,
-                total: _totalSteps,
                 selected: _tastes,
-                onBack: () => _go(2),
+                onBack: () => _go(1),
                 onContinue: (set) {
                   setState(() {
                     _tastes
                       ..clear()
                       ..addAll(set);
                   });
-                  _go(4);
+                  _go(3);
                 },
               ),
               _StepLocation(
+                step: 3,
+                total: _totalSteps,
+                onBack: () => _go(2),
+                onContinue: () => _go(4),
+              ),
+              _StepAccount(
                 step: 4,
                 total: _totalSteps,
                 onBack: () => _go(3),
-                onContinue: () => _go(5),
-              ),
-              _StepAccount(
-                onCreateAccount: _goToRegister,
-                onLogin: _goToLogin,
+                onPersist: _finish,
                 onSkip: _skipAll,
+                onLoginEmail: _goToLogin,
               ),
             ],
           ),
@@ -188,7 +193,7 @@ class _StepWelcome extends StatelessWidget {
       child: Column(
         children: [
           const Spacer(flex: 1),
-          const _SunsetIllustration(),
+          const _PostcardStack(),
           const Spacer(flex: 1),
           Text(
             'VISITADO POR\nGUACHINCHESMODERNOS',
@@ -224,18 +229,26 @@ class _StepWelcome extends StatelessWidget {
             ),
           ),
           const Spacer(flex: 2),
-          _PrimaryButton(label: 'EMPEZAR', onTap: onStart),
+          _PrimaryButton(
+            label: 'EMPEZAR',
+            onTap: onStart,
+            identifier: 'onboarding-welcome-start',
+          ),
           const SizedBox(height: 12),
-          GestureDetector(
-            onTap: onLogin,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              child: Text(
-                'Ya tengo cuenta · Iniciar sesión',
-                style: AppTextStyles.ui(
-                  size: 13,
-                  weight: FontWeight.w600,
-                  color: AppColors.inkSoft,
+          Semantics(
+            identifier: 'onboarding-welcome-login',
+            button: true,
+            child: GestureDetector(
+              onTap: onLogin,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Text(
+                  'Ya tengo cuenta · Iniciar sesión',
+                  style: AppTextStyles.ui(
+                    size: 13,
+                    weight: FontWeight.w600,
+                    color: AppColors.inkSoft,
+                  ),
                 ),
               ),
             ),
@@ -246,190 +259,231 @@ class _StepWelcome extends StatelessWidget {
   }
 }
 
-class _SunsetIllustration extends StatelessWidget {
-  const _SunsetIllustration();
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 220,
-      child: Stack(
-        alignment: Alignment.bottomCenter,
-        children: [
-          // Halo del sol
-          Align(
-            alignment: const Alignment(0, -0.35),
-            child: Container(
-              width: 220,
-              height: 220,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    AppColors.sol.withOpacity(0.30),
-                    AppColors.sol.withOpacity(0.0),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          // Sol
-          Align(
-            alignment: const Alignment(0, -0.45),
-            child: Container(
-              width: 88,
-              height: 88,
-              decoration: const BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppColors.sol,
-              ),
-            ),
-          ),
-          // Montañas
-          Positioned.fill(
-            child: CustomPaint(painter: _MountainsPainter()),
-          ),
-        ],
-      ),
-    );
-  }
+/// Postal: foto real + etiqueta del sitio.
+class _Postcard {
+  final String asset;
+  final String label;
+  const _Postcard(this.asset, this.label);
 }
 
-class _MountainsPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = AppColors.tierra.withOpacity(0.55);
-    final w = size.width;
-    final h = size.height;
-    final p = Path()
-      ..moveTo(0, h)
-      ..lineTo(0, h * 0.65)
-      ..lineTo(w * 0.18, h * 0.50)
-      ..lineTo(w * 0.32, h * 0.62)
-      ..lineTo(w * 0.50, h * 0.30)
-      ..lineTo(w * 0.66, h * 0.55)
-      ..lineTo(w * 0.82, h * 0.45)
-      ..lineTo(w, h * 0.65)
-      ..lineTo(w, h)
-      ..close();
-    canvas.drawPath(p, paint);
+const List<_Postcard> _kPostcards = [
+  _Postcard(
+      'assets/images/backgrounds/ddc_island_bg/tenerife_dcc.jpg', 'TENERIFE'),
+  _Postcard('assets/images/backgrounds/ddc_island_bg/las_palmas_dcc.jpg',
+      'GRAN CANARIA'),
+  _Postcard(
+      'assets/images/backgrounds/ddc_island_bg/lanzarote_dcc.jpg', 'LANZAROTE'),
+  _Postcard('assets/images/backgrounds/ddc_island_bg/fuerteventura_dcc.jpg',
+      'FUERTEVENTURA'),
+  _Postcard(
+      'assets/images/backgrounds/ddc_island_bg/la_gomera_dcc.jpg', 'LA GOMERA'),
+  _Postcard(
+      'assets/images/backgrounds/ddc_island_bg/el_hierro_dcc.jpg', 'EL HIERRO'),
+];
 
-    final paint2 = Paint()..color = AppColors.tierra;
-    final p2 = Path()
-      ..moveTo(0, h)
-      ..lineTo(0, h * 0.78)
-      ..lineTo(w * 0.25, h * 0.68)
-      ..lineTo(w * 0.45, h * 0.80)
-      ..lineTo(w * 0.70, h * 0.65)
-      ..lineTo(w, h * 0.80)
-      ..lineTo(w, h)
-      ..close();
-    canvas.drawPath(p2, paint2);
-  }
+/// Pila de postales (fotos reales) que se barajan sola: la de arriba se desliza
+/// hacia un lado girando y desvaneciéndose, y la siguiente avanza al frente.
+class _PostcardStack extends StatefulWidget {
+  const _PostcardStack();
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  State<_PostcardStack> createState() => _PostcardStackState();
 }
 
-// ─────────────────────────────────────────────────────────────────────
-// PASO 1 · Nombre
-// ─────────────────────────────────────────────────────────────────────
+class _PostcardStackState extends State<_PostcardStack>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  int _index = 0;
 
-class _StepName extends StatefulWidget {
-  final int step;
-  final int total;
-  final String initial;
-  final VoidCallback onBack;
-  final ValueChanged<String> onContinue;
-
-  const _StepName({
-    required this.step,
-    required this.total,
-    required this.initial,
-    required this.onBack,
-    required this.onContinue,
-  });
-
-  @override
-  State<_StepName> createState() => _StepNameState();
-}
-
-class _StepNameState extends State<_StepName> {
-  late final TextEditingController _ctrl;
-  final _focus = FocusNode();
+  static const double _cardW = 172;
+  static const double _cardH = 212;
+  static const int _visible = 3;
+  static const double _swipeStart = 0.62; // primer 62% = reposo; resto = barrido
 
   @override
   void initState() {
     super.initState();
-    _ctrl = TextEditingController(text: widget.initial);
-    _ctrl.addListener(() => setState(() {}));
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _focus.requestFocus();
-    });
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 3200),
+    )
+      ..addStatusListener((s) {
+        if (s == AnimationStatus.completed && mounted) {
+          setState(() => _index = (_index + 1) % _kPostcards.length);
+          _ctrl.forward(from: 0);
+        }
+      })
+      ..forward();
+  }
+
+  /// Tap sobre la pila: salta el reposo y baraja la postal de arriba ya.
+  void _advanceNow() {
+    if (_ctrl.value < _swipeStart) {
+      HapticFeedback.selectionClick();
+      _ctrl.forward(from: _swipeStart);
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Precarga para que la primera postal no aparezca en blanco.
+    for (final pc in _kPostcards) {
+      precacheImage(AssetImage(pc.asset), context);
+    }
   }
 
   @override
   void dispose() {
     _ctrl.dispose();
-    _focus.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final value = _ctrl.text.trim();
-    return _StepShell(
-      step: widget.step,
-      total: widget.total,
-      onBack: widget.onBack,
-      eyebrow: 'PASO ${widget.step} DE ${widget.total}',
-      title: '¿CÓMO TE\nLLAMAS?',
-      subtitle: 'Solo lo usamos para saludarte. Nada más.',
-      cta: 'CONTINUAR',
-      ctaEnabled: value.length >= 2,
-      onCta: () => widget.onContinue(_ctrl.text),
-      child: Padding(
-        padding: const EdgeInsets.only(top: 12),
-        child: TextField(
-          controller: _ctrl,
-          focusNode: _focus,
-          textInputAction: TextInputAction.done,
-          textCapitalization: TextCapitalization.words,
-          autofocus: true,
-          cursorColor: AppColors.atlantico,
-          style: AppTextStyles.displayHero(size: 22, color: AppColors.ink),
-          onSubmitted: (_) {
-            if (value.length >= 2) widget.onContinue(_ctrl.text);
-          },
-          decoration: InputDecoration(
-            hintText: 'Tu nombre',
-            hintStyle: AppTextStyles.ui(
-              size: 18,
-              color: AppColors.inkMuted,
-            ),
-            filled: true,
-            fillColor: AppColors.cremaSoft,
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: BorderSide(color: AppColors.borderCreamMd),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: BorderSide(color: AppColors.borderCreamMd),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide:
-                  const BorderSide(color: AppColors.atlantico, width: 1.6),
-            ),
+    return GestureDetector(
+      onTap: _advanceNow,
+      behavior: HitTestBehavior.opaque,
+      child: SizedBox(
+      width: _cardW + 70,
+      height: _cardH + 40,
+      child: AnimatedBuilder(
+        animation: _ctrl,
+        builder: (_, __) {
+          final raw =
+              ((_ctrl.value - _swipeStart) / (1 - _swipeStart)).clamp(0.0, 1.0);
+          final p = Curves.easeInCubic.transform(raw);
+          // Pintar de atrás hacia delante (j alto = más al fondo).
+          return Stack(
+            alignment: Alignment.center,
+            clipBehavior: Clip.none,
+            children: [
+              for (int j = _visible - 1; j >= 0; j--)
+                _card(_kPostcards[(_index + j) % _kPostcards.length], j, p),
+            ],
+          );
+        },
+      ),
+      ),
+    );
+  }
+
+  Widget _card(_Postcard pc, int j, double p) {
+    double dx, dy, rot, scale, opacity;
+    if (j == 0) {
+      // Carta de arriba: se desliza a la derecha, gira y se desvanece.
+      dx = p * _cardW * 1.05;
+      dy = -p * 12;
+      rot = p * 0.20;
+      scale = 1.0 - p * 0.04;
+      opacity = (1 - p * 1.55).clamp(0.0, 1.0);
+    } else {
+      // Cartas del fondo: avanzan hacia el frente conforme p crece.
+      final eff = j - p;
+      scale = 1 - 0.06 * eff;
+      dy = 18.0 * eff;
+      dx = 0;
+      rot = (j.isEven ? 1 : -1) * 0.04 * eff; // ligero tilt de "apiladas"
+      opacity = (1 - 0.16 * eff).clamp(0.0, 1.0);
+    }
+    return Opacity(
+      opacity: opacity,
+      child: Transform.translate(
+        offset: Offset(dx, dy),
+        child: Transform.rotate(
+          angle: rot,
+          child: Transform.scale(
+            scale: scale,
+            child: _PostcardCard(postcard: pc, width: _cardW, height: _cardH),
           ),
         ),
       ),
     );
   }
 }
+
+class _PostcardCard extends StatelessWidget {
+  final _Postcard postcard;
+  final double width;
+  final double height;
+
+  const _PostcardCard({
+    required this.postcard,
+    required this.width,
+    required this.height,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: width,
+      height: height,
+      padding: const EdgeInsets.all(7), // marco blanco tipo postal
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.ink.withOpacity(0.22),
+            blurRadius: 22,
+            offset: const Offset(0, 12),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(14),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Image.asset(
+              postcard.asset,
+              fit: BoxFit.cover,
+              gaplessPlayback: true,
+              // La postal mide ~172pt; decodificar a ~520px (≈3x) en vez de a
+              // resolución completa del JPG corta el pico de RAM de la pila.
+              cacheWidth: 520,
+            ),
+            // Degradado + etiqueta del sitio (sello de postal).
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(12, 24, 12, 12),
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Colors.transparent, Color(0x99000000)],
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.place_rounded,
+                        size: 12, color: Colors.white70),
+                    const SizedBox(width: 5),
+                    Expanded(
+                      child: Text(
+                        postcard.label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTextStyles.eyebrow(
+                          size: 11,
+                          color: Colors.white,
+                        ).copyWith(letterSpacing: 1.0),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 
 // ─────────────────────────────────────────────────────────────────────
 // PASO 2 · Isla
@@ -918,21 +972,25 @@ class _StepLocationState extends State<_StepLocation> {
       step: widget.step,
       total: widget.total,
       onBack: widget.onBack,
-      eyebrow: 'PASO ${widget.step} DE ${widget.total} · ÚLTIMO',
+      eyebrow: 'PASO ${widget.step} DE ${widget.total}',
       title: 'LO BUENO,\nCERCA DE TI',
       subtitle:
           'Activa tu ubicación y te enseñamos los sitios abiertos a tu alrededor. Sin ubicación también funciona.',
       cta: _requesting ? 'ACTIVANDO…' : 'ACTIVAR UBICACIÓN',
       ctaEnabled: !_requesting,
       onCta: _activate,
-      footer: TextButton(
-        onPressed: widget.onContinue,
-        child: Text(
-          'Ahora no',
-          style: AppTextStyles.ui(
-            size: 13,
-            weight: FontWeight.w600,
-            color: AppColors.inkMuted,
+      footer: Semantics(
+        identifier: 'onboarding-location-skip',
+        button: true,
+        child: TextButton(
+          onPressed: widget.onContinue,
+          child: Text(
+            'Ahora no',
+            style: AppTextStyles.ui(
+              size: 13,
+              weight: FontWeight.w600,
+              color: AppColors.inkMuted,
+            ),
           ),
         ),
       ),
@@ -1024,47 +1082,135 @@ class _LocationPulseState extends State<_LocationPulse>
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// PASO 5 · Cuenta (sin Google/Apple — only email + skip)
+// PASO 5 · Cuenta (easy login Google/Apple + email legacy + saltar)
 // ─────────────────────────────────────────────────────────────────────
 
-class _StepAccount extends StatelessWidget {
-  final VoidCallback onCreateAccount;
-  final VoidCallback onLogin;
+class _StepAccount extends StatefulWidget {
+  final int step;
+  final int total;
+
+  /// Vuelve al paso anterior (ubicación).
+  final VoidCallback onBack;
+
+  /// Persiste el onboarding (markFinished + nombre/isla/gustos) antes de
+  /// navegar al home tras un login exitoso. Es el `_finish` del flujo.
+  final Future<void> Function() onPersist;
   final VoidCallback onSkip;
+  final VoidCallback onLoginEmail;
 
   const _StepAccount({
-    required this.onCreateAccount,
-    required this.onLogin,
+    required this.step,
+    required this.total,
+    required this.onBack,
+    required this.onPersist,
     required this.onSkip,
+    required this.onLoginEmail,
   });
 
   @override
+  State<_StepAccount> createState() => _StepAccountState();
+}
+
+class _StepAccountState extends State<_StepAccount> implements LoginView {
+  late final RemoteRepository _repo = HttpRemoteRepository(Client());
+  late final LoginPresenter _presenter =
+      LoginPresenter(_repo, this, context.read<UserCubit>());
+
+  bool _loading = false;
+  bool _google = false; // proveedor activo (true=google, false=apple)
+
+  Future<void> _onGoogle() async {
+    if (_loading) return;
+    HapticFeedback.lightImpact();
+    setState(() {
+      _loading = true;
+      _google = true;
+    });
+    await _presenter.loginWithGoogle();
+    if (mounted && _loading) {
+      setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _onApple() async {
+    if (_loading || !Platform.isIOS) return;
+    HapticFeedback.lightImpact();
+    setState(() {
+      _loading = true;
+      _google = false;
+    });
+    await _presenter.loginWithApple();
+    if (mounted && _loading) {
+      setState(() => _loading = false);
+    }
+  }
+
+  @override
+  loginSuccess(List<Widget> screens,
+      {bool deletionPending = false, String userId = ''}) async {
+    if (!mounted) return;
+    Analytics.I.logEvent(AnalyticsEvents.onboardingFinished, {
+      'method': _google ? 'google' : 'apple',
+    });
+    // Cierra el onboarding como completado y guarda las preferencias antes de
+    // entrar al home.
+    await widget.onPersist();
+    if (!mounted) return;
+    GlobalMethods().removePagesAndGoToNewScreen(
+      context,
+      NewHomeTabScaffold(screens: screens),
+    );
+  }
+
+  @override
+  loginError() {
+    if (!mounted) return;
+    HapticFeedback.mediumImpact();
+    setState(() => _loading = false);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('No hemos podido iniciar sesión. Inténtalo de nuevo.'),
+        duration: Duration(seconds: 3),
+      ),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final googleLoading = _loading && _google;
+    final appleLoading = _loading && !_google;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
+      padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Align(
-            alignment: Alignment.centerLeft,
-            child: GestureDetector(
-              onTap: onSkip,
-              child: Container(
-                width: 36,
-                height: 36,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: AppColors.cremaSoft,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.borderCreamMd),
-                ),
-                child: Icon(
-                  Icons.close_rounded,
-                  color: AppColors.ink,
-                  size: 18,
+          // Header consistente con el resto: volver + barra de progreso.
+          Row(
+            children: [
+              Semantics(
+                identifier: 'onboarding-account-back',
+                button: true,
+                child: GestureDetector(
+                  onTap: widget.onBack,
+                  behavior: HitTestBehavior.opaque,
+                  child: Container(
+                    width: 36,
+                    height: 36,
+                    alignment: Alignment.center,
+                    child: Icon(
+                      Icons.arrow_back_rounded,
+                      color: AppColors.inkSoft,
+                      size: 22,
+                    ),
+                  ),
                 ),
               ),
-            ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _ProgressBar(step: widget.step, total: widget.total),
+              ),
+              const SizedBox(width: 36),
+            ],
           ),
           const Spacer(flex: 1),
           Center(
@@ -1094,7 +1240,7 @@ class _StepAccount extends StatelessWidget {
           const SizedBox(height: 22),
           Center(
             child: Text(
-              'ANTES DE EMPEZAR',
+              'ÚLTIMO PASO',
               style: AppTextStyles.eyebrow(
                 size: 11,
                 color: AppColors.inkMuted,
@@ -1117,34 +1263,70 @@ class _StepAccount extends StatelessWidget {
             ),
           ),
           const Spacer(flex: 2),
-          _PrimaryButton(label: 'CREAR CUENTA', onTap: onCreateAccount),
-          const SizedBox(height: 10),
-          OutlinedButton(
-            style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              side: const BorderSide(color: AppColors.borderCreamMd),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
+          // Google (easy login)
+          Semantics(
+            identifier: 'onboarding-account-google',
+            button: true,
+            child: OAuthButton(
+              isDark: false,
+              isGoogleButton: true,
+              loading: googleLoading,
+              disabled: _loading && !_google,
+              onTap: _loading ? null : _onGoogle,
+              label: googleLoading
+                  ? 'Conectando con Google…'
+                  : 'Continuar con Google',
+            ),
+          ),
+          if (Platform.isIOS) ...[
+            const SizedBox(height: 12),
+            Semantics(
+              identifier: 'onboarding-account-apple',
+              button: true,
+              child: OAuthButton(
+                isDark: false,
+                isGoogleButton: false,
+                loading: appleLoading,
+                disabled: _loading && _google,
+                onTap: _loading ? null : _onApple,
+                label: 'Continuar con Apple',
               ),
             ),
-            onPressed: onLogin,
-            child: Text(
-              'YA TENGO CUENTA',
-              style: AppTextStyles.displaySection(size: 12).copyWith(
-                color: AppColors.ink,
-                letterSpacing: 1.0,
+          ],
+          const SizedBox(height: 14),
+          Semantics(
+            identifier: 'onboarding-account-skip',
+            button: true,
+            child: TextButton(
+              onPressed: _loading ? null : widget.onSkip,
+              child: Text(
+                'Saltar y explorar sin cuenta',
+                style: AppTextStyles.ui(
+                  size: 13,
+                  weight: FontWeight.w600,
+                  color: AppColors.inkMuted,
+                ),
               ),
             ),
           ),
-          const SizedBox(height: 10),
-          TextButton(
-            onPressed: onSkip,
-            child: Text(
-              'Saltar y explorar sin cuenta',
-              style: AppTextStyles.ui(
-                size: 13,
-                weight: FontWeight.w600,
-                color: AppColors.inkMuted,
+          // Acceso legacy con email/contraseña (usuarios registrados antes de
+          // mayo 2026). Subtle, debajo de Saltar.
+          Semantics(
+            identifier: 'onboarding-account-email',
+            button: true,
+            child: GestureDetector(
+              onTap: _loading ? null : widget.onLoginEmail,
+              behavior: HitTestBehavior.opaque,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Text(
+                  'Entrar con email',
+                  textAlign: TextAlign.center,
+                  style: AppTextStyles.ui(
+                    size: 12,
+                    color: AppColors.inkMuted.withOpacity(0.8),
+                  ).copyWith(decoration: TextDecoration.underline),
+                ),
               ),
             ),
           ),
@@ -1227,17 +1409,21 @@ class _StepShell extends StatelessWidget {
         children: [
           Row(
             children: [
-              GestureDetector(
-                onTap: onBack,
-                behavior: HitTestBehavior.opaque,
-                child: Container(
-                  width: 36,
-                  height: 36,
-                  alignment: Alignment.center,
-                  child: Icon(
-                    Icons.arrow_back_rounded,
-                    color: AppColors.inkSoft,
-                    size: 22,
+              Semantics(
+                identifier: 'onboarding-back',
+                button: true,
+                child: GestureDetector(
+                  onTap: onBack,
+                  behavior: HitTestBehavior.opaque,
+                  child: Container(
+                    width: 36,
+                    height: 36,
+                    alignment: Alignment.center,
+                    child: Icon(
+                      Icons.arrow_back_rounded,
+                      color: AppColors.inkSoft,
+                      size: 22,
+                    ),
                   ),
                 ),
               ),
@@ -1297,7 +1483,12 @@ class _StepShell extends StatelessWidget {
               ),
             ),
           ),
-          _PrimaryButton(label: cta, onTap: onCta, enabled: ctaEnabled),
+          _PrimaryButton(
+            label: cta,
+            onTap: onCta,
+            enabled: ctaEnabled,
+            identifier: 'onboarding-continue',
+          ),
           if (footer != null) Center(child: footer!),
         ],
       ),
@@ -1341,16 +1532,18 @@ class _PrimaryButton extends StatelessWidget {
   final String label;
   final VoidCallback onTap;
   final bool enabled;
+  final String? identifier;
 
   const _PrimaryButton({
     required this.label,
     required this.onTap,
     this.enabled = true,
+    this.identifier,
   });
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
+    final button = SizedBox(
       width: double.infinity,
       child: ElevatedButton(
         style: ElevatedButton.styleFrom(
@@ -1373,5 +1566,7 @@ class _PrimaryButton extends StatelessWidget {
         ),
       ),
     );
+    if (identifier == null) return button;
+    return Semantics(identifier: identifier, button: true, child: button);
   }
 }
