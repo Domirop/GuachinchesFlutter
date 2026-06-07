@@ -1,4 +1,5 @@
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:guachinches/core/analytics/analytics.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
 import 'package:guachinches/data/cubit/user/user_cubit.dart';
 
@@ -40,6 +41,7 @@ class SettingsPresenter {
     await _storage.delete(key: 'userId');
     await _storage.delete(key: 'accessToken');
     await _storage.delete(key: 'refreshToken');
+    Analytics.I.reset();
     _view.onLoggedOut();
   }
 
@@ -54,6 +56,7 @@ class SettingsPresenter {
       // Best-effort: proceed even if API fails
     }
     await _storage.deleteAll();
+    Analytics.I.reset();
     _view.onLoggedOut();
   }
 }

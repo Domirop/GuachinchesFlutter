@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:guachinches/core/analytics/analytics.dart';
 import 'package:guachinches/core/push/push_notifications_service.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
 import 'package:guachinches/data/cubit/user/user_cubit.dart';
@@ -40,6 +41,7 @@ class LoginPresenter{
     await storage.write(key: "accessToken", value: userId["accessToken"]);
     await storage.write(key: "refreshToken", value: userId["refreshToken"]);
     _userCubit.getUserInfo(userId["id"]);
+    Analytics.I.identify(userId["id"] as String);
     bool deletionPending = false;
     try {
       deletionPending = (userId['deletionPending'] as bool?) == true;
@@ -86,6 +88,7 @@ class LoginPresenter{
       final id = response['id'] as String;
       await storage.write(key: 'userId', value: id);
       _userCubit.getUserInfo(id);
+      Analytics.I.identify(id);
       List<Widget> screens = [
         const NewHomeScreen(),
         const ListasScreen(),
@@ -131,6 +134,7 @@ class LoginPresenter{
       final id = response['id'] as String;
       await storage.write(key: 'userId', value: id);
       _userCubit.getUserInfo(id);
+      Analytics.I.identify(id);
       List<Widget> screens = [
         const NewHomeScreen(),
         const ListasScreen(),

@@ -1,5 +1,5 @@
 import 'dart:io';
-import 'package:firebase_analytics/firebase_analytics.dart';
+import 'package:guachinches/core/analytics/analytics.dart';
 import 'package:guachinches/core/logging/app_logger.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
@@ -43,12 +43,10 @@ class DetailPresenter {
 
   getRestaurantById(String id) async {
     Restaurant restaurant = await _remoteRepository.getRestaurantById(id);
-    FirebaseAnalytics.instance.logEvent(
-        name: 'detalles_restaurantes',
-        parameters: <String, dynamic>{
-          'id': '${restaurant.id}',
-          'name': '${restaurant.nombre}'
-        });
+    Analytics.I.logEvent('detalles_restaurantes', {
+      'id': '${restaurant.id}',
+      'name': '${restaurant.nombre}',
+    });
     try {
       String userId = await isUserLogged();
 

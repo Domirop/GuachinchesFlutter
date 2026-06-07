@@ -1,13 +1,12 @@
 import 'dart:async';
 
-import 'package:firebase_analytics/firebase_analytics.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:guachinches/config/app_colors.dart';
 import 'package:guachinches/config/app_text_styles.dart';
 import 'package:guachinches/config/brand_colors.dart';
+import 'package:guachinches/core/analytics/analytics.dart';
 import 'package:guachinches/data/cubit/location/location_cubit.dart';
 import 'package:guachinches/data/cubit/location/location_state.dart';
 import 'package:guachinches/data/cubit/new_home/new_home_filters_cubit.dart';
@@ -91,10 +90,7 @@ class _CercaAhoraScreenState extends State<CercaAhoraScreen> {
   }
 
   void _logEvent(String name, Map<String, Object> params) {
-    if (Firebase.apps.isEmpty) return;
-    unawaited(
-      FirebaseAnalytics.instance.logEvent(name: name, parameters: params),
-    );
+    unawaited(Analytics.I.logEvent(name, params));
   }
 
   @override

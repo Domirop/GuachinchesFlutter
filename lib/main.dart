@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui';
 import 'package:app_links/app_links.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -46,6 +47,10 @@ import 'package:guachinches/ui/pages/maintenance/maintenance_screen.dart';
 import 'package:http/http.dart';
 import 'data/cubit/restaurants/basic/restaurant_cubit.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:guachinches/core/analytics/analytics.dart';
+import 'package:guachinches/core/analytics/firebase_analytics_service.dart';
+import 'package:guachinches/core/analytics/posthog_analytics_service.dart';
+import 'package:posthog_flutter/posthog_flutter.dart';
 import 'ui/pages/splash_screen/splash_screen.dart';
 
 
@@ -55,11 +60,17 @@ const bool _kReleaseMode = const bool.fromEnvironment("dart.vm.product");
 bool get enableNewHome =>
     (dotenv.env['ENABLE_NEW_HOME'] ?? 'false').toLowerCase() == 'true';
 
-Future<void> main() async{
-  String file = _kReleaseMode == true ? 'env_files/release.env' : 'env_files/debug.env';
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  debugPaintBaselinesEnabled = false;
+
+  final String file =
+      _kReleaseMode == true ? 'env_files/release.env' : 'env_files/debug.env';
   await dotenv.load(fileName: file);
+  // Firebase es prerequisito de analytics, Crashlytics y Remote Config.
   await Firebase.initializeApp();
-  await DccRemoteConfig.instance.init();
+
+  // Handlers de error (dependen de Firebase, pero son síncronos).
   FlutterError.onError = (details) {
     if (kDebugMode) {
       FlutterError.presentError(details);
@@ -73,14 +84,43 @@ Future<void> main() async{
     }
     return true;
   };
-  await FirebaseCrashlytics.instance.setCrashlyticsCollectionEnabled(!kDebugMode);
-  debugPaintBaselinesEnabled = false; // asegúrate de no activarlo
-  WidgetsFlutterBinding.ensureInitialized();
-  // Inicializar SDK de AdMob
-  await MobileAds.instance.initialize();
-  final initialThemeMode = await ThemeCubit.hydrate();
 
+  // Tema lo necesitamos para runApp; lo lanzamos ya para que solape con el
+  // resto del arranque (no lo esperamos hasta el final).
+  final themeFuture = ThemeCubit.hydrate();
+
+  // El resto del bootstrap es independiente entre sí → en paralelo en vez de
+  // 4 awaits en cadena. Ahorra ~300-500 ms en arranque frío.
+  await Future.wait<void>([
+    _setupAnalytics(),
+    DccRemoteConfig.instance.init(),
+    FirebaseCrashlytics.instance.setCrashlyticsCollectionEnabled(!kDebugMode),
+  ]);
+
+  // AdMob NO bloquea el primer frame: los banners cargan más tarde. Diferido.
+  unawaited(MobileAds.instance.initialize());
+
+  final initialThemeMode = await themeFuture;
   runApp(MyApp(initialThemeMode: initialThemeMode));
+}
+
+/// Configura la analítica desacoplada: Firebase Analytics siempre; PostHog solo
+/// si hay `POSTHOG_API_KEY` en el env (por defecto OFF). Para activar PostHog,
+/// añade POSTHOG_API_KEY (y opcionalmente POSTHOG_HOST) en env_files/*.env.
+Future<void> _setupAnalytics() async {
+  final backends = <AnalyticsService>[FirebaseAnalyticsService()];
+  final posthogKey = (dotenv.env['POSTHOG_API_KEY'] ?? '').trim();
+  if (posthogKey.isNotEmpty) {
+    final posthogHost = (dotenv.env['POSTHOG_HOST'] ?? '').trim();
+    backends.add(PostHogAnalyticsService(
+      apiKey: posthogKey,
+      host: posthogHost.isEmpty ? 'https://eu.i.posthog.com' : posthogHost,
+    ));
+    Analytics.posthogEnabled = true;
+  }
+  final analytics = MultiplexAnalyticsService(backends);
+  await analytics.init();
+  Analytics.configure(analytics);
 }
 
 class MyApp extends StatefulWidget {
@@ -256,6 +296,11 @@ class _MyAppState extends State<MyApp> {
         builder: (_, themeMode) => MaterialApp(
           title: 'Guachinches',
           navigatorKey: navigatorKey,
+          navigatorObservers: [
+            // Screen-tracking automático para PostHog (paths, funnels por
+            // pantalla, duración de sesión). Solo si PostHog está activo.
+            if (Analytics.posthogEnabled) PosthogObserver(),
+          ],
           debugShowCheckedModeBanner: false,
           theme: appLightTheme,
           darkTheme: appDarkTheme,
