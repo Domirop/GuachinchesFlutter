@@ -1,9 +1,8 @@
 import 'dart:convert';
 
-import 'package:firebase_analytics/firebase_analytics.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:guachinches/core/analytics/analytics.dart';
 import 'package:guachinches/core/logging/app_logger.dart';
 import 'package:guachinches/config/app_colors.dart';
 import 'package:guachinches/config/app_text_styles.dart';
@@ -158,16 +157,34 @@ class _AdvancedSearchState extends State<AdvancedSearch> {
           'visits_state=$visitsStateName',
     );
 
-    if (dishState is DishSearchReady && query.trim().length >= 3) {
-      newDishMatchIds = matchRestaurantIds(dishState.index, query);
+    // Queries de plato: el texto escrito (si ≥3) + el NOMBRE de cada categoría
+    // seleccionada. Así, entrar en "Carne de cabra" desde el home también trae
+    // negocios cuyas visitas tienen ese plato, igual que en Buscar.
+    final dishQueries = <String>[
+      if (query.trim().length >= 3) query,
+      ..._selectedCategoryNames(),
+    ];
+
+    if (dishState is DishSearchReady && dishQueries.isNotEmpty) {
+      final matched = <String>{};
+      for (final q in dishQueries) {
+        matched.addAll(matchRestaurantIds(dishState.index, q));
+      }
+      newDishMatchIds = matched;
       if (newDishMatchIds.isNotEmpty) {
         newAllVisits =
             visitsState is VisitsLoaded ? visitsState.visits : const [];
-        newDishFirstMatchName = buildDishFirstMatchNames(
-          newAllVisits,
-          newDishMatchIds,
-          query,
-        );
+        // Etiqueta "plato que coincide" por restaurante: el primero que casa
+        // con cualquiera de las queries (texto o nombre de categoría).
+        final names = <String, String>{};
+        for (final q in dishQueries) {
+          final partial =
+              buildDishFirstMatchNames(newAllVisits, newDishMatchIds, q);
+          for (final e in partial.entries) {
+            names.putIfAbsent(e.key, () => e.value);
+          }
+        }
+        newDishFirstMatchName = names;
         newDishFirstVisitThumbnail = buildDishFirstVisitThumbnails(
           newAllVisits,
           newDishMatchIds,
@@ -175,7 +192,8 @@ class _AdvancedSearchState extends State<AdvancedSearch> {
       }
       AppLogger.info(
         'advanced-search',
-        'dish_match_ids=${newDishMatchIds.length} '
+        'dish_queries=${dishQueries.length} '
+            'dish_match_ids=${newDishMatchIds.length} '
             'first_match_names=${newDishFirstMatchName.length}',
       );
     }
@@ -198,21 +216,30 @@ class _AdvancedSearchState extends State<AdvancedSearch> {
       isOpen: _filters.openOnly,
     );
 
-    if (query.length >= 3 && Firebase.apps.isNotEmpty) {
+    if (query.length >= 3) {
       final prevServerState = _restaurantsCubit.state;
       final prevServerIds = prevServerState is RestaurantFilterAdvanced
           ? prevServerState.restaurantFilterAdvanced.map((r) => r.id).toSet()
           : const <String>{};
-      FirebaseAnalytics.instance.logEvent(
-        name: 'search_dish_match',
-        parameters: {
-          'query_len': query.length,
-          'server_count': prevServerIds.length,
-          'dish_count': newDishMatchIds.length,
-          'dish_only_count': newDishMatchIds.difference(prevServerIds).length,
-        },
-      );
+      Analytics.I.logEvent('search_dish_match', {
+        'query_len': query.length,
+        'server_count': prevServerIds.length,
+        'dish_count': newDishMatchIds.length,
+        'dish_only_count': newDishMatchIds.difference(prevServerIds).length,
+      });
     }
+  }
+
+  /// Nombres de las categorías actualmente seleccionadas (preseleccionadas
+  /// desde el home o añadidas en el filtro), para buscarlas también como plato
+  /// en las visitas.
+  List<String> _selectedCategoryNames() {
+    if (_filters.categoryIds.isEmpty) return const [];
+    final byId = {for (final c in widget.categories) c.id: c.nombre};
+    return _filters.categoryIds
+        .map((id) => byId[id])
+        .whereType<String>()
+        .toList(growable: false);
   }
 
   void _onQueryChanged(String _) {

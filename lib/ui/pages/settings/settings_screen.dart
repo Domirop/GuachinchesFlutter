@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:guachinches/l10n/app_localizations.dart';
@@ -14,6 +15,7 @@ import 'package:guachinches/data/model/user_info.dart';
 import 'package:guachinches/globalMethods.dart';
 import 'package:guachinches/ui/pages/favoritos/favoritos.dart';
 import 'package:guachinches/ui/pages/login/login_screen.dart';
+import 'package:guachinches/ui/pages/onboarding_flow/onboarding_flow_screen.dart';
 import 'package:guachinches/ui/pages/profile/account_management_screen.dart';
 import 'package:guachinches/ui/pages/settings/settings_presenter.dart';
 import 'package:guachinches/ui/pages/valoraciones/valoraciones.dart';
@@ -72,9 +74,16 @@ class _SettingsScreenState extends State<SettingsScreen>
     _entryCtrl.forward();
   }
 
+  bool _depsInitialized = false;
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    // `didChangeDependencies` puede dispararse más de una vez (cambios de tema,
+    // locale, MediaQuery…). `_presenter` es `late final`: reasignarlo lanzaba
+    // LateInitializationError y tumbaba el tab Perfil. Inicializamos una vez.
+    if (_depsInitialized) return;
+    _depsInitialized = true;
     _presenter = SettingsPresenter(
       this,
       HttpRemoteRepository(Client()),
@@ -647,6 +656,37 @@ class _LoggedInView extends StatelessWidget {
                       ),
                     ],
                   ),
+
+                  // DESARROLLO — solo en builds de debug (kDebugMode). No
+                  // aparece en release/TestFlight/App Store.
+                  if (kDebugMode) ...[
+                    _SectionLabel(label: 'DESARROLLO', isDark: isDark),
+                    _SettingsCard(
+                      isDark: isDark,
+                      surface: surface,
+                      shadow: cardShadow,
+                      border: sectionBorder,
+                      children: [
+                        _SettingsRow(
+                          isDark: isDark,
+                          iconBg: AppColors.atlantico.withOpacity(0.12),
+                          icon: Icons.restart_alt_rounded,
+                          iconColor: AppColors.atlantico,
+                          title: 'Lanzar onboarding',
+                          subtitle:
+                              'Solo dev · reabre el flujo de bienvenida aunque ya esté completado',
+                          showChevron: true,
+                          chevronColor: AppColors.atlantico.withOpacity(0.4),
+                          isLast: true,
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => const OnboardingFlow(),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
 
                   // Version label
                   Padding(
