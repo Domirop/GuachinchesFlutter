@@ -201,7 +201,7 @@ class _IslandListCard extends StatelessWidget {
                     Text(
                       _descriptionFor(island.name),
                       style: AppTextStyles.muted(size: 12),
-                      maxLines: 1,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ],
@@ -232,7 +232,7 @@ class _IslandListCard extends StatelessWidget {
       case 'lanzarote':
         return 'Volcanes, vinos y arquitectura blanca';
       case 'fuerteventura':
-        return 'Playas largas y queso majorero';
+        return 'Ay Fuerteventura rosa de los vientos, eres la fortuna de los majoreros';
       case 'la palma':
         return 'La Isla Bonita y cocina de mercado';
       case 'la gomera':
