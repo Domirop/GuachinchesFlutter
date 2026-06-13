@@ -60,9 +60,12 @@ class TodayGridSection extends StatelessWidget {
     final cards = restaurants.take(4).toList();
 
     return Padding(
+      // Sin banda de color: editorial y coherente con el resto del home.
+      // Cabecera + grid dentro del mismo panel crema (como estaba antes).
       padding: const EdgeInsets.fromLTRB(
           AppSpacing.gutter, 12, AppSpacing.gutter, 24),
       child: Container(
+        width: double.infinity,
         decoration: BoxDecoration(
           color: AppColors.cremaSoft,
           borderRadius: BorderRadius.circular(AppRadius.lg),
@@ -71,7 +74,7 @@ class TodayGridSection extends StatelessWidget {
         ),
         clipBehavior: Clip.hardEdge,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+          padding: const EdgeInsets.all(14),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -82,15 +85,14 @@ class TodayGridSection extends StatelessWidget {
                 onSeeAll: onSeeAll,
               ),
               const SizedBox(height: 14),
-              if (_loading)
-                const _GridSkeleton()
-              else
-                _Grid(
-                  restaurants: cards,
-                  userLat: userLat,
-                  userLon: userLon,
-                  onRestaurantTap: onRestaurantTap,
-                ),
+              _loading
+                  ? const _GridSkeleton()
+                  : _Grid(
+                      restaurants: cards,
+                      userLat: userLat,
+                      userLon: userLon,
+                      onRestaurantTap: onRestaurantTap,
+                    ),
             ],
           ),
         ),
