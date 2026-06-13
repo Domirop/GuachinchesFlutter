@@ -90,9 +90,12 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
   BitmapDescriptor? _dotIconOpen;
   BitmapDescriptor? _dotIconClosed;
   double _currentZoom = 14.4746;
-  static const double _kBubbleZoomThreshold = 13.0;
-  static const double _kLabelZoomThreshold = 13.5;
-  static const int _kMaxLabelsInViewport = 24;
+  // Niveles de detalle de markers (dot → burbuja → etiqueta con nombre).
+  // Los nombres solo aparecen ya bien metido en una zona (15+) y con un cap
+  // bajo: a media isla los nombres tapaban los topónimos y saturaban el mapa.
+  static const double _kBubbleZoomThreshold = 14.0;
+  static const double _kLabelZoomThreshold = 15.0;
+  static const int _kMaxLabelsInViewport = 10;
 
   // Visible-restaurants carousel
   List<Restaurant> _visibleRestaurants = [];
@@ -263,10 +266,12 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
     if (!mounted) return;
     setState(() {
       _visibleRestaurants = visible;
-      // Keep selection if still visible, otherwise pick the closest visible.
-      if (_selectedRestaurantId == null ||
+      // La selección solo vive mientras el negocio siga en pantalla. Ya NO
+      // auto-seleccionamos el primero: el sheet aparece al tocar un marker y
+      // se puede cerrar arrastrándolo abajo (deselecciona).
+      if (_selectedRestaurantId != null &&
           !inBoundsIds.contains(_selectedRestaurantId)) {
-        _selectedRestaurantId = visible.isNotEmpty ? visible.first.id : null;
+        _selectedRestaurantId = null;
       }
     });
 
@@ -323,8 +328,34 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
           distanceFilter: 5,
         ),
       ).listen(_onPositionUpdate);
+      // Centra en el usuario YA, sin esperar al primer emit del stream
+      // (que en iOS puede tardar varios segundos en dar el primer fix).
+      _centerOnUserNow();
     } catch (e) {
       debugPrint('Error tracking location: $e');
+    }
+  }
+
+  /// Lleva la cámara al usuario de inmediato: última posición conocida
+  /// (instantánea) o, si no hay, una lectura puntual con timeout. Sin esto la
+  /// cámara se queda en el punto por defecto hasta que llega el primer fix.
+  Future<void> _centerOnUserNow() async {
+    try {
+      Position? pos = await Geolocator.getLastKnownPosition();
+      pos ??= await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+        ),
+      ).timeout(const Duration(seconds: 8));
+      if (!mounted) return;
+      setState(() {
+        currentLocation = LatLng(pos!.latitude, pos.longitude);
+        _hasUserLocation = true;
+      });
+      _firstCameraMove = false;
+      await _animateToUser(zoom: 15, tilt: 0, bearing: 0);
+    } catch (_) {
+      // El stream centrará cuando llegue el primer fix.
     }
   }
 
@@ -943,8 +974,13 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
           }
 
           final sorted = _sortedByDistance(restaurants);
+          // Altura de la barra flotante (extendBody): los controles inferiores
+          // del mapa se desplazan para no quedar debajo del cristal.
+          final double navPad = MediaQuery.of(context).padding.bottom;
+          final bool hasSheet =
+              _visibleRestaurants.isNotEmpty && _selectedIndex() >= 0;
           final double mapBottomInset =
-              isDriving ? 210 : (_visibleRestaurants.isNotEmpty ? 165 : 0);
+              navPad + (isDriving ? 210 : (hasSheet ? 165 : 0));
 
           return Stack(
             fit: StackFit.expand,
@@ -957,6 +993,9 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
                   myLocationButtonEnabled: false,
                   compassEnabled: false,
                   zoomControlsEnabled: false,
+                  // Menos detalle: sin siluetas de edificios ni planos interiores.
+                  buildingsEnabled: false,
+                  indoorViewEnabled: false,
                   padding: EdgeInsets.only(bottom: mapBottomInset),
                   initialCameraPosition: _initialCamera,
                   onMapCreated: (controller) {
@@ -965,8 +1004,10 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
                     }
                     // Kick the platform view so tiles render even if the
                     // map mounted while in a non-visible IndexedStack tab.
+                    // Solo si aún no tenemos al usuario, para no arrancar la
+                    // cámara de su ubicación una vez centrada.
                     Future.delayed(const Duration(milliseconds: 250), () {
-                      if (!mounted) return;
+                      if (!mounted || _hasUserLocation) return;
                       controller.animateCamera(
                         CameraUpdate.newCameraPosition(_initialCamera),
                       );
@@ -1015,7 +1056,7 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
 
               // ── Center-on-user FAB ─────────────────────────────────────
               Positioned(
-                bottom: isDriving ? 140 : 142,
+                bottom: navPad + (isDriving ? 114 : 116),
                 right: 16,
                 child: Semantics(
                   identifier: 'mapa-center-fab',
@@ -1042,7 +1083,7 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
               // accident). Tap to enter drive mode immediately.
               if (!isDriving)
                 Positioned(
-                  bottom: 142,
+                  bottom: navPad + 116,
                   left: 16,
                   child: ValueListenableBuilder<double>(
                     valueListenable: _driving.currentSpeed,
@@ -1065,7 +1106,7 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
               // ── Refresh FAB (hidden in drive mode) ────────────────────
               if (!isDriving)
                 Positioned(
-                  bottom: 140,
+                  bottom: navPad + 114,
                   right: 16,
                   child: Semantics(
                     identifier: 'mapa-refresh-fab',
@@ -1092,20 +1133,20 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
                 Positioned(
                   left: 0,
                   right: 0,
-                  bottom: 0,
+                  bottom: navPad,
                   child: _DriveNearbyStrip(
                     nearby: sorted.take(10).toList(),
                     distanceTo: _distanceTo,
                   ),
                 )
-              else if (_visibleRestaurants.isNotEmpty)
-                // PROTOTIPO ergonomia Eater: bottom sheet arrastrable que
-                // muestra el restaurante seleccionado (peek -> expandido) con
-                // acciones rapidas y navegacion prev/next, en vez del carrusel.
+              else if (_visibleRestaurants.isNotEmpty &&
+                  _selectedIndex() >= 0)
+                // Bottom sheet ergonomia Eater: aparece al TOCAR un marker
+                // (peek -> expandido) con acciones rapidas y prev/next.
+                // Arrastrar hasta abajo lo cierra y deselecciona el negocio.
                 Positioned.fill(
                   child: Builder(builder: (context) {
-                    final selIdx = _selectedIndex();
-                    final idx = selIdx < 0 ? 0 : selIdx;
+                    final idx = _selectedIndex();
                     final sel = _visibleRestaurants[idx];
                     return _MapPeekSheet(
                       restaurant: sel,
@@ -1114,6 +1155,11 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
                       total: _visibleRestaurants.length,
                       onPrev: () => _selectAdjacent(-1),
                       onNext: () => _selectAdjacent(1),
+                      onDismiss: () {
+                        if (_selectedRestaurantId != null) {
+                          setState(() => _selectedRestaurantId = null);
+                        }
+                      },
                       onOpenDetail: () => Navigator.of(context).push(
                         MaterialPageRoute(
                           builder: (_) => RestaurantDetailScreen(id: sel.id),
@@ -1842,6 +1888,7 @@ class _MapPeekSheet extends StatelessWidget {
   final VoidCallback onPrev;
   final VoidCallback onNext;
   final VoidCallback onOpenDetail;
+  final VoidCallback onDismiss;
 
   const _MapPeekSheet({
     Key? key,
@@ -1852,18 +1899,34 @@ class _MapPeekSheet extends StatelessWidget {
     required this.onPrev,
     required this.onNext,
     required this.onOpenDetail,
+    required this.onDismiss,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     final brand = context.brand;
     final r = restaurant;
-    return DraggableScrollableSheet(
-      initialChildSize: 0.30,
-      minChildSize: 0.10,
-      maxChildSize: 0.6,
+    // Con `extendBody` el body llega hasta el fondo de pantalla y la barra
+    // flotante (glass) tapa la franja inferior. `padding.bottom` ES la altura
+    // de esa barra: compensamos las fracciones para que el alto VISIBLE del
+    // sheet sea el de siempre, y el contenido no quede debajo del cristal.
+    final mq = MediaQuery.of(context);
+    final navPad = mq.padding.bottom;
+    final h = mq.size.height;
+    final peek = ((0.30 * h + navPad) / h).clamp(0.15, 0.6);
+    final expanded = ((0.60 * h + navPad) / h).clamp(peek, 0.9);
+    return NotificationListener<DraggableScrollableNotification>(
+      // Arrastrar hasta abajo del todo = cerrar el sheet y deseleccionar.
+      onNotification: (n) {
+        if (n.extent <= 0.03) onDismiss();
+        return false;
+      },
+      child: DraggableScrollableSheet(
+      initialChildSize: peek,
+      minChildSize: 0.0,
+      maxChildSize: expanded,
       snap: true,
-      snapSizes: const [0.10, 0.30, 0.6],
+      snapSizes: [peek],
       builder: (context, scrollController) {
         return GestureDetector(
           // Swipe horizontal: a la derecha -> siguiente, a la izquierda ->
@@ -1893,7 +1956,9 @@ class _MapPeekSheet extends StatelessWidget {
             clipBehavior: Clip.hardEdge,
             child: ListView(
               controller: scrollController,
-              padding: EdgeInsets.zero,
+              // Bottom: deja sitio para la barra flotante (glass) — sin esto
+              // el final del contenido queda debajo del cristal.
+              padding: EdgeInsets.only(bottom: navPad + 16),
               children: [
                 // Asa de arrastre
                 Center(
@@ -2070,6 +2135,7 @@ class _MapPeekSheet extends StatelessWidget {
           ),
         );
       },
+      ),
     );
   }
 

@@ -24,6 +24,11 @@ class _FakeLocationCubit extends Cubit<LocationState> implements LocationCubit {
   }
 
   @override
+  Future<void> requestPermissionOnly() async {
+    requestCalls++;
+  }
+
+  @override
   Future<void> checkLocationSilently() async {
     silentCalls++;
   }

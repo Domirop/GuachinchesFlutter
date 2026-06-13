@@ -43,6 +43,43 @@ class LocationCubit extends Cubit<LocationState> {
     }
   }
 
+  /// Como [requestLocation] pero **NO espera el fix GPS**: resuelve en cuanto el
+  /// usuario responde al diálogo de permiso y lanza la obtención de ubicación en
+  /// segundo plano. Para flujos que no deben bloquearse esperando coordenadas
+  /// (ej. el onboarding) — `getCurrentPosition`/stream pueden tardar o colgarse.
+  Future<void> requestPermissionOnly() async {
+    try {
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        emit(LocationServiceDisabled());
+        return;
+      }
+
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        emit(LocationPermanentlyDenied());
+        return;
+      }
+
+      final granted = permission == LocationPermission.always ||
+          permission == LocationPermission.whileInUse;
+
+      if (!granted) {
+        emit(LocationDenied());
+        return;
+      }
+
+      // Permiso concedido → fetch en segundo plano, sin await (no bloquea).
+      unawaited(_fetchAndEmitLocation());
+    } catch (_) {
+      emit(LocationDenied());
+    }
+  }
+
   /// Llamado al resume de la app. Nunca muestra modal del sistema. Si el
   /// usuario activó el permiso en Ajustes y volvió, recogemos el cambio.
   Future<void> checkLocationSilently() async {

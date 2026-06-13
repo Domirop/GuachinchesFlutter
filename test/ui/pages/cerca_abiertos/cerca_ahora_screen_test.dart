@@ -34,6 +34,9 @@ class _FakeLocationCubit extends LocationCubit {
   Future<void> requestLocation() async {}
 
   @override
+  Future<void> requestPermissionOnly() async {}
+
+  @override
   Future<void> checkLocationSilently() async {}
 }
 
