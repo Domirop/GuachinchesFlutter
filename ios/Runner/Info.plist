@@ -85,5 +85,11 @@
 			</array>
 		</dict>
 	</array>
+	<!-- Export compliance: la app solo usa cifrado exento (HTTPS/TLS y crypto
+	     estándar de iOS: Keychain, etc.), sin algoritmos propietarios. Declararlo
+	     aquí evita que App Store Connect pida la "información de exportación" en
+	     cada build de TestFlight. -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 </dict>
 </plist>

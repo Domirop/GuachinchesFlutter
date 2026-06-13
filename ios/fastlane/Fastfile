@@ -1,0 +1,55 @@
+# Fastfile — Dónde Comer Canarias (iOS)
+#
+# Auth: App Store Connect API Key (sin Apple ID / 2FA). Las credenciales NO
+# secretas (key id, issuer) viven en `fastlane/.env` (gitignored); el `.p8`
+# vive en ~/.appstoreconnect/private_keys y NUNCA en el repo.
+#
+# El BUILD del .ipa lo hace `flutter build ipa` (ver scripts/ship-testflight.sh);
+# estos lanes solo SUBEN el .ipa ya construido.
+
+default_platform(:ios)
+
+def asc_api_key
+  app_store_connect_api_key(
+    key_id: ENV["ASC_KEY_ID"],
+    issuer_id: ENV["ASC_ISSUER_ID"],
+    key_filepath: ENV["ASC_KEY_PATH"],
+    in_house: false,
+  )
+end
+
+def latest_ipa
+  ipa = Dir[File.expand_path("../../build/ios/ipa/*.ipa", __dir__)].max_by { |f| File.mtime(f) }
+  UI.user_error!("No hay .ipa en build/ios/ipa/. Corre antes `flutter build ipa`.") unless ipa
+  ipa
+end
+
+platform :ios do
+  # Sube a TestFlight (beta). No envía a revisión pública.
+  desc "Sube el .ipa a TestFlight"
+  lane :beta do
+    upload_to_testflight(
+      api_key: asc_api_key,
+      ipa: latest_ipa,
+      skip_waiting_for_build_processing: true,
+      skip_submission: true,
+    )
+    UI.success("Subido a TestFlight. Procesado por Apple en unos minutos.")
+  end
+
+  # Sube y manda a revisión de la App Store. GATE: requiere confirmación
+  # explícita (la publicación es pública e irreversible).
+  desc "Sube a la App Store y envía a revisión (con confirmación)"
+  lane :release do
+    UI.user_error!("Aborta: la release pública requiere confirmar.") unless UI.confirm("¿Enviar a REVISIÓN de la App Store (público)?")
+    upload_to_app_store(
+      api_key: asc_api_key,
+      ipa: latest_ipa,
+      skip_metadata: true,
+      skip_screenshots: true,
+      precheck_include_in_app_purchases: false,
+      submit_for_review: true,
+      automatic_release: false,
+    )
+  end
+end

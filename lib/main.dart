@@ -42,6 +42,7 @@ import 'package:guachinches/data/cubit/restaurants/top/top_restaurants_cubit.dar
 import 'package:guachinches/data/cubit/user/user_cubit.dart';
 import 'package:guachinches/core/remote_config/dcc_remote_config.dart';
 import 'package:guachinches/data/local/db_provider.dart';
+import 'package:guachinches/services/fresh_install_guard.dart';
 import 'package:guachinches/services/http_weather_service.dart';
 import 'package:guachinches/ui/pages/maintenance/maintenance_screen.dart';
 import 'package:http/http.dart';
@@ -99,6 +100,11 @@ Future<void> main() async {
 
   // AdMob NO bloquea el primer frame: los banners cargan más tarde. Diferido.
   unawaited(MobileAds.instance.initialize());
+
+  // iOS conserva el Keychain tras desinstalar: en el primer arranque de cada
+  // instalación limpiamos el secure storage para que el onboarding y la sesión
+  // arranquen en limpio. Debe ir ANTES de runApp (antes de hidratar onboarding).
+  await FreshInstallGuard.ensure();
 
   final initialThemeMode = await themeFuture;
   runApp(MyApp(initialThemeMode: initialThemeMode));
@@ -301,6 +307,15 @@ class _MyAppState extends State<MyApp> {
             // pantalla, duración de sesión). Solo si PostHog está activo.
             if (Analytics.posthogEnabled) PosthogObserver(),
           ],
+          // Session replay en Flutter funciona por SCREENSHOT: hay que envolver
+          // el árbol en PostHogWidget o las grabaciones salen en negro (Flutter
+          // pinta en un único canvas que el replay nativo no puede leer).
+          builder: (context, child) {
+            final content = child ?? const SizedBox.shrink();
+            return Analytics.posthogEnabled
+                ? PostHogWidget(child: content)
+                : content;
+          },
           debugShowCheckedModeBanner: false,
           theme: appLightTheme,
           darkTheme: appDarkTheme,
