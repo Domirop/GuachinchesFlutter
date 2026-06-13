@@ -84,7 +84,8 @@ class DishesSection extends StatelessWidget {
     Navigator.of(context).push(
       PageRouteBuilder(
         opaque: false,
-        barrierColor: Colors.black87,
+        // El fondo lo pinta el propio visor para poder aclararlo al arrastrar.
+        barrierColor: Colors.transparent,
         transitionDuration: const Duration(milliseconds: 260),
         reverseTransitionDuration: const Duration(milliseconds: 200),
         pageBuilder: (_, __, ___) => _DishPhotoViewer(
@@ -240,75 +241,132 @@ class _DishPhotoViewer extends StatefulWidget {
   State<_DishPhotoViewer> createState() => _DishPhotoViewerState();
 }
 
-class _DishPhotoViewerState extends State<_DishPhotoViewer> {
+class _DishPhotoViewerState extends State<_DishPhotoViewer>
+    with SingleTickerProviderStateMixin {
   late final PageController _controller;
+  late final AnimationController _resetCtrl;
+  Animation<double>? _resetAnim;
   late int _index;
+
+  /// Desplazamiento vertical acumulado del arrastre (px). 0 = en reposo.
+  double _dragDy = 0;
+
+  /// Umbral de cierre por distancia y por velocidad (flick).
+  static const double _dismissDistance = 140;
+  static const double _dismissVelocity = 700;
 
   @override
   void initState() {
     super.initState();
     _index = widget.initialIndex;
     _controller = PageController(initialPage: widget.initialIndex);
+    _resetCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 220),
+    )..addListener(() {
+        if (_resetAnim != null) setState(() => _dragDy = _resetAnim!.value);
+      });
   }
 
   @override
   void dispose() {
     _controller.dispose();
+    _resetCtrl.dispose();
     super.dispose();
+  }
+
+  void _onDragUpdate(DragUpdateDetails d) {
+    _resetCtrl.stop();
+    setState(() => _dragDy += d.delta.dy);
+  }
+
+  void _onDragEnd(DragEndDetails d) {
+    final v = d.velocity.pixelsPerSecond.dy;
+    final dismiss = _dragDy.abs() > _dismissDistance ||
+        (v.abs() > _dismissVelocity && _dragDy.abs() > 24);
+    if (dismiss) {
+      Navigator.of(context).maybePop();
+    } else {
+      // Snap-back animado a su sitio.
+      _resetAnim = Tween<double>(begin: _dragDy, end: 0).animate(
+        CurvedAnimation(parent: _resetCtrl, curve: Curves.easeOut),
+      );
+      _resetCtrl.forward(from: 0);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final media = MediaQuery.of(context);
+    // Progreso del arrastre 0→1 sobre ~300px: dosifica fondo y escala.
+    final progress = (_dragDy.abs() / 300).clamp(0.0, 1.0);
+    final bgOpacity = 0.92 * (1 - progress * 0.7);
+    final scale = 1 - progress * 0.12;
+
     return Scaffold(
       backgroundColor: Colors.transparent,
-      body: GestureDetector(
-        onTap: () => Navigator.of(context).maybePop(),
-        child: Stack(
-          children: [
-            PageView.builder(
-              controller: _controller,
-              itemCount: widget.dishes.length,
-              onPageChanged: (i) => setState(() => _index = i),
-              itemBuilder: (_, i) => _ViewerPage(
-                dish: widget.dishes[i],
-                heroTag: '${widget.heroPrefix}-dish-$i',
-              ),
-            ),
-            Positioned(
-              top: media.padding.top + 8,
-              right: 12,
-              child: _CircleIconButton(
-                icon: Icons.close_rounded,
+      body: Stack(
+        children: [
+          // Fondo controlado por el arrastre (se aclara al bajar).
+          Positioned.fill(
+            child: ColoredBox(color: Colors.black.withOpacity(bgOpacity)),
+          ),
+          // Contenido arrastrable: sigue el dedo + escala leve.
+          Transform.translate(
+            offset: Offset(0, _dragDy),
+            child: Transform.scale(
+              scale: scale,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
                 onTap: () => Navigator.of(context).maybePop(),
+                onVerticalDragUpdate: _onDragUpdate,
+                onVerticalDragEnd: _onDragEnd,
+                child: PageView.builder(
+                  controller: _controller,
+                  itemCount: widget.dishes.length,
+                  onPageChanged: (i) => setState(() => _index = i),
+                  itemBuilder: (_, i) => _ViewerPage(
+                    dish: widget.dishes[i],
+                    heroTag: '${widget.heroPrefix}-dish-$i',
+                  ),
+                ),
               ),
             ),
-            if (widget.dishes.length > 1)
-              Positioned(
-                top: media.padding.top + 14,
-                left: 0,
-                right: 0,
-                child: Center(
-                  child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.45),
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: Text(
-                      '${_index + 1} / ${widget.dishes.length}',
-                      style: AppTextStyles.ui(
-                        size: 12,
-                        color: Colors.white,
-                        weight: FontWeight.w600,
-                      ),
+          ),
+          // Cerrar + contador: fijos (no se mueven con el arrastre).
+          Positioned(
+            top: media.padding.top + 8,
+            right: 12,
+            child: _CircleIconButton(
+              icon: Icons.close_rounded,
+              onTap: () => Navigator.of(context).maybePop(),
+            ),
+          ),
+          if (widget.dishes.length > 1)
+            Positioned(
+              top: media.padding.top + 14,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.45),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    '${_index + 1} / ${widget.dishes.length}',
+                    style: AppTextStyles.ui(
+                      size: 12,
+                      color: Colors.white,
+                      weight: FontWeight.w600,
                     ),
                   ),
                 ),
               ),
-          ],
-        ),
+            ),
+        ],
       ),
     );
   }
