@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:guachinches/config/app_colors.dart';
 import 'package:guachinches/config/app_text_styles.dart';
 
@@ -123,110 +124,36 @@ class _OAuthButtonState extends State<OAuthButton>
   }
 }
 
+/// Logo "G" oficial de Google (asset SVG de la marca, no redibujado).
+/// `assets/images/google_g_logo.svg` se extrae del set oficial de branding de
+/// "Sign in with Google" — no alterar colores ni proporciones (brand guidelines).
 class GoogleLogo extends StatelessWidget {
   const GoogleLogo({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
+    return SvgPicture.asset(
+      'assets/images/google_g_logo.svg',
       width: 20,
       height: 20,
-      child: CustomPaint(painter: _GoogleLogoPainter()),
     );
   }
 }
 
-class _GoogleLogoPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()..style = PaintingStyle.fill;
-
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = size.width / 2;
-
-    paint.color = const Color(0xFF4285F4);
-    canvas.drawArc(
-        Rect.fromCircle(center: center, radius: radius),
-        -1.57,
-        1.57,
-        false,
-        paint
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = size.width * 0.18);
-
-    paint.color = const Color(0xFFEA4335);
-    canvas.drawArc(Rect.fromCircle(center: center, radius: radius), 1.0, 1.57,
-        false, paint);
-
-    paint.color = const Color(0xFFFBBC05);
-    canvas.drawArc(Rect.fromCircle(center: center, radius: radius), 2.57, 1.0,
-        false, paint);
-
-    paint.color = const Color(0xFF34A853);
-    canvas.drawArc(Rect.fromCircle(center: center, radius: radius), -0.57, 1.57,
-        false, paint);
-
-    paint.style = PaintingStyle.fill;
-    paint.color = Colors.white;
-    canvas.drawCircle(center, radius * 0.62, paint);
-    final rect = Rect.fromLTWH(center.dx - radius * 0.02,
-        center.dy - radius * 0.28, radius * 0.78, radius * 0.28);
-    paint.color = const Color(0xFF4285F4);
-    canvas.drawRect(rect, paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
+/// Logo Apple oficial (marca "Sign in with Apple", asset PNG recortado a su
+/// bounding box con clear-space original). `color` lo tinta (negro sobre botón
+/// claro; blanco si algún día se usa botón oscuro) vía blend mode.
 class AppleLogo extends StatelessWidget {
   final Color color;
   const AppleLogo({super.key, required this.color});
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 18,
-      height: 22,
-      child: CustomPaint(painter: _AppleLogoPainter(color: color)),
+    return Image.asset(
+      'assets/images/apple_logo.png',
+      height: 20,
+      color: color,
+      colorBlendMode: BlendMode.srcIn,
     );
   }
-}
-
-class _AppleLogoPainter extends CustomPainter {
-  final Color color;
-  const _AppleLogoPainter({required this.color});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.fill;
-
-    final path = Path();
-    final w = size.width;
-    final h = size.height;
-
-    path.moveTo(w * 0.5, h * 0.18);
-    path.cubicTo(w * 0.7, h * 0.18, w * 0.95, h * 0.36, w * 0.95, h * 0.6);
-    path.cubicTo(w * 0.95, h * 0.84, w * 0.78, h * 1.0, w * 0.62, h * 1.0);
-    path.cubicTo(w * 0.55, h * 1.0, w * 0.5, h * 0.96, w * 0.5, h * 0.96);
-    path.cubicTo(w * 0.5, h * 0.96, w * 0.45, h * 1.0, w * 0.38, h * 1.0);
-    path.cubicTo(w * 0.22, h * 1.0, w * 0.05, h * 0.84, w * 0.05, h * 0.6);
-    path.cubicTo(w * 0.05, h * 0.36, w * 0.3, h * 0.18, w * 0.5, h * 0.18);
-    path.close();
-
-    final leaf = Path();
-    leaf.moveTo(w * 0.5, h * 0.18);
-    leaf.cubicTo(w * 0.5, h * 0.18, w * 0.6, h * 0.0, w * 0.72, h * 0.06);
-    leaf.cubicTo(w * 0.72, h * 0.06, w * 0.6, h * 0.14, w * 0.5, h * 0.18);
-    leaf.close();
-
-    canvas.drawPath(path, paint);
-    canvas.drawPath(leaf, paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant _AppleLogoPainter oldDelegate) =>
-      oldDelegate.color != color;
 }

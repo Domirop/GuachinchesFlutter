@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show MethodChannel, PlatformException;
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:guachinches/config/app_theme.dart';
@@ -6,6 +7,7 @@ import 'package:guachinches/data/cubit/theme/theme_cubit.dart';
 import 'package:guachinches/data/cubit/user/user_cubit.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
 import 'package:guachinches/data/model/user_info.dart';
+import 'package:guachinches/l10n/app_localizations.dart';
 import 'package:guachinches/ui/pages/login/login_screen.dart';
 
 /// Minimal fake RemoteRepository — all methods that tests exercise return
@@ -40,6 +42,10 @@ Widget _wrap(Widget child, {ThemeMode themeMode = ThemeMode.dark}) {
       theme: appLightTheme,
       darkTheme: appDarkTheme,
       themeMode: themeMode,
+      localizationsDelegates: AppL10n.localizationsDelegates,
+      supportedLocales: AppL10n.supportedLocales,
+      // Los asserts comprueban copy en español; sin esto el host usa 'en'.
+      locale: const Locale('es'),
       home: child,
     ),
   );
@@ -110,6 +116,19 @@ void main() {
 
     testWidgets('loading state: Apple button still visible when Google loading',
         (tester) async {
+      // Mock del canal google_sign_in: sin él, signIn() nunca completa en el
+      // host de tests y la pantalla queda cargando para siempre.
+      // init OK, signIn → null (usuario cancela) → vuelve a defaultView.
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(
+        const MethodChannel('plugins.flutter.io/google_sign_in'),
+        (call) async => null,
+      );
+      addTearDown(() => TestDefaultBinaryMessengerBinding
+          .instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(
+              const MethodChannel('plugins.flutter.io/google_sign_in'), null));
+
       await tester.pumpWidget(_wrap(const LoginScreen()));
       await tester.pump();
 
@@ -120,29 +139,35 @@ void main() {
       // Both buttons still in widget tree (opacity changes, not removal).
       expect(find.text('Continuar con Apple'), findsAtLeast(1));
 
-      // Let the pending timer complete (2s delay before error triggers)
-      await tester.pump(const Duration(seconds: 3));
       await tester.pumpAndSettle();
     });
 
     testWidgets('error state: error banner is shown after auth failure',
         (tester) async {
+      // Mock del canal google_sign_in que FALLA: fuerza la ruta loginError →
+      // banner de error con el copy actual.
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(
+        const MethodChannel('plugins.flutter.io/google_sign_in'),
+        (call) async => throw PlatformException(code: 'sign_in_failed'),
+      );
+      addTearDown(() => TestDefaultBinaryMessengerBinding
+          .instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(
+              const MethodChannel('plugins.flutter.io/google_sign_in'), null));
+
       await tester.pumpWidget(_wrap(const LoginScreen()));
       await tester.pump();
 
       // Tap Google to enter loading state
       await tester.tap(find.text('Continuar con Google'));
-      await tester.pump();
-
-      // Advance past the simulated 2-second delay
-      await tester.pump(const Duration(seconds: 3));
       await tester.pumpAndSettle();
 
-      // Error banner visible
+      // Error banner visible (copy actual de loginError)
       expect(
-          find.text('No hemos podido verificar tu cuenta'), findsOneWidget);
-      // Retry label
-      expect(find.text('INTENTA OTRA VEZ'), findsOneWidget);
+        find.textContaining('Inténtalo de nuevo'),
+        findsAtLeast(1),
+      );
     });
 
     testWidgets('forgot password SnackBar shows in email form', (tester) async {

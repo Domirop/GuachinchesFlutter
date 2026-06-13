@@ -21,7 +21,12 @@ import 'package:http/http.dart';
 /// Estructura: hero foto + form area (OAuth-first, email legacy secundario).
 /// Estados internos: default, loading, emailForm, error.
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  /// Si es true abre directamente el formulario de email + contraseña
+  /// (para entradas secundarias tipo "Prefiero usar mi correo"). El flujo
+  /// principal sigue siendo OAuth-first.
+  final bool startOnEmailForm;
+
+  const LoginScreen({super.key, this.startOnEmailForm = false});
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -65,6 +70,7 @@ class _LoginScreenState extends State<LoginScreen>
   @override
   void initState() {
     super.initState();
+    if (widget.startOnEmailForm) _state = _LoginState.emailForm;
 
     _shakeCtrl = AnimationController(
       vsync: this,
