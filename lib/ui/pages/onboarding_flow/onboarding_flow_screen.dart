@@ -14,7 +14,10 @@ import 'package:guachinches/data/cubit/new_home/islands_cubit.dart';
 import 'package:guachinches/data/cubit/new_home/new_home_filters_cubit.dart';
 import 'package:guachinches/data/cubit/onboarding/onboarding_cubit.dart';
 import 'package:guachinches/data/cubit/user/user_cubit.dart';
+import 'package:guachinches/data/model/Category.dart';
 import 'package:guachinches/data/model/Island.dart';
+import 'package:guachinches/data/newsletter/newsletter_consent_service.dart';
+import 'package:guachinches/ui/pages/newsletter/newsletter_consent_sheet.dart';
 import 'package:guachinches/globalMethods.dart';
 import 'package:guachinches/ui/pages/login/login.dart';
 import 'package:guachinches/ui/pages/login/login_presenter.dart';
@@ -81,6 +84,12 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     if (_tastes.isNotEmpty) {
       await cubit.setTastes(_tastes.toList());
     }
+    // Person properties para segmentar en PostHog (isla + nº de categorías
+    // preferidas). Se mergea con el usuario identificado tras el login social.
+    Analytics.I.setPersonProperties({
+      AnalyticsEvents.propIslandId: _island?.id,
+      AnalyticsEvents.propPreferredCategories: _tastes.length,
+    });
   }
 
   Future<void> _skipAll() async {
@@ -715,29 +724,67 @@ class _IslandCard extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────
 
 class _Taste {
-  final String key;
+  final String key; // id real de la categoría (backend)
   final String emoji;
   final String label;
   final Color accent;
   const _Taste(this.key, this.emoji, this.label, this.accent);
 }
 
-const List<_Taste> _kTastes = [
-  _Taste('guachinches', '🍷', 'GUACHINCHES TRADICIONALES', AppColors.tierra),
-  _Taste('mariscos', '🦐', 'MARISCOS', AppColors.atlantico),
-  _Taste('carnes', '🥩', 'CARNES', AppColors.mojo),
-  _Taste('quesos', '🧀', 'QUESOS', AppColors.sol),
-  _Taste('vegano', '🌱', 'VEGANO', AppColors.laurisilva),
-  _Taste('cafes', '☕️', 'CAFÉS', AppColors.tierra),
-  _Taste('tapas', '🍤', 'TAPAS', AppColors.atlantico),
-  _Taste('mojo_picon', '🌶', 'MOJO PICÓN', AppColors.mojo),
-  _Taste('vino_local', '🍇', 'VINO LOCAL', AppColors.tierra),
-  _Taste('postres', '🍰', 'POSTRES', AppColors.atlanticoClaro),
-  _Taste('pizzas', '🍕', 'PIZZAS', AppColors.mojo),
-  _Taste('cocina_canaria', '🍌', 'COCINA CANARIA', AppColors.sol),
-  _Taste('tradicional', '🏠', 'TRADICIONAL', AppColors.tierra),
-  _Taste('moderno', '✨', 'MODERNO', AppColors.atlantico),
-];
+/// Categorías reales (`/categorias`) que son **servicios/amenities** y no
+/// cocina. Idealmente el backend las marcaría con un campo `kind`; mientras
+/// tanto las clasificamos por nombre normalizado (ver migration backend
+/// `028-categories-kind-and-user-preferences`).
+const Set<String> _kServiceCategoryNames = {
+  'terraza',
+  'datafono',
+  'permite mascotas',
+  'animales',
+  'acceso pmr',
+  'zona infantil',
+  'con vistas',
+  'cosecha propia',
+  'mercado',
+  'experiencia',
+};
+
+/// Emoji por nombre de categoría normalizado. Si no hay match, cae a un
+/// genérico según el grupo (🍽️ cocina / 🛎️ servicio).
+const Map<String, String> _kCategoryEmoji = {
+  // cocina
+  'carne cabra': '🐐',
+  'cochino negro': '🐖',
+  'papas, pinas y costillas': '🥔',
+  'pescado o marisco': '🐟',
+  'puchero': '🍲',
+  'sin gluten': '🌾',
+  // servicios
+  'terraza': '⛱️',
+  'datafono': '💳',
+  'permite mascotas': '🐾',
+  'animales': '🐕',
+  'acceso pmr': '♿',
+  'zona infantil': '🧒',
+  'con vistas': '🏞️',
+  'cosecha propia': '🌿',
+  'mercado': '🧺',
+  'experiencia': '✨',
+};
+
+String _normalizeCat(String s) {
+  const from = 'áàäâãéèëêíìïîóòöôõúùüûñç';
+  const to = 'aaaaaeeeeiiiiooooouuuunc';
+  final buf = StringBuffer();
+  for (final rune in s.toLowerCase().trim().runes) {
+    final ch = String.fromCharCode(rune);
+    final idx = from.indexOf(ch);
+    buf.write(idx >= 0 ? to[idx] : ch);
+  }
+  return buf.toString();
+}
+
+bool _isServiceCategory(String name) =>
+    _kServiceCategoryNames.contains(_normalizeCat(name));
 
 class _StepTastes extends StatefulWidget {
   final int step;
@@ -760,17 +807,91 @@ class _StepTastes extends StatefulWidget {
 
 class _StepTastesState extends State<_StepTastes> {
   late Set<String> _set;
+  late final RemoteRepository _repo = HttpRemoteRepository(Client());
+
+  List<_Taste> _gustos = const [];
+  List<_Taste> _servicios = const [];
+  bool _loading = true;
+  bool _error = false;
+
+  // Paletas por grupo (se ciclan por índice para variedad visual).
+  static const _cuisineAccents = [
+    AppColors.mojo,
+    AppColors.sol,
+    AppColors.tierra,
+    AppColors.atlantico,
+    AppColors.laurisilva,
+  ];
+  static const _serviceAccents = [
+    AppColors.atlantico,
+    AppColors.laurisilva,
+    AppColors.atlanticoClaro,
+    AppColors.tierra,
+  ];
 
   @override
   void initState() {
     super.initState();
     _set = {...widget.selected};
+    _load();
+  }
+
+  _Taste _toTaste(ModelCategory c, {required bool isService, required Color accent}) {
+    final emoji = _kCategoryEmoji[_normalizeCat(c.nombre)] ??
+        (isService ? '🛎️' : '🍽️');
+    return _Taste(c.id, emoji, c.nombre.toUpperCase(), accent);
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = false;
+    });
+    try {
+      final cats = await _repo.getAllCategories();
+      final gustos = <_Taste>[];
+      final servicios = <_Taste>[];
+      for (final c in cats) {
+        if (_isServiceCategory(c.nombre)) {
+          servicios.add(_toTaste(c,
+              isService: true,
+              accent: _serviceAccents[servicios.length % _serviceAccents.length]));
+        } else {
+          gustos.add(_toTaste(c,
+              isService: false,
+              accent: _cuisineAccents[gustos.length % _cuisineAccents.length]));
+        }
+      }
+      if (!mounted) return;
+      setState(() {
+        _gustos = gustos;
+        _servicios = servicios;
+        _loading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = true;
+      });
+    }
+  }
+
+  void _toggle(String key) {
+    HapticFeedback.selectionClick();
+    setState(() {
+      if (_set.contains(key)) {
+        _set.remove(key);
+      } else {
+        _set.add(key);
+      }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     final reachedMin = _set.length >= 3;
-    final selectedCount = _set.length;
+    final total = _gustos.length + _servicios.length;
     return _StepShell(
       step: widget.step,
       total: widget.total,
@@ -779,36 +900,94 @@ class _StepTastesState extends State<_StepTastes> {
       title: '¿QUÉ TE\nTIRA MÁS?',
       subtitle:
           'Elige lo que te gusta y te lo enseñamos primero. Mínimo 3.',
-      cta: reachedMin
-          ? 'CONTINUAR'
-          : 'ELIGE ${3 - _set.length} MÁS',
+      cta: reachedMin ? 'CONTINUAR' : 'ELIGE ${3 - _set.length} MÁS',
       ctaEnabled: reachedMin,
       onCta: () => widget.onContinue(_set),
-      titleTrailing: _SelectionCounter(count: selectedCount, total: _kTastes.length),
-      child: Padding(
-        padding: const EdgeInsets.only(top: 4),
-        child: Wrap(
-          spacing: 10,
-          runSpacing: 10,
-          children: _kTastes.map((t) {
-            final selected = _set.contains(t.key);
-            return _TasteChip(
-              taste: t,
-              selected: selected,
-              onTap: () {
-                HapticFeedback.selectionClick();
-                setState(() {
-                  if (selected) {
-                    _set.remove(t.key);
-                  } else {
-                    _set.add(t.key);
-                  }
-                });
-              },
-            );
-          }).toList(),
+      titleTrailing: (_loading || total == 0)
+          ? null
+          : _SelectionCounter(count: _set.length, total: total),
+      child: _buildContent(),
+    );
+  }
+
+  Widget _buildContent() {
+    if (_loading) {
+      return const Padding(
+        padding: EdgeInsets.only(top: 40),
+        child: Center(
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            valueColor: AlwaysStoppedAnimation(AppColors.atlantico),
+          ),
         ),
-      ),
+      );
+    }
+    if (_error) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 32),
+        child: Column(
+          children: [
+            Text(
+              'No hemos podido cargar las categorías.',
+              textAlign: TextAlign.center,
+              style: AppTextStyles.ui(size: 14, color: AppColors.inkSoft),
+            ),
+            const SizedBox(height: 12),
+            GestureDetector(
+              onTap: _load,
+              child: Text(
+                'Reintentar',
+                style: AppTextStyles.displaySection(size: 12)
+                    .copyWith(color: AppColors.atlantico),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (_gustos.isNotEmpty) ...[
+          _GroupLabel('ME GUSTA COMER'),
+          const SizedBox(height: 12),
+          _wrap(_gustos),
+        ],
+        if (_servicios.isNotEmpty) ...[
+          const SizedBox(height: 24),
+          _GroupLabel('SERVICIOS QUE VALORO'),
+          const SizedBox(height: 12),
+          _wrap(_servicios),
+        ],
+      ],
+    );
+  }
+
+  Widget _wrap(List<_Taste> items) {
+    return Wrap(
+      spacing: 10,
+      runSpacing: 10,
+      children: items.map((t) {
+        return _TasteChip(
+          taste: t,
+          selected: _set.contains(t.key),
+          onTap: () => _toggle(t.key),
+        );
+      }).toList(),
+    );
+  }
+}
+
+class _GroupLabel extends StatelessWidget {
+  final String text;
+  const _GroupLabel(this.text);
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text,
+      style: AppTextStyles.eyebrow(size: 11, color: AppColors.inkMuted)
+          .copyWith(letterSpacing: 1.4),
     );
   }
 }
@@ -958,7 +1137,11 @@ class _StepLocationState extends State<_StepLocation> {
     if (_requesting) return;
     setState(() => _requesting = true);
     try {
-      await context.read<LocationCubit>().requestLocation();
+      // Esperamos SOLO a que el usuario responda al diálogo de permiso; el fix
+      // GPS se obtiene en segundo plano. Antes se esperaba el fix entero
+      // (getCurrentPosition 15s + stream 20s) y el onboarding se quedaba pillado
+      // en "ACTIVANDO…" cuando el fix tardaba o no llegaba.
+      await context.read<LocationCubit>().requestPermissionOnly();
       await context.read<OnboardingCubit>().markLocationAsked();
     } catch (_) {}
     if (!mounted) return;
@@ -1156,6 +1339,18 @@ class _StepAccountState extends State<_StepAccount> implements LoginView {
     // entrar al home.
     await widget.onPersist();
     if (!mounted) return;
+    // Consentimiento de newsletter (RGPD): se pregunta UNA vez, tras el
+    // registro, desvinculado del alta. Opt-in = pulsar "Sí, suscribirme".
+    final consent = NewsletterConsentService(_repo);
+    if (userId.isNotEmpty && !await consent.hasBeenAsked()) {
+      await showNewsletterConsentSheet(
+        context,
+        userId: userId,
+        service: consent,
+        source: 'onboarding',
+      );
+      if (!mounted) return;
+    }
     GlobalMethods().removePagesAndGoToNewScreen(
       context,
       NewHomeTabScaffold(screens: screens),
