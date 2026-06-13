@@ -21,6 +21,8 @@ import 'package:guachinches/ui/pages/curated_list_detail/curated_list_detail_scr
 import 'package:guachinches/ui/pages/discover/discover_screen.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/card_curated_list.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/card_nearby_minimap.dart';
+import 'package:guachinches/ui/pages/new_home/widgets/top_rated_section.dart';
+import 'package:guachinches/data/model/TopRestaurants.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/card_visit.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/hour_aware_banner.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/parallax_hero.dart';
@@ -59,6 +61,8 @@ class NewHomeBody extends StatefulWidget {
   final List<SimpleMunicipality> municipalities;
   final List<NearbyRestaurant> nearbyList;
   final List<Zone> zones;
+  /// Top valorados de la isla (ya filtrados aguas arriba). Vacío → sin sección.
+  final List<TopRestaurants> topRated;
   final NewHomePresenter presenter;
   final ValueChanged<Zone?> onZoneSelected;
   final ValueChanged<Island> onIslandSelected;
@@ -72,6 +76,8 @@ class NewHomeBody extends StatefulWidget {
   }) onSearchPreSelected;
   final Future<void> Function()? onRefresh;
   final VoidCallback? onShowAllNearby;
+  /// Abre el ranking completo "Mejor valorados".
+  final VoidCallback onShowRanking;
 
   const NewHomeBody({
     super.key,
@@ -88,6 +94,7 @@ class NewHomeBody extends StatefulWidget {
     required this.municipalities,
     required this.nearbyList,
     required this.zones,
+    required this.topRated,
     required this.presenter,
     required this.onZoneSelected,
     required this.onIslandSelected,
@@ -97,6 +104,7 @@ class NewHomeBody extends StatefulWidget {
     required this.onSearchPreSelected,
     this.onRefresh,
     this.onShowAllNearby,
+    required this.onShowRanking,
   });
 
   @override
@@ -320,6 +328,17 @@ class _NewHomeBodyState extends State<NewHomeBody> {
                       ),
                     ],
                   ),
+                ),
+              ),
+
+            // ── MEJOR VALORADOS · {ISLA} ─────────────
+            if (TopRatedSection.shouldRender(widget.topRated))
+              SliverToBoxAdapter(
+                child: TopRatedSection(
+                  restaurants: widget.topRated,
+                  islandLabel: filters.islandLabel,
+                  onRestaurantTap: widget.onRestaurantTap,
+                  onSeeRanking: widget.onShowRanking,
                 ),
               ),
 

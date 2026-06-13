@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:guachinches/config/app_colors.dart';
 import 'package:guachinches/config/brand_colors.dart';
 import 'package:guachinches/data/HttpRemoteRepository.dart';
 import 'package:guachinches/data/cubit/new_home/curated_lists_cubit.dart';
@@ -14,7 +13,6 @@ import 'package:guachinches/data/cubit/new_home/zone_weather_cubit.dart';
 import 'package:guachinches/data/cubit/new_home/zones_cubit.dart';
 import 'package:guachinches/data/cubit/restaurants/basic/restaurant_cubit.dart';
 import 'package:guachinches/data/cubit/restaurants/basic/restaurant_state.dart';
-import 'package:guachinches/data/cubit/restaurants/top/top_restaurants_cubit.dart';
 import 'package:guachinches/data/model/TopRestaurants.dart';
 import 'package:guachinches/data/model/Category.dart';
 import 'package:guachinches/data/model/Municipality.dart';
@@ -26,6 +24,7 @@ import 'package:guachinches/data/model/zone.dart';
 import 'package:guachinches/globalMethods.dart';
 import 'package:guachinches/ui/pages/advance_search/advanced_search.dart';
 import 'package:guachinches/ui/pages/restaurant_detail/restaurant_detail_screen.dart';
+import 'package:guachinches/ui/pages/new_home/top_rated_ranking_screen.dart';
 import 'package:guachinches/core/logging/app_logger.dart';
 import 'package:guachinches/utils/distance_utils.dart';
 import 'package:guachinches/utils/island_key_utils.dart';
@@ -55,6 +54,7 @@ class _NewHomeScreenState extends State<NewHomeScreen>
   // Estado local
   bool _bootstrapLoading = true;
   List<Restaurant> _pool = [];
+  List<TopRestaurants> _topRestaurants = [];
   List<ModelCategory> _categories = [];
   List<SimpleMunicipality> _municipalities = [];
   List<Municipality> _municipalitiesOld = [];
@@ -192,7 +192,31 @@ class _NewHomeScreenState extends State<NewHomeScreen>
   }
 
   @override
-  void setTopRestaurants(List<TopRestaurants> top) {}
+  void setTopRestaurants(List<TopRestaurants> top) {
+    if (mounted) setState(() => _topRestaurants = top);
+  }
+
+  /// Top valorados de la ISLA actual: el endpoint `restaurant/top/all` es global
+  /// y `TopRestaurants` no trae isla, así que intersectamos por `id` con el pool
+  /// (que ya está filtrado por isla y carga todas las páginas). Conserva el
+  /// orden del ranking del backend.
+  List<TopRestaurants> get _islandTopRated {
+    if (_topRestaurants.isEmpty || _pool.isEmpty) return const [];
+    final ids = _pool.map((r) => r.id).toSet();
+    return _topRestaurants
+        .where((t) => ids.contains(t.id))
+        .toList(growable: false);
+  }
+
+  void _openTopRatedRanking(String islandLabel) {
+    GlobalMethods().pushPage(
+      context,
+      TopRatedRankingScreen(
+        restaurants: _islandTopRated,
+        islandLabel: islandLabel,
+      ),
+    );
+  }
 
   @override
   void setCategories(List<ModelCategory> categories) {
@@ -378,6 +402,8 @@ class _NewHomeScreenState extends State<NewHomeScreen>
                         ),
                       ),
                       onRestaurantTap: _onRestaurantTap,
+                      topRated: _islandTopRated,
+                      onShowRanking: () => _openTopRatedRanking(filters.islandLabel),
                       onSearchTap: () {
                         GlobalMethods().pushPage(
                           context,
