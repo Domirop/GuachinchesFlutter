@@ -22,6 +22,7 @@ import 'package:guachinches/ui/pages/discover/discover_screen.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/card_curated_list.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/card_nearby_minimap.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/top_rated_section.dart';
+import 'package:guachinches/ui/pages/new_home/widgets/today_grid_section.dart';
 import 'package:guachinches/data/model/TopRestaurants.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/card_visit.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/hour_aware_banner.dart';
@@ -43,7 +44,6 @@ import 'package:guachinches/ui/pages/visit/visit_screen.dart';
 import 'package:guachinches/utils/distance_utils.dart';
 import 'package:guachinches/data/cubit/location/location_cubit.dart';
 import 'package:guachinches/data/cubit/location/location_state.dart';
-import 'package:guachinches/utils/open_now_utils.dart';
 import 'package:guachinches/utils/opening_later_utils.dart';
 import 'package:guachinches/utils/time_of_day_engine.dart';
 
@@ -224,19 +224,10 @@ class _NewHomeBodyState extends State<NewHomeBody> {
               SliverToBoxAdapter(
                 child: Semantics(
                   identifier: 'home-section-today',
-                  child: ContextualSectionCard(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        HourAwareBanner(
-                          hour: widget.hour,
-                          zoneLabel: zoneLabel,
-                          actionLabel: AppL10n.of(context).homeSeeAll.toUpperCase(),
-                          onAction: _openContextualSearch,
-                        ),
-                        const CardRowSkeleton(),
-                      ],
-                    ),
+                  child: TodayGridSection(
+                    hour: widget.hour,
+                    restaurants: const [],
+                    onRestaurantTap: widget.onRestaurantTap,
                   ),
                 ),
               ),
@@ -244,20 +235,14 @@ class _NewHomeBodyState extends State<NewHomeBody> {
               SliverToBoxAdapter(
                 child: Semantics(
                   identifier: 'home-section-today',
-                  child: ContextualSectionCard(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        HourAwareBanner(
-                          hour: widget.hour,
-                          zoneLabel: zoneLabel,
-                          actionLabel: AppL10n.of(context).homeSeeAll.toUpperCase(),
-                          onAction: _openContextualSearch,
-                          count: contextualCount,
-                        ),
-                        _buildHorizontalRow(todayPool, userLat, userLon),
-                      ],
-                    ),
+                  child: TodayGridSection(
+                    hour: widget.hour,
+                    count: contextualCount,
+                    restaurants: todayPool,
+                    userLat: userLat,
+                    userLon: userLon,
+                    onRestaurantTap: widget.onRestaurantTap,
+                    onSeeAll: _openContextualSearch,
                   ),
                 ),
               ),
@@ -366,8 +351,16 @@ class _NewHomeBodyState extends State<NewHomeBody> {
               ),
             ),
 
-            // Padding inferior pequeño para respirar al final del scroll.
-            const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.scrollBottom)),
+            // Clearance inferior: la navbar flotante (cápsula 64 + márgenes)
+            // va sobre el scroll (`extendBody`), así que el final debe
+            // despejarla + el safe area para que la última sección respire.
+            SliverToBoxAdapter(
+              child: SizedBox(
+                height: MediaQuery.of(context).padding.bottom +
+                    64 +
+                    AppSpacing.scrollBottom,
+              ),
+            ),
           ],
         ),
           ),
@@ -584,35 +577,6 @@ class _NewHomeBodyState extends State<NewHomeBody> {
     if (r.lat == 0.0 && r.lon == 0.0) return null;
     return formatDistance(
         haversineDistanceMeters(userLat, userLon, r.lat, r.lon));
-  }
-
-  Widget _buildHorizontalRow(
-      List<Restaurant> items, double? userLat, double? userLon) {
-    return SizedBox(
-      height: 210,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        // Sin recorte vertical: deja respirar la sombra inferior de las cards
-        // (si no, la ListView las corta por abajo dentro de la card crema).
-        clipBehavior: Clip.none,
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.gutter),
-        itemCount: items.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 12),
-        itemBuilder: (_, i) {
-          final r = items[i];
-          final now = DateTime.now();
-          // Solo mostramos ABIERTO si el horario estructurado lo confirma.
-          final open =
-              r.horariosJson != null && isOpenNow(r.horariosJson, now);
-          return CardHorizontal(
-            restaurant: r,
-            showOpenBadge: open,
-            distanceLabel: _distanceLabel(r, userLat, userLon),
-            onTap: () => widget.onRestaurantTap(r.id),
-          );
-        },
-      ),
-    );
   }
 
   /// Carrusel para el fallback "abren pronto". Mismo widget que el normal
