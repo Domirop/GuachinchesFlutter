@@ -29,11 +29,15 @@ class SectionHeader extends StatelessWidget {
         children: [
           Expanded(
             child: Text(
-              title,
-              style: AppTextStyles.eyebrow(
-                size: 10,
-                color: context.brand.textSecondary,
-              ),
+              title.toUpperCase(),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              // Título de sección real (no eyebrow): con las cards a 16, el
+              // encabezado debe mandar — patrón Apple de section headers.
+              style: AppTextStyles.displaySection(
+                size: 18,
+                color: context.brand.textPrimary,
+              ).copyWith(letterSpacing: 0.6),
             ),
           ),
           if (actionLabel != null && onAction != null)

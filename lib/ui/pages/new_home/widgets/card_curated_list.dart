@@ -24,11 +24,19 @@ class CardCuratedList extends StatelessWidget {
         width: 280,
         margin: const EdgeInsets.symmetric(vertical: 4),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(16),
           color: context.brand.surface,
           border: Border.all(
             color: context.brand.border,
           ),
+          // Elevación estándar de card del home (igual que CardHorizontal).
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.10),
+              blurRadius: 14,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
         clipBehavior: Clip.hardEdge,
         child: Column(
@@ -81,7 +89,7 @@ class CardCuratedList extends StatelessWidget {
                       child: Text(
                         list.eyebrow,
                         style: AppTextStyles.eyebrow(
-                          size: 9,
+                          size: 10,
                           color: AppColors.crema.withOpacity(0.9),
                         ),
                       ),
@@ -122,14 +130,16 @@ class CardCuratedList extends StatelessWidget {
                     list.title.toUpperCase(),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: AppTextStyles.displayHero(size: 18),
+                    // Título de card unificado del home (displaySection 16).
+                    style: AppTextStyles.displaySection(size: 16)
+                        .copyWith(letterSpacing: 0.3, height: 1.15),
                   ),
                   const SizedBox(height: 6),
                   Text(
                     list.subtitle,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: AppTextStyles.editorial(size: 11),
+                    style: AppTextStyles.editorial(size: 12),
                   ),
                   const SizedBox(height: 8),
                   Row(
@@ -152,7 +162,7 @@ class CardCuratedList extends StatelessWidget {
                       Text(
                         'VER LISTA',
                         style: AppTextStyles.eyebrow(
-                          size: 9,
+                          size: 10,
                           color: AppColors.atlanticoClaro,
                         ),
                       ),

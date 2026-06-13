@@ -1,18 +1,21 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:guachinches/config/app_colors.dart';
-import 'package:guachinches/config/brand_colors.dart';
 import 'package:guachinches/config/app_text_styles.dart';
+import 'package:guachinches/config/brand_colors.dart';
 import 'package:guachinches/data/model/Visit.dart';
 
-/// Card visita Jonay & Joana — diseño split:
-/// - Foto arriba con badge YouTube (si hay videoUrl)
-/// - Panel cream-soft abajo con título uppercase + cita italic
+/// Card de visita Jonay & Joana — estilo "póster" como la web: foto/vídeo a
+/// sangre en formato vertical, badge de fecha del vídeo arriba-izquierda, botón
+/// de play arriba-derecha, y al pie (sobre degradado) zona + título grande +
+/// descripción italic.
 class CardVisit extends StatefulWidget {
   final Visit visit;
   final VoidCallback onTap;
 
   const CardVisit({super.key, required this.visit, required this.onTap});
+
+  static const double cardWidth = 210;
+  static const double cardHeight = 348;
 
   @override
   State<CardVisit> createState() => _CardVisitState();
@@ -21,16 +24,26 @@ class CardVisit extends StatefulWidget {
 class _CardVisitState extends State<CardVisit> {
   bool _pressed = false;
 
+  static const _months = [
+    'ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN',
+    'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC',
+  ];
+
   @override
   Widget build(BuildContext context) {
     final v = widget.visit;
-    final photoUrl = v.thumbnail?.isNotEmpty == true
-        ? v.thumbnail
-        : v.restaurant?.mainFoto;
-    final name = (v.name?.isNotEmpty == true ? v.name! : v.restaurant?.nombre) ?? '';
+    final photoUrl =
+        v.thumbnail?.isNotEmpty == true ? v.thumbnail : v.restaurant?.mainFoto;
+    final name =
+        (v.name?.isNotEmpty == true ? v.name! : v.restaurant?.nombre) ?? '';
     final hasYoutube = (v.videoUrl != null && v.videoUrl!.isNotEmpty) ||
         (v.youtubeVideoId != null && v.youtubeVideoId!.isNotEmpty);
     final caption = _captionFor(v);
+    final location = (v.zone?.isNotEmpty == true
+            ? v.zone
+            : (v.restaurant?.municipio ?? v.restaurant?.island)) ??
+        '';
+    final dateLabel = _formatVideoDate(v.sortDate);
 
     return GestureDetector(
       onTapDown: (_) => setState(() => _pressed = true),
@@ -41,166 +54,136 @@ class _CardVisitState extends State<CardVisit> {
         scale: _pressed ? 0.97 : 1.0,
         duration: const Duration(milliseconds: 130),
         child: Container(
-          width: 200,
+          width: CardVisit.cardWidth,
+          height: CardVisit.cardHeight,
           decoration: BoxDecoration(
-            color: context.brand.surface,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: context.brand.border, width: 1),
+            borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.06),
-                blurRadius: 16,
+                color: Colors.black.withOpacity(0.10),
+                blurRadius: 14,
                 offset: const Offset(0, 4),
               ),
             ],
           ),
           clipBehavior: Clip.antiAlias,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+          child: Stack(
+            fit: StackFit.expand,
             children: [
-              // ── Foto + badge YouTube + play overlay + título ─
-              ClipRRect(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-                child: SizedBox(
-                  height: 200,
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      _buildPhoto(context, photoUrl),
-                      // Degradado superior suave (mejora contraste del badge)
-                      Positioned(
-                        top: 0, left: 0, right: 0, height: 70,
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [
-                                Colors.black.withOpacity(0.25),
-                                Colors.transparent,
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                      // Degradado oscuro al pie para legibilidad del título
-                      Positioned(
-                        bottom: 0, left: 0, right: 0, height: 110,
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [
-                                Colors.transparent,
-                                Colors.black.withOpacity(0.7),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                      // Play overlay central (clave visual de vídeo)
-                      if (hasYoutube)
-                        const Center(child: _PlayCircle()),
-                      // Título sobre la foto
-                      if (name.isNotEmpty)
-                        Positioned(
-                          left: 12, right: 12, bottom: 12,
-                          child: Text(
-                            name.toUpperCase(),
-                            style: AppTextStyles.displaySection(
-                              size: 14,
-                              color: Colors.white,
-                            ).copyWith(
-                              shadows: [
-                                Shadow(
-                                  color: Colors.black.withOpacity(0.6),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 1),
-                                ),
-                              ],
-                            ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                    ],
+              _buildPhoto(context, photoUrl),
+              // Degradado superior (contraste de badge + play).
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                height: 96,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.black.withOpacity(0.32),
+                        Colors.transparent,
+                      ],
+                    ),
                   ),
                 ),
               ),
-              // ── Separador sutil entre foto y panel ───
-              Container(
-                height: 1,
-                color: Colors.black.withOpacity(0.06),
-              ),
-              // ── Panel cita editorial ─────────────────
-              if (caption != null && caption.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Stack(
-                        clipBehavior: Clip.none,
-                        children: [
-                          // Comilla decorativa tenue
-                          Positioned(
-                            left: -2, top: -8,
-                            child: Text(
-                              '"',
-                              style: TextStyle(
-                                fontFamily: 'SF Pro Display',
-                                fontSize: 36,
-                                height: 1,
-                                fontWeight: FontWeight.w700,
-                                color: context.brand.textSecondary.withOpacity(0.18),
-                              ),
-                            ),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.only(left: 14, top: 4),
-                            child: Text(
-                              caption,
-                              style: AppTextStyles.editorial(
-                                size: 12,
-                                color: context.brand.textSecondary,
-                              ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      // Footer CTA
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          Text(
-                            'Ver visita',
-                            style: AppTextStyles.ui(
-                              size: 11,
-                              weight: FontWeight.w600,
-                              color: AppColors.atlantico,
-                              letterSpacing: 0.2,
-                            ),
-                          ),
-                          const SizedBox(width: 3),
-                          const Icon(
-                            Icons.arrow_forward_rounded,
-                            size: 13,
-                            color: AppColors.atlantico,
-                          ),
-                        ],
-                      ),
-                    ],
+              // Degradado inferior largo (legibilidad del texto).
+              Positioned(
+                bottom: 0,
+                left: 0,
+                right: 0,
+                height: 210,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      stops: const [0.0, 0.55, 1.0],
+                      colors: [
+                        Colors.transparent,
+                        Colors.black.withOpacity(0.45),
+                        Colors.black.withOpacity(0.85),
+                      ],
+                    ),
                   ),
                 ),
+              ),
+              // ── Fila superior: fecha del vídeo + play ──────────────────
+              Positioned(
+                top: 12,
+                left: 12,
+                right: 12,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (dateLabel != null) _DateBadge(label: dateLabel),
+                    const Spacer(),
+                    if (hasYoutube) const _PlayCircle(),
+                  ],
+                ),
+              ),
+              // ── Pie: zona + título + descripción ───────────────────────
+              Positioned(
+                left: 14,
+                right: 14,
+                bottom: 14,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (location.isNotEmpty)
+                      Text(
+                        location.toUpperCase(),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTextStyles.eyebrow(
+                          size: 10,
+                          color: Colors.white.withOpacity(0.85),
+                        ),
+                      ),
+                    if (location.isNotEmpty) const SizedBox(height: 4),
+                    if (name.isNotEmpty)
+                      Text(
+                        name.toUpperCase(),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        // Título de card unificado del home (displaySection 16).
+                        style: AppTextStyles.displaySection(
+                          size: 16,
+                          color: Colors.white,
+                        ).copyWith(letterSpacing: 0.3, height: 1.15),
+                      ),
+                    if (caption != null && caption.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        caption,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTextStyles.editorial(
+                          size: 12,
+                          color: Colors.white.withOpacity(0.82),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
             ],
           ),
         ),
       ),
     );
+  }
+
+  String? _formatVideoDate(String? iso) {
+    if (iso == null) return null;
+    final d = DateTime.tryParse(iso);
+    if (d == null) return null;
+    final yy = (d.year % 100).toString().padLeft(2, '0');
+    return '${d.day} ${_months[d.month - 1]} $yy';
   }
 
   String? _captionFor(Visit v) {
@@ -212,16 +195,62 @@ class _CardVisitState extends State<CardVisit> {
   }
 
   Widget _buildPhoto(BuildContext context, String? url) {
-    if (url != null && url.isNotEmpty) {
-      return CachedNetworkImage(
-        imageUrl: url,
-        fit: BoxFit.cover,
-        memCacheWidth: 400,
-        placeholder: (_, __) => Container(color: context.brand.elevated),
-        errorWidget: (_, __, ___) => Container(color: context.brand.elevated),
-      );
+    if (url == null || url.isEmpty) {
+      return Container(color: context.brand.elevated);
     }
-    return Container(color: context.brand.elevated);
+    final placeholder = Container(color: context.brand.elevated);
+
+    // Los thumbnails de YouTube llegan como `hqdefault.jpg` (480×360), que al
+    // recortarse a vertical se ve blando. Pedimos `maxresdefault.jpg`
+    // (1280×720) y, si ese vídeo no lo tiene (404), caemos al hqdefault.
+    final isYtHq =
+        url.contains('i.ytimg.com') && url.contains('/hqdefault.');
+    final primary =
+        isYtHq ? url.replaceAll('/hqdefault.', '/maxresdefault.') : url;
+
+    // memCacheWidth ~= ancho de la card en píxeles físicos (210pt @3x ≈ 630).
+    const decodeWidth = 640;
+
+    return CachedNetworkImage(
+      imageUrl: primary,
+      fit: BoxFit.cover,
+      memCacheWidth: decodeWidth,
+      placeholder: (_, __) => placeholder,
+      errorWidget: (_, __, ___) => isYtHq
+          ? CachedNetworkImage(
+              imageUrl: url, // fallback hqdefault original
+              fit: BoxFit.cover,
+              memCacheWidth: decodeWidth,
+              placeholder: (_, __) => placeholder,
+              errorWidget: (_, __, ___) => placeholder,
+            )
+          : placeholder,
+    );
+  }
+}
+
+/// Badge de fecha del vídeo (arriba-izquierda), pill translúcido oscuro.
+class _DateBadge extends StatelessWidget {
+  final String label;
+
+  const _DateBadge({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.42),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: AppTextStyles.eyebrow(
+          size: 10,
+          color: Colors.white,
+        ).copyWith(letterSpacing: 1.2),
+      ),
+    );
   }
 }
 
@@ -231,8 +260,8 @@ class _PlayCircle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 54,
-      height: 54,
+      width: 48,
+      height: 48,
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.92),
         shape: BoxShape.circle,
@@ -246,7 +275,7 @@ class _PlayCircle extends StatelessWidget {
       ),
       child: const Icon(
         Icons.play_arrow_rounded,
-        size: 32,
+        size: 30,
         color: Color(0xFF1A1A1A),
       ),
     );

@@ -3,6 +3,7 @@ import 'package:guachinches/config/app_colors.dart';
 import 'package:guachinches/config/app_text_styles.dart';
 import 'package:guachinches/config/brand_colors.dart';
 import 'package:guachinches/data/canarismos.dart';
+import 'package:guachinches/ui/components/pinned_top_bar.dart';
 import 'package:guachinches/ui/pages/canarismo/canarismo_share_card.dart';
 import 'package:guachinches/ui/pages/canarismo/canarismo_visuals.dart';
 
@@ -81,14 +82,13 @@ class _CanarismoDetailScreenState extends State<CanarismoDetailScreen> {
       identifier: 'canarismo-detail-screen',
       child: Scaffold(
         backgroundColor: brand.base,
-        body: ListView(
+        body: Stack(children: [
+          ListView(
           padding: EdgeInsets.zero,
           children: [
             _Hero(
               word: _current.palabra,
               dateLabel: _longDate(_date),
-              onBack: () => Navigator.maybePop(context),
-              onShare: _share,
             ),
             // Significado.
             Padding(
@@ -190,7 +190,20 @@ class _CanarismoDetailScreenState extends State<CanarismoDetailScreen> {
             ],
             const SizedBox(height: 28),
           ],
-        ),
+          ),
+          // Barra superior anclada: back + compartir fijos al hacer scroll.
+          PinnedTopBar(
+            onBack: () => Navigator.maybePop(context),
+            backIdentifier: 'canarismo-detail-back',
+            actions: [
+              PinnedCircleButton(
+                icon: Icons.ios_share,
+                identifier: 'canarismo-detail-share',
+                onTap: _share,
+              ),
+            ],
+          ),
+        ]),
       ),
     );
   }
@@ -199,14 +212,10 @@ class _CanarismoDetailScreenState extends State<CanarismoDetailScreen> {
 class _Hero extends StatelessWidget {
   final String word;
   final String dateLabel;
-  final VoidCallback onBack;
-  final VoidCallback onShare;
 
   const _Hero({
     required this.word,
     required this.dateLabel,
-    required this.onBack,
-    required this.onShare,
   });
 
   @override
@@ -241,26 +250,11 @@ class _Hero extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Hueco reservado para la barra superior anclada (back + share),
+              // que ahora vive fuera del scroll a nivel de Scaffold.
               SafeArea(
                 bottom: false,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-                  child: Row(
-                    children: [
-                      _CircleButton(
-                        identifier: 'canarismo-detail-back',
-                        icon: Icons.arrow_back_ios_new_rounded,
-                        onTap: onBack,
-                      ),
-                      const Spacer(),
-                      _CircleButton(
-                        identifier: 'canarismo-detail-share',
-                        icon: Icons.ios_share,
-                        onTap: onShare,
-                      ),
-                    ],
-                  ),
-                ),
+                child: const SizedBox(height: 46),
               ),
               const SizedBox(height: 56),
               Padding(
@@ -306,40 +300,6 @@ class _Hero extends StatelessWidget {
             ],
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _CircleButton extends StatelessWidget {
-  final String identifier;
-  final IconData icon;
-  final VoidCallback onTap;
-
-  const _CircleButton({
-    required this.identifier,
-    required this.icon,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      identifier: identifier,
-      button: true,
-      child: GestureDetector(
-        onTap: onTap,
-        behavior: HitTestBehavior.opaque,
-        child: Container(
-          width: 42,
-          height: 42,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: Colors.white.withOpacity(0.14),
-            border: Border.all(color: Colors.white.withOpacity(0.30)),
-          ),
-          child: Icon(icon, size: 18, color: AppColors.crema),
-        ),
       ),
     );
   }

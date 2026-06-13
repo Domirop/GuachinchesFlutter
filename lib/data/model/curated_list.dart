@@ -81,11 +81,18 @@ class CuratedListItemRestaurant {
   final String? mainFoto;
   final String? municipio;
 
+  /// Coordenadas (si el backend las incluye en el item de la lista). `null`
+  /// cuando no vienen — la UI oculta la distancia en ese caso.
+  final double? lat;
+  final double? lon;
+
   const CuratedListItemRestaurant({
     required this.id,
     required this.nombre,
     this.mainFoto,
     this.municipio,
+    this.lat,
+    this.lon,
   });
 
   factory CuratedListItemRestaurant.fromJson(Map<String, dynamic> json) {
@@ -103,8 +110,19 @@ class CuratedListItemRestaurant {
       nombre: (json['nombre'] ?? '') as String,
       mainFoto: json['mainFoto'] as String?,
       municipio: municipio,
+      lat: _parseCoord(json['lat'] ?? json['latitud'] ?? json['latitude']),
+      lon: _parseCoord(json['lon'] ?? json['longitud'] ?? json['longitude']),
     );
   }
+}
+
+/// Parsea una coordenada que puede venir como num o String. `null` / `0` →
+/// null (0,0 es "sin coordenadas" en este backend, no un punto real).
+double? _parseCoord(dynamic v) {
+  if (v == null) return null;
+  final d = v is num ? v.toDouble() : double.tryParse(v.toString());
+  if (d == null || d == 0.0) return null;
+  return d;
 }
 
 class CuratedListDetail extends CuratedList {

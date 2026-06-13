@@ -29,7 +29,7 @@ class VisitsByRestaurantSection extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         SizedBox(
-          height: 320,
+          height: CardVisit.cardHeight,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 16),

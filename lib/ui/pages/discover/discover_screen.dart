@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:guachinches/config/app_colors.dart';
+import 'package:guachinches/core/analytics/analytics.dart';
+import 'package:guachinches/core/analytics/analytics_events.dart';
 import 'package:guachinches/config/app_text_styles.dart';
 import 'package:guachinches/config/brand_colors.dart';
 import 'package:guachinches/data/cubit/new_home/new_home_filters_cubit.dart';
@@ -59,7 +61,14 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
     _searchDebounce?.cancel();
     _searchDebounce = Timer(const Duration(milliseconds: 220), () {
       if (!mounted) return;
-      setState(() => _searchText = value.trim());
+      final trimmed = value.trim();
+      setState(() => _searchText = trimmed);
+      if (trimmed.length >= 2) {
+        Analytics.I.logEvent(AnalyticsEvents.searchPerformed, {
+          'query': trimmed,
+          'tab': 'visitas',
+        });
+      }
     });
   }
 
@@ -112,14 +121,19 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
     }).toList();
   }
 
-  List<String> _uniqueCreators(List<Visit> visits) {
-    final set = <String>{};
-    for (final v in visits) {
-      final c = v.creator?.trim();
-      if (c != null && c.isNotEmpty) set.add(c);
+  /// Normaliza para búsqueda tolerante: minúsculas + sin tildes/diéresis
+  /// (canario: "José" ≈ "jose", "Añaza" ≈ "anaza"). Así el match no depende
+  /// de que el usuario escriba los acentos.
+  static String _normalize(String s) {
+    const from = 'áàäâãéèëêíìïîóòöôõúùüûñçºª';
+    const to = 'aaaaaeeeeiiiiooooouuuunc  ';
+    final buf = StringBuffer();
+    for (final rune in s.toLowerCase().runes) {
+      final ch = String.fromCharCode(rune);
+      final idx = from.indexOf(ch);
+      buf.write(idx >= 0 ? to[idx] : ch);
     }
-    final list = set.toList()..sort();
-    return list;
+    return buf.toString();
   }
 
   List<String> _uniqueZones(List<Visit> visits) {
@@ -134,7 +148,13 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
   }
 
   List<Visit> _applyFilters(List<Visit> source) {
-    final q = _searchText.toLowerCase();
+    // Tokens normalizados: cada palabra debe aparecer (AND), en cualquier
+    // orden y sin depender de tildes. "carne tegueste" encuentra una visita
+    // con plato "carne" en zona "Tegueste".
+    final queryTokens = _normalize(_searchText)
+        .split(RegExp(r'\s+'))
+        .where((t) => t.isNotEmpty)
+        .toList();
     final filtered = source.where((v) {
       // Creator
       if (_filters.creators.isNotEmpty) {
@@ -157,9 +177,9 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
             (v.youtubeVideoId?.isNotEmpty == true);
         if (!hasVideo) return false;
       }
-      // Free-text search
-      if (q.isNotEmpty) {
-        final haystack = [
+      // Free-text search (tokens AND, normalizado)
+      if (queryTokens.isNotEmpty) {
+        final haystack = _normalize([
           v.creator,
           v.name,
           v.restaurant?.nombre,
@@ -170,8 +190,8 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
           ...v.highlights,
           ...v.dishes.map((d) => d.name),
           ...v.quotes.map((qt) => qt.text),
-        ].where((e) => e != null && e.toString().isNotEmpty).join(' ').toLowerCase();
-        if (!haystack.contains(q)) return false;
+        ].where((e) => e != null && e.toString().isNotEmpty).join(' '));
+        if (!queryTokens.every(haystack.contains)) return false;
       }
       return true;
     }).toList();
@@ -192,18 +212,10 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
 
     switch (_sort) {
       case VisitSort.newest:
-        list.sort((a, b) => cmpDates(
-              a.publishedAt ?? a.createdAt,
-              b.publishedAt ?? b.createdAt,
-              desc: true,
-            ));
+        list.sort((a, b) => cmpDates(a.sortDate, b.sortDate, desc: true));
         break;
       case VisitSort.oldest:
-        list.sort((a, b) => cmpDates(
-              a.publishedAt ?? a.createdAt,
-              b.publishedAt ?? b.createdAt,
-              desc: false,
-            ));
+        list.sort((a, b) => cmpDates(a.sortDate, b.sortDate, desc: false));
         break;
       case VisitSort.ratingDesc:
         list.sort((a, b) =>
@@ -218,11 +230,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
           final cb = (b.creator ?? '').toLowerCase();
           final byCreator = ca.compareTo(cb);
           if (byCreator != 0) return byCreator;
-          return cmpDates(
-            a.publishedAt ?? a.createdAt,
-            b.publishedAt ?? b.createdAt,
-            desc: true,
-          );
+          return cmpDates(a.sortDate, b.sortDate, desc: true);
         });
         break;
     }
@@ -255,46 +263,56 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                     islandFilteredVisits.isEmpty;
 
                 final filtered = _applyFilters(islandFilteredVisits);
-                final creators = _uniqueCreators(allVisits);
 
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Semantics(
-                      identifier: 'discover-active-island-label',
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
-                        child: Text(
-                          islandLabel.toUpperCase(),
-                          style: AppTextStyles.eyebrow(
-                            size: 10,
-                            color: AppColors.atlanticoClaro,
-                          ),
+                    // Barra superior anclada: título + acciones + buscador.
+                    // Vive fuera del scroll (la lista va en el Expanded), así
+                    // que queda fija arriba; el hairline inferior la separa.
+                    DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: context.brand.base,
+                        border: Border(
+                          bottom: BorderSide(color: context.brand.border),
                         ),
                       ),
-                    ),
-                    _DiscoverHeader(
-                      total: filtered.length,
-                      isLoading: isLoading && allVisits.isEmpty,
-                      sortLabel: _sort.label,
-                      filterCount: _filters.count,
-                      onSort: _openSort,
-                      onFilter: () => _openFilters(allVisits),
-                    ),
-                    const SizedBox(height: 12),
-                    Semantics(
-                      identifier: 'discover-search-field',
-                      child: _SearchRow(
-                        controller: _searchCtrl,
-                        onChanged: _onSearchChanged,
-                        onClear: _clearSearch,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Semantics(
+                            identifier: 'discover-active-island-label',
+                            child: Padding(
+                              padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+                              child: Text(
+                                islandLabel.toUpperCase(),
+                                style: AppTextStyles.eyebrow(
+                                  size: 10,
+                                  color: AppColors.atlanticoClaro,
+                                ),
+                              ),
+                            ),
+                          ),
+                          _DiscoverHeader(
+                            total: filtered.length,
+                            isLoading: isLoading && allVisits.isEmpty,
+                            sortLabel: _sort.label,
+                            filterCount: _filters.count,
+                            onSort: _openSort,
+                            onFilter: () => _openFilters(allVisits),
+                          ),
+                          const SizedBox(height: 12),
+                          Semantics(
+                            identifier: 'discover-search-field',
+                            child: _SearchRow(
+                              controller: _searchCtrl,
+                              onChanged: _onSearchChanged,
+                              onClear: _clearSearch,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                        ],
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    _CreatorChipsRow(
-                      creators: creators,
-                      selected: _filters.creators,
-                      onTap: _toggleCreator,
                     ),
                     if (_filters.count > 0)
                       _ActiveFiltersBar(
@@ -382,11 +400,17 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
           button: true,
           child: VisitListTile(
             visit: filtered[i],
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => VisitDetailPage(visitId: filtered[i].id),
-              ),
-            ),
+            onTap: () {
+              Analytics.I.logEvent(AnalyticsEvents.visitOpened, {
+                'visit_id': filtered[i].id,
+                'source': 'visitas_tab',
+              });
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => VisitDetailPage(visitId: filtered[i].id),
+                ),
+              );
+            },
           ),
         ),
       ),
@@ -590,74 +614,6 @@ class _SearchRow extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-// ── Creator chips row ─────────────────────────────────────────────────────
-class _CreatorChipsRow extends StatelessWidget {
-  final List<String> creators;
-  final Set<String> selected;
-  final ValueChanged<String> onTap;
-
-  const _CreatorChipsRow({
-    required this.creators,
-    required this.selected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    if (creators.isEmpty) return const SizedBox.shrink();
-    return SizedBox(
-      height: 38,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: creators.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 8),
-        itemBuilder: (_, i) {
-          final c = creators[i];
-          final active = selected.contains(c);
-          return GestureDetector(
-            onTap: () => onTap(c),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 160),
-              height: 38,
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: active ? AppColors.atlantico : context.brand.surface,
-                borderRadius: BorderRadius.circular(100),
-                border: Border.all(
-                  color: active
-                      ? AppColors.atlantico
-                      : context.brand.borderStrong,
-                ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.person_rounded,
-                    size: 14,
-                    color: active ? Colors.white : context.brand.textPrimary,
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    c,
-                    style: AppTextStyles.ui(
-                      size: 12,
-                      weight: active ? FontWeight.w700 : FontWeight.w600,
-                      color: active ? Colors.white : context.brand.textPrimary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
       ),
     );
   }

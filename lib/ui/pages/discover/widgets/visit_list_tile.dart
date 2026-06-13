@@ -49,7 +49,7 @@ class _VisitListTileState extends State<VisitListTile> {
     final rating = v.ratingImplicit;
     final priceRange = v.priceRange?.trim();
     final sentiment = v.overallSentiment;
-    final dateLabel = _dateLabel(v.publishedAt ?? v.createdAt);
+    final dateLabel = _dateLabel(v.sortDate);
 
     return GestureDetector(
       // Tap fuera del botón de despliegue → abrir detalle.
@@ -589,7 +589,10 @@ class _Thumbnail extends StatelessWidget {
       borderRadius: BorderRadius.circular(14),
       child: SizedBox(
         width: 110,
-        height: 110,
+        // Más alto que antes (era 110): ocupa mejor el alto del bloque de
+        // texto y el thumbnail de YouTube luce más grande, sin moverse de la
+        // izquierda.
+        height: 140,
         child: Stack(
           fit: StackFit.expand,
           children: [
@@ -597,7 +600,7 @@ class _Thumbnail extends StatelessWidget {
               CachedNetworkImage(
                 imageUrl: url!,
                 fit: BoxFit.cover,
-                memCacheWidth: 320,
+                memCacheWidth: 360,
                 placeholder: (_, __) => Container(color: fallbackColor),
                 errorWidget: (_, __, ___) => Container(color: fallbackColor),
               )
@@ -618,8 +621,8 @@ class _Thumbnail extends StatelessWidget {
               ),
               Center(
                 child: Container(
-                  width: 38,
-                  height: 38,
+                  width: 42,
+                  height: 42,
                   decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.92),
                     shape: BoxShape.circle,
@@ -633,7 +636,7 @@ class _Thumbnail extends StatelessWidget {
                   ),
                   child: const Icon(
                     Icons.play_arrow_rounded,
-                    size: 22,
+                    size: 24,
                     color: Color(0xFF1A1A1A),
                   ),
                 ),

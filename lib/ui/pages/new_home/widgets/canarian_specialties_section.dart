@@ -51,7 +51,7 @@ class CanarianSpecialtiesSection extends StatelessWidget {
     if (tradicional == null && chips.isEmpty) return const SizedBox.shrink();
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(14, 14, 14, 4),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -117,7 +117,7 @@ class _TraditionalHeroState extends State<_TraditionalHero> {
         child: Container(
           height: 110,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(16),
             gradient: const LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
@@ -136,7 +136,7 @@ class _TraditionalHeroState extends State<_TraditionalHero> {
             ],
           ),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(16),
             child: Stack(
               children: [
                 // Decoración tenue
@@ -173,7 +173,7 @@ class _TraditionalHeroState extends State<_TraditionalHero> {
                             Text(
                               'AUTÉNTICO',
                               style: AppTextStyles.eyebrow(
-                                size: 9,
+                                size: 10,
                                 color: Colors.white.withOpacity(0.7),
                               ).copyWith(letterSpacing: 1.6),
                             ),
@@ -181,7 +181,7 @@ class _TraditionalHeroState extends State<_TraditionalHero> {
                             Text(
                               'GUACHINCHES TRADICIONALES',
                               style: AppTextStyles.displaySection(
-                                size: 15,
+                                size: 16,
                                 color: Colors.white,
                               ).copyWith(letterSpacing: 0.6, height: 1.1),
                               maxLines: 1,
@@ -189,7 +189,7 @@ class _TraditionalHeroState extends State<_TraditionalHero> {
                             ),
                             const SizedBox(height: 5),
                             Text(
-                              'Vino de la casa, mesa larga y carne canaria',
+                              'Vino de la casa y mantel de cuadros',
                               style: AppTextStyles.editorial(
                                 size: 11,
                                 color: Colors.white.withOpacity(0.88),

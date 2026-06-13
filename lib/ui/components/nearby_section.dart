@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:guachinches/data/cubit/location/location_cubit.dart';
+import 'package:guachinches/config/brand_colors.dart';
 import 'package:guachinches/data/cubit/location/location_state.dart';
 import 'package:guachinches/globalMethods.dart';
 import 'package:guachinches/ui/components/cards/nearby_restaurant_card.dart';
@@ -95,7 +96,7 @@ class NearbySection extends StatelessWidget {
 
   Widget _buildList() {
     return SizedBox(
-      height: 250,
+      height: 210,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.only(left: 16),
@@ -116,19 +117,19 @@ class NearbySection extends StatelessWidget {
 
   Widget _shimmerRow() {
     return SizedBox(
-      height: 250,
+      height: 210,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.only(left: 16),
         itemCount: 3,
-        itemBuilder: (_, __) => Padding(
+        itemBuilder: (context, __) => Padding(
           padding: const EdgeInsets.only(right: 12),
           child: Container(
-            width: 240,
-            height: 250,
+            width: NearbyRestaurantCard.cardWidth,
+            height: NearbyRestaurantCard.cardHeight,
             decoration: BoxDecoration(
-              color: GlobalMethods.bgColorFilter,
-              borderRadius: BorderRadius.circular(14),
+              color: context.brand.surface,
+              borderRadius: BorderRadius.circular(16),
             ),
           ),
         ),

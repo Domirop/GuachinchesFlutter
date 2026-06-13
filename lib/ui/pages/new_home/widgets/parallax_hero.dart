@@ -196,7 +196,7 @@ class ParallaxHero extends StatelessWidget {
           Text(
             '${greeting.toUpperCase()} · ${islandLabel.toUpperCase()}',
             style: AppTextStyles.eyebrow(
-              size: 12,
+              size: 11,
               color: Colors.white.withOpacity(0.9),
             ).copyWith(shadows: textShadows),
           ),
@@ -235,7 +235,7 @@ class ParallaxHero extends StatelessWidget {
           // Count abiertos
           Text(
             '$openCount lugares abiertos · $zona',
-            style: AppTextStyles.muted(size: 8, color: Colors.white.withOpacity(0.75))
+            style: AppTextStyles.muted(size: 11, color: Colors.white.withOpacity(0.75))
                 .copyWith(shadows: textShadows),
           ),
         ],

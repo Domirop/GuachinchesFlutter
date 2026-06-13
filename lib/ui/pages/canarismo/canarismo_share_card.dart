@@ -102,21 +102,27 @@ Future<Uint8List?> _captureCard(
 
   overlay.insert(entry);
   try {
-    // Esperar a que el subárbol se asiente (layout + fuentes + pintura).
-    await WidgetsBinding.instance.endOfFrame;
-    var boundary =
-        repaintKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
-    var tries = 0;
-    while ((boundary == null || boundary.debugNeedsPaint) && tries < 5) {
-      await Future<void>.delayed(const Duration(milliseconds: 32));
-      boundary = repaintKey.currentContext?.findRenderObject()
-          as RenderRepaintBoundary?;
-      tries++;
+    // Bombear varios frames para que el subárbol offscreen haga layout, cargue
+    // fuentes y pinte su capa antes de rasterizar. NO usamos `debugNeedsPaint`:
+    // es una API solo-debug que lanza LateInitializationError en profile/release
+    // (el assert que la inicializa se elimina), lo que rompía la captura fuera de
+    // debug y caía siempre al fallback de texto.
+    for (var i = 0; i < 3; i++) {
+      await WidgetsBinding.instance.endOfFrame;
     }
-    if (boundary == null) return null;
+    final boundary =
+        repaintKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
+    if (boundary == null) {
+      debugPrint('canarismo share: RepaintBoundary no encontrado');
+      return null;
+    }
     final ui.Image image = await boundary.toImage(pixelRatio: pixelRatio);
     final data = await image.toByteData(format: ui.ImageByteFormat.png);
+    image.dispose();
     return data?.buffer.asUint8List();
+  } catch (e, st) {
+    debugPrint('canarismo share: fallo capturando la tarjeta: $e\n$st');
+    return null;
   } finally {
     entry.remove();
   }
@@ -197,12 +203,16 @@ class CanarismoShareCard extends StatelessWidget {
                     Icon(Icons.restaurant_rounded,
                         size: 16, color: cream.withOpacity(0.85)),
                     const SizedBox(width: 8),
-                    Text(
-                      'Diccionario del habla canaria',
-                      style: AppTextStyles.ui(
-                        size: 13,
-                        color: cream.withOpacity(0.85),
-                        weight: FontWeight.w600,
+                    Flexible(
+                      child: Text(
+                        'Diccionario del habla canaria',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTextStyles.ui(
+                          size: 13,
+                          color: cream.withOpacity(0.85),
+                          weight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   ],

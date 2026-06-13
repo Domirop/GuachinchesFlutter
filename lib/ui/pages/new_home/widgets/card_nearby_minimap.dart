@@ -28,7 +28,7 @@ class _CardNearbyMinimapState extends State<CardNearbyMinimap> {
       return CachedNetworkImage(
         imageUrl: url,
         fit: BoxFit.cover,
-        memCacheWidth: 320,
+        memCacheWidth: 440,
         placeholder: (_, __) => Container(color: context.brand.surface),
         errorWidget: (_, __, ___) => Container(color: context.brand.surface),
       );
@@ -50,15 +50,17 @@ class _CardNearbyMinimapState extends State<CardNearbyMinimap> {
         scale: _pressed ? 0.97 : 1.0,
         duration: const Duration(milliseconds: 120),
         child: Container(
-          width: 160,
-          height: 160,
+          // Métricas estándar de card del home (igual que CardHorizontal):
+          // la fila "Cerca de ti" no debe verse más pequeña que sus vecinas.
+          width: 220,
+          height: 200,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withOpacity(0.10),
-                blurRadius: 12,
-                offset: const Offset(0, 3),
+                blurRadius: 14,
+                offset: const Offset(0, 4),
               ),
             ],
           ),
@@ -135,25 +137,26 @@ class _CardNearbyMinimapState extends State<CardNearbyMinimap> {
                 Positioned(
                   bottom: 0, left: 0, right: 0,
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
                           r.nombre.toUpperCase(),
-                          style: AppTextStyles.displaySection(size: 11)
-                              .copyWith(height: 1.15, letterSpacing: 0.2),
+                          // Título de card unificado del home (displaySection 16).
+                          style: AppTextStyles.displaySection(size: 16)
+                              .copyWith(height: 1.15, letterSpacing: 0.3),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
-                        const SizedBox(height: 4),
+                        const SizedBox(height: 5),
                         Row(
                           children: [
                             Flexible(
                               child: Text(
                                 r.municipio,
-                                style: AppTextStyles.muted(size: 9),
+                                style: AppTextStyles.muted(size: 12),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -161,12 +164,12 @@ class _CardNearbyMinimapState extends State<CardNearbyMinimap> {
                             if (r.avgRating > 0) ...[
                               const SizedBox(width: 6),
                               const Icon(Icons.star_rounded,
-                                  size: 10, color: AppColors.sol),
+                                  size: 12, color: AppColors.sol),
                               const SizedBox(width: 2),
                               Text(
                                 r.avgRating.toStringAsFixed(1),
                                 style: AppTextStyles.ui(
-                                  size: 9,
+                                  size: 11,
                                   weight: FontWeight.w700,
                                   color: AppColors.sol,
                                 ),

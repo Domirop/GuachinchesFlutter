@@ -6,10 +6,14 @@ import 'package:guachinches/config/app_text_styles.dart';
 import 'package:guachinches/config/brand_colors.dart';
 import 'package:guachinches/data/HttpRemoteRepository.dart';
 import 'package:guachinches/data/cubit/curated_list_detail/curated_list_detail_cubit.dart';
+import 'package:guachinches/data/cubit/location/location_cubit.dart';
+import 'package:guachinches/data/cubit/location/location_state.dart';
 import 'package:guachinches/data/http_client.dart';
 import 'package:guachinches/data/model/curated_list.dart';
 import 'package:guachinches/globalMethods.dart';
+import 'package:guachinches/utils/distance_utils.dart';
 import 'package:share_plus/share_plus.dart' show SharePlus, ShareParams;
+import 'package:guachinches/ui/components/pinned_top_bar.dart';
 import 'package:guachinches/ui/components/shimmer_box.dart';
 import 'package:guachinches/ui/pages/curated_list_detail/widgets/curated_list_item_card.dart';
 import 'package:guachinches/ui/pages/restaurant_detail/restaurant_detail_screen.dart';
@@ -117,9 +121,19 @@ class _CuratedListDetailViewState extends State<_CuratedListDetailView> {
     final municipalities = _municipalitiesFrom(detail);
     final filtered = _applyFilters(detail);
 
+    // Ubicación del usuario (si la concedió) para mostrar la distancia a cada
+    // negocio. `watch` re-renderiza la lista cuando llega el primer fix GPS.
+    final locState = context.watch<LocationCubit>().state;
+    final double? userLat =
+        locState is LocationLoaded ? locState.latitude : null;
+    final double? userLon =
+        locState is LocationLoaded ? locState.longitude : null;
+
     return Semantics(
       identifier: 'curated-list-content',
-      child: CustomScrollView(
+      child: Stack(
+        children: [
+          CustomScrollView(
       slivers: [
         _Hero(detail: detail),
         SliverToBoxAdapter(
@@ -153,18 +167,53 @@ class _CuratedListDetailViewState extends State<_CuratedListDetailView> {
                   item: item,
                   accent: detail.accent,
                   fallbackEyebrow: detail.eyebrow,
+                  distanceLabel: _distanceLabelFor(item, userLat, userLon),
                   onTap: () => _openRestaurant(item.restaurantId),
                 );
               },
             ),
           ),
       ],
-    ),
+          ),
+          // Barra superior anclada: vuelve y comparte fijos al hacer scroll.
+          PinnedTopBar(
+            variant: PinnedBarVariant.lightSolid,
+            onBack: () => Navigator.of(context).maybePop(),
+            backIdentifier: 'curated-list-back-button',
+            actions: [
+              PinnedCircleButton(
+                icon: Icons.ios_share_rounded,
+                variant: PinnedBarVariant.lightSolid,
+                identifier: 'curated-list-share-button',
+                onTap: () => SharePlus.instance.share(
+                  ShareParams(
+                    text: '${detail.title} en ¿Dónde Comer Canarias?',
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
   void _openRestaurant(String id) {
     GlobalMethods().pushPage(context, RestaurantDetailScreen(id: id));
+  }
+
+  /// Distancia formateada del usuario al negocio. `null` si no hay ubicación
+  /// o el negocio no trae coordenadas válidas (lat/lon en 0,0).
+  String? _distanceLabelFor(
+    CuratedListItem item,
+    double? userLat,
+    double? userLon,
+  ) {
+    if (userLat == null || userLon == null) return null;
+    final r = item.restaurant;
+    if (r == null || r.lat == null || r.lon == null) return null;
+    final meters = haversineDistanceMeters(userLat, userLon, r.lat!, r.lon!);
+    return formatDistance(meters);
   }
 
   List<String> _municipalitiesFrom(CuratedListDetail detail) {
@@ -235,28 +284,11 @@ class _Hero extends StatelessWidget {
             stops: const [0, 0.55, 1],
           ),
         ),
-        padding: EdgeInsets.fromLTRB(20, topInset + 8, 20, 20),
+        // Deja hueco arriba para la barra anclada (back + share flotantes).
+        padding: EdgeInsets.fromLTRB(20, topInset + 58, 20, 20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                _IconChip(
-                  icon: Icons.arrow_back_rounded,
-                  onTap: () => Navigator.of(context).maybePop(),
-                  identifier: 'curated-list-back-button',
-                ),
-                const Spacer(),
-                _IconChip(
-                  icon: Icons.ios_share_rounded,
-                  onTap: () => SharePlus.instance.share(
-                    ShareParams(text: '${detail.title} en ¿Dónde Comer Canarias?'),
-                  ),
-                  identifier: 'curated-list-share-button',
-                ),
-              ],
-            ),
-            const SizedBox(height: 18),
             // Eyebrow + count pills
             Wrap(
               spacing: 8,

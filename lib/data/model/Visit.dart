@@ -67,6 +67,11 @@ class Visit {
   String? createdAt;
   String? updatedAt;
   String? publishedAt;
+
+  /// Fecha de publicación del vídeo en YouTube (`youtubeVideo.publishedAt`).
+  /// Es la fecha real del vídeo — distinta de [publishedAt], que es cuándo se
+  /// publicó la visita en la app. Se usa para ordenar las visitas.
+  String? videoPublishedAt;
   String? myTicket;
   String? thumbnail;
   Restaurant? restaurant;
@@ -104,6 +109,7 @@ class Visit {
     this.createdAt,
     this.updatedAt,
     this.publishedAt,
+    this.videoPublishedAt,
     this.myTicket,
     this.thumbnail,
     this.restaurant,
@@ -182,6 +188,10 @@ class Visit {
       createdAt: (json['createdAt'] ?? json['created_at'])?.toString(),
       updatedAt: (json['updatedAt'] ?? json['updated_at'])?.toString(),
       publishedAt: (json['publishedAt'] ?? json['published_at'])?.toString(),
+      videoPublishedAt: (yt?['publishedAt'] ??
+              json['videoPublishedAt'] ??
+              json['video_published_at'])
+          ?.toString(),
       myTicket: (json['myTicket'] ?? json['my_ticket'])?.toString(),
       thumbnail: thumbnail?.toString(),
       restaurant: json['restaurant'] is Map<String, dynamic>
@@ -237,6 +247,10 @@ class Visit {
         return s;
     }
   }
+
+  /// Fecha canónica para ordenar visitas: la del vídeo de YouTube si existe,
+  /// si no la de publicación en la app, y como último recurso la de creación.
+  String? get sortDate => videoPublishedAt ?? publishedAt ?? createdAt;
 
   Map<String, dynamic> toJson() {
     return {

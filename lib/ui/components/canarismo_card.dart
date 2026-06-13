@@ -26,12 +26,13 @@ class CanarismoCard extends StatelessWidget {
         margin: const EdgeInsets.fromLTRB(16, 8, 16, 8),
         decoration: BoxDecoration(
           gradient: kCanarismoGradient,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(16),
+          // Elevación estándar de card del home.
           boxShadow: const [
             BoxShadow(
-              color: Color(0x33000000),
-              blurRadius: 18,
-              offset: Offset(0, 8),
+              color: Color(0x1A000000),
+              blurRadius: 14,
+              offset: Offset(0, 4),
             ),
           ],
         ),
@@ -94,8 +95,10 @@ class CanarismoCard extends StatelessWidget {
                                   c.palabra.toUpperCase(),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
+                                  // Por debajo del hero de pantalla (32): una
+                                  // card no debe gritar más que el hero.
                                   style: AppTextStyles.displayHero(
-                                    size: 34,
+                                    size: 26,
                                     color: cream,
                                   ),
                                 ),

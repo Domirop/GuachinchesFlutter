@@ -26,6 +26,18 @@ class VisitsCubit extends Cubit<VisitsState> {
     emit(VisitsLoading());
     try {
       final visits = await _repo.getAllVisits();
+      // Orden por defecto: fecha del vídeo de YouTube descendente (más nuevo
+      // primero). El backend no garantiza orden y `publishedAt` de la app está
+      // agrupado el día del job de publicación, así que ordenamos por
+      // `sortDate` (videoPublishedAt → publishedAt → createdAt). DiscoverScreen
+      // puede reordenar luego según la elección del usuario.
+      visits.sort((a, b) {
+        final da = DateTime.tryParse(a.sortDate ?? '') ??
+            DateTime.fromMillisecondsSinceEpoch(0);
+        final db = DateTime.tryParse(b.sortDate ?? '') ??
+            DateTime.fromMillisecondsSinceEpoch(0);
+        return db.compareTo(da);
+      });
       AppLogger.info(
         'visits-cubit',
         'loadVisits() OK — count=${visits.length}',

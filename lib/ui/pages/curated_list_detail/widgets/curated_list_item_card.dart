@@ -9,12 +9,17 @@ class CuratedListItemCard extends StatelessWidget {
   final String fallbackEyebrow;
   final VoidCallback onTap;
 
+  /// Distancia ya formateada del usuario al negocio (ej. `320 m`, `1,2 km`).
+  /// `null` cuando no hay ubicación o el negocio no tiene coordenadas.
+  final String? distanceLabel;
+
   const CuratedListItemCard({
     super.key,
     required this.item,
     required this.accent,
     required this.fallbackEyebrow,
     required this.onTap,
+    this.distanceLabel,
   });
 
   String get _rank => item.position.toString().padLeft(2, '0');
@@ -55,9 +60,21 @@ class CuratedListItemCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _Eyebrow(
-                    eyebrow: fallbackEyebrow,
-                    municipio: municipio,
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Expanded(
+                        child: _Eyebrow(
+                          eyebrow: fallbackEyebrow,
+                          municipio: municipio,
+                        ),
+                      ),
+                      if (distanceLabel != null &&
+                          distanceLabel!.isNotEmpty) ...[
+                        const SizedBox(width: 8),
+                        _DistancePill(label: distanceLabel!),
+                      ],
+                    ],
                   ),
                   const SizedBox(height: 6),
                   Row(
@@ -233,6 +250,41 @@ class _Eyebrow extends StatelessWidget {
       style: AppTextStyles.eyebrow(
         size: 10,
         color: AppColors.inkMuted,
+      ),
+    );
+  }
+}
+
+/// Pill de distancia (icono brújula + texto), color atlántico — misma seña
+/// que la card de "Cerca de ti" del home para que se lean como lo mismo.
+class _DistancePill extends StatelessWidget {
+  final String label;
+
+  const _DistancePill({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: AppColors.atlantico.withOpacity(0.10),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.near_me_rounded,
+              size: 11, color: AppColors.atlantico),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: AppTextStyles.ui(
+              size: 11,
+              weight: FontWeight.w700,
+              color: AppColors.atlantico,
+            ),
+          ),
+        ],
       ),
     );
   }

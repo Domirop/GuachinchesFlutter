@@ -1,6 +1,5 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:guachinches/config/app_colors.dart';
 import 'package:guachinches/config/app_spacing.dart';
 import 'package:guachinches/l10n/app_localizations.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -28,8 +27,6 @@ import 'package:guachinches/ui/pages/new_home/widgets/parallax_hero.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/parallax_hero_slot.dart';
 import 'package:guachinches/ui/components/canarismo_card.dart';
 import 'package:guachinches/ui/components/location_prompt_banner.dart';
-import 'package:guachinches/ui/pages/cerca_abiertos/cerca_ahora_screen.dart';
-import 'package:guachinches/ui/pages/new_home/widgets/open_now_callout_slot.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/card_horizontal.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/contextual_section_card.dart';
 import 'package:guachinches/utils/contextual_pool.dart';
@@ -42,6 +39,8 @@ import 'package:guachinches/ui/pages/new_home/widgets/top_filter_bar.dart';
 import 'package:guachinches/ui/pages/listas/listas_screen.dart';
 import 'package:guachinches/ui/pages/visit/visit_screen.dart';
 import 'package:guachinches/utils/distance_utils.dart';
+import 'package:guachinches/data/cubit/location/location_cubit.dart';
+import 'package:guachinches/data/cubit/location/location_state.dart';
 import 'package:guachinches/utils/open_now_utils.dart';
 import 'package:guachinches/utils/opening_later_utils.dart';
 import 'package:guachinches/utils/time_of_day_engine.dart';
@@ -136,7 +135,17 @@ class _NewHomeBodyState extends State<NewHomeBody> {
     final openNow = _openNowCache;
     final contextual = _contextualCache;
     final contextualCount = contextual.length;
-    final todayPool = contextual.take(5).toList();
+
+    // Ubicación del usuario (si hay permiso) para ordenar "HOY EN..." por
+    // cercanía y pintar la distancia en cada card.
+    final locState = context.watch<LocationCubit>().state;
+    final double? userLat =
+        locState is LocationLoaded ? locState.latitude : null;
+    final double? userLon =
+        locState is LocationLoaded ? locState.longitude : null;
+
+    final todayPool =
+        _sortByProximity(contextual, userLat, userLon).take(5).toList();
     final showTodaySection = todayPool.isNotEmpty;
 
     // Fallback "abren pronto": cuando no hay nada abierto ahora pero sí
@@ -189,21 +198,10 @@ class _NewHomeBodyState extends State<NewHomeBody> {
             const SliverToBoxAdapter(child: LocationPromptBanner()),
 
             // ── ABIERTOS CERCA AHORA ─────────────────────────────────────
-            // Slot que elige skeleton / oculto / callout real según estado
-            // de bootstrap y permisos de ubicación. Ver [OpenNowCalloutSlot].
-            SliverToBoxAdapter(
-              child: OpenNowCalloutSlot(
-                bootstrapLoading: widget.bootstrapLoading,
-                count: openNow.length,
-                contextLabel: zoneLabel,
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const CercaAhoraScreen(),
-                  ),
-                ),
-              ),
-            ),
+            // Callout "N sitios abiertos cerca" retirado de momento (decisión
+            // de producto): el conteo de abiertos se comunica ya en el hero y
+            // duplicaba intención con la sección "HOY EN…". Para reactivarlo,
+            // reinsertar aquí un OpenNowCalloutSlot con `openNow.length`.
 
             // ── HOY EN ··· (banner contextual + cards integrados) ───────
             // Sólo mostramos esta sección si hay restaurantes con horario
@@ -249,7 +247,7 @@ class _NewHomeBodyState extends State<NewHomeBody> {
                           onAction: _openContextualSearch,
                           count: contextualCount,
                         ),
-                        _buildHorizontalRow(todayPool),
+                        _buildHorizontalRow(todayPool, userLat, userLon),
                       ],
                     ),
                   ),
@@ -260,9 +258,6 @@ class _NewHomeBodyState extends State<NewHomeBody> {
                 child: Semantics(
                   identifier: 'home-section-today',
                   child: ContextualSectionCard(
-                    // Banda lateral en `sol` (amarillo cálido) para
-                    // distinguir visualmente "abren pronto" del modo normal.
-                    accent: AppColors.sol,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -275,7 +270,8 @@ class _NewHomeBodyState extends State<NewHomeBody> {
                           count: openingLater.length,
                           mode: HourBannerMode.openingSoon,
                         ),
-                        _buildHorizontalRowOpeningSoon(openingSoonPool, now),
+                        _buildHorizontalRowOpeningSoon(
+                            openingSoonPool, now, userLat, userLon),
                       ],
                     ),
                   ),
@@ -302,9 +298,11 @@ class _NewHomeBodyState extends State<NewHomeBody> {
                         onAction: widget.onShowAllNearby,
                       ),
                       SizedBox(
-                        height: 172,
+                        // Altura = card estándar (200) + aire para su sombra.
+                        height: 210,
                         child: ListView.separated(
                           scrollDirection: Axis.horizontal,
+                          clipBehavior: Clip.none,
                           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.gutter),
                           itemCount: widget.nearbyList.take(8).length,
                           separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.cardGap),
@@ -417,6 +415,8 @@ class _NewHomeBodyState extends State<NewHomeBody> {
                   if (state.lists.isEmpty) return const SizedBox.shrink();
                   return ListView.separated(
                     scrollDirection: Axis.horizontal,
+                    // Sin recorte vertical: deja respirar la sombra de las cards.
+                    clipBehavior: Clip.none,
                     padding: const EdgeInsets.symmetric(horizontal: AppSpacing.gutter),
                     itemCount: state.lists.length,
                     separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.cardGap),
@@ -459,20 +459,25 @@ class _NewHomeBodyState extends State<NewHomeBody> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SectionHeader(
-            title: 'ÚLTIMAS VISITAS DE JONAY Y JOANA',
+            // Corto para que quepa a 18pt sin ellipsis; la autoría ya la
+            // acredita la sección GUÍAS DE JONAY Y JOANA de arriba.
+            title: 'ÚLTIMAS VISITAS',
             actionLabel: AppL10n.of(context).homeSeeAll.toUpperCase(),
             onAction: () => Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => const DiscoverScreen()),
             ),
           ),
           SizedBox(
-            height: 300,
+            height: CardVisit.cardHeight,
             child: BlocBuilder<VisitsCubit, VisitsState>(
               builder: (_, state) {
                 if (state is VisitsLoaded) {
                   if (state.visits.isEmpty) return const SizedBox.shrink();
                   return ListView.separated(
                     scrollDirection: Axis.horizontal,
+                    // Sin recorte vertical: el carrusel mide exactamente la
+                    // card y sin esto la sombra inferior se corta en seco.
+                    clipBehavior: Clip.none,
                     padding: const EdgeInsets.symmetric(horizontal: AppSpacing.gutter),
                     itemCount: state.visits.length,
                     separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.cardGap),
@@ -526,12 +531,52 @@ class _NewHomeBodyState extends State<NewHomeBody> {
     );
   }
 
-  Widget _buildHorizontalRow(List<Restaurant> items) {
+  /// Orden "proximidad-primero": agrupa por bandas de 500 m (los más cercanos
+  /// delante) y, dentro de cada banda, gana la mejor nota. Así un sitio lejano
+  /// no se cuela por delante de uno cercano, pero a igualdad de cercanía manda
+  /// la valoración. Sin ubicación o sin coordenadas → orden original.
+  List<Restaurant> _sortByProximity(
+      List<Restaurant> items, double? userLat, double? userLon) {
+    if (userLat == null || userLon == null) return items;
+    double? distOf(Restaurant r) {
+      if (r.lat == 0.0 && r.lon == 0.0) return null;
+      return haversineDistanceMeters(userLat, userLon, r.lat, r.lon);
+    }
+
+    final sorted = [...items];
+    sorted.sort((a, b) {
+      final da = distOf(a);
+      final db = distOf(b);
+      if (da == null && db == null) return b.avgRating.compareTo(a.avgRating);
+      if (da == null) return 1;
+      if (db == null) return -1;
+      final bandA = (da / 500).floor();
+      final bandB = (db / 500).floor();
+      if (bandA != bandB) return bandA.compareTo(bandB);
+      final byRating = b.avgRating.compareTo(a.avgRating);
+      if (byRating != 0) return byRating;
+      return da.compareTo(db);
+    });
+    return sorted;
+  }
+
+  String? _distanceLabel(Restaurant r, double? userLat, double? userLon) {
+    if (userLat == null || userLon == null) return null;
+    if (r.lat == 0.0 && r.lon == 0.0) return null;
+    return formatDistance(
+        haversineDistanceMeters(userLat, userLon, r.lat, r.lon));
+  }
+
+  Widget _buildHorizontalRow(
+      List<Restaurant> items, double? userLat, double? userLon) {
     return SizedBox(
       height: 210,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 14),
+        // Sin recorte vertical: deja respirar la sombra inferior de las cards
+        // (si no, la ListView las corta por abajo dentro de la card crema).
+        clipBehavior: Clip.none,
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.gutter),
         itemCount: items.length,
         separatorBuilder: (_, __) => const SizedBox(width: 12),
         itemBuilder: (_, i) {
@@ -543,6 +588,7 @@ class _NewHomeBodyState extends State<NewHomeBody> {
           return CardHorizontal(
             restaurant: r,
             showOpenBadge: open,
+            distanceLabel: _distanceLabel(r, userLat, userLon),
             onTap: () => widget.onRestaurantTap(r.id),
           );
         },
@@ -554,12 +600,13 @@ class _NewHomeBodyState extends State<NewHomeBody> {
   /// pero el badge cambia a `ABRE HH:MM` (color sol) — pista visual clara
   /// de que no están abiertos *ahora* pero sí hoy.
   Widget _buildHorizontalRowOpeningSoon(
-      List<Restaurant> items, DateTime now) {
+      List<Restaurant> items, DateTime now, double? userLat, double? userLon) {
     return SizedBox(
       height: 210,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 14),
+        clipBehavior: Clip.none,
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.gutter),
         itemCount: items.length,
         separatorBuilder: (_, __) => const SizedBox(width: 12),
         itemBuilder: (_, i) {
@@ -568,6 +615,7 @@ class _NewHomeBodyState extends State<NewHomeBody> {
           return CardHorizontal(
             restaurant: r,
             openingLabel: label,
+            distanceLabel: _distanceLabel(r, userLat, userLon),
             onTap: () => widget.onRestaurantTap(r.id),
           );
         },
@@ -603,7 +651,12 @@ class _NewHomeBodyState extends State<NewHomeBody> {
     const base = 'assets/images/backgrounds/ddc_island_bg';
     switch (islandKey) {
       case 'TF':
-        return '$base/tenerife_dcc.jpg';
+        // Tenerife: foto de día (playa de La Tejita) hasta las 19:00; a partir
+        // de esa hora, la nocturna original. Mismo tamaño/decode que el resto
+        // de heroes (1920×1080 jpg) para no penalizar rendimiento.
+        return widget.hour < 19
+            ? '$base/tenerife_dcc_day.jpg'
+            : '$base/tenerife_dcc.jpg';
       case 'GC':
         return '$base/las_palmas_dcc.jpg';
       case 'LZ':

@@ -21,6 +21,10 @@ class CardHorizontal extends StatefulWidget {
   /// si el restaurante está abierto ahora o abre más tarde hoy.
   final String? openingLabel; // ej. '13:30'
 
+  /// Distancia formateada al usuario (ej. '320 m', '1,2 km'). Si viene, se
+  /// pinta un pill junto al rating. Null cuando no hay ubicación/coordenadas.
+  final String? distanceLabel;
+
   const CardHorizontal({
     super.key,
     required this.restaurant,
@@ -31,6 +35,7 @@ class CardHorizontal extends StatefulWidget {
     this.rankingNumber,
     this.eyebrow,
     this.openingLabel,
+    this.distanceLabel,
   });
 
   @override
@@ -152,14 +157,14 @@ class _CardHorizontalState extends State<CardHorizontal> {
                         if (widget.eyebrow != null) ...[
                           Text(
                             widget.eyebrow!,
-                            style: AppTextStyles.eyebrow(size: 8)
+                            style: AppTextStyles.eyebrow(size: 10)
                                 .copyWith(letterSpacing: 1.2),
                           ),
                           const SizedBox(height: 4),
                         ],
                         Text(
                           r.nombre.toUpperCase(),
-                          style: AppTextStyles.displaySection(size: 13)
+                          style: AppTextStyles.displaySection(size: 16)
                               .copyWith(letterSpacing: 0.3, height: 1.15),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
@@ -172,7 +177,7 @@ class _CardHorizontalState extends State<CardHorizontal> {
                               horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
                               color: AppColors.sol.withOpacity(0.14),
-                              borderRadius: BorderRadius.circular(6),
+                              borderRadius: BorderRadius.circular(8),
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
@@ -185,7 +190,7 @@ class _CardHorizontalState extends State<CardHorizontal> {
                                       ? r.avgRating.toStringAsFixed(1)
                                       : '—',
                                   style: AppTextStyles.ui(
-                                    size: 10.5,
+                                    size: 11,
                                     weight: FontWeight.w700,
                                     color: AppColors.sol,
                                   ),
@@ -197,11 +202,27 @@ class _CardHorizontalState extends State<CardHorizontal> {
                           Flexible(
                             child: Text(
                               r.municipio,
-                              style: AppTextStyles.muted(size: 11),
+                              style: AppTextStyles.muted(size: 12),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
+                          // Distancia al local, justo al lado del municipio:
+                          // metros si <1 km, km si más (formatDistance).
+                          if (widget.distanceLabel != null) ...[
+                            const SizedBox(width: 6),
+                            const Icon(Icons.near_me_rounded,
+                                color: AppColors.atlanticoClaro, size: 11),
+                            const SizedBox(width: 2),
+                            Text(
+                              widget.distanceLabel!,
+                              style: AppTextStyles.ui(
+                                size: 12,
+                                weight: FontWeight.w700,
+                                color: AppColors.atlanticoClaro,
+                              ),
+                            ),
+                          ],
                         ]),
                       ],
                     ),
@@ -268,7 +289,7 @@ class _Badge extends StatelessWidget {
           Text(
             label,
             style: AppTextStyles.ui(
-              size: 9,
+              size: 10,
               weight: FontWeight.w700,
               color: Colors.white,
               letterSpacing: 0.6,

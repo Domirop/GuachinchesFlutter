@@ -1,5 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:guachinches/core/analytics/analytics.dart';
+import 'package:guachinches/core/analytics/analytics_events.dart';
 import 'package:guachinches/l10n/app_localizations.dart';
 import 'package:guachinches/config/app_colors.dart';
 import 'package:guachinches/config/app_text_styles.dart';
@@ -27,12 +31,13 @@ class ListasScreen extends StatefulWidget {
   State<ListasScreen> createState() => _ListasScreenState();
 }
 
-enum _AuthorFilter { todas, guardadas, jonay, joana }
-
 class _ListasScreenState extends State<ListasScreen> {
-  _AuthorFilter _author = _AuthorFilter.todas;
   String? _islandIdFilter;
   ListasFilterValues _sheetFilters = const ListasFilterValues();
+
+  final TextEditingController _searchCtrl = TextEditingController();
+  Timer? _searchDebounce;
+  String _searchText = '';
 
   @override
   void initState() {
@@ -42,6 +47,40 @@ class _ListasScreenState extends State<ListasScreen> {
     cubit.loadForIsland(null);
     // Pre-seleccionar la isla activa del usuario para filtrar localmente.
     _islandIdFilter = context.read<NewHomeFiltersCubit>().state.islandId;
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    _searchDebounce?.cancel();
+    super.dispose();
+  }
+
+  void _onSearchChanged(String value) {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 220), () {
+      if (!mounted) return;
+      setState(() => _searchText = value.trim());
+    });
+  }
+
+  void _clearSearch() {
+    _searchDebounce?.cancel();
+    _searchCtrl.clear();
+    setState(() => _searchText = '');
+  }
+
+  /// Normaliza para búsqueda tolerante: minúsculas + sin tildes/diéresis.
+  static String _normalize(String s) {
+    const from = 'áàäâãéèëêíìïîóòöôõúùüûñçºª';
+    const to = 'aaaaaeeeeiiiiooooouuuunc  ';
+    final buf = StringBuffer();
+    for (final rune in s.toLowerCase().runes) {
+      final ch = String.fromCharCode(rune);
+      final idx = from.indexOf(ch);
+      buf.write(idx >= 0 ? to[idx] : ch);
+    }
+    return buf.toString();
   }
 
   Future<void> _openFilterSheet() async {
@@ -62,6 +101,10 @@ class _ListasScreenState extends State<ListasScreen> {
   }
 
   void _openList(CuratedList list) {
+    Analytics.I.logEvent(AnalyticsEvents.listOpened, {
+      'list_id': list.id,
+      'list_title': list.title,
+    });
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => CuratedListDetailScreen(list: list),
@@ -74,25 +117,24 @@ class _ListasScreenState extends State<ListasScreen> {
     if (_islandIdFilter != null) {
       r = r.where((l) => l.islandId == null || l.islandId == _islandIdFilter);
     }
-    switch (_author) {
-      case _AuthorFilter.jonay:
-        r = r.where((l) => l.eyebrow.toUpperCase().contains('JONAY'));
-        break;
-      case _AuthorFilter.joana:
-        r = r.where((l) => l.eyebrow.toUpperCase().contains('JOANA'));
-        break;
-      case _AuthorFilter.guardadas:
-        // Sin estado de guardadas todavía: vacío.
-        r = const [];
-        break;
-      case _AuthorFilter.todas:
-        break;
-    }
     if (_sheetFilters.featuredOnly) {
       r = r.where((l) => l.position == 1);
     }
     if (_sheetFilters.minCount > 0) {
       r = r.where((l) => l.count >= _sheetFilters.minCount);
+    }
+    // Búsqueda por nombre: tokens normalizados (AND), insensible a tildes.
+    // "jonay terrazas" encuentra una lista de Jonay con "terrazas" en el título.
+    final queryTokens = _normalize(_searchText)
+        .split(RegExp(r'\s+'))
+        .where((t) => t.isNotEmpty)
+        .toList();
+    if (queryTokens.isNotEmpty) {
+      r = r.where((l) {
+        final haystack = _normalize(
+            '${l.title} ${l.subtitle} ${l.eyebrow} ${l.location}');
+        return queryTokens.every(haystack.contains);
+      });
     }
     final list = r.toList()
       ..sort((a, b) => a.position.compareTo(b.position));
@@ -120,77 +162,101 @@ class _ListasScreenState extends State<ListasScreen> {
                 state is CuratedListsInitial;
             final all = state is CuratedListsLoaded ? state.lists : const <CuratedList>[];
             final filtered = _applyFilters(all);
+            final hasQuery = _searchText.isNotEmpty;
 
-            return Semantics(
-              identifier: 'listas-refresh-indicator',
-              child: RefreshIndicator(
-                onRefresh: _onRefresh,
-                color: Theme.of(context).colorScheme.primary,
-                child: CustomScrollView(
-              physics: const AlwaysScrollableScrollPhysics(
-                parent: BouncingScrollPhysics(),
-              ),
-              slivers: [
-                SliverToBoxAdapter(
-                  child: _Header(
-                    onFilterTap: _openFilterSheet,
-                    activeFilterCount: _sheetFilters.count,
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Barra superior anclada: cabecera + buscador (no scrollea).
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: context.brand.base,
+                    border: Border(
+                      bottom: BorderSide(color: context.brand.border),
+                    ),
                   ),
-                ),
-                SliverToBoxAdapter(
-                  child: _IslandFilterRow(selectedId: _islandIdFilter),
-                ),
-                SliverToBoxAdapter(
-                  child: _AuthorFilterRow(
-                    selected: _author,
-                    onSelect: (a) => setState(() => _author = a),
-                  ),
-                ),
-                if (isLoading && all.isEmpty)
-                  const SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: Center(child: CircularProgressIndicator()),
-                  )
-                else if (filtered.isEmpty)
-                  SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: _EmptyState(author: _author),
-                  )
-                else ...[
-                  SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
-                    sliver: SliverToBoxAdapter(
-                      child: Text(
-                        '${filtered.length} listas',
-                        style: AppTextStyles.eyebrow(
-                          size: 11,
-                          color: context.brand.textMuted,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _Header(
+                        onFilterTap: _openFilterSheet,
+                        activeFilterCount: _sheetFilters.count,
+                      ),
+                      const SizedBox(height: 4),
+                      Semantics(
+                        identifier: 'listas-search-field',
+                        child: _SearchRow(
+                          controller: _searchCtrl,
+                          onChanged: _onSearchChanged,
+                          onClear: _clearSearch,
                         ),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: Semantics(
+                    identifier: 'listas-refresh-indicator',
+                    child: RefreshIndicator(
+                      onRefresh: _onRefresh,
+                      color: Theme.of(context).colorScheme.primary,
+                      child: CustomScrollView(
+                        physics: const AlwaysScrollableScrollPhysics(
+                          parent: BouncingScrollPhysics(),
+                        ),
+                        slivers: [
+                          SliverToBoxAdapter(
+                            child: _IslandFilterRow(selectedId: _islandIdFilter),
+                          ),
+                          if (isLoading && all.isEmpty)
+                            const SliverFillRemaining(
+                              hasScrollBody: false,
+                              child: Center(child: CircularProgressIndicator()),
+                            )
+                          else if (filtered.isEmpty)
+                            SliverFillRemaining(
+                              hasScrollBody: false,
+                              child: _EmptyState(hasQuery: hasQuery),
+                            )
+                          else ...[
+                            SliverPadding(
+                              padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
+                              sliver: SliverToBoxAdapter(
+                                child: Text(
+                                  '${filtered.length} listas',
+                                  style: AppTextStyles.eyebrow(
+                                    size: 11,
+                                    color: context.brand.textMuted,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            SliverPadding(
+                              padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
+                              sliver: SliverList(
+                                delegate: SliverChildBuilderDelegate(
+                                  (_, i) => Padding(
+                                    padding: EdgeInsets.only(
+                                      bottom: i == filtered.length - 1 ? 0 : 14,
+                                    ),
+                                    child: _FeaturedListCard(
+                                      list: filtered[i],
+                                      showFeaturedBadge: i == 0,
+                                      onTap: () => _openList(filtered[i]),
+                                    ),
+                                  ),
+                                  childCount: filtered.length,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                     ),
                   ),
-                  SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
-                    sliver: SliverList(
-                      delegate: SliverChildBuilderDelegate(
-                        (_, i) => Padding(
-                          padding: EdgeInsets.only(
-                            bottom: i == filtered.length - 1 ? 0 : 14,
-                          ),
-                          child: _FeaturedListCard(
-                            list: filtered[i],
-                            showFeaturedBadge: i == 0,
-                            onTap: () => _openList(filtered[i]),
-                          ),
-                        ),
-                        childCount: filtered.length,
-                      ),
-                    ),
-                  ),
-                ],
+                ),
               ],
-            ),
-              ),
             );
           },
         ),
@@ -385,72 +451,82 @@ class _IslandFilterRow extends StatelessWidget {
   }
 }
 
-class _AuthorFilterRow extends StatelessWidget {
-  final _AuthorFilter selected;
-  final ValueChanged<_AuthorFilter> onSelect;
+// ─────────────────────────────────────────────────────────────────────
+// Buscador por nombre
+// ─────────────────────────────────────────────────────────────────────
 
-  const _AuthorFilterRow({required this.selected, required this.onSelect});
+class _SearchRow extends StatelessWidget {
+  final TextEditingController controller;
+  final ValueChanged<String> onChanged;
+  final VoidCallback onClear;
 
-  static const _items = [
-    (_AuthorFilter.todas, 'Todas'),
-    (_AuthorFilter.jonay, 'Jonay'),
-    (_AuthorFilter.joana, 'Joana'),
-  ];
+  const _SearchRow({
+    required this.controller,
+    required this.onChanged,
+    required this.onClear,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-      child: SizedBox(
-        height: 36,
-        child: ListView.separated(
-          scrollDirection: Axis.horizontal,
-          itemCount: _items.length,
-          separatorBuilder: (_, __) => const SizedBox(width: 8),
-          itemBuilder: (_, i) {
-            final (value, label) = _items[i];
-            final active = selected == value;
-            return GestureDetector(
-              onTap: () => onSelect(value),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 160),
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: active ? AppColors.atlantico : Colors.transparent,
-                  borderRadius: BorderRadius.circular(999),
-                  border: active
-                      ? null
-                      : Border.all(color: context.brand.border),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Container(
+        height: 48,
+        decoration: BoxDecoration(
+          color: context.brand.surface,
+          border: Border.all(color: context.brand.borderStrong),
+          borderRadius: BorderRadius.circular(100),
+        ),
+        child: Row(
+          children: [
+            const SizedBox(width: 16),
+            Icon(Icons.search_rounded,
+                size: 20, color: AppColors.atlanticoClaro),
+            const SizedBox(width: 10),
+            Expanded(
+              child: TextField(
+                controller: controller,
+                onChanged: onChanged,
+                textInputAction: TextInputAction.search,
+                style: AppTextStyles.ui(
+                  size: 14,
+                  color: context.brand.textPrimary,
                 ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (value == _AuthorFilter.guardadas) ...[
-                      Icon(
-                        Icons.bookmark_outline_rounded,
-                        size: 14,
-                        color: active
-                            ? Colors.white
-                            : context.brand.textSecondary,
-                      ),
-                      const SizedBox(width: 4),
-                    ],
-                    Text(
-                      label,
-                      style: AppTextStyles.ui(
-                        size: 13,
-                        weight: FontWeight.w600,
-                        color: active
-                            ? Colors.white
-                            : context.brand.textSecondary,
-                      ),
-                    ),
-                  ],
+                decoration: InputDecoration(
+                  hintText: 'Buscar lista, zona, autor…',
+                  hintStyle: AppTextStyles.ui(
+                    size: 14,
+                    color: context.brand.textMuted,
+                  ),
+                  border: InputBorder.none,
+                  isDense: true,
                 ),
               ),
-            );
-          },
+            ),
+            ValueListenableBuilder<TextEditingValue>(
+              valueListenable: controller,
+              builder: (_, v, __) {
+                if (v.text.isEmpty) return const SizedBox(width: 12);
+                return GestureDetector(
+                  onTap: onClear,
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: 12, left: 4),
+                    child: Container(
+                      width: 22,
+                      height: 22,
+                      decoration: BoxDecoration(
+                        color: context.brand.elevated,
+                        shape: BoxShape.circle,
+                      ),
+                      alignment: Alignment.center,
+                      child: Icon(Icons.close_rounded,
+                          size: 14, color: context.brand.textPrimary),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ],
         ),
       ),
     );
@@ -489,20 +565,7 @@ class _FeaturedListCard extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            // Tinte oscuro para legibilidad
-            DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.black.withOpacity(0.10),
-                    Colors.black.withOpacity(0.55),
-                  ],
-                ),
-              ),
-            ),
-            // Hero (URL remota / asset local / emoji)
+            // Hero de fondo (URL remota / asset local / emoji).
             if (list.heroAsset != null)
               Positioned.fill(
                 child: CuratedHeroImage(source: list.heroAsset!),
@@ -516,70 +579,108 @@ class _FeaturedListCard extends StatelessWidget {
                   style: const TextStyle(fontSize: 180),
                 ),
               ),
-            // Badges arriba
+            // Vignette superior — contraste del numeral "N SITIOS".
             Positioned(
-              left: 16,
-              top: 16,
-              right: 16,
-              child: Row(
-                children: [
-                  if (showFeaturedBadge) ...[
-                    _Badge(
-                      label: 'DESTACADA',
-                      background: AppColors.mojo,
-                      foreground: Colors.white,
-                    ),
-                    const SizedBox(width: 6),
-                  ],
-                  if (list.eyebrow.isNotEmpty)
-                    _Badge(
-                      label: list.eyebrow.toUpperCase(),
-                      background: Colors.black.withOpacity(0.45),
-                      foreground: AppColors.crema.withOpacity(0.9),
-                    ),
-                  const Spacer(),
-                  // Numeral grande (recuento de sitios)
-                  if (list.count > 0)
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          '${list.count}',
-                          style: AppTextStyles.displayHero(
-                            size: 64,
-                            color: Colors.white.withOpacity(0.95),
-                          ),
-                        ),
-                        Text(
-                          'SITIOS',
-                          style: AppTextStyles.eyebrow(
-                            size: 9,
-                            color: Colors.white.withOpacity(0.8),
-                          ),
-                        ),
-                      ],
-                    ),
-                ],
+              top: 0,
+              left: 0,
+              right: 0,
+              height: 90,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.black.withOpacity(0.28),
+                      Colors.transparent,
+                    ],
+                  ),
+                ),
               ),
             ),
-            // Pie editorial
+            // Degradado inferior — el típico para legibilidad de tags + texto.
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              height: 150,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    stops: const [0.0, 0.5, 1.0],
+                    colors: [
+                      Colors.transparent,
+                      Colors.black.withOpacity(0.32),
+                      Colors.black.withOpacity(0.80),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            // Numeral grande (recuento de sitios) — arriba a la derecha.
+            if (list.count > 0)
+              Positioned(
+                top: 14,
+                right: 16,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      '${list.count}',
+                      style: AppTextStyles.displayHero(
+                        size: 64,
+                        color: Colors.white.withOpacity(0.95),
+                      ),
+                    ),
+                    Text(
+                      'SITIOS',
+                      style: AppTextStyles.eyebrow(
+                        size: 9,
+                        color: Colors.white.withOpacity(0.8),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            // Tags arriba a la izquierda, sobre la foto (deja hueco al numeral).
+            if (showFeaturedBadge || list.eyebrow.isNotEmpty)
+              Positioned(
+                top: 16,
+                left: 16,
+                right: 80,
+                child: Row(
+                  children: [
+                    if (showFeaturedBadge) ...[
+                      _Badge(
+                        label: 'DESTACADA',
+                        background: AppColors.mojo,
+                        foreground: Colors.white,
+                      ),
+                      const SizedBox(width: 6),
+                    ],
+                    if (list.eyebrow.isNotEmpty)
+                      Flexible(
+                        child: _Badge(
+                          label: list.eyebrow.toUpperCase(),
+                          background: Colors.black.withOpacity(0.45),
+                          foreground: AppColors.crema.withOpacity(0.9),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            // Pie: título + subtítulo.
             Positioned(
               left: 16,
               right: 16,
               bottom: 16,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (list.position > 0)
-                    Text(
-                      'Nº ${list.position}',
-                      style: AppTextStyles.eyebrow(
-                        size: 10,
-                        color: Colors.white.withOpacity(0.85),
-                      ),
-                    ),
-                  const SizedBox(height: 6),
                   Text(
                     list.title.toUpperCase(),
                     maxLines: 2,
@@ -633,6 +734,9 @@ class _Badge extends StatelessWidget {
       ),
       child: Text(
         label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        softWrap: false,
         style: AppTextStyles.eyebrow(size: 9, color: foreground),
       ),
     );
@@ -644,31 +748,22 @@ class _Badge extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────
 
 class _EmptyState extends StatelessWidget {
-  final _AuthorFilter author;
+  final bool hasQuery;
 
-  const _EmptyState({required this.author});
+  const _EmptyState({required this.hasQuery});
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppL10n.of(context);
-    final (title, subtitle) = switch (author) {
-      _AuthorFilter.guardadas => (
-          'Aún no has guardado listas',
-          'Toca el icono de marcador en cualquier lista para guardarla.',
-        ),
-      _AuthorFilter.jonay => (
-          'Sin listas de Jonay todavía',
-          'Prueba con otra isla o cambia de filtro.',
-        ),
-      _AuthorFilter.joana => (
-          'Sin listas de Joana todavía',
-          'Prueba con otra isla o cambia de filtro.',
-        ),
-      _AuthorFilter.todas => (
-          l10n.listsEmpty,
-          'Prueba a seleccionar otra isla.',
-        ),
-    };
+    final (title, subtitle) = hasQuery
+        ? (
+            'Sin resultados',
+            'Prueba con otro nombre, zona o autor.',
+          )
+        : (
+            l10n.listsEmpty,
+            'Prueba a seleccionar otra isla.',
+          );
 
     return Padding(
       padding: const EdgeInsets.all(32),

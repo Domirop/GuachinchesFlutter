@@ -104,7 +104,7 @@ class _GlassCapsule extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ClipRRect(
-      borderRadius: BorderRadius.circular(28),
+      borderRadius: BorderRadius.circular(32),
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
         child: IntrinsicWidth(
@@ -112,7 +112,7 @@ class _GlassCapsule extends StatelessWidget {
             height: 40,
             decoration: BoxDecoration(
               color: context.brand.glass,
-              borderRadius: BorderRadius.circular(28),
+              borderRadius: BorderRadius.circular(32),
               border: Border.all(
                 color: context.brand.border,
                 width: 0.6,

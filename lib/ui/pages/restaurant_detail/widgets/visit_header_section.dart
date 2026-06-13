@@ -29,10 +29,10 @@ class VisitHeaderSection extends StatelessWidget {
                     color: context.brand.textPrimary,
                   ),
                 ),
-                if (visit.createdAt != null) ...[
+                if (visit.sortDate != null) ...[
                   const SizedBox(height: 2),
                   Text(
-                    _formatDate(visit.createdAt!),
+                    _formatDate(visit.sortDate!),
                     style: AppTextStyles.muted(
                       size: 10,
                       color: context.brand.textMuted,

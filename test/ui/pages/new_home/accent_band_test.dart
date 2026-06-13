@@ -22,15 +22,17 @@ Widget _wrap(Widget child) => MaterialApp(
 
 void main() {
   group('Accent band width', () {
+    // La banda lateral de ContextualSectionCard se eliminó por decisión de
+    // producto (2026-06): la card "HOY EN…" ya no lleva accent band.
     testWidgets(
-        'ContextualSectionCard exposes band with width == AppSpacing.accentBand',
+        'ContextualSectionCard ya NO pinta banda lateral',
         (tester) async {
       await tester.pumpWidget(
         _wrap(const ContextualSectionCard(child: SizedBox())),
       );
       await tester.pump();
 
-      expect(_bandFinder(AppSpacing.accentBand), findsAtLeastNWidgets(1));
+      expect(_bandFinder(AppSpacing.accentBand), findsNothing);
     });
 
     testWidgets(
@@ -48,7 +50,7 @@ void main() {
       expect(_bandFinder(AppSpacing.accentBand), findsAtLeastNWidgets(1));
     });
 
-    testWidgets('both widgets use the same accentBand == 4', (tester) async {
+    testWidgets('el token accentBand sigue siendo 4 (lo usa OpenNowCallout)', (tester) async {
       expect(AppSpacing.accentBand, 4.0);
     });
   });
