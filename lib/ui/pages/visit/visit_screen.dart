@@ -287,7 +287,7 @@ class _VisitDetailPageState extends State<VisitDetailPage>
 
           // ⑧ LO QUE PEDIMOS
           if (DishesSection.shouldRender(v.dishes)) ...[
-            DishesSection(dishes: v.dishes),
+            DishesSection(dishes: v.dishes, heroPrefix: v.id),
             const SizedBox(height: 20),
           ],
 

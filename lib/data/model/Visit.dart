@@ -7,12 +7,19 @@ class VisitDish {
   final String? sentiment; // "loved" | "liked" | "neutral" | "disliked" …
   final bool isTop;
 
+  /// Foto del plato extraída automáticamente del vídeo (backend migrations
+  /// 031 DishPhotoService + 032 picker platocéntrico). JPEG vertical 9:16
+  /// servido por CDN público de Scaleway. Puede llegar como `string`, `null`,
+  /// o estar **ausente** del JSON: los tres casos = "sin foto".
+  final String? photoUrl;
+
   const VisitDish({
     required this.name,
     this.description,
     this.price,
     this.sentiment,
     this.isTop = false,
+    this.photoUrl,
   });
 
   factory VisitDish.fromJson(dynamic json) {
@@ -23,12 +30,15 @@ class VisitDish {
         map['is_top'] == true ||
         map['top'] == true ||
         sentiment == 'loved';
+    // Tolera camelCase/snake_case, null, ausente y string vacío.
+    final photoRaw = (map['photoUrl'] ?? map['photo_url'])?.toString();
     return VisitDish(
       name: map['name']?.toString() ?? map['dish']?.toString() ?? '',
       description: map['description']?.toString(),
       price: map['price'] is num ? map['price'] as num : num.tryParse('${map['price']}'),
       sentiment: sentiment,
       isTop: isTop,
+      photoUrl: (photoRaw != null && photoRaw.isNotEmpty) ? photoRaw : null,
     );
   }
 }
