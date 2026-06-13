@@ -12,6 +12,10 @@ abstract class AnalyticsService {
   /// Asocia los eventos siguientes a un usuario (login).
   Future<void> identify(String userId);
 
+  /// Fija propiedades de persona (segmentación: isla, categorías preferidas,
+  /// newsletter…). Se mergean con las previas; los null se descartan.
+  Future<void> setPersonProperties(Map<String, Object?> properties);
+
   /// Desasocia el usuario (logout).
   Future<void> reset();
 }
@@ -38,6 +42,9 @@ class NoopAnalyticsService implements AnalyticsService {
 
   @override
   Future<void> identify(String userId) async {}
+
+  @override
+  Future<void> setPersonProperties(Map<String, Object?> properties) async {}
 
   @override
   Future<void> reset() async {}
@@ -68,6 +75,10 @@ class MultiplexAnalyticsService implements AnalyticsService {
 
   @override
   Future<void> identify(String userId) => _each((s) => s.identify(userId));
+
+  @override
+  Future<void> setPersonProperties(Map<String, Object?> properties) =>
+      _each((s) => s.setPersonProperties(properties));
 
   @override
   Future<void> reset() => _each((s) => s.reset());

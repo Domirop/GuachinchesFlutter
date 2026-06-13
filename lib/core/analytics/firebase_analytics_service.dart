@@ -18,5 +18,14 @@ class FirebaseAnalyticsService implements AnalyticsService {
   Future<void> identify(String userId) => _fa.setUserId(id: userId);
 
   @override
+  Future<void> setPersonProperties(Map<String, Object?> properties) async {
+    // Firebase solo admite propiedades de usuario string. Coercemos.
+    for (final e in properties.entries) {
+      if (e.value == null) continue;
+      await _fa.setUserProperty(name: e.key, value: e.value.toString());
+    }
+  }
+
+  @override
   Future<void> reset() => _fa.setUserId(id: null);
 }

@@ -28,6 +28,13 @@ class UserCubit extends Cubit<UserState> {
     }
   }
 
+  /// Vuelve al estado inicial (logout): sin esto, el tab Perfil seguiría
+  /// renderizando la vista logueada porque el cubit es global.
+  void reset() {
+    _lastUserId = null;
+    emit(UserInitial());
+  }
+
   /// Re-fetches user data without transitioning to UserInitial.
   /// On error the previous state is preserved.
   Future<void> refreshFromBackend() async {

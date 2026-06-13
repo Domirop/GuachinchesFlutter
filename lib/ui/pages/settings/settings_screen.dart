@@ -1,5 +1,8 @@
+import 'dart:io' show Platform;
+
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter/services.dart';
 import 'package:guachinches/l10n/app_localizations.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -7,6 +10,8 @@ import 'package:guachinches/config/app_colors.dart';
 import 'package:guachinches/config/app_text_styles.dart';
 import 'package:guachinches/config/brand_colors.dart';
 import 'package:guachinches/data/HttpRemoteRepository.dart';
+import 'package:guachinches/data/newsletter/newsletter_consent_service.dart';
+import 'package:guachinches/ui/pages/newsletter/newsletter_consent_sheet.dart';
 import 'package:guachinches/data/cubit/account/account_cubit.dart';
 import 'package:guachinches/data/cubit/theme/theme_cubit.dart';
 import 'package:guachinches/data/cubit/user/user_cubit.dart';
@@ -14,7 +19,14 @@ import 'package:guachinches/data/cubit/user/user_state.dart';
 import 'package:guachinches/data/model/user_info.dart';
 import 'package:guachinches/globalMethods.dart';
 import 'package:guachinches/ui/pages/favoritos/favoritos.dart';
+import 'package:guachinches/ui/pages/discover/discover_screen.dart';
+import 'package:guachinches/ui/pages/listas/listas_screen.dart';
+import 'package:guachinches/ui/pages/login/login_presenter.dart';
 import 'package:guachinches/ui/pages/login/login_screen.dart';
+import 'package:guachinches/ui/pages/login/widgets/oauth_button.dart';
+import 'package:guachinches/ui/pages/map/map_search.dart';
+import 'package:guachinches/ui/pages/new_home/new_home_screen.dart';
+import 'package:guachinches/ui/pages/new_home/new_home_tab_scaffold.dart';
 import 'package:guachinches/ui/pages/onboarding_flow/onboarding_flow_screen.dart';
 import 'package:guachinches/ui/pages/profile/account_management_screen.dart';
 import 'package:guachinches/ui/pages/settings/settings_presenter.dart';
@@ -38,6 +50,17 @@ class SettingsScreen extends StatefulWidget {
 }
 
 enum _SessionStatus { checking, notLoggedIn, loading, error }
+
+/// Las 5 pantallas canónicas de los tabs (EXPLORA · LISTAS · MAPA · VISITAS ·
+/// PERFIL). Misma lista que construye `LoginPresenter` tras un login OK — se
+/// usa también al cerrar sesión para volver al tab Perfil en modo invitado.
+List<Widget> buildMainTabScreens() => [
+      const NewHomeScreen(),
+      const ListasScreen(),
+      MapSearch(),
+      const DiscoverScreen(),
+      const SettingsScreen(),
+    ];
 
 class _SettingsScreenState extends State<SettingsScreen>
     with TickerProviderStateMixin
@@ -118,9 +141,11 @@ class _SettingsScreenState extends State<SettingsScreen>
   @override
   void onLoggedOut() {
     if (!mounted) return;
+    // Cerrar sesión NO expulsa de la app: volvemos al tab Perfil en modo
+    // invitado (gate con easyLogin), nunca a la pantalla de login.
     GlobalMethods().removePagesAndGoToNewScreen(
       context,
-      const LoginScreen(),
+      NewHomeTabScaffold(screens: buildMainTabScreens(), initialIndex: 4),
     );
   }
 
@@ -154,7 +179,7 @@ class _SettingsScreenState extends State<SettingsScreen>
               }
               switch (_status) {
                 case _SessionStatus.notLoggedIn:
-                  return _NotLoggedInView(onLoginTap: _goToLogin);
+                  return const _NotLoggedInView();
                 case _SessionStatus.error:
                   return _LoadErrorView(onRetry: _loadUser, onLogout: () => _presenter.logOut());
                 case _SessionStatus.checking:
@@ -165,13 +190,6 @@ class _SettingsScreenState extends State<SettingsScreen>
           ),
         ),
       ),
-    );
-  }
-
-  void _goToLogin() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => const LoginScreen()),
     );
   }
 
@@ -558,6 +576,7 @@ class _LoggedInView extends StatelessWidget {
                           );
                         },
                       ),
+                      _NewsletterRow(isDark: isDark, userId: user.id),
                       _ThemeRow(isDark: isDark, isLast: true),
                     ],
                   ),
@@ -875,9 +894,150 @@ class _LoadingViewState extends State<_LoadingView>
 
 // ── Not logged in view ────────────────────────────────────────────────────────
 
-class _NotLoggedInView extends StatelessWidget {
-  final VoidCallback onLoginTap;
-  const _NotLoggedInView({required this.onLoginTap});
+/// Gate del tab Perfil sin sesión: easyLogin directo (Google/Apple) como
+/// acción primaria — sin pantallas intermedias. Email + contraseña queda como
+/// vía secundaria (abre LoginScreen ya en el formulario).
+class _NotLoggedInView extends StatefulWidget {
+  const _NotLoggedInView();
+
+  @override
+  State<_NotLoggedInView> createState() => _NotLoggedInViewState();
+}
+
+enum _GateProvider { google, apple }
+
+class _NotLoggedInViewState extends State<_NotLoggedInView>
+    implements LoginView {
+  late final HttpRemoteRepository _repo = HttpRemoteRepository(Client());
+  late final LoginPresenter _loginPresenter =
+      LoginPresenter(_repo, this, context.read<UserCubit>());
+
+  _GateProvider? _loadingProvider;
+
+  Future<void> _onGoogleTap() async {
+    if (_loadingProvider != null) return;
+    HapticFeedback.lightImpact();
+    setState(() => _loadingProvider = _GateProvider.google);
+    await _loginPresenter.loginWithGoogle();
+    if (mounted) setState(() => _loadingProvider = null);
+  }
+
+  Future<void> _onAppleTap() async {
+    if (_loadingProvider != null) return;
+    HapticFeedback.lightImpact();
+    setState(() => _loadingProvider = _GateProvider.apple);
+    await _loginPresenter.loginWithApple();
+    if (mounted) setState(() => _loadingProvider = null);
+  }
+
+  void _openEmailLogin() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const LoginScreen(startOnEmailForm: true),
+      ),
+    );
+  }
+
+  // ── LoginView ─────────────────────────────────────────────────────────────
+
+  @override
+  loginSuccess(List<Widget> screens,
+      {bool deletionPending = false, String userId = ''}) async {
+    if (!mounted) return;
+    if (deletionPending && userId.isNotEmpty) {
+      _showDeletionPendingDialog(screens, userId);
+      return;
+    }
+    // Consentimiento de newsletter (RGPD): una vez tras registrarse desde el
+    // gate de Perfil, desvinculado del alta.
+    final consent = NewsletterConsentService(_repo);
+    if (userId.isNotEmpty && !await consent.hasBeenAsked()) {
+      await showNewsletterConsentSheet(
+        context,
+        userId: userId,
+        service: consent,
+        source: 'onboarding',
+      );
+      if (!mounted) return;
+    }
+    GlobalMethods().removePagesAndGoToNewScreen(
+      context,
+      NewHomeTabScaffold(screens: screens, initialIndex: 4),
+    );
+  }
+
+  @override
+  loginError() {
+    if (!mounted) return;
+    HapticFeedback.mediumImpact();
+    setState(() => _loadingProvider = null);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('No pudimos iniciar sesión. Inténtalo de nuevo.'),
+      ),
+    );
+  }
+
+  /// Mismo diálogo que LoginScreen para cuentas programadas para borrado.
+  void _showDeletionPendingDialog(List<Widget> screens, String userId) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.elevated,
+        title: Text(
+          'Cuenta pendiente de eliminación',
+          style: AppTextStyles.ui(
+            size: 17,
+            weight: FontWeight.w700,
+            color: AppColors.crema,
+          ),
+        ),
+        content: Text(
+          'Tu cuenta está programada para eliminarse. ¿Deseas cancelar la eliminación o cerrar sesión?',
+          style:
+              AppTextStyles.ui(size: 14, color: AppColors.crema.withOpacity(0.8)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () async {
+              Navigator.of(ctx).pop();
+              await const FlutterSecureStorage().deleteAll();
+            },
+            child: Text(
+              'Salir',
+              style: AppTextStyles.ui(
+                size: 14,
+                color: AppColors.crema.withOpacity(0.6),
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.of(ctx).pop();
+              try {
+                await _repo.cancelAccountDeletion(userId);
+              } catch (_) {}
+              if (!mounted) return;
+              GlobalMethods().removePagesAndGoToNewScreen(
+                context,
+                NewHomeTabScaffold(screens: screens, initialIndex: 4),
+              );
+            },
+            child: Text(
+              'Cancelar eliminación',
+              style: AppTextStyles.ui(
+                size: 14,
+                weight: FontWeight.w700,
+                color: AppColors.atlantico,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -939,35 +1099,60 @@ class _NotLoggedInView extends StatelessWidget {
                               .copyWith(height: 1.6),
                     ),
                     const SizedBox(height: 32),
-                    // CTA
-                    SizedBox(
-                      width: double.infinity,
-                      height: 52,
-                      child: ElevatedButton(
-                        onPressed: onLoginTap,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.atlantico,
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
-                          ),
+                    // EasyLogin directo: Google / Apple sin pantalla intermedia.
+                    Semantics(
+                      identifier: 'perfil-login-google',
+                      button: true,
+                      child: OAuthButton(
+                        isDark: isDark,
+                        isGoogleButton: true,
+                        loading: _loadingProvider == _GateProvider.google,
+                        disabled: _loadingProvider != null &&
+                            _loadingProvider != _GateProvider.google,
+                        onTap: _loadingProvider != null ? null : _onGoogleTap,
+                        label: _loadingProvider == _GateProvider.google
+                            ? 'Conectando con Google…'
+                            : 'Continuar con Google',
+                      ),
+                    ),
+                    if (Platform.isIOS) ...[
+                      const SizedBox(height: 12),
+                      Semantics(
+                        identifier: 'perfil-login-apple',
+                        button: true,
+                        child: OAuthButton(
+                          isDark: isDark,
+                          isGoogleButton: false,
+                          loading: _loadingProvider == _GateProvider.apple,
+                          disabled: _loadingProvider != null &&
+                              _loadingProvider != _GateProvider.apple,
+                          onTap: _loadingProvider != null ? null : _onAppleTap,
+                          label: 'Continuar con Apple',
                         ),
-                        child: Text(
-                          'Iniciar sesión',
-                          style: AppTextStyles.ui(
-                            size: 15,
-                            weight: FontWeight.w800,
-                            color: Colors.white,
+                      ),
+                    ],
+                    const SizedBox(height: 14),
+                    // Vía secundaria: correo + contraseña (abre el formulario).
+                    Semantics(
+                      identifier: 'perfil-login-email',
+                      button: true,
+                      child: GestureDetector(
+                        onTap: _loadingProvider != null ? null : _openEmailLogin,
+                        behavior: HitTestBehavior.opaque,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 10),
+                          child: Text(
+                            'Prefiero entrar con email y contraseña',
+                            textAlign: TextAlign.center,
+                            style: AppTextStyles.ui(
+                              size: 13,
+                              weight: FontWeight.w600,
+                              color: AppColors.atlantico,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      '¿Nuevo? Regístrate gratis con Google o Apple',
-                      textAlign: TextAlign.center,
-                      style: AppTextStyles.ui(size: 12, color: textVeryMuted),
                     ),
 
                     const SizedBox(height: 48),
@@ -1359,6 +1544,77 @@ class _SettingsRow extends StatelessWidget {
               ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Toggle de suscripción al newsletter (RGPD). El estado local refleja el
+/// switch al instante; `submit` sincroniza con el backend (defensivo). Revocar
+/// es tan fácil como suscribirse — requisito legal.
+class _NewsletterRow extends StatefulWidget {
+  final bool isDark;
+  final String userId;
+
+  const _NewsletterRow({
+    required this.isDark,
+    required this.userId,
+  });
+
+  @override
+  State<_NewsletterRow> createState() => _NewsletterRowState();
+}
+
+class _NewsletterRowState extends State<_NewsletterRow> {
+  late final NewsletterConsentService _consent =
+      NewsletterConsentService(HttpRemoteRepository(Client()));
+  bool _granted = false;
+  bool _busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Estado real del servidor (con fallback local si no hay red).
+    _consent.syncedGranted(widget.userId).then((v) {
+      if (mounted) setState(() => _granted = v);
+    });
+  }
+
+  Future<void> _set(bool value) async {
+    if (_busy) return;
+    setState(() {
+      _busy = true;
+      _granted = value;
+    });
+    await _consent.submit(
+      userId: widget.userId,
+      granted: value,
+      source: 'settings',
+    );
+    if (mounted) setState(() => _busy = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      identifier: 'settings-newsletter-row',
+      child: _SettingsRow(
+        isDark: widget.isDark,
+        iconBg: AppColors.atlantico.withOpacity(0.12),
+        icon: Icons.mark_email_read_outlined,
+        iconColor: AppColors.atlantico,
+        title: 'Newsletter',
+        subtitle: _granted
+            ? 'Recibes nuestras recomendaciones por email'
+            : 'Recibe aperturas y rutas por email',
+        isLast: false,
+        showChevron: false,
+        trailing: Switch.adaptive(
+          value: _granted,
+          activeColor: AppColors.atlantico,
+          onChanged: _busy ? null : _set,
+        ),
+        onTap: _busy ? null : () => _set(!_granted),
       ),
     );
   }

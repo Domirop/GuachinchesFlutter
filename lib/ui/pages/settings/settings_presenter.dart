@@ -36,12 +36,13 @@ class SettingsPresenter {
     _view.onNameUpdated(newName);
   }
 
-  /// Log out: clear secure storage and navigate to login.
+  /// Log out: clear secure storage, reset user state and return to the app.
   Future<void> logOut() async {
     await _storage.delete(key: 'userId');
     await _storage.delete(key: 'accessToken');
     await _storage.delete(key: 'refreshToken');
     Analytics.I.reset();
+    _userCubit.reset();
     _view.onLoggedOut();
   }
 
@@ -57,6 +58,7 @@ class SettingsPresenter {
     }
     await _storage.deleteAll();
     Analytics.I.reset();
+    _userCubit.reset();
     _view.onLoggedOut();
   }
 }

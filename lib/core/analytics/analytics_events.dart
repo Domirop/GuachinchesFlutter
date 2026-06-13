@@ -15,4 +15,17 @@ class AnalyticsEvents {
   // Restaurante / descubrimiento
   static const restaurantDirections = 'restaurant_directions_tapped';
   static const favoriteToggled = 'favorite_toggled';
+
+  // Búsqueda y contenido (alimentan embudos y "qué tira más")
+  static const searchPerformed = 'search_performed';
+  static const visitOpened = 'visit_opened';
+  static const listOpened = 'list_opened';
+
+  // Newsletter
+  static const newsletterConsent = 'newsletter_consent';
+
+  // Person properties (claves estables para segmentar en PostHog)
+  static const propIslandId = 'island_id';
+  static const propPreferredCategories = 'preferred_categories_count';
+  static const propNewsletter = 'newsletter_subscribed';
 }

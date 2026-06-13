@@ -42,5 +42,12 @@ class PostHogAnalyticsService implements AnalyticsService {
   Future<void> identify(String userId) => Posthog().identify(userId: userId);
 
   @override
+  Future<void> setPersonProperties(Map<String, Object?> properties) {
+    final clean = sanitizeParams(properties);
+    if (clean == null) return Future.value();
+    return Posthog().setPersonProperties(userPropertiesToSet: clean);
+  }
+
+  @override
   Future<void> reset() => Posthog().reset();
 }

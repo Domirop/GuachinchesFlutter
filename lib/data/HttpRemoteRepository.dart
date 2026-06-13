@@ -597,6 +597,44 @@ class HttpRemoteRepository implements RemoteRepository {
   }
 
   @override
+  Future<void> setNewsletterConsent(
+    String userId, {
+    required bool granted,
+    required String consentTextVersion,
+    required String source,
+  }) async {
+    // Ruta `/v1/user/:id/newsletter-consent` en el host V2 (459). Auth provisional
+    // por header `x-user-id` (mismo patrón que favoritos, migration 021/029).
+    final uri = Uri.parse(dotenv.env['ENDPOINT_V2']! +
+        "v1/user/" +
+        userId +
+        "/newsletter-consent");
+    final body = jsonEncode({
+      "granted": granted,
+      "consentTextVersion": consentTextVersion,
+      "source": source,
+    });
+    await _client.post(uri, headers: {
+      "Content-Type": "application/json",
+      "x-user-id": userId,
+    }, body: body);
+  }
+
+  @override
+  Future<bool> getNewsletterConsent(String userId) async {
+    final uri = Uri.parse(dotenv.env['ENDPOINT_V2']! +
+        "v1/user/" +
+        userId +
+        "/newsletter-consent");
+    final response = await _client
+        .get(uri, headers: {"x-user-id": userId}).timeout(
+            const Duration(seconds: 12));
+    if (response.statusCode != 200) return false;
+    final data = json.decode(response.body) as Map<String, dynamic>;
+    return data["granted"] == true;
+  }
+
+  @override
   Future<bool> reportReview(String userId, String reviewId) async {
     String url = dotenv.env['ENDPOINT_V2']! + "report-review";
     var uri = Uri.parse(url);

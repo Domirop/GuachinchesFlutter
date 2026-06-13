@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show MethodChannel;
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:guachinches/config/app_theme.dart';
@@ -7,6 +8,8 @@ import 'package:guachinches/data/cubit/user/user_cubit.dart';
 import 'package:guachinches/data/cubit/user/user_state.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
 import 'package:guachinches/data/model/user_info.dart';
+import 'package:guachinches/l10n/app_localizations.dart';
+import 'package:guachinches/ui/pages/profile/account_management_screen.dart';
 import 'package:guachinches/ui/pages/settings/settings_screen.dart';
 
 class _FakeRepo extends Fake implements RemoteRepository {
@@ -55,6 +58,10 @@ Widget _wrapWithState({
       theme: appLightTheme,
       darkTheme: appDarkTheme,
       themeMode: themeMode,
+      localizationsDelegates: AppL10n.localizationsDelegates,
+      supportedLocales: AppL10n.supportedLocales,
+      // Los asserts comprueban copy en español; sin esto el host usa 'en'.
+      locale: const Locale('es'),
       home: const SettingsScreen(),
     ),
   );
@@ -78,9 +85,27 @@ void main() {
 
   // ── Not logged in state ──────────────────────────────────────────────────
   group('SettingsScreen — not logged in (UserInitial)', () {
-    setUp(() {}); // nothing here — tearDown handles view reset
+    // FlutterSecureStorage no existe en el host de tests: sin este mock la
+    // pantalla se queda en checking/error (loading animado → pumpAndSettle
+    // expira) y nunca enseña el gate. `read` → null = usuario sin sesión.
+    setUp(() {
+      TestWidgetsFlutterBinding.ensureInitialized();
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(
+        const MethodChannel('plugins.it_nomads.com/flutter_secure_storage'),
+        (call) async => null,
+      );
+    });
 
-    testWidgets('shows login CTA and "Tu perfil en..." headline',
+    tearDown(() {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(
+        const MethodChannel('plugins.it_nomads.com/flutter_secure_storage'),
+        null,
+      );
+    });
+
+    testWidgets('shows easyLogin buttons and "Tu perfil en..." headline',
         (tester) async {
       _setLargeSurface(tester);
       addTearDown(tester.view.resetPhysicalSize);
@@ -91,8 +116,14 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.textContaining('Tu perfil en'), findsOneWidget);
-      expect(find.text('Iniciar sesión'), findsOneWidget);
-      expect(find.textContaining('Google o Apple'), findsOneWidget);
+      // EasyLogin directo: Google siempre visible (Apple solo en iOS, y los
+      // tests corren en host macOS → Platform.isIOS == false).
+      expect(find.text('Continuar con Google'), findsOneWidget);
+      // Vía secundaria de email — abre LoginScreen en el formulario.
+      expect(
+        find.text('Prefiero entrar con email y contraseña'),
+        findsOneWidget,
+      );
     });
 
     testWidgets('shows theme segmented control even when not logged in',
@@ -289,8 +320,9 @@ void main() {
       await tester.tap(find.text('Eliminar cuenta'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Eliminar mi cuenta definitivamente'), findsOneWidget);
-      expect(find.textContaining('no se puede deshacer'), findsOneWidget);
+      // Desde la migración a gestión de cuenta (eliminar/exportar), el tap
+      // navega a AccountManagementScreen en vez de abrir un modal in situ.
+      expect(find.byType(AccountManagementScreen), findsOneWidget);
     });
 
     testWidgets('theme segmented control changes mode on tap', (tester) async {
