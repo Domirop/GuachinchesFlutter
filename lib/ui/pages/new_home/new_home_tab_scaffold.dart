@@ -118,9 +118,10 @@ class _NavItem {
 }
 
 /// Cápsula de navegación flotante (liquid glass iOS 26/27): frost + sheen
-/// especular + una **píldora que fluye** deslizándose entre tabs con muelle
-/// (`Curves.easeOutBack`), en vez de que cada botón crezca por su cuenta.
-class _FloatingGlassNavBar extends StatelessWidget {
+/// especular + una **píldora que fluye**. Tap cambia de tab; **arrastrar** el
+/// dedo por la barra hace que la píldora siga al dedo en tiempo real y, al
+/// soltar, engancha al tab más cercano (muelle `Curves.easeOutBack`).
+class _FloatingGlassNavBar extends StatefulWidget {
   final int index;
   final ValueChanged<int> onTap;
   final List<_NavItem> items;
@@ -130,6 +131,45 @@ class _FloatingGlassNavBar extends StatelessWidget {
     required this.onTap,
     required this.items,
   });
+
+  @override
+  State<_FloatingGlassNavBar> createState() => _FloatingGlassNavBarState();
+}
+
+class _FloatingGlassNavBarState extends State<_FloatingGlassNavBar> {
+  /// X local del dedo durante el arrastre (null = sin arrastrar).
+  double? _dragX;
+
+  /// Ancho interno de la cápsula (de LayoutBuilder), para mapear x → slot.
+  double _innerW = 0;
+  int _lastSlot = -1;
+
+  int _slotAt(double x) {
+    final n = widget.items.length;
+    if (_innerW <= 0) return widget.index;
+    return (x / (_innerW / n)).floor().clamp(0, n - 1);
+  }
+
+  void _onDragStart(DragStartDetails d) {
+    final x = d.localPosition.dx.clamp(0.0, _innerW);
+    _lastSlot = _slotAt(x);
+    setState(() => _dragX = x);
+  }
+
+  void _onDragUpdate(DragUpdateDetails d) {
+    final x = d.localPosition.dx.clamp(0.0, _innerW);
+    final slot = _slotAt(x);
+    if (slot != _lastSlot) {
+      HapticFeedback.selectionClick();
+      _lastSlot = slot;
+    }
+    setState(() => _dragX = x);
+  }
+
+  void _onDragEnd() {
+    if (_dragX != null) widget.onTap(_slotAt(_dragX!));
+    setState(() => _dragX = null);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -156,52 +196,74 @@ class _FloatingGlassNavBar extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 6),
               child: LayoutBuilder(
                 builder: (context, c) {
-                  final n = items.length;
+                  _innerW = c.maxWidth;
+                  final n = widget.items.length;
                   final slotW = c.maxWidth / n;
-                  return Stack(
-                    children: [
-                      // Sheen especular del borde superior.
-                      Positioned.fill(
-                        child: IgnorePointer(
-                          child: DecoratedBox(
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
-                                colors: [
-                                  Colors.white.withOpacity(isDark ? 0.10 : 0.22),
-                                  Colors.white.withOpacity(0),
-                                ],
-                                stops: const [0.0, 0.6],
+                  final dragging = _dragX != null;
+                  final effIndex = dragging ? _slotAt(_dragX!) : widget.index;
+                  final pillW = slotW - 12;
+                  return GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onHorizontalDragStart: _onDragStart,
+                    onHorizontalDragUpdate: _onDragUpdate,
+                    onHorizontalDragEnd: (_) => _onDragEnd(),
+                    child: Stack(
+                      children: [
+                        // Sheen especular del borde superior.
+                        Positioned.fill(
+                          child: IgnorePointer(
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                  colors: [
+                                    Colors.white
+                                        .withOpacity(isDark ? 0.10 : 0.22),
+                                    Colors.white.withOpacity(0),
+                                  ],
+                                  stops: const [0.0, 0.6],
+                                ),
                               ),
                             ),
                           ),
                         ),
-                      ),
-                      // Píldora líquida que se desliza al tab activo.
-                      AnimatedPositioned(
-                        duration: const Duration(milliseconds: 420),
-                        curve: Curves.easeOutBack,
-                        left: index * slotW + 6,
-                        top: 9,
-                        bottom: 9,
-                        width: slotW - 12,
-                        child: const _LiquidPill(),
-                      ),
-                      // Iconos.
-                      Row(
-                        children: [
-                          for (var i = 0; i < n; i++)
-                            Expanded(
-                              child: _NavButton(
-                                item: items[i],
-                                selected: i == index,
-                                onTap: () => onTap(i),
+                        // Píldora líquida: sigue al dedo al arrastrar; si no,
+                        // se desliza con muelle al tab activo.
+                        if (dragging)
+                          Positioned(
+                            left: (_dragX! - pillW / 2)
+                                .clamp(6.0, c.maxWidth - pillW - 6),
+                            top: 9,
+                            bottom: 9,
+                            width: pillW,
+                            child: const _LiquidPill(),
+                          )
+                        else
+                          AnimatedPositioned(
+                            duration: const Duration(milliseconds: 420),
+                            curve: Curves.easeOutBack,
+                            left: widget.index * slotW + 6,
+                            top: 9,
+                            bottom: 9,
+                            width: pillW,
+                            child: const _LiquidPill(),
+                          ),
+                        // Iconos.
+                        Row(
+                          children: [
+                            for (var i = 0; i < n; i++)
+                              Expanded(
+                                child: _NavButton(
+                                  item: widget.items[i],
+                                  selected: i == effIndex,
+                                  onTap: () => widget.onTap(i),
+                                ),
                               ),
-                            ),
-                        ],
-                      ),
-                    ],
+                          ],
+                        ),
+                      ],
+                    ),
                   );
                 },
               ),
