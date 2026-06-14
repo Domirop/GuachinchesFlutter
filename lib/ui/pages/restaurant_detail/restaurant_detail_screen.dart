@@ -293,16 +293,23 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen>
             backIdentifier: 'restaurant-detail-back-button',
             saveIdentifier: 'restaurant-detail-save-button',
           ),
+          // Barra flotante liquid-glass: sobre el scroll, anclada abajo.
+          if (r != null)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: BottomCtaBar(
+                onPrimary: _openMaps,
+                onSecondary: _share,
+                floating: true,
+                phone: r.telefono.isNotEmpty ? r.telefono : null,
+                primaryIdentifier: 'restaurant-detail-maps-button',
+                secondaryIdentifier: 'restaurant-detail-share-button',
+              ),
+            ),
         ],
       ),
-      bottomNavigationBar: r == null
-          ? null
-          : BottomCtaBar(
-              onPrimary: _openMaps,
-              onSecondary: _share,
-              primaryIdentifier: 'restaurant-detail-maps-button',
-              secondaryIdentifier: 'restaurant-detail-share-button',
-            ),
     );
   }
 
@@ -323,6 +330,11 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen>
             ),
           ),
           SliverToBoxAdapter(child: _buildBody(r)),
+          // Clearance para la barra flotante (cristal) que va sobre el scroll.
+          SliverToBoxAdapter(
+            child: SizedBox(
+                height: MediaQuery.of(context).padding.bottom + 80),
+          ),
         ],
       ),
     );
