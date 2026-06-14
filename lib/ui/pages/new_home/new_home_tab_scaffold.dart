@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:guachinches/config/app_colors.dart';
+import 'package:guachinches/config/app_shapes.dart';
 import 'package:guachinches/config/brand_colors.dart';
 import 'package:guachinches/data/cubit/menu/menu_cubit.dart';
 import 'package:guachinches/l10n/app_localizations.dart';
@@ -116,8 +117,9 @@ class _NavItem {
   const _NavItem(this.identifier, this.label, this.icon, this.activeIcon);
 }
 
-/// Cápsula de navegación flotante (glass). Mismo patrón visual que
-/// `_GlassCapsule` del TopFilterBar: blur 16 + brand.glass + borde 0.6.
+/// Cápsula de navegación flotante (liquid glass iOS 26/27): frost + sheen
+/// especular + una **píldora que fluye** deslizándose entre tabs con muelle
+/// (`Curves.easeOutBack`), en vez de que cada botón crezca por su cuenta.
 class _FloatingGlassNavBar extends StatelessWidget {
   final int index;
   final ValueChanged<int> onTap;
@@ -132,40 +134,104 @@ class _FloatingGlassNavBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final brand = context.brand;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return SafeArea(
       top: false,
       minimum: const EdgeInsets.fromLTRB(20, 0, 20, 10),
       child: Padding(
-        // En devices sin home-indicator (safe bottom = 0) el minimum ya aplica;
-        // con indicator, la cápsula queda justo encima de él.
         padding: const EdgeInsets.only(top: 8),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(32),
+          borderRadius: BorderRadius.circular(AppRadius.full),
           child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+            filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
             child: Container(
               height: 64,
               decoration: BoxDecoration(
                 color: brand.glass,
-                borderRadius: BorderRadius.circular(32),
-                border: Border.all(color: brand.border, width: 0.6),
+                borderRadius: BorderRadius.circular(AppRadius.full),
+                border: Border.all(
+                    color: Colors.white.withOpacity(isDark ? 0.18 : 0.4),
+                    width: 0.8),
               ),
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: Row(
-                children: [
-                  for (var i = 0; i < items.length; i++)
-                    Expanded(
-                      child: _NavButton(
-                        item: items[i],
-                        selected: i == index,
-                        onTap: () => onTap(i),
+              padding: const EdgeInsets.symmetric(horizontal: 6),
+              child: LayoutBuilder(
+                builder: (context, c) {
+                  final n = items.length;
+                  final slotW = c.maxWidth / n;
+                  return Stack(
+                    children: [
+                      // Sheen especular del borde superior.
+                      Positioned.fill(
+                        child: IgnorePointer(
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  Colors.white.withOpacity(isDark ? 0.10 : 0.22),
+                                  Colors.white.withOpacity(0),
+                                ],
+                                stops: const [0.0, 0.6],
+                              ),
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
-                ],
+                      // Píldora líquida que se desliza al tab activo.
+                      AnimatedPositioned(
+                        duration: const Duration(milliseconds: 420),
+                        curve: Curves.easeOutBack,
+                        left: index * slotW + 6,
+                        top: 9,
+                        bottom: 9,
+                        width: slotW - 12,
+                        child: const _LiquidPill(),
+                      ),
+                      // Iconos.
+                      Row(
+                        children: [
+                          for (var i = 0; i < n; i++)
+                            Expanded(
+                              child: _NavButton(
+                                item: items[i],
+                                selected: i == index,
+                                onTap: () => onTap(i),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ],
+                  );
+                },
               ),
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Resalte líquido del tab activo: tinte atlántico + borde + glow suave.
+class _LiquidPill extends StatelessWidget {
+  const _LiquidPill();
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: AppColors.atlantico.withOpacity(0.18),
+        borderRadius: BorderRadius.circular(AppRadius.full),
+        border: Border.all(
+            color: AppColors.atlantico.withOpacity(0.32), width: 0.8),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.atlantico.withOpacity(0.20),
+            blurRadius: 10,
+            spreadRadius: -2,
+          ),
+        ],
       ),
     );
   }
@@ -194,23 +260,21 @@ class _NavButton extends StatelessWidget {
         behavior: HitTestBehavior.opaque,
         onTap: onTap,
         child: Center(
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 220),
-            curve: Curves.easeOutCubic,
-            height: 44,
-            width: selected ? 56 : 44,
-            decoration: BoxDecoration(
-              color: selected
-                  ? AppColors.atlantico.withOpacity(0.16)
-                  : Colors.transparent,
-              borderRadius: BorderRadius.circular(999),
-            ),
-            child: Icon(
-              selected ? item.activeIcon : item.icon,
-              size: 26,
-              // Inactivos en tinta (como Instagram): sobre el cristal, el gris
-              // muted se perdía. El activo mantiene el acento atlántico.
-              color: selected ? AppColors.atlantico : brand.textPrimary,
+          // Rebote del icono al seleccionarse (muelle corto).
+          child: AnimatedScale(
+            scale: selected ? 1.12 : 1.0,
+            duration: const Duration(milliseconds: 320),
+            curve: Curves.easeOutBack,
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 240),
+              transitionBuilder: (child, anim) =>
+                  FadeTransition(opacity: anim, child: child),
+              child: Icon(
+                selected ? item.activeIcon : item.icon,
+                key: ValueKey(selected),
+                size: 26,
+                color: selected ? AppColors.atlantico : brand.textPrimary,
+              ),
             ),
           ),
         ),
