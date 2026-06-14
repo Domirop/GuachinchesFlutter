@@ -4,12 +4,16 @@ class AppRadius {
   AppRadius._();
 
   /// Escala única de radios: xs mini-pills · sm chips · md cards ·
-  /// lg wrappers/sheets · pill cápsulas y campos redondos.
+  /// lg wrappers/sheets · pill cápsulas · full stadium/círculos.
   static const double xs   = 8;
   static const double sm   = 12;
   static const double md   = 16;
   static const double lg   = 22;
   static const double pill = 32;
+
+  /// Totalmente redondo (stadium en rectángulos, círculo en cuadrados).
+  /// Estilo liquid-glass iOS 27: botones flotantes y de compartir SIEMPRE así.
+  static const double full = 999;
 }
 
 class AppShadows {

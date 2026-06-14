@@ -3,6 +3,7 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:guachinches/config/app_colors.dart';
+import 'package:guachinches/config/app_shapes.dart';
 import 'package:guachinches/config/brand_colors.dart';
 import 'package:guachinches/config/app_text_styles.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -203,7 +204,7 @@ class _BottomCtaBarState extends State<BottomCtaBar>
         backgroundColor: AppColors.atlantico,
         padding: const EdgeInsets.symmetric(vertical: 15),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(AppRadius.full),
         ),
         elevation: floating ? 6 : 0,
         shadowColor: floating
@@ -252,7 +253,7 @@ class _GlassIconButton extends StatelessWidget {
     final child = GestureDetector(
       onTap: onTap,
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(15),
+        borderRadius: BorderRadius.circular(AppRadius.full),
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
           child: Container(
@@ -262,7 +263,7 @@ class _GlassIconButton extends StatelessWidget {
               color: accent
                   ? AppColors.atlantico.withOpacity(0.16)
                   : brand.glass,
-              borderRadius: BorderRadius.circular(15),
+              borderRadius: BorderRadius.circular(AppRadius.full),
               border: Border.all(
                 color: accent
                     ? AppColors.atlantico.withOpacity(0.45)
@@ -303,7 +304,7 @@ class _SolidIconButton extends StatelessWidget {
         decoration: BoxDecoration(
           color: context.brand.surface,
           border: Border.all(color: context.brand.borderStrong),
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(AppRadius.full),
         ),
         alignment: Alignment.center,
         child: Icon(icon, size: 18, color: context.brand.textPrimary),
