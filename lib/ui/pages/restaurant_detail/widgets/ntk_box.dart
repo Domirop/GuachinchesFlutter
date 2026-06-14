@@ -47,8 +47,17 @@ class NTKBox extends StatelessWidget {
               value: phone,
               color: AppColors.atlanticoClaro,
               onTap: () async {
-                final uri = Uri.parse('tel:$phone');
-                if (await canLaunchUrl(uri)) await launchUrl(uri);
+                // Sanea el número (quita espacios/guiones/paréntesis; deja
+                // dígitos y un posible '+'). Lanzamos directo SIN canLaunchUrl:
+                // en iOS `canLaunchUrl('tel:')` devuelve false salvo que el
+                // esquema esté en LSApplicationQueriesSchemes → el tap moría.
+                final sanitized = phone.replaceAll(RegExp(r'[^\d+]'), '');
+                final uri = Uri(scheme: 'tel', path: sanitized);
+                try {
+                  await launchUrl(uri);
+                } catch (_) {
+                  // Sin dialer disponible (p.ej. simulador): no-op.
+                }
               },
             ),
             isLast: isLast,
