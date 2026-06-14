@@ -29,10 +29,16 @@ class VisitDetailPage extends StatefulWidget {
   final String visitId;
   final String? title;
 
+  /// Cuando se presenta dentro de un sheet glass: fondos transparentes (para
+  /// que el frost se vea entre las tarjetas) y sin botón "atrás" (el sheet se
+  /// cierra arrastrando o tocando fuera).
+  final bool asSheet;
+
   const VisitDetailPage({
     Key? key,
     required this.visitId,
     this.title,
+    this.asSheet = false,
   }) : super(key: key);
 
   @override
@@ -188,15 +194,17 @@ class _VisitDetailPageState extends State<VisitDetailPage>
 
   @override
   Widget build(BuildContext context) {
+    // En sheet, los fondos van transparentes para dejar ver el cristal.
+    final bg = widget.asSheet ? Colors.transparent : context.brand.base;
     if (_loading) {
       return Scaffold(
-        backgroundColor: context.brand.base,
+        backgroundColor: bg,
         body: const _LoadingView(),
       );
     }
     if (_error != null) {
       return Scaffold(
-        backgroundColor: context.brand.base,
+        backgroundColor: bg,
         body: _ErrorView(
           message: _error!,
           onRetry: () => _presenter.loadVisit(widget.visitId),
@@ -209,7 +217,7 @@ class _VisitDetailPageState extends State<VisitDetailPage>
       return YoutubePlayerScaffold(
         controller: _ytController!,
         aspectRatio: 16 / 9,
-        backgroundColor: Colors.black,
+        backgroundColor: widget.asSheet ? Colors.transparent : Colors.black,
         builder: (context, player) => _buildScaffold(context, player: player),
       );
     }
@@ -220,7 +228,7 @@ class _VisitDetailPageState extends State<VisitDetailPage>
 
   Widget _buildScaffold(BuildContext context, {required Widget? player}) {
     return Scaffold(
-      backgroundColor: context.brand.base,
+      backgroundColor: widget.asSheet ? Colors.transparent : context.brand.base,
       body: Stack(
         children: [
           _buildScrollContent(context, player),
@@ -312,10 +320,12 @@ class _VisitDetailPageState extends State<VisitDetailPage>
     final top = MediaQuery.of(context).padding.top + 8;
     return Stack(
       children: [
-        Positioned(
-          top: top, left: 12,
-          child: FloatingCircleButton(icon: Icons.arrow_back_ios_new, onTap: () => Navigator.pop(context), identifier: 'visit-detail-back-button'),
-        ),
+        // En sheet no hay botón "atrás": se cierra arrastrando/tocando fuera.
+        if (!widget.asSheet)
+          Positioned(
+            top: top, left: 12,
+            child: FloatingCircleButton(icon: Icons.arrow_back_ios_new, onTap: () => Navigator.pop(context), identifier: 'visit-detail-back-button'),
+          ),
         Positioned(
           top: top, right: 12,
           child: FloatingCircleButton(icon: Icons.storefront_outlined, onTap: _goToRestaurant, identifier: 'visit-detail-restaurant-button'),
