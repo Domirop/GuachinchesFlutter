@@ -143,7 +143,8 @@ class _BottomCtaBarState extends State<BottomCtaBar>
               identifier: widget.secondaryIdentifier,
             ),
           ],
-          // Botón "Llamar": expande de derecha a izquierda.
+          // "RESERVA YA": pill que se expande de derecha a izquierda; el icono
+          // de teléfono "suena" para destacar la conversión.
           if (_callEnabled)
             SizeTransition(
               axis: Axis.horizontal,
@@ -154,20 +155,7 @@ class _BottomCtaBarState extends State<BottomCtaBar>
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   const SizedBox(width: 10),
-                  _GlassIconButton(
-                    icon: Icons.phone_rounded,
-                    onTap: _call,
-                    identifier: 'restaurant-detail-call-button',
-                    accent: true,
-                    iconBuilder: (color) => AnimatedBuilder(
-                      animation: _ringAngle,
-                      builder: (_, child) => Transform.rotate(
-                        angle: _ringAngle.value,
-                        child: child,
-                      ),
-                      child: Icon(Icons.phone_rounded, size: 20, color: color),
-                    ),
-                  ),
+                  _ReservePill(onTap: _call, ringAngle: _ringAngle),
                 ],
               ),
             ),
@@ -232,24 +220,15 @@ class _GlassIconButton extends StatelessWidget {
   final VoidCallback onTap;
   final String? identifier;
 
-  /// Tinte atlántico (para destacar, p.ej. el de llamar).
-  final bool accent;
-
-  /// Constructor de icono custom (para animarlo).
-  final Widget Function(Color color)? iconBuilder;
-
   const _GlassIconButton({
     required this.icon,
     required this.onTap,
     this.identifier,
-    this.accent = false,
-    this.iconBuilder,
   });
 
   @override
   Widget build(BuildContext context) {
     final brand = context.brand;
-    final iconColor = accent ? AppColors.atlantico : brand.textPrimary;
     final child = GestureDetector(
       onTap: onTap,
       child: ClipRRect(
@@ -260,20 +239,12 @@ class _GlassIconButton extends StatelessWidget {
             width: 52,
             height: 52,
             decoration: BoxDecoration(
-              color: accent
-                  ? AppColors.atlantico.withOpacity(0.16)
-                  : brand.glass,
+              color: brand.glass,
               borderRadius: BorderRadius.circular(AppRadius.full),
-              border: Border.all(
-                color: accent
-                    ? AppColors.atlantico.withOpacity(0.45)
-                    : brand.border,
-                width: 0.8,
-              ),
+              border: Border.all(color: brand.border, width: 0.8),
             ),
             alignment: Alignment.center,
-            child: iconBuilder?.call(iconColor) ??
-                Icon(icon, size: 20, color: iconColor),
+            child: Icon(icon, size: 20, color: brand.textPrimary),
           ),
         ),
       ),
@@ -282,6 +253,63 @@ class _GlassIconButton extends StatelessWidget {
       return Semantics(identifier: identifier!, button: true, child: child);
     }
     return child;
+  }
+}
+
+/// Pill "RESERVA YA" en cristal atlántico — la conversión. El icono de teléfono
+/// "suena" (rotación) mientras está visible para llamar la atención.
+class _ReservePill extends StatelessWidget {
+  final VoidCallback onTap;
+  final Animation<double> ringAngle;
+
+  const _ReservePill({required this.onTap, required this.ringAngle});
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      identifier: 'restaurant-detail-call-button',
+      button: true,
+      label: 'Reserva ya',
+      child: GestureDetector(
+        onTap: onTap,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(AppRadius.full),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+            child: Container(
+              height: 52,
+              padding: const EdgeInsets.symmetric(horizontal: 18),
+              decoration: BoxDecoration(
+                color: AppColors.atlantico.withOpacity(0.18),
+                borderRadius: BorderRadius.circular(AppRadius.full),
+                border: Border.all(
+                    color: AppColors.atlantico.withOpacity(0.5), width: 0.8),
+              ),
+              alignment: Alignment.center,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  AnimatedBuilder(
+                    animation: ringAngle,
+                    builder: (_, child) =>
+                        Transform.rotate(angle: ringAngle.value, child: child),
+                    child: const Icon(Icons.phone_rounded,
+                        size: 19, color: AppColors.atlantico),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'RESERVA YA',
+                    style: AppTextStyles.displaySection(size: 11)
+                        .copyWith(
+                            color: AppColors.atlantico, letterSpacing: 1.0),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 
