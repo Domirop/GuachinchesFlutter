@@ -1,6 +1,7 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:guachinches/config/app_shapes.dart';
 import 'package:guachinches/config/app_text_styles.dart';
 import 'package:guachinches/config/brand_colors.dart';
 
@@ -50,7 +51,9 @@ class GlassSheetShell extends StatelessWidget {
   /// `title`, no se dibuja botón — solo el título centrado.
   final VoidCallback? onClose;
 
-  static const double _radius = 28;
+  /// Mismo radio que las cápsulas glass del appbar/navbar (`AppRadius.pill`)
+  /// para que el sheet flotante se lea como la misma familia.
+  static const double _radius = AppRadius.pill;
 
   const GlassSheetShell({
     super.key,
@@ -65,25 +68,28 @@ class GlassSheetShell extends StatelessWidget {
   Widget build(BuildContext context) {
     final brand = context.brand;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    // Brillo especular del borde superior (más visible en oscuro).
-    final edgeHighlight =
-        Colors.white.withOpacity(isDark ? 0.22 : 0.45);
+    // Borde-luz alrededor (mismo lenguaje que el navbar/appbar flotante).
+    final edgeHighlight = Colors.white.withOpacity(isDark ? 0.18 : 0.4);
 
-    return FractionallySizedBox(
-      heightFactor: heightFactor,
-      widthFactor: 1,
-      child: ClipRRect(
-        borderRadius:
-            const BorderRadius.vertical(top: Radius.circular(_radius)),
-        child: BackdropFilter(
-          // Frost fuerte tipo iOS 26.
-          filter: ImageFilter.blur(sigmaX: 40, sigmaY: 40),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: brand.glass,
-              border: Border(top: BorderSide(color: edgeHighlight, width: 1)),
-            ),
-            child: Stack(
+    return Padding(
+      // Márgenes: el sheet FLOTA (lados + abajo), no va pegado a los bordes,
+      // para integrarse con las cápsulas glass del appbar/navbar.
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+      child: FractionallySizedBox(
+        heightFactor: heightFactor,
+        widthFactor: 1,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(_radius),
+          child: BackdropFilter(
+            // Frost fuerte tipo iOS 26.
+            filter: ImageFilter.blur(sigmaX: 40, sigmaY: 40),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: brand.glass,
+                borderRadius: BorderRadius.circular(_radius),
+                border: Border.all(color: edgeHighlight, width: 0.8),
+              ),
+              child: Stack(
               children: [
                 // Capa "leche" crema: neutraliza el tinte que el material coge
                 // del fondo (en claro el cristal crema se volvía verdoso sobre
@@ -132,6 +138,7 @@ class GlassSheetShell extends StatelessWidget {
           ),
         ),
       ),
+    ),
     );
   }
 }
