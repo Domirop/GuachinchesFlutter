@@ -6,6 +6,7 @@ import 'package:guachinches/config/brand_colors.dart';
 import 'package:guachinches/config/app_text_styles.dart';
 import 'package:guachinches/data/model/Visit.dart';
 import 'package:guachinches/ui/components/glass_sheet.dart';
+import 'package:guachinches/ui/components/video/vertical_video_player.dart';
 import 'package:guachinches/ui/components/video/youtube_embed_sheet.dart';
 import 'package:guachinches/ui/pages/restaurant_detail/widgets/dishes_section.dart';
 import 'package:guachinches/ui/pages/restaurant_detail/widgets/pros_cons_section.dart';
@@ -163,7 +164,8 @@ class _ExpandedContent extends StatelessWidget {
   Widget build(BuildContext context) {
     final v = visit;
     final hasVideo =
-        v.youtubeVideoId != null && v.youtubeVideoId!.trim().isNotEmpty;
+        (v.youtubeVideoId != null && v.youtubeVideoId!.trim().isNotEmpty) ||
+            (v.videoFileUrl != null && v.videoFileUrl!.trim().isNotEmpty);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -227,49 +229,77 @@ class _VideoTeaser extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final brand = context.brand;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+    // Card vertical 9:16 (formato TikTok), centrada — saca provecho del vídeo.
+    return Center(
       child: GestureDetector(
-        onTap: () => YoutubeEmbedSheet.show(
-          context,
-          videoId: visit.youtubeVideoId!,
-        ),
+        onTap: () {
+          // mp4 self-host → reproductor in-app vertical (TikTok); si no,
+          // fallback al embed de YouTube.
+          final mp4 = visit.videoFileUrl;
+          if (mp4 != null && mp4.trim().isNotEmpty) {
+            showVerticalVideo(context, mp4);
+          } else if (visit.youtubeVideoId != null) {
+            YoutubeEmbedSheet.show(context, videoId: visit.youtubeVideoId!);
+          }
+        },
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(14),
-          child: AspectRatio(
-            aspectRatio: 16 / 9,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                if (visit.thumbnail != null && visit.thumbnail!.isNotEmpty)
-                  CachedNetworkImage(
-                    imageUrl: visit.thumbnail!,
-                    fit: BoxFit.cover,
-                    placeholder: (_, __) => Container(color: brand.surface),
-                    errorWidget: (_, __, ___) =>
-                        Container(color: brand.surface),
-                  )
-                else
-                  Container(color: brand.surface),
-                // Scrim + botón play.
-                DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.18),
-                  ),
-                ),
-                Center(
-                  child: Container(
-                    width: 54,
-                    height: 54,
-                    decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.45),
-                      shape: BoxShape.circle,
+          borderRadius: BorderRadius.circular(18),
+          child: SizedBox(
+            width: 208,
+            child: AspectRatio(
+              aspectRatio: 9 / 16,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  if (visit.thumbnail != null && visit.thumbnail!.isNotEmpty)
+                    CachedNetworkImage(
+                      imageUrl: visit.thumbnail!,
+                      fit: BoxFit.cover,
+                      placeholder: (_, __) => Container(color: brand.surface),
+                      errorWidget: (_, __, ___) =>
+                          Container(color: brand.surface),
+                    )
+                  else
+                    Container(color: brand.surface),
+                  // Scrim para profundidad y contraste del play.
+                  const Positioned.fill(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          stops: [0.0, 0.5, 1.0],
+                          colors: [
+                            Colors.black26,
+                            Colors.transparent,
+                            Colors.black45,
+                          ],
+                        ),
+                      ),
                     ),
-                    child: const Icon(Icons.play_arrow_rounded,
-                        color: Colors.white, size: 34),
                   ),
-                ),
-              ],
+                  // Botón play estilo TikTok.
+                  Center(
+                    child: Container(
+                      width: 64,
+                      height: 64,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.92),
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.25),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(Icons.play_arrow_rounded,
+                          color: AppColors.atlantico, size: 38),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -288,8 +318,9 @@ class _Thumb extends StatelessWidget {
     return ClipRRect(
       borderRadius: BorderRadius.circular(10),
       child: SizedBox(
-        width: 54,
-        height: 54,
+        // Vertical 9:16 (TikTok): da una pista del formato del vídeo.
+        width: 50,
+        height: 68,
         child: Stack(
           fit: StackFit.expand,
           children: [

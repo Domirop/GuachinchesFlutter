@@ -71,6 +71,10 @@ class Visit {
   late String id;
   String? videoUrl;
   String? youtubeVideoId;
+
+  /// URL del mp4 self-host en S3 (backend migration 033). Si no es null, se
+  /// reproduce in-app vertical (TikTok) en vez del embed de YouTube.
+  String? videoFileUrl;
   String? creator;
   String? extraText;
   late String restaurantId;
@@ -113,6 +117,7 @@ class Visit {
     required this.id,
     this.videoUrl,
     this.youtubeVideoId,
+    this.videoFileUrl,
     this.creator,
     this.extraText,
     required this.restaurantId,
@@ -177,6 +182,24 @@ class Visit {
         ? json['youtubeVideo'] as Map<String, dynamic>
         : null;
     final ytVideoId = (yt?['videoId'] ?? json['videoId'])?.toString();
+
+    // mp4 self-host (backend migration 033): youtubeVideo.videoFile.s3Url, solo
+    // si status == 'stored'. Tolera snake_case y un top-level videoFileUrl.
+    // Ausente/null/no-stored → null → fallback a YouTube embed.
+    String? parseVideoFileUrl() {
+      final vf = yt?['videoFile'] ?? yt?['video_file'];
+      if (vf is Map) {
+        final status = vf['status']?.toString();
+        if (status == null || status == 'stored') {
+          final u = (vf['s3Url'] ?? vf['s3_url'])?.toString();
+          if (u != null && u.isNotEmpty) return u;
+        }
+      }
+      final flat =
+          (json['videoFileUrl'] ?? json['video_file_url'])?.toString();
+      return (flat != null && flat.isNotEmpty) ? flat : null;
+    }
+
     final videoUrl = json['videoUrl'] ??
         json['video_url'] ??
         (ytVideoId != null && ytVideoId.isNotEmpty
@@ -191,6 +214,7 @@ class Visit {
       id: json['id']?.toString() ?? '',
       videoUrl: videoUrl?.toString(),
       youtubeVideoId: ytVideoId,
+      videoFileUrl: parseVideoFileUrl(),
       creator: json['creator']?.toString(),
       extraText: (json['extraText'] ?? json['extra_text'])?.toString(),
       restaurantId:
