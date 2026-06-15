@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:guachinches/config/app_colors.dart';
 import 'package:guachinches/config/app_shapes.dart';
 import 'package:guachinches/config/app_text_styles.dart';
+import 'package:guachinches/core/app_route_observer.dart';
 import 'package:guachinches/data/model/Visit.dart' as vm;
 import 'package:maps_launcher/maps_launcher.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -54,12 +55,16 @@ class VerticalVideoPlayer extends StatefulWidget {
 }
 
 class _VerticalVideoPlayerState extends State<VerticalVideoPlayer>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver, RouteAware {
   late final VideoPlayerController _controller;
   bool _ready = false;
   bool _error = false;
   bool _liked = false;
   bool _saved = false;
+
+  /// Marca que el vídeo estaba reproduciéndose al irnos (app a segundo plano o
+  /// pantalla apilada encima) para reanudarlo exactamente al volver.
+  bool _resumeOnReturn = false;
 
   // Arrastrar-para-cerrar (mismo patrón que el visor de fotos de plato).
   late final AnimationController _resetCtrl;
@@ -87,13 +92,58 @@ class _VerticalVideoPlayerState extends State<VerticalVideoPlayer>
     )..addListener(() {
         if (_resetAnim != null) setState(() => _dragDy = _resetAnim!.value);
       });
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    if (route is PageRoute) appRouteObserver.subscribe(this, route);
   }
 
   @override
   void dispose() {
+    appRouteObserver.unsubscribe(this);
+    WidgetsBinding.instance.removeObserver(this);
     _controller.dispose();
     _resetCtrl.dispose();
     super.dispose();
+  }
+
+  // App a segundo plano (p.ej. abrimos Maps/teléfono) → pausa; al volver → sigue.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _resumeAfterNav();
+    } else if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden) {
+      _pauseForNav();
+    }
+  }
+
+  // Se apila otra pantalla encima → pausa; al volver → sigue.
+  @override
+  void didPushNext() => _pauseForNav();
+
+  @override
+  void didPopNext() => _resumeAfterNav();
+
+  void _pauseForNav() {
+    if (_ready && _controller.value.isPlaying) {
+      _resumeOnReturn = true;
+      _controller.pause();
+      if (mounted) setState(() {});
+    }
+  }
+
+  void _resumeAfterNav() {
+    if (_ready && _resumeOnReturn) {
+      _resumeOnReturn = false;
+      _controller.play();
+      if (mounted) setState(() {});
+    }
   }
 
   void _togglePlay() {
