@@ -271,22 +271,25 @@ class _VerticalVideoPlayerState extends State<VerticalVideoPlayer>
             onTap: () => Navigator.of(context).maybePop(),
           ),
         ),
-        // Barra de progreso (fina, sobre la tarjeta).
+        // Barra de progreso scrubbable (sobre la tarjeta): arrastrar mueve la
+        // posición del vídeo. El scrub es horizontal → no choca con el gesto
+        // vertical de cerrar.
         if (_ready)
           Positioned(
             left: 0,
             right: 0,
-            bottom: cardBottom + 92 + 10,
+            bottom: cardBottom + 92 + 8,
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: VideoProgressIndicator(
                 _controller,
-                allowScrubbing: false,
-                padding: EdgeInsets.zero,
+                allowScrubbing: true,
+                // El padding amplía el área de toque para arrastrar cómodo.
+                padding: const EdgeInsets.symmetric(vertical: 9),
                 colors: const VideoProgressColors(
                   playedColor: AppColors.atlantico,
                   bufferedColor: Colors.white24,
-                  backgroundColor: Colors.white12,
+                  backgroundColor: Colors.white24,
                 ),
               ),
             ),
@@ -294,7 +297,7 @@ class _VerticalVideoPlayerState extends State<VerticalVideoPlayer>
         // Rail (derecha): me gusta + guardar, levantado sobre los CTAs.
         Positioned(
           right: 8,
-          bottom: cardBottom + 92 + 84,
+          bottom: cardBottom + 92 + 100,
           width: railW,
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -329,7 +332,7 @@ class _VerticalVideoPlayerState extends State<VerticalVideoPlayer>
         Positioned(
           left: 16,
           right: 16,
-          bottom: cardBottom + 92 + 16,
+          bottom: cardBottom + 92 + 42,
           child: Row(
             children: [
               Expanded(
