@@ -5,6 +5,7 @@ import 'package:guachinches/config/app_text_styles.dart';
 import 'package:guachinches/data/cubit/quiz/quiz_game_state.dart';
 import 'package:guachinches/data/model/quiz/quiz_models.dart';
 import 'package:guachinches/ui/pages/quiz/widgets/quiz_glass.dart';
+import 'package:guachinches/ui/pages/quiz/widgets/quiz_history_view.dart';
 import 'package:guachinches/ui/pages/quiz/widgets/quiz_lobby_view.dart';
 import 'package:guachinches/ui/pages/quiz/widgets/quiz_ranking_view.dart';
 
@@ -37,7 +38,7 @@ class _QuizHomeViewState extends State<QuizHomeView> {
 
   void _select(int i) {
     setState(() => _tab = i);
-    if (i == 1 &&
+    if (i == 2 &&
         widget.state.ranking.isEmpty &&
         !widget.state.rankingLoading) {
       widget.onLoadRanking();
@@ -74,6 +75,7 @@ class _QuizHomeViewState extends State<QuizHomeView> {
                   onResume: widget.onResume,
                   onHowTo: widget.onHowTo,
                 ),
+                QuizHistoryView(state: widget.state),
                 QuizRankingView(state: widget.state),
               ],
             ),
@@ -105,9 +107,13 @@ class _Segmented extends StatelessWidget {
           children: [
             _Seg(label: 'INICIO', active: index == 0, onTap: () => onChanged(0)),
             _Seg(
-                label: 'RANKING',
+                label: 'HISTÓRICO',
                 active: index == 1,
                 onTap: () => onChanged(1)),
+            _Seg(
+                label: 'RANKING',
+                active: index == 2,
+                onTap: () => onChanged(2)),
           ],
         ),
       ),
@@ -143,11 +149,14 @@ class _Seg extends StatelessWidget {
                 : null,
           ),
           child: Text(label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: AppTextStyles.displaySection(
-                  size: 13,
+                  size: 11.5,
                   color: active
                       ? Colors.white
-                      : AppColors.crema.withValues(alpha: 0.6))),
+                      : AppColors.crema.withValues(alpha: 0.6))
+                  .copyWith(letterSpacing: 0.5)),
         ),
       ),
     );

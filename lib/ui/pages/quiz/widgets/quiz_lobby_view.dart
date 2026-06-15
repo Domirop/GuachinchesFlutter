@@ -7,8 +7,12 @@ import 'package:guachinches/data/model/quiz/quiz_models.dart';
 import 'package:guachinches/ui/pages/quiz/widgets/quiz_glass.dart';
 import 'package:guachinches/ui/pages/quiz/widgets/quiz_wedges.dart';
 
-/// Pestaña INICIO: partida en curso (si la hay), reto de los 7 quesitos con tu
-/// progreso claro, tu nivel/puntos/racha, JUGAR y tus últimas partidas.
+/// Pestaña INICIO: partida en curso (si la dejaste a medias), JUGAR (nueva
+/// partida, siempre de cero), tu perfil persistente (nivel, puntos totales,
+/// partidas ganadas, mejores marcas) y un preview neutral de las 7 categorías.
+///
+/// Los quesitos NO se muestran aquí como colección: son el tablero de cada
+/// partida y solo se ven jugando.
 class QuizLobbyView extends StatelessWidget {
   final QuizGameState state;
   final VoidCallback onPlay;
@@ -25,16 +29,13 @@ class QuizLobbyView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final stats = state.stats;
     final cats = state.categories;
-    final owned = stats?.categoriesMastered.toSet() ?? <String>{};
-    final ownedCount = cats.where((c) => owned.contains(c.slug)).length;
     final active = state.activeSession;
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
       children: [
-        // Partida en curso
+        // Partida en curso (solo si la dejaste a medias)
         if (active != null) ...[
           _ActiveGameCard(
             session: active,
@@ -43,7 +44,6 @@ class QuizLobbyView extends StatelessWidget {
           ),
           const SizedBox(height: 20),
         ],
-        // Hero
         Center(
           child: Text('EL RETO DE LOS',
               style: AppTextStyles.eyebrow(
@@ -52,45 +52,35 @@ class QuizLobbyView extends StatelessWidget {
         const SizedBox(height: 2),
         Center(
           child: Text('7 QUESITOS',
-              style: AppTextStyles.displayHero(size: 34, color: AppColors.crema)),
+              style:
+                  AppTextStyles.displayHero(size: 34, color: AppColors.crema)),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 6),
+        Center(
+          child: Text(
+            'Reúne un quesito de cada isla con 3 vidas. Cada partida empieza de cero.',
+            textAlign: TextAlign.center,
+            style: AppTextStyles.editorial(
+                size: 13, color: AppColors.crema.withValues(alpha: 0.6)),
+          ),
+        ),
+        const SizedBox(height: 18),
         _PlayButton(
             label: active != null ? 'NUEVA PARTIDA' : 'JUGAR', onTap: onPlay),
         const SizedBox(height: 24),
-        // Progreso claro
-        Row(
-          children: [
-            Text('TUS QUESITOS',
-                style: AppTextStyles.displaySection(
-                    size: 13, color: AppColors.crema)),
-            const Spacer(),
-            Text('$ownedCount/7',
-                style: AppTextStyles.displaySection(
-                    size: 14, color: AppColors.atlanticoClaro)),
-          ],
-        ),
+        // Perfil persistente
+        _ProfileCard(stats: state.stats),
+        const SizedBox(height: 24),
+        // Preview neutral de categorías
+        Text('A QUÉ TE ENFRENTAS',
+            style:
+                AppTextStyles.displaySection(size: 13, color: AppColors.crema)),
         const SizedBox(height: 12),
         if (cats.isNotEmpty)
-          QuizWedgesLegend(categories: cats, owned: owned)
+          QuizCategoriesPreview(categories: cats)
         else
-          const _LegendSkeleton(),
-        const SizedBox(height: 20),
-        _StatsRow(stats: stats),
-        // Historial
-        if (state.history.isNotEmpty) ...[
-          const SizedBox(height: 24),
-          Text('ÚLTIMAS PARTIDAS',
-              style:
-                  AppTextStyles.displaySection(size: 13, color: AppColors.crema)),
-          const SizedBox(height: 10),
-          for (final h in state.history)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: _HistoryRow(summary: h),
-            ),
-        ],
-        const SizedBox(height: 12),
+          const _PreviewSkeleton(),
+        const SizedBox(height: 18),
         Center(
           child: TextButton(
             onPressed: onHowTo,
@@ -102,6 +92,108 @@ class QuizLobbyView extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _ProfileCard extends StatelessWidget {
+  final QuizStats? stats;
+  const _ProfileCard({required this.stats});
+
+  @override
+  Widget build(BuildContext context) {
+    final rank = stats?.rank;
+    final rankName = rank?.name ?? 'Gofio';
+    final next = rank?.next;
+    final gamesWon = rank?.gamesWon ?? 0;
+    final hint = next == null
+        ? 'Nivel máximo'
+        : 'A ${(next.at - gamesWon).clamp(0, 99)} ${(next.at - gamesWon) == 1 ? 'partida' : 'partidas'} de ${next.name}';
+
+    return QuizGlassCard(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: AppColors.sol.withValues(alpha: 0.18),
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                      color: AppColors.sol.withValues(alpha: 0.5)),
+                ),
+                child: const Icon(Icons.military_tech_rounded,
+                    color: AppColors.sol, size: 24),
+              ),
+              const SizedBox(width: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('TU NIVEL',
+                      style: AppTextStyles.eyebrow(
+                          size: 9,
+                          color: AppColors.crema.withValues(alpha: 0.45))),
+                  const SizedBox(height: 2),
+                  Text(rankName.toUpperCase(),
+                      style: AppTextStyles.displaySection(
+                          size: 18, color: AppColors.crema)),
+                ],
+              ),
+              const Spacer(),
+              Flexible(
+                child: Text(hint,
+                    textAlign: TextAlign.end,
+                    style: AppTextStyles.ui(
+                        size: 11,
+                        color: AppColors.atlanticoClaro,
+                        weight: FontWeight.w600)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Container(height: 1, color: Colors.white.withValues(alpha: 0.07)),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              _Stat(label: 'PUNTOS', value: '${stats?.totalPoints ?? 0}'),
+              _Stat(label: 'GANADAS', value: '${stats?.gamesWon ?? 0}'),
+              _Stat(label: 'MEJOR RACHA', value: '${stats?.bestStreak ?? 0}'),
+              _Stat(label: 'MEJOR PUNT.', value: '${stats?.bestScore ?? 0}'),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Stat extends StatelessWidget {
+  final String label;
+  final String value;
+  const _Stat({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Column(
+        children: [
+          Text(value,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AppTextStyles.displaySection(
+                  size: 16, color: AppColors.crema)),
+          const SizedBox(height: 3),
+          Text(label,
+              textAlign: TextAlign.center,
+              style: AppTextStyles.eyebrow(
+                  size: 8, color: AppColors.crema.withValues(alpha: 0.45))),
+        ],
+      ),
     );
   }
 }
@@ -138,6 +230,10 @@ class _ActiveGameCard extends StatelessWidget {
                       size: 14, color: AppColors.crema)),
             ],
           ),
+          const SizedBox(height: 4),
+          Text('${session.wedges.length}/7 quesitos · ${session.lives} vidas',
+              style: AppTextStyles.ui(
+                  size: 12, color: AppColors.crema.withValues(alpha: 0.6))),
           const SizedBox(height: 12),
           if (categories.isNotEmpty)
             QuizWedgesStrip(
@@ -163,136 +259,26 @@ class _ActiveGameCard extends StatelessWidget {
   }
 }
 
-class _HistoryRow extends StatelessWidget {
-  final QuizSessionSummary summary;
-  const _HistoryRow({required this.summary});
-
-  String _date(String? iso) {
-    if (iso == null) return '';
-    final d = DateTime.tryParse(iso);
-    if (d == null) return '';
-    const m = [
-      '', 'ene', 'feb', 'mar', 'abr', 'may', 'jun',
-      'jul', 'ago', 'sep', 'oct', 'nov', 'dic'
-    ];
-    return '${d.day} ${m[d.month]}';
-  }
-
+class _PreviewSkeleton extends StatelessWidget {
+  const _PreviewSkeleton();
   @override
   Widget build(BuildContext context) {
-    final won = summary.isWon;
-    final color = won ? AppColors.laurisilva : AppColors.crema;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: AppColors.glassDark,
-        borderRadius: BorderRadius.circular(AppRadius.md),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
-      ),
-      child: Row(
-        children: [
-          Icon(won ? Icons.emoji_events_rounded : Icons.flag_rounded,
-              color: won ? AppColors.sol : AppColors.crema.withValues(alpha: 0.5),
-              size: 20),
-          const SizedBox(width: 10),
-          Text(won ? '¡Pleno!' : 'Partida',
-              style: AppTextStyles.ui(
-                  size: 13, color: color, weight: FontWeight.w600)),
-          const SizedBox(width: 8),
-          Text('· ${summary.wedges.length}/7 🧀',
-              style: AppTextStyles.ui(
-                  size: 12, color: AppColors.crema.withValues(alpha: 0.5))),
-          const Spacer(),
-          Text(_date(summary.endedAt),
-              style: AppTextStyles.ui(
-                  size: 11, color: AppColors.crema.withValues(alpha: 0.4))),
-          const SizedBox(width: 10),
-          Text('${summary.score}',
-              style: AppTextStyles.displaySection(
-                  size: 14, color: AppColors.crema)),
-        ],
-      ),
-    );
-  }
-}
-
-class _LegendSkeleton extends StatelessWidget {
-  const _LegendSkeleton();
-  @override
-  Widget build(BuildContext context) {
-    return Column(
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
       children: [
         for (var i = 0; i < 7; i++)
           Container(
-            height: 54,
-            margin: const EdgeInsets.only(bottom: 8),
+            width: 90,
+            height: 32,
             decoration: BoxDecoration(
               color: AppColors.glassDark,
-              borderRadius: BorderRadius.circular(AppRadius.md),
+              borderRadius: BorderRadius.circular(AppRadius.full),
             ),
           ),
       ],
     );
   }
-}
-
-class _StatsRow extends StatelessWidget {
-  final QuizStats? stats;
-  const _StatsRow({required this.stats});
-
-  @override
-  Widget build(BuildContext context) {
-    final rankName = stats?.rank.name ?? 'Gofio';
-    final points = stats?.totalPoints ?? 0;
-    final bestStreak = stats?.bestStreak ?? 0;
-    return QuizGlassCard(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      child: Row(
-        children: [
-          _Stat(label: 'TU NIVEL', value: rankName),
-          _Divider(),
-          _Stat(label: 'PUNTOS', value: '$points'),
-          _Divider(),
-          _Stat(label: 'MEJOR RACHA', value: '$bestStreak'),
-        ],
-      ),
-    );
-  }
-}
-
-class _Stat extends StatelessWidget {
-  final String label;
-  final String value;
-  const _Stat({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: Column(
-        children: [
-          Text(value,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: AppTextStyles.displaySection(
-                  size: 16, color: AppColors.crema)),
-          const SizedBox(height: 3),
-          Text(label,
-              textAlign: TextAlign.center,
-              style: AppTextStyles.eyebrow(
-                  size: 9, color: AppColors.crema.withValues(alpha: 0.45))),
-        ],
-      ),
-    );
-  }
-}
-
-class _Divider extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) => Container(
-        width: 1,
-        height: 28,
-        color: Colors.white.withValues(alpha: 0.08),
-      );
 }
 
 class _PlayButton extends StatelessWidget {

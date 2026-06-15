@@ -179,107 +179,42 @@ class _WedgesPainter extends CustomPainter {
       old.owned != owned || old.colors != colors;
 }
 
-/// Leyenda CLARA de los 7 quesitos: una fila por categoría con icono en su
-/// color, nombre + isla, y estado inequívoco — ✓ verde si lo tienes, círculo
-/// hueco si te falta. Resuelve "no se sabe qué quesitos tienes".
-class QuizWedgesLegend extends StatelessWidget {
+/// Preview NEUTRAL de las 7 categorías ("a qué te enfrentas"), sin estado de
+/// conseguido — los quesitos solo se ganan DENTRO de una partida. Chips con el
+/// color e icono de cada categoría.
+class QuizCategoriesPreview extends StatelessWidget {
   final List<QuizCategory> categories;
-  final Set<String> owned;
-  const QuizWedgesLegend({
-    super.key,
-    required this.categories,
-    required this.owned,
-  });
+  const QuizCategoriesPreview({super.key, required this.categories});
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
       children: [
         for (final c in categories)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: _Row(category: c, has: owned.contains(c.slug)),
-          ),
-      ],
-    );
-  }
-}
-
-class _Row extends StatelessWidget {
-  final QuizCategory category;
-  final bool has;
-  const _Row({required this.category, required this.has});
-
-  @override
-  Widget build(BuildContext context) {
-    final color = category.color;
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 260),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: has
-            ? Color.alphaBlend(
-                color.withValues(alpha: 0.18), AppColors.glassDark)
-            : AppColors.glassDark,
-        borderRadius: BorderRadius.circular(AppRadius.md),
-        border: Border.all(
-          color: has
-              ? color.withValues(alpha: 0.55)
-              : Colors.white.withValues(alpha: 0.06),
-        ),
-      ),
-      child: Row(
-        children: [
           Container(
-            width: 34,
-            height: 34,
-            alignment: Alignment.center,
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
             decoration: BoxDecoration(
-              color: has ? color : color.withValues(alpha: 0.16),
-              borderRadius: BorderRadius.circular(AppRadius.sm),
+              color: Color.alphaBlend(
+                  c.color.withValues(alpha: 0.14), AppColors.glassDark),
+              borderRadius: BorderRadius.circular(AppRadius.full),
+              border: Border.all(color: c.color.withValues(alpha: 0.45)),
             ),
-            child: Icon(quizCategoryIcon(category.icon),
-                size: 18,
-                color: has ? Colors.white : color.withValues(alpha: 0.7)),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Text(category.name.toUpperCase(),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTextStyles.displaySection(
-                        size: 12,
-                        color: has
-                            ? AppColors.crema
-                            : AppColors.crema.withValues(alpha: 0.55))),
-                Text(category.island,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                Icon(quizCategoryIcon(c.icon), size: 14, color: c.color),
+                const SizedBox(width: 6),
+                Text(c.name,
                     style: AppTextStyles.ui(
-                        size: 10,
-                        color: AppColors.crema.withValues(alpha: 0.4))),
+                        size: 11.5,
+                        color: AppColors.crema,
+                        weight: FontWeight.w600)),
               ],
             ),
           ),
-          const SizedBox(width: 8),
-          if (has)
-            const Icon(Icons.check_circle_rounded,
-                color: AppColors.laurisilva, size: 22)
-          else
-            Container(
-              width: 20,
-              height: 20,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border:
-                    Border.all(color: Colors.white.withValues(alpha: 0.25), width: 1.6),
-              ),
-            ),
-        ],
-      ),
+      ],
     );
   }
 }
