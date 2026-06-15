@@ -42,6 +42,7 @@ dependencies:
   aws_s3_upload: ^1.5.0
   chewie: ^1.7.5
   video_player: ^2.7.2
+  audioplayers: ^6.1.0
   confetti: ^0.7.0
   geolocator: ^13.0.0
   # The following adds the Cupertino Icons font to your application.
@@ -116,6 +117,7 @@ flutter:
     - assets/images/new-home/
     - assets/images/backgrounds/
     - assets/images/backgrounds/ddc_island_bg/
+    - assets/audio/
     - env_files/
   fonts:
     - family: YourCustomFont

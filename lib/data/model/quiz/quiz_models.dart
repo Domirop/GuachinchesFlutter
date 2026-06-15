@@ -129,6 +129,7 @@ class QuizSession {
 class QuizAnswerResult {
   final bool isCorrect;
   final int correctIndex;
+  final String? explanation;
   final int points;
   final bool newWedge;
   final QuizSession session;
@@ -136,6 +137,7 @@ class QuizAnswerResult {
   const QuizAnswerResult({
     required this.isCorrect,
     required this.correctIndex,
+    this.explanation,
     required this.points,
     required this.newWedge,
     required this.session,
@@ -144,6 +146,7 @@ class QuizAnswerResult {
   factory QuizAnswerResult.fromJson(Map<String, dynamic> j) => QuizAnswerResult(
         isCorrect: j['isCorrect'] == true,
         correctIndex: QuizSession._int(j['correctIndex']),
+        explanation: j['explanation']?.toString(),
         points: QuizSession._int(j['points']),
         newWedge: j['newWedge'] == true,
         session: QuizSession.fromJson(
