@@ -95,6 +95,7 @@ class _QuizGameScaffoldState extends State<_QuizGameScaffold> {
                   landed: state.landed,
                   lives: state.lives,
                   score: state.score,
+                  owned: state.wedges.toSet(),
                   onNeedSpin: cubit.spin,
                   onSettled: cubit.onSpinSettled,
                 );
@@ -104,6 +105,8 @@ class _QuizGameScaffoldState extends State<_QuizGameScaffold> {
                 if (q == null) return const SizedBox.shrink();
                 return QuizQuestionView(
                   question: q,
+                  categories: state.categories,
+                  owned: state.wedges.toSet(),
                   secondsLeft: state.secondsLeft,
                   lives: state.lives,
                   score: state.score,

@@ -5,33 +5,15 @@ import 'package:guachinches/config/app_text_styles.dart';
 import 'package:guachinches/data/cubit/quiz/quiz_game_cubit.dart';
 import 'package:guachinches/data/model/quiz/quiz_models.dart';
 import 'package:guachinches/ui/pages/quiz/widgets/quiz_lives.dart';
-
-IconData quizCategoryIcon(String key) {
-  switch (key) {
-    case 'landmark':
-      return Icons.account_balance_rounded;
-    case 'palette':
-      return Icons.palette_rounded;
-    case 'music':
-      return Icons.music_note_rounded;
-    case 'flask':
-      return Icons.science_rounded;
-    case 'trophy':
-      return Icons.emoji_events_rounded;
-    case 'map':
-      return Icons.map_rounded;
-    case 'confetti':
-      return Icons.celebration_rounded;
-    default:
-      return Icons.help_rounded;
-  }
-}
+import 'package:guachinches/ui/pages/quiz/widgets/quiz_wedges.dart';
 
 /// Pantalla de pregunta: cabecera con la categoría (color/icono/isla), anillo
 /// de temporizador, vidas + puntos, enunciado y 4 opciones glass. En [revealing]
 /// resalta la correcta (verde) y la elegida si falló (mojo) + explicación.
 class QuizQuestionView extends StatelessWidget {
   final QuizQuestion question;
+  final List<QuizCategory> categories;
+  final Set<String> owned;
   final int secondsLeft;
   final int lives;
   final int score;
@@ -43,6 +25,8 @@ class QuizQuestionView extends StatelessWidget {
   const QuizQuestionView({
     super.key,
     required this.question,
+    required this.categories,
+    required this.owned,
     required this.secondsLeft,
     required this.lives,
     required this.score,
@@ -68,17 +52,24 @@ class QuizQuestionView extends StatelessWidget {
                 colors: [color, Color.alphaBlend(Colors.black26, color)],
               ),
             ),
-            child: Row(
+            child: Column(
               children: [
-                QuizLives(lives: lives, size: 22),
-                const Spacer(),
-                Text('$score',
-                    style: AppTextStyles.displaySection(
-                        size: 18, color: Colors.white)),
-                const SizedBox(width: 3),
-                Text('PTS',
-                    style: AppTextStyles.eyebrow(
-                        size: 9, color: Colors.white.withValues(alpha: 0.7))),
+                Row(
+                  children: [
+                    QuizLives(lives: lives, size: 22),
+                    const Spacer(),
+                    Text('$score',
+                        style: AppTextStyles.displaySection(
+                            size: 18, color: Colors.white)),
+                    const SizedBox(width: 3),
+                    Text('PTS',
+                        style: AppTextStyles.eyebrow(
+                            size: 9,
+                            color: Colors.white.withValues(alpha: 0.7))),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                QuizWedgesStrip(categories: categories, owned: owned),
               ],
             ),
           ),

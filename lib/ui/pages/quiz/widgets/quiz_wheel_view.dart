@@ -6,6 +6,7 @@ import 'package:guachinches/config/app_colors.dart';
 import 'package:guachinches/config/app_text_styles.dart';
 import 'package:guachinches/data/model/quiz/quiz_models.dart';
 import 'package:guachinches/ui/pages/quiz/widgets/quiz_lives.dart';
+import 'package:guachinches/ui/pages/quiz/widgets/quiz_wedges.dart';
 
 /// Ruleta de 7 sectores. Al entrar pide girar ([onNeedSpin]); cuando el cubit
 /// fija [landed], anima el giro (varias vueltas + aterrizaje spring) y al
@@ -15,6 +16,7 @@ class QuizWheelView extends StatefulWidget {
   final QuizCategory? landed;
   final int lives;
   final int score;
+  final Set<String> owned;
   final VoidCallback onNeedSpin;
   final VoidCallback onSettled;
 
@@ -24,6 +26,7 @@ class QuizWheelView extends StatefulWidget {
     required this.landed,
     required this.lives,
     required this.score,
+    required this.owned,
     required this.onNeedSpin,
     required this.onSettled,
   });
@@ -112,6 +115,9 @@ class _QuizWheelViewState extends State<QuizWheelView>
                         color: AppColors.crema.withValues(alpha: 0.5))),
               ],
             ),
+            const SizedBox(height: 16),
+            // Progreso de quesitos (claro)
+            QuizWedgesStrip(categories: widget.categories, owned: widget.owned),
             const Spacer(),
             Text('GIRA LA RULETA',
                 style: AppTextStyles.eyebrow(

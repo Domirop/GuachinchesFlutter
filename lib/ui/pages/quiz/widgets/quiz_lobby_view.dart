@@ -3,10 +3,11 @@ import 'package:guachinches/config/app_colors.dart';
 import 'package:guachinches/config/app_shapes.dart';
 import 'package:guachinches/config/app_text_styles.dart';
 import 'package:guachinches/data/cubit/quiz/quiz_game_state.dart';
+import 'package:guachinches/data/model/quiz/quiz_models.dart';
 import 'package:guachinches/ui/pages/quiz/widgets/quiz_wedges.dart';
 
-/// Lobby del juego: título, los 7 quesitos con tu progreso, tu nivel, puntos y
-/// mejor racha, y el botón JUGAR. Dark-glass inmersivo.
+/// Lobby del juego: título, leyenda CLARA de los 7 quesitos (qué tienes / qué
+/// te falta), tu nivel, puntos y mejor racha, y JUGAR. Dark-glass DCC.
 class QuizLobbyView extends StatelessWidget {
   final QuizGameState state;
   final VoidCallback onPlay;
@@ -25,95 +26,119 @@ class QuizLobbyView extends StatelessWidget {
   Widget build(BuildContext context) {
     final stats = state.stats;
     final cats = state.categories;
-    final colors = cats.isNotEmpty
-        ? cats.map((c) => c.color).toList()
-        : kQuizWedgeColors;
-    final mastered = stats?.categoriesMastered.toSet() ?? <String>{};
-    final owned = cats.isNotEmpty
-        ? cats.map((c) => mastered.contains(c.slug)).toList()
-        : List<bool>.filled(7, false);
-    final ownedCount = owned.where((e) => e).length;
-    final loading = state.phase == QuizPhase.loading && stats == null;
+    final owned = stats?.categoriesMastered.toSet() ?? <String>{};
+    final ownedCount = cats.where((c) => owned.contains(c.slug)).length;
 
     return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-        child: Column(
-          children: [
-            // Top bar
-            Row(
+      child: Column(
+        children: [
+          // Top bar
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+            child: Row(
               children: [
                 _CircleBtn(icon: Icons.close_rounded, onTap: onClose),
                 const Spacer(),
                 _CircleBtn(icon: Icons.help_outline_rounded, onTap: onHowTo),
               ],
             ),
-            const Spacer(flex: 2),
-            Text(
-              'EL RETO DE LOS',
-              style: AppTextStyles.eyebrow(size: 12, color: AppColors.atlanticoClaro),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              '7 QUESITOS',
-              textAlign: TextAlign.center,
-              style: AppTextStyles.displayHero(size: 40, color: AppColors.crema),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Pon a prueba tu canariedad',
-              style: AppTextStyles.editorial(
-                  size: 14, color: AppColors.crema.withValues(alpha: 0.6)),
-            ),
-            const Spacer(flex: 2),
-            // Anillo de quesitos
-            QuizWedgesRing(
-              colors: colors,
-              owned: owned,
-              size: 210,
-              center: Column(
-                mainAxisSize: MainAxisSize.min,
+          ),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('$ownedCount',
-                      style: AppTextStyles.displayHero(
-                          size: 44, color: AppColors.crema)),
-                  Text('DE 7',
-                      style: AppTextStyles.eyebrow(
-                          size: 11,
-                          color: AppColors.crema.withValues(alpha: 0.5))),
+                  Center(
+                    child: Text('EL RETO DE LOS',
+                        style: AppTextStyles.eyebrow(
+                            size: 12, color: AppColors.atlanticoClaro)),
+                  ),
+                  const SizedBox(height: 4),
+                  Center(
+                    child: Text('7 QUESITOS',
+                        style: AppTextStyles.displayHero(
+                            size: 40, color: AppColors.crema)),
+                  ),
+                  const SizedBox(height: 6),
+                  Center(
+                    child: Text('Pon a prueba tu canariedad',
+                        style: AppTextStyles.editorial(
+                            size: 14,
+                            color: AppColors.crema.withValues(alpha: 0.6))),
+                  ),
+                  const SizedBox(height: 24),
+                  // Cabecera de progreso
+                  Row(
+                    children: [
+                      Text('TUS QUESITOS',
+                          style: AppTextStyles.displaySection(
+                              size: 13, color: AppColors.crema)),
+                      const Spacer(),
+                      Text('$ownedCount/7',
+                          style: AppTextStyles.displaySection(
+                              size: 14, color: AppColors.atlanticoClaro)),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  // Leyenda clara (la corrección principal)
+                  if (cats.isNotEmpty)
+                    QuizWedgesLegend(categories: cats, owned: owned)
+                  else
+                    _LegendSkeleton(),
+                  const SizedBox(height: 20),
+                  // Stats
+                  _StatsRow(stats: stats),
                 ],
               ),
             ),
-            const Spacer(flex: 2),
-            // Stats row
-            _StatsRow(stats: stats, loading: loading),
-            const SizedBox(height: 24),
-            // JUGAR
-            _PlayButton(onTap: onPlay),
-            const SizedBox(height: 8),
-            TextButton(
-              onPressed: onHowTo,
-              child: Text('¿Cómo se juega?',
-                  style: AppTextStyles.ui(
-                      size: 13,
-                      color: AppColors.crema.withValues(alpha: 0.6),
-                      weight: FontWeight.w600)),
-            ),
-          ],
-        ),
+          ),
+          // JUGAR fijo
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
+            child: _PlayButton(onTap: onPlay),
+          ),
+          TextButton(
+            onPressed: onHowTo,
+            child: Text('¿Cómo se juega?',
+                style: AppTextStyles.ui(
+                    size: 13,
+                    color: AppColors.crema.withValues(alpha: 0.6),
+                    weight: FontWeight.w600)),
+          ),
+          const SizedBox(height: 6),
+        ],
       ),
     );
   }
 }
 
+class _LegendSkeleton extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        for (var i = 0; i < 7; i++)
+          Container(
+            height: 54,
+            margin: const EdgeInsets.only(bottom: 8),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(AppRadius.md),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
 class _StatsRow extends StatelessWidget {
-  final dynamic stats; // QuizStats?
-  final bool loading;
-  const _StatsRow({required this.stats, required this.loading});
+  final QuizStats? stats;
+  const _StatsRow({required this.stats});
 
   @override
   Widget build(BuildContext context) {
-    final rankName = stats?.rank?.name ?? 'Gofio';
+    final rankName = stats?.rank.name ?? 'Gofio';
     final points = stats?.totalPoints ?? 0;
     final bestStreak = stats?.bestStreak ?? 0;
     return Container(
@@ -127,9 +152,9 @@ class _StatsRow extends StatelessWidget {
         children: [
           _Stat(label: 'TU NIVEL', value: rankName),
           _Divider(),
-          _Stat(label: 'PUNTOS', value: loading ? '—' : '$points'),
+          _Stat(label: 'PUNTOS', value: '$points'),
           _Divider(),
-          _Stat(label: 'MEJOR RACHA', value: loading ? '—' : '$bestStreak'),
+          _Stat(label: 'MEJOR RACHA', value: '$bestStreak'),
         ],
       ),
     );
@@ -149,9 +174,11 @@ class _Stat extends StatelessWidget {
           Text(value,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: AppTextStyles.displaySection(size: 16, color: AppColors.crema)),
+              style: AppTextStyles.displaySection(
+                  size: 16, color: AppColors.crema)),
           const SizedBox(height: 3),
           Text(label,
+              textAlign: TextAlign.center,
               style: AppTextStyles.eyebrow(
                   size: 9, color: AppColors.crema.withValues(alpha: 0.45))),
         ],
