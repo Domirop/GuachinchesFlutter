@@ -19,6 +19,8 @@ import 'package:guachinches/ui/pages/restaurant_detail/widgets/visit_header_sect
 import 'package:guachinches/ui/pages/restaurant_detail/widgets/visit_pills_row.dart';
 import 'package:guachinches/ui/components/bottom_cta_bar.dart';
 import 'package:guachinches/ui/components/shimmer_box.dart';
+import 'package:guachinches/ui/components/video/vertical_video_player.dart';
+import 'package:guachinches/ui/components/video/youtube_embed_sheet.dart';
 import 'package:guachinches/ui/pages/visit/visit_presenter.dart';
 import 'package:maps_launcher/maps_launcher.dart';
 import 'package:share_plus/share_plus.dart' show SharePlus, ShareParams;
@@ -155,6 +157,24 @@ class _VisitDetailPageState extends State<VisitDetailPage>
     }
   }
 
+  /// Reproduce el vídeo del hero: mp4 self-host → reproductor in-app vertical;
+  /// si no, embed de YouTube in-app; último recurso, abrir externo.
+  void _playVideo() {
+    final v = _visit;
+    if (v == null) return;
+    final mp4 = v.videoFileUrl;
+    if (mp4 != null && mp4.trim().isNotEmpty) {
+      showVerticalVideo(context, mp4);
+      return;
+    }
+    final ytId = v.youtubeVideoId;
+    if (ytId != null && ytId.trim().isNotEmpty) {
+      YoutubeEmbedSheet.show(context, videoId: ytId);
+      return;
+    }
+    _openVideoExternal();
+  }
+
   Future<void> _openMaps() async {
     final mapsUrl = _visit?.googleMapsUrl;
     if (mapsUrl != null && mapsUrl.isNotEmpty) {
@@ -212,8 +232,10 @@ class _VisitDetailPageState extends State<VisitDetailPage>
       );
     }
 
-    // Con player inline (solo si embedding no está bloqueado)
-    if (_ytController != null && !_ytEmbedBlocked) {
+    // Player inline de YouTube SOLO en pantalla completa: dentro de un sheet
+    // (BackdropFilter) la platform-view del webview se renderiza en negro, así
+    // que ahí usamos el thumbnail estático + tap para reproducir in-app.
+    if (_ytController != null && !_ytEmbedBlocked && !widget.asSheet) {
       return YoutubePlayerScaffold(
         controller: _ytController!,
         aspectRatio: 16 / 9,
@@ -258,7 +280,7 @@ class _VisitDetailPageState extends State<VisitDetailPage>
           if (player != null)
             player
           else
-            _StaticVideoHero(visit: v, onTap: _openVideoExternal),
+            _StaticVideoHero(visit: v, onTap: _playVideo),
 
           // ② Visit header
           VisitHeaderSection(visit: v),
