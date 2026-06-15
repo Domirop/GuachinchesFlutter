@@ -107,22 +107,20 @@ class _VisitDetailPageState extends State<VisitDetailPage>
 
   /// Reproduce el vídeo del hero: mp4 self-host → reproductor in-app vertical;
   /// si no, embed de YouTube in-app; último recurso, abrir externo.
-  void _playVideo() {
+  Future<void> _playVideo() {
     final v = _visit;
-    if (v == null) return;
+    if (v == null) return Future.value();
     // mp4 self-host SOLO si el códec es reproducible en iOS (H.264/HEVC); si es
     // AV1/desconocido pintaría negro → fallback a YouTube embed.
     if (v.selfHostVideoPlayable) {
-      showVerticalVideo(context,
+      return showVerticalVideo(context,
           url: v.videoFileUrl!, visit: v, onOpenRestaurant: _goToRestaurant);
-      return;
     }
     final ytId = v.youtubeVideoId;
     if (ytId != null && ytId.trim().isNotEmpty) {
-      YoutubeEmbedSheet.show(context, videoId: ytId);
-      return;
+      return YoutubeEmbedSheet.show(context, videoId: ytId);
     }
-    _openVideoExternal();
+    return _openVideoExternal();
   }
 
   void _share() {

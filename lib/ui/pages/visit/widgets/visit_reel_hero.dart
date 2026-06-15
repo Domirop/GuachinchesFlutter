@@ -21,7 +21,10 @@ import 'package:video_player/video_player.dart';
 class VisitReelHero extends StatefulWidget {
   final vm.Visit visit;
   final bool asSheet;
-  final VoidCallback onPlayVideo;
+
+  /// Abre el vídeo a pantalla completa. Devuelve un Future que se completa al
+  /// volver, para que el reel inline pueda pausar mientras tanto y reanudar.
+  final Future<void> Function() onPlayVideo;
 
   const VisitReelHero({
     super.key,
@@ -169,7 +172,7 @@ class _VideoPage extends StatelessWidget {
 
   /// true → reproductor inline (autoplay muted loop). false → thumbnail + play.
   final bool inline;
-  final VoidCallback onTap;
+  final Future<void> Function() onTap;
 
   const _VideoPage({
     required this.visit,
@@ -205,7 +208,7 @@ class _VideoPage extends StatelessWidget {
 class _InlineReel extends StatefulWidget {
   final String url;
   final String? thumbnail;
-  final VoidCallback onTapFullscreen;
+  final Future<void> Function() onTapFullscreen;
 
   const _InlineReel({
     required this.url,
@@ -253,10 +256,22 @@ class _InlineReelState extends State<_InlineReel> {
     });
   }
 
+  /// Abre el fullscreen pausando el reel inline (evita doble vídeo/audio
+  /// sonando por detrás) y lo reanuda al volver.
+  Future<void> _openFullscreen() async {
+    if (_c.value.isInitialized) await _c.pause();
+    if (mounted) setState(() {}); // refresca el overlay de pausa
+    await widget.onTapFullscreen();
+    if (mounted && _c.value.isInitialized) {
+      _c.play();
+      setState(() {});
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: widget.onTapFullscreen,
+      onTap: _openFullscreen,
       behavior: HitTestBehavior.opaque,
       child: Stack(
         fit: StackFit.expand,
