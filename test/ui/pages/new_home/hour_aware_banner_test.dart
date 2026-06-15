@@ -30,13 +30,14 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('sobremesa: copy editorial propio', (tester) async {
+  testWidgets('media tarde (14-16): todavía abiertos para almorzar',
+      (tester) async {
     await tester.pumpWidget(_host(
       const HourAwareBanner(hour: 15, count: 12),
     ));
 
-    expect(find.text('AHORA · LA SOBREMESA'), findsOneWidget);
-    expect(find.text('12 SITIOS PARA LA SOBREMESA'), findsOneWidget);
+    expect(find.text('AHORA · TODAVÍA ABIERTOS'), findsOneWidget);
+    expect(find.text('12 SITIOS PARA ALMORZAR'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

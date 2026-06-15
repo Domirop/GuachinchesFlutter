@@ -71,8 +71,8 @@ _BannerState _stateForHour(int hour, int? count) {
   }
   if (hour >= 14 && hour <= 16) {
     return _BannerState(
-      label: 'AHORA · LA SOBREMESA',
-      title: _titleFor(count, 'SITIO PARA LA SOBREMESA', 'SITIOS PARA LA SOBREMESA'),
+      label: 'AHORA · TODAVÍA ABIERTOS',
+      title: _titleFor(count, 'SITIO PARA ALMORZAR', 'SITIOS PARA ALMORZAR'),
       subtitle: '"Todavía hay mesa para ti"',
     );
   }

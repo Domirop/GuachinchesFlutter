@@ -333,6 +333,7 @@ class _NewHomeScreenState extends State<NewHomeScreen>
                       scrollListenable: _scrollOffset,
                       bootstrapLoading: _bootstrapLoading,
                       hour: DateTime.now().hour,
+                      minute: DateTime.now().minute,
                       window: _window,
                       filters: filters,
                       weather: weather,

@@ -52,6 +52,7 @@ class NewHomeBody extends StatefulWidget {
   final ValueListenable<double> scrollListenable;
   final bool bootstrapLoading;
   final int hour;
+  final int minute;
   final TimeOfDayWindow window;
   final NewHomeFiltersState filters;
   final WeatherData weather;
@@ -85,6 +86,7 @@ class NewHomeBody extends StatefulWidget {
     required this.scrollListenable,
     required this.bootstrapLoading,
     required this.hour,
+    this.minute = 0,
     required this.window,
     required this.filters,
     required this.weather,
@@ -226,6 +228,7 @@ class _NewHomeBodyState extends State<NewHomeBody> {
                   identifier: 'home-section-today',
                   child: TodayGridSection(
                     hour: widget.hour,
+                    minute: widget.minute,
                     restaurants: const [],
                     onRestaurantTap: widget.onRestaurantTap,
                   ),
@@ -237,6 +240,7 @@ class _NewHomeBodyState extends State<NewHomeBody> {
                   identifier: 'home-section-today',
                   child: TodayGridSection(
                     hour: widget.hour,
+                    minute: widget.minute,
                     count: contextualCount,
                     restaurants: todayPool,
                     userLat: userLat,

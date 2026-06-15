@@ -27,6 +27,7 @@ const double _kTitleTwoLineHeight = 32;
 /// siguen usando el carrusel clásico (otro contexto).
 class TodayGridSection extends StatelessWidget {
   final int hour;
+  final int minute;
 
   /// Total de sitios que pasan el filtro contextual (el número del badge).
   /// `null` durante la carga → muestra esqueleto.
@@ -44,6 +45,7 @@ class TodayGridSection extends StatelessWidget {
   const TodayGridSection({
     super.key,
     required this.hour,
+    this.minute = 0,
     required this.restaurants,
     required this.onRestaurantTap,
     this.count,
@@ -56,7 +58,7 @@ class TodayGridSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final copy = _copyForHour(hour);
+    final copy = _copyForHour(hour, minute);
     final cards = restaurants.take(4).toList();
 
     return Padding(
@@ -100,15 +102,18 @@ class TodayGridSection extends StatelessWidget {
     );
   }
 
-  static _TodayCopy _copyForHour(int hour) {
+  static _TodayCopy _copyForHour(int hour, int minute) {
+    final mins = hour * 60 + minute;
     if (hour >= 7 && hour <= 11) {
       return const _TodayCopy('HORA DEL DESAYUNO', 'Sitios para desayunar');
     }
-    if (hour >= 12 && hour <= 13) {
+    // Almuerzo: 12:00–15:29 en su hora punta…
+    if (mins >= 12 * 60 && mins < 15 * 60 + 30) {
       return const _TodayCopy('HORA DEL ALMUERZO', 'Sitios para almorzar');
     }
-    if (hour >= 14 && hour <= 16) {
-      return const _TodayCopy('LA SOBREMESA', 'Sitios para la sobremesa');
+    // …y de 15:30 a 16:59 los que TODAVÍA siguen abiertos para almorzar.
+    if (mins >= 15 * 60 + 30 && hour <= 16) {
+      return const _TodayCopy('TODAVÍA ABIERTOS', 'Sitios para almorzar');
     }
     if (hour >= 17 && hour <= 19) {
       return const _TodayCopy('GOLDEN HOUR', 'Terrazas al atardecer');
