@@ -55,8 +55,6 @@ class VerticalVideoPlayer extends StatefulWidget {
 
 class _VerticalVideoPlayerState extends State<VerticalVideoPlayer>
     with SingleTickerProviderStateMixin {
-  static const String _handle = '@dondecomercanarias';
-
   late final VideoPlayerController _controller;
   bool _ready = false;
   bool _error = false;
@@ -259,9 +257,6 @@ class _VerticalVideoPlayerState extends State<VerticalVideoPlayer>
   Widget _overlay(MediaQueryData media) {
     final v = widget.visit;
     final r = v.restaurant;
-    final desc = (v.summary?.isNotEmpty == true)
-        ? v.summary!
-        : (v.extraText?.isNotEmpty == true ? v.extraText! : (v.name ?? ''));
     const railW = 64.0;
     final cardBottom = media.padding.bottom + 12;
 
@@ -296,10 +291,10 @@ class _VerticalVideoPlayerState extends State<VerticalVideoPlayer>
               ),
             ),
           ),
-        // Rail de acciones (derecha), por encima de la tarjeta.
+        // Rail (derecha): me gusta + guardar, levantado sobre los CTAs.
         Positioned(
           right: 8,
-          bottom: cardBottom + 92 + 26,
+          bottom: cardBottom + 92 + 84,
           width: railW,
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -327,62 +322,32 @@ class _VerticalVideoPlayerState extends State<VerticalVideoPlayer>
                   setState(() => _saved = !_saved);
                 },
               ),
-              const SizedBox(height: 18),
-              _RailButton(
-                icon: Icons.directions_rounded,
-                label: 'Cómo llegar',
-                tint: Colors.white,
-                onTap: _directions,
-              ),
-              if (_phone != null) ...[
-                const SizedBox(height: 18),
-                _RailButton(
-                  icon: Icons.call_rounded,
-                  label: 'Reserva ya',
-                  tint: Colors.white,
-                  filled: true,
-                  onTap: _call,
-                ),
-              ],
             ],
           ),
         ),
-        // Handle + descripción (abajo-izquierda, sobre la tarjeta).
+        // CTAs (abajo, sobre la tarjeta): cómo llegar + reserva ya.
         Positioned(
           left: 16,
-          right: railW + 12,
-          bottom: cardBottom + 92 + 26,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
+          right: 16,
+          bottom: cardBottom + 92 + 16,
+          child: Row(
             children: [
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    _handle,
-                    style: AppTextStyles.ui(
-                        size: 15,
-                        color: Colors.white,
-                        weight: FontWeight.w800),
-                  ),
-                  const SizedBox(width: 5),
-                  const Icon(Icons.verified_rounded,
-                      size: 16, color: AppColors.atlanticoClaro),
-                ],
+              Expanded(
+                child: _ActionPill(
+                  icon: Icons.directions_rounded,
+                  label: 'Cómo llegar',
+                  onTap: _directions,
+                ),
               ),
-              if (desc.isNotEmpty) ...[
-                const SizedBox(height: 6),
-                Text(
-                  desc,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTextStyles.ui(
-                    size: 13,
-                    color: Colors.white,
-                  ).copyWith(height: 1.3, shadows: const [
-                    Shadow(color: Colors.black54, blurRadius: 6),
-                  ]),
+              if (_phone != null) ...[
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _ActionPill(
+                    icon: Icons.call_rounded,
+                    label: 'Reserva ya',
+                    filled: true,
+                    onTap: _call,
+                  ),
                 ),
               ],
             ],
@@ -464,7 +429,6 @@ class _RailButton extends StatelessWidget {
   final IconData icon;
   final String label;
   final Color tint;
-  final bool filled;
   final VoidCallback onTap;
 
   const _RailButton({
@@ -472,7 +436,6 @@ class _RailButton extends StatelessWidget {
     required this.label,
     required this.tint,
     required this.onTap,
-    this.filled = false,
   });
 
   @override
@@ -488,17 +451,11 @@ class _RailButton extends StatelessWidget {
             height: 50,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: filled
-                  ? AppColors.atlantico
-                  : Colors.white.withValues(alpha: 0.14),
+              color: Colors.white.withValues(alpha: 0.14),
               shape: BoxShape.circle,
-              border: Border.all(
-                color: filled
-                    ? Colors.white.withValues(alpha: 0.30)
-                    : Colors.white.withValues(alpha: 0.22),
-              ),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.22)),
             ),
-            child: Icon(icon, color: filled ? Colors.white : tint, size: 24),
+            child: Icon(icon, color: tint, size: 24),
           ),
           const SizedBox(height: 5),
           Text(
@@ -512,6 +469,57 @@ class _RailButton extends StatelessWidget {
             ]),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ── Pill de acción (Cómo llegar / Reserva ya) ───────────────────────────────
+
+class _ActionPill extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool filled;
+  final VoidCallback onTap;
+
+  const _ActionPill({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.filled = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        height: 48,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: filled
+              ? AppColors.atlantico
+              : Colors.white.withValues(alpha: 0.16),
+          borderRadius: BorderRadius.circular(AppRadius.full),
+          border: Border.all(
+            color: filled
+                ? Colors.white.withValues(alpha: 0.28)
+                : Colors.white.withValues(alpha: 0.28),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 18, color: Colors.white),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: AppTextStyles.ui(
+                  size: 13, color: Colors.white, weight: FontWeight.w700),
+            ),
+          ],
+        ),
       ),
     );
   }
