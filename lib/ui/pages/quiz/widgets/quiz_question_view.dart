@@ -162,8 +162,8 @@ class _Option extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Color bg = AppColors.surface;
-    Color border = Colors.white.withValues(alpha: 0.10);
+    Color bg = AppColors.glassDark;
+    Color border = Colors.white.withValues(alpha: 0.12);
     Color fg = AppColors.crema;
     IconData? trailing;
     Color? trailingColor;

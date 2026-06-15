@@ -219,8 +219,8 @@ class _Row extends StatelessWidget {
       decoration: BoxDecoration(
         color: has
             ? Color.alphaBlend(
-                color.withValues(alpha: 0.16), AppColors.surface)
-            : AppColors.surface,
+                color.withValues(alpha: 0.18), AppColors.glassDark)
+            : AppColors.glassDark,
         borderRadius: BorderRadius.circular(AppRadius.md),
         border: Border.all(
           color: has

@@ -7,6 +7,7 @@ import 'package:guachinches/config/app_shapes.dart';
 import 'package:guachinches/config/app_text_styles.dart';
 import 'package:guachinches/core/analytics/analytics.dart';
 import 'package:guachinches/data/cubit/quiz/quiz_game_state.dart';
+import 'package:guachinches/ui/pages/quiz/widgets/quiz_glass.dart';
 import 'package:guachinches/ui/pages/quiz/widgets/quiz_wedges.dart';
 import 'package:share_plus/share_plus.dart' show SharePlus, ShareParams;
 
@@ -75,11 +76,8 @@ class _QuizResultViewState extends State<QuizResultView> {
               children: [
                 Align(
                   alignment: Alignment.centerLeft,
-                  child: GestureDetector(
-                    onTap: widget.onClose,
-                    child:
-                        const Icon(Icons.close_rounded, color: AppColors.crema),
-                  ),
+                  child: QuizGlassCircleButton(
+                      icon: Icons.close_rounded, onTap: widget.onClose),
                 ),
                 const Spacer(),
                 Text(_won ? '¡PLENO!' : 'FIN DE LA PARTIDA',
@@ -106,14 +104,19 @@ class _QuizResultViewState extends State<QuizResultView> {
                 ),
                 const SizedBox(height: 28),
                 // Stats de la partida
-                Row(
-                  children: [
-                    _Stat(label: 'PUNTOS', value: '${s?.score ?? 0}'),
-                    _Stat(label: 'MEJOR RACHA', value: '${s?.bestStreak ?? 0}'),
-                    _Stat(
-                        label: 'TOTAL',
-                        value: '${st.stats?.totalPoints ?? s?.score ?? 0}'),
-                  ],
+                QuizGlassCard(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 12, vertical: 16),
+                  child: Row(
+                    children: [
+                      _Stat(label: 'PUNTOS', value: '${s?.score ?? 0}'),
+                      _Stat(
+                          label: 'MEJOR RACHA', value: '${s?.bestStreak ?? 0}'),
+                      _Stat(
+                          label: 'TOTAL',
+                          value: '${st.stats?.totalPoints ?? s?.score ?? 0}'),
+                    ],
+                  ),
                 ),
                 if (_won && st.leveledUp && st.stats != null) ...[
                   const SizedBox(height: 18),

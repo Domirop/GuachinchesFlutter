@@ -4,6 +4,7 @@ import 'package:guachinches/config/app_shapes.dart';
 import 'package:guachinches/config/app_text_styles.dart';
 import 'package:guachinches/data/cubit/quiz/quiz_game_state.dart';
 import 'package:guachinches/data/model/quiz/quiz_models.dart';
+import 'package:guachinches/ui/pages/quiz/widgets/quiz_glass.dart';
 import 'package:guachinches/ui/pages/quiz/widgets/quiz_wedges.dart';
 
 /// Lobby del juego: título, leyenda CLARA de los 7 quesitos (qué tienes / qué
@@ -37,9 +38,11 @@ class QuizLobbyView extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
             child: Row(
               children: [
-                _CircleBtn(icon: Icons.close_rounded, onTap: onClose),
+                QuizGlassCircleButton(
+                    icon: Icons.close_rounded, onTap: onClose),
                 const Spacer(),
-                _CircleBtn(icon: Icons.help_outline_rounded, onTap: onHowTo),
+                QuizGlassCircleButton(
+                    icon: Icons.help_outline_rounded, onTap: onHowTo),
               ],
             ),
           ),
@@ -141,13 +144,8 @@ class _StatsRow extends StatelessWidget {
     final rankName = stats?.rank.name ?? 'Gofio';
     final points = stats?.totalPoints ?? 0;
     final bestStreak = stats?.bestStreak ?? 0;
-    return Container(
+    return QuizGlassCard(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(AppRadius.lg),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
-      ),
       child: Row(
         children: [
           _Stat(label: 'TU NIVEL', value: rankName),
@@ -229,26 +227,3 @@ class _PlayButton extends StatelessWidget {
   }
 }
 
-class _CircleBtn extends StatelessWidget {
-  final IconData icon;
-  final VoidCallback onTap;
-  const _CircleBtn({required this.icon, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 40,
-        height: 40,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.08),
-          shape: BoxShape.circle,
-          border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
-        ),
-        child: Icon(icon, color: AppColors.crema, size: 20),
-      ),
-    );
-  }
-}

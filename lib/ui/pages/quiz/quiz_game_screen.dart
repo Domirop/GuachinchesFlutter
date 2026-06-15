@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -9,6 +10,7 @@ import 'package:guachinches/data/cubit/quiz/quiz_game_cubit.dart';
 import 'package:guachinches/data/cubit/quiz/quiz_game_state.dart';
 import 'package:guachinches/data/quiz/quiz_repository.dart';
 import 'package:guachinches/ui/pages/quiz/quiz_sound.dart';
+import 'package:guachinches/ui/pages/quiz/widgets/quiz_glass.dart';
 import 'package:guachinches/ui/pages/quiz/widgets/quiz_lobby_view.dart';
 import 'package:guachinches/ui/pages/quiz/widgets/quiz_question_view.dart';
 import 'package:guachinches/ui/pages/quiz/widgets/quiz_result_view.dart';
@@ -62,13 +64,7 @@ class _QuizGameScaffoldState extends State<_QuizGameScaffold> {
     return Scaffold(
       backgroundColor: AppColors.base,
       body: Container(
-        decoration: const BoxDecoration(
-          gradient: RadialGradient(
-            center: Alignment(0, -0.6),
-            radius: 1.2,
-            colors: [Color(0xFF15263A), AppColors.base],
-          ),
-        ),
+        decoration: quizBackground,
         child: BlocConsumer<QuizGameCubit, QuizGameState>(
           listenWhen: (p, c) => p.phase != c.phase,
           listener: _onPhase,
@@ -149,10 +145,8 @@ class _ErrorView extends StatelessWidget {
           children: [
             Align(
               alignment: Alignment.centerLeft,
-              child: GestureDetector(
-                onTap: onClose,
-                child: const Icon(Icons.close_rounded, color: AppColors.crema),
-              ),
+              child: QuizGlassCircleButton(
+                  icon: Icons.close_rounded, onTap: onClose),
             ),
             const Spacer(),
             Icon(Icons.wifi_off_rounded,
@@ -192,13 +186,21 @@ class _ErrorView extends StatelessWidget {
 void _showRules(BuildContext context) {
   showModalBottomSheet(
     context: context,
-    backgroundColor: AppColors.elevated,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.pill)),
-    ),
-    builder: (_) => Padding(
-      padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
-      child: Column(
+    backgroundColor: Colors.transparent,
+    builder: (_) => ClipRRect(
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+        child: Container(
+          decoration: BoxDecoration(
+            color: AppColors.elevated.withValues(alpha: 0.92),
+            borderRadius:
+                const BorderRadius.vertical(top: Radius.circular(32)),
+            border: Border(
+                top: BorderSide(color: Colors.white.withValues(alpha: 0.10))),
+          ),
+          padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+          child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -222,7 +224,9 @@ void _showRules(BuildContext context) {
           _rule('🍷', 'Tienes 3 vidas. Fallar o quedarte sin tiempo resta una.'),
           _rule('⏱️', '20 segundos por pregunta. Cuanto antes aciertes, más puntos.'),
           _rule('🔥', 'Encadena aciertos para multiplicar tu puntuación.'),
-        ],
+            ],
+          ),
+        ),
       ),
     ),
   );

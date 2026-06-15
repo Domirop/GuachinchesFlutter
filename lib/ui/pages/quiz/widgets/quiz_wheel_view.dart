@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -140,17 +141,25 @@ class _QuizWheelViewState extends State<QuizWheelView>
                       ),
                     ),
                   ),
-                  // Eje central
-                  Container(
-                    width: 54,
-                    height: 54,
-                    decoration: BoxDecoration(
-                      color: AppColors.elevated,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white24, width: 2),
+                  // Eje central glass (deja entrever los colores de la rueda)
+                  ClipOval(
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+                      child: Container(
+                        width: 56,
+                        height: 56,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: AppColors.glassDark,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.25),
+                              width: 2),
+                        ),
+                        child: const Icon(Icons.casino_rounded,
+                            color: AppColors.crema, size: 26),
+                      ),
                     ),
-                    child: const Icon(Icons.casino_rounded,
-                        color: AppColors.crema, size: 26),
                   ),
                   // Puntero (arriba)
                   Positioned(
