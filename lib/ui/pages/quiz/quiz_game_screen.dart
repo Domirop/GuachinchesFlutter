@@ -6,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:guachinches/config/app_colors.dart';
 import 'package:guachinches/config/app_shapes.dart';
 import 'package:guachinches/config/app_text_styles.dart';
+import 'package:guachinches/config/brand_colors.dart';
 import 'package:guachinches/data/cubit/quiz/quiz_game_cubit.dart';
 import 'package:guachinches/data/cubit/quiz/quiz_game_state.dart';
 import 'package:guachinches/data/quiz/quiz_repository.dart';
@@ -62,9 +63,9 @@ class _QuizGameScaffoldState extends State<_QuizGameScaffold> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.base,
+      backgroundColor: context.brand.base,
       body: Container(
-        decoration: quizBackground,
+        decoration: quizBackground(context),
         child: BlocConsumer<QuizGameCubit, QuizGameState>(
           listenWhen: (p, c) => p.phase != c.phase,
           listener: _onPhase,
@@ -140,6 +141,7 @@ class _ErrorView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final brand = context.brand;
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -151,17 +153,15 @@ class _ErrorView extends StatelessWidget {
                   icon: Icons.close_rounded, onTap: onClose),
             ),
             const Spacer(),
-            Icon(Icons.wifi_off_rounded,
-                size: 48, color: AppColors.crema.withValues(alpha: 0.5)),
+            Icon(Icons.wifi_off_rounded, size: 48, color: brand.textMuted),
             const SizedBox(height: 16),
             Text('No se pudo cargar el juego',
-                style:
-                    AppTextStyles.displaySection(size: 16, color: AppColors.crema)),
+                style: AppTextStyles.displaySection(
+                    size: 16, color: brand.textPrimary)),
             const SizedBox(height: 8),
             Text(message,
                 textAlign: TextAlign.center,
-                style: AppTextStyles.ui(
-                    size: 13, color: AppColors.crema.withValues(alpha: 0.5))),
+                style: AppTextStyles.ui(size: 13, color: brand.textMuted)),
             const SizedBox(height: 24),
             GestureDetector(
               onTap: onRetry,
@@ -186,6 +186,7 @@ class _ErrorView extends StatelessWidget {
 }
 
 void _showRules(BuildContext context) {
+  final brand = context.brand;
   showModalBottomSheet(
     context: context,
     backgroundColor: Colors.transparent,
@@ -195,37 +196,41 @@ void _showRules(BuildContext context) {
         filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
         child: Container(
           decoration: BoxDecoration(
-            color: AppColors.elevated.withValues(alpha: 0.92),
+            color: brand.elevated.withValues(alpha: 0.92),
             borderRadius:
                 const BorderRadius.vertical(top: Radius.circular(32)),
-            border: Border(
-                top: BorderSide(color: Colors.white.withValues(alpha: 0.10))),
+            border: Border(top: BorderSide(color: brand.border)),
           ),
           padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
           child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Center(
-            child: Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(2),
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: brand.textMuted,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
               ),
-            ),
-          ),
-          const SizedBox(height: 20),
-          Text('CÓMO SE JUEGA',
-              style:
-                  AppTextStyles.displaySection(size: 16, color: AppColors.crema)),
-          const SizedBox(height: 16),
-          _rule('🎡', 'Gira la ruleta y responde una pregunta de esa categoría.'),
-          _rule('🧀', 'Acierta para ganar el quesito de cada isla. Reúne los 7.'),
-          _rule('🍷', 'Tienes 3 vidas. Fallar o quedarte sin tiempo resta una.'),
-          _rule('⏱️', '20 segundos por pregunta. Cuanto antes aciertes, más puntos.'),
-          _rule('🔥', 'Encadena aciertos para multiplicar tu puntuación.'),
+              const SizedBox(height: 20),
+              Text('CÓMO SE JUEGA',
+                  style: AppTextStyles.displaySection(
+                      size: 16, color: brand.textPrimary)),
+              const SizedBox(height: 16),
+              _rule(context, '🎡',
+                  'Gira la ruleta y responde una pregunta de esa categoría.'),
+              _rule(context, '🧀',
+                  'Acierta para ganar el quesito de cada isla. Reúne los 7.'),
+              _rule(context, '🍷',
+                  'Tienes 3 vidas. Fallar o quedarte sin tiempo resta una.'),
+              _rule(context, '⏱️',
+                  '20 segundos por pregunta. Cuanto antes aciertes, más puntos.'),
+              _rule(context, '🔥',
+                  'Encadena aciertos para multiplicar tu puntuación.'),
             ],
           ),
         ),
@@ -234,7 +239,7 @@ void _showRules(BuildContext context) {
   );
 }
 
-Widget _rule(String emoji, String text) => Padding(
+Widget _rule(BuildContext context, String emoji, String text) => Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -244,7 +249,7 @@ Widget _rule(String emoji, String text) => Padding(
           Expanded(
             child: Text(text,
                 style: AppTextStyles.ui(
-                    size: 13, color: AppColors.crema.withValues(alpha: 0.75))),
+                    size: 13, color: context.brand.textSecondary)),
           ),
         ],
       ),

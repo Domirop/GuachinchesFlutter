@@ -1,9 +1,9 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:guachinches/config/app_colors.dart';
 import 'package:guachinches/config/app_shapes.dart';
 import 'package:guachinches/config/app_text_styles.dart';
+import 'package:guachinches/config/brand_colors.dart';
 import 'package:guachinches/data/model/quiz/quiz_models.dart';
 
 /// Icono Material para el `icon` de cada categoría del backend.
@@ -62,6 +62,7 @@ class QuizWedgesDots extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final brand = context.brand;
     final cols = colors ?? kQuizWedgeColors;
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -77,7 +78,7 @@ class QuizWedgesDots extends StatelessWidget {
                 shape: BoxShape.circle,
                 color: (i < owned.length && owned[i])
                     ? cols[i]
-                    : Colors.white.withValues(alpha: 0.16),
+                    : brand.border,
                 boxShadow: (i < owned.length && owned[i])
                     ? [
                         BoxShadow(
@@ -120,7 +121,8 @@ class QuizWedgesRing extends StatelessWidget {
         children: [
           CustomPaint(
             size: Size(size, size),
-            painter: _WedgesPainter(colors: colors, owned: owned),
+            painter: _WedgesPainter(
+                colors: colors, owned: owned, dimBase: context.brand.surface),
           ),
           if (center != null) center!,
         ],
@@ -132,7 +134,9 @@ class QuizWedgesRing extends StatelessWidget {
 class _WedgesPainter extends CustomPainter {
   final List<Color> colors;
   final List<bool> owned;
-  _WedgesPainter({required this.colors, required this.owned});
+  final Color dimBase;
+  _WedgesPainter(
+      {required this.colors, required this.owned, required this.dimBase});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -149,8 +153,7 @@ class _WedgesPainter extends CustomPainter {
       final isOwned = i < owned.length && owned[i];
       final col = isOwned
           ? colors[i]
-          : Color.alphaBlend(
-              colors[i].withValues(alpha: 0.18), const Color(0xFF111820));
+          : Color.alphaBlend(colors[i].withValues(alpha: 0.18), dimBase);
 
       final path = Path()
         ..addArc(Rect.fromCircle(center: center, radius: radius), start,
@@ -188,6 +191,7 @@ class QuizCategoriesPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final brand = context.brand;
     return Wrap(
       spacing: 8,
       runSpacing: 8,
@@ -197,7 +201,7 @@ class QuizCategoriesPreview extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
             decoration: BoxDecoration(
               color: Color.alphaBlend(
-                  c.color.withValues(alpha: 0.14), AppColors.glassDark),
+                  c.color.withValues(alpha: 0.14), brand.glass),
               borderRadius: BorderRadius.circular(AppRadius.full),
               border: Border.all(color: c.color.withValues(alpha: 0.45)),
             ),
@@ -209,7 +213,7 @@ class QuizCategoriesPreview extends StatelessWidget {
                 Text(c.name,
                     style: AppTextStyles.ui(
                         size: 11.5,
-                        color: AppColors.crema,
+                        color: brand.textPrimary,
                         weight: FontWeight.w600)),
               ],
             ),
@@ -252,6 +256,7 @@ class _Chip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final brand = context.brand;
     final color = category.color;
     return Container(
       width: 26,
@@ -261,7 +266,7 @@ class _Chip extends StatelessWidget {
         shape: BoxShape.circle,
         color: has ? color : Colors.transparent,
         border: Border.all(
-          color: has ? color : Colors.white.withValues(alpha: 0.22),
+          color: has ? color : brand.border,
           width: 1.5,
         ),
       ),

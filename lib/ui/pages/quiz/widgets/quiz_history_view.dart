@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:guachinches/config/app_colors.dart';
 import 'package:guachinches/config/app_shapes.dart';
 import 'package:guachinches/config/app_text_styles.dart';
+import 'package:guachinches/config/brand_colors.dart';
 import 'package:guachinches/data/cubit/quiz/quiz_game_state.dart';
 import 'package:guachinches/data/model/quiz/quiz_models.dart';
 
@@ -12,6 +13,7 @@ class QuizHistoryView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final brand = context.brand;
     final history = state.history;
     if (history.isEmpty) {
       return Center(
@@ -21,17 +23,17 @@ class QuizHistoryView extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(Icons.history_rounded,
-                  size: 48, color: AppColors.crema.withValues(alpha: 0.4)),
+                  size: 48, color: brand.textMuted),
               const SizedBox(height: 12),
               Text('Aún no has jugado',
                   style: AppTextStyles.displaySection(
-                      size: 15, color: AppColors.crema)),
+                      size: 15, color: brand.textPrimary)),
               const SizedBox(height: 6),
               Text('Tus partidas terminadas aparecerán aquí.',
                   textAlign: TextAlign.center,
                   style: AppTextStyles.editorial(
                       size: 13,
-                      color: AppColors.crema.withValues(alpha: 0.55))),
+                      color: brand.textSecondary)),
             ],
           ),
         ),
@@ -45,7 +47,7 @@ class QuizHistoryView extends StatelessWidget {
           children: [
             Text('${history.length} PARTIDAS',
                 style: AppTextStyles.displaySection(
-                    size: 13, color: AppColors.crema)),
+                    size: 13, color: brand.textPrimary)),
             const Spacer(),
             Text('$won ganadas',
                 style: AppTextStyles.ui(
@@ -80,16 +82,17 @@ class QuizHistoryRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final brand = context.brand;
     final won = summary.isWon;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
       decoration: BoxDecoration(
-        color: AppColors.glassDark,
+        color: brand.glass,
         borderRadius: BorderRadius.circular(AppRadius.md),
         border: Border.all(
           color: won
               ? AppColors.laurisilva.withValues(alpha: 0.3)
-              : Colors.white.withValues(alpha: 0.06),
+              : brand.border,
         ),
       ),
       child: Row(
@@ -97,7 +100,7 @@ class QuizHistoryRow extends StatelessWidget {
           Icon(won ? Icons.emoji_events_rounded : Icons.flag_rounded,
               color: won
                   ? AppColors.sol
-                  : AppColors.crema.withValues(alpha: 0.5),
+                  : brand.textSecondary,
               size: 22),
           const SizedBox(width: 10),
           Expanded(
@@ -107,23 +110,23 @@ class QuizHistoryRow extends StatelessWidget {
                 Text(won ? '¡Pleno!' : 'Derrota',
                     style: AppTextStyles.ui(
                         size: 13,
-                        color: won ? AppColors.laurisilva : AppColors.crema,
+                        color: won ? AppColors.laurisilva : brand.textPrimary,
                         weight: FontWeight.w700)),
                 const SizedBox(height: 2),
                 Text('${summary.wedges.length}/7 quesitos · ${_date(summary.endedAt)}',
                     style: AppTextStyles.ui(
                         size: 11,
-                        color: AppColors.crema.withValues(alpha: 0.5))),
+                        color: brand.textSecondary)),
               ],
             ),
           ),
           Text('${summary.score}',
               style: AppTextStyles.displaySection(
-                  size: 17, color: AppColors.crema)),
+                  size: 17, color: brand.textPrimary)),
           const SizedBox(width: 3),
           Text('PTS',
               style: AppTextStyles.eyebrow(
-                  size: 8, color: AppColors.crema.withValues(alpha: 0.4))),
+                  size: 8, color: brand.textMuted)),
         ],
       ),
     );

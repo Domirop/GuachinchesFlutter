@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:guachinches/config/app_colors.dart';
 import 'package:guachinches/config/app_text_styles.dart';
+import 'package:guachinches/config/brand_colors.dart';
 import 'package:guachinches/data/model/quiz/quiz_models.dart';
 import 'package:guachinches/ui/pages/quiz/widgets/quiz_lives.dart';
 import 'package:guachinches/ui/pages/quiz/widgets/quiz_wedges.dart';
@@ -95,6 +96,7 @@ class _QuizWheelViewState extends State<QuizWheelView>
 
   @override
   Widget build(BuildContext context) {
+    final brand = context.brand;
     final colors = widget.categories.map((c) => c.color).toList();
     final names = widget.categories.map((c) => c.name).toList();
     return SafeArea(
@@ -108,12 +110,12 @@ class _QuizWheelViewState extends State<QuizWheelView>
                 const Spacer(),
                 Text('${widget.score}',
                     style: AppTextStyles.displaySection(
-                        size: 20, color: AppColors.crema)),
+                        size: 20, color: brand.textPrimary)),
                 const SizedBox(width: 4),
                 Text('PTS',
                     style: AppTextStyles.eyebrow(
                         size: 10,
-                        color: AppColors.crema.withValues(alpha: 0.5))),
+                        color: brand.textSecondary)),
               ],
             ),
             const SizedBox(height: 16),
@@ -150,14 +152,14 @@ class _QuizWheelViewState extends State<QuizWheelView>
                         height: 56,
                         alignment: Alignment.center,
                         decoration: BoxDecoration(
-                          color: AppColors.glassDark,
+                          color: brand.glass,
                           shape: BoxShape.circle,
                           border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.25),
+                              color: brand.border,
                               width: 2),
                         ),
-                        child: const Icon(Icons.casino_rounded,
-                            color: AppColors.crema, size: 26),
+                        child: Icon(Icons.casino_rounded,
+                            color: brand.textPrimary, size: 26),
                       ),
                     ),
                   ),
@@ -166,7 +168,7 @@ class _QuizWheelViewState extends State<QuizWheelView>
                     top: -2,
                     child: CustomPaint(
                       size: const Size(28, 22),
-                      painter: _PointerPainter(),
+                      painter: _PointerPainter(brand.textPrimary),
                     ),
                   ),
                 ],
@@ -229,6 +231,9 @@ class _WheelPainter extends CustomPainter {
 }
 
 class _PointerPainter extends CustomPainter {
+  final Color color;
+  _PointerPainter(this.color);
+
   @override
   void paint(Canvas canvas, Size size) {
     final p = Path()
@@ -237,7 +242,7 @@ class _PointerPainter extends CustomPainter {
       ..lineTo(size.width, 0)
       ..close();
     canvas.drawShadow(p, Colors.black, 4, false);
-    canvas.drawPath(p, Paint()..color = AppColors.crema);
+    canvas.drawPath(p, Paint()..color = color);
   }
 
   @override

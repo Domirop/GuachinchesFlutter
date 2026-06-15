@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:guachinches/config/app_colors.dart';
+import 'package:guachinches/config/brand_colors.dart';
 
 /// Vidas del juego como **copas de vino** (metáfora de guachinche: vino +
 /// quesitos). Copa llena = vida; copa vacía/atenuada = vida perdida. Se lee al
@@ -48,7 +49,7 @@ class _Glass extends StatelessWidget {
         child: Icon(
           alive ? Icons.wine_bar_rounded : Icons.wine_bar_outlined,
           size: size,
-          color: alive ? AppColors.mojo : Colors.white,
+          color: alive ? AppColors.mojo : context.brand.textMuted,
           shadows: alive
               ? [
                   Shadow(

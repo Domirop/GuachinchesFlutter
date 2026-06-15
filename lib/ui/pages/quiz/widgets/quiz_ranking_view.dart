@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:guachinches/config/app_colors.dart';
 import 'package:guachinches/config/app_shapes.dart';
 import 'package:guachinches/config/app_text_styles.dart';
+import 'package:guachinches/config/brand_colors.dart';
 import 'package:guachinches/data/cubit/quiz/quiz_game_state.dart';
 import 'package:guachinches/data/model/quiz/quiz_models.dart';
 
@@ -12,6 +13,7 @@ class QuizRankingView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final brand = context.brand;
     if (state.rankingLoading && state.ranking.isEmpty) {
       return const Center(
         child: CircularProgressIndicator(color: AppColors.atlanticoClaro),
@@ -25,17 +27,17 @@ class QuizRankingView extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(Icons.leaderboard_rounded,
-                  size: 48, color: AppColors.crema.withValues(alpha: 0.4)),
+                  size: 48, color: brand.textMuted),
               const SizedBox(height: 12),
               Text('Aún no hay ranking',
                   style: AppTextStyles.displaySection(
-                      size: 15, color: AppColors.crema)),
+                      size: 15, color: brand.textPrimary)),
               const SizedBox(height: 6),
               Text('Juega una partida y aparece tu nombre aquí.',
                   textAlign: TextAlign.center,
                   style: AppTextStyles.editorial(
                       size: 13,
-                      color: AppColors.crema.withValues(alpha: 0.55))),
+                      color: brand.textSecondary)),
             ],
           ),
         ),
@@ -56,18 +58,19 @@ class _RankRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final brand = context.brand;
     final me = entry.isMe;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       decoration: BoxDecoration(
         color: me
             ? AppColors.atlantico.withValues(alpha: 0.16)
-            : AppColors.glassDark,
+            : brand.glass,
         borderRadius: BorderRadius.circular(AppRadius.md),
         border: Border.all(
           color: me
               ? AppColors.atlantico.withValues(alpha: 0.5)
-              : Colors.white.withValues(alpha: 0.06),
+              : brand.border,
         ),
       ),
       child: Row(
@@ -83,7 +86,7 @@ class _RankRow extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: AppTextStyles.ui(
                         size: 14,
-                        color: AppColors.crema,
+                        color: brand.textPrimary,
                         weight: FontWeight.w700)),
                 const SizedBox(height: 2),
                 Text(entry.rank.name,
@@ -94,11 +97,11 @@ class _RankRow extends StatelessWidget {
           ),
           Text('${entry.totalPoints}',
               style:
-                  AppTextStyles.displaySection(size: 16, color: AppColors.crema)),
+                  AppTextStyles.displaySection(size: 16, color: brand.textPrimary)),
           const SizedBox(width: 3),
           Text('PTS',
               style: AppTextStyles.eyebrow(
-                  size: 8, color: AppColors.crema.withValues(alpha: 0.4))),
+                  size: 8, color: brand.textMuted)),
         ],
       ),
     );
@@ -111,6 +114,7 @@ class _Position extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final brand = context.brand;
     Color? medal;
     if (position == 1) medal = AppColors.sol;
     if (position == 2) medal = const Color(0xFFC0C0C0);
@@ -134,7 +138,7 @@ class _Position extends StatelessWidget {
     return Center(
       child: Text('$position',
           style: AppTextStyles.displaySection(
-              size: 15, color: AppColors.crema.withValues(alpha: 0.6))),
+              size: 15, color: brand.textSecondary)),
     );
   }
 }

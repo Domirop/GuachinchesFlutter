@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:guachinches/config/app_colors.dart';
 import 'package:guachinches/config/app_shapes.dart';
 import 'package:guachinches/config/app_text_styles.dart';
+import 'package:guachinches/config/brand_colors.dart';
 import 'package:guachinches/data/cubit/quiz/quiz_game_state.dart';
 import 'package:guachinches/data/model/quiz/quiz_models.dart';
 import 'package:guachinches/ui/pages/quiz/widgets/quiz_glass.dart';
@@ -29,6 +30,7 @@ class QuizLobbyView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final brand = context.brand;
     final cats = state.categories;
     final active = state.activeSession;
 
@@ -53,7 +55,7 @@ class QuizLobbyView extends StatelessWidget {
         Center(
           child: Text('7 QUESITOS',
               style:
-                  AppTextStyles.displayHero(size: 34, color: AppColors.crema)),
+                  AppTextStyles.displayHero(size: 34, color: brand.textPrimary)),
         ),
         const SizedBox(height: 6),
         Center(
@@ -61,7 +63,7 @@ class QuizLobbyView extends StatelessWidget {
             'Reúne un quesito de cada isla con 3 vidas. Cada partida empieza de cero.',
             textAlign: TextAlign.center,
             style: AppTextStyles.editorial(
-                size: 13, color: AppColors.crema.withValues(alpha: 0.6)),
+                size: 13, color: brand.textSecondary),
           ),
         ),
         const SizedBox(height: 18),
@@ -74,7 +76,7 @@ class QuizLobbyView extends StatelessWidget {
         // Preview neutral de categorías
         Text('A QUÉ TE ENFRENTAS',
             style:
-                AppTextStyles.displaySection(size: 13, color: AppColors.crema)),
+                AppTextStyles.displaySection(size: 13, color: brand.textPrimary)),
         const SizedBox(height: 12),
         if (cats.isNotEmpty)
           QuizCategoriesPreview(categories: cats)
@@ -87,7 +89,7 @@ class QuizLobbyView extends StatelessWidget {
             child: Text('¿Cómo se juega?',
                 style: AppTextStyles.ui(
                     size: 13,
-                    color: AppColors.crema.withValues(alpha: 0.6),
+                    color: brand.textSecondary,
                     weight: FontWeight.w600)),
           ),
         ),
@@ -102,6 +104,7 @@ class _ProfileCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final brand = context.brand;
     final rank = stats?.rank;
     final rankName = rank?.name ?? 'Gofio';
     final next = rank?.next;
@@ -137,11 +140,11 @@ class _ProfileCard extends StatelessWidget {
                   Text('TU NIVEL',
                       style: AppTextStyles.eyebrow(
                           size: 9,
-                          color: AppColors.crema.withValues(alpha: 0.45))),
+                          color: brand.textMuted)),
                   const SizedBox(height: 2),
                   Text(rankName.toUpperCase(),
                       style: AppTextStyles.displaySection(
-                          size: 18, color: AppColors.crema)),
+                          size: 18, color: brand.textPrimary)),
                 ],
               ),
               const Spacer(),
@@ -156,7 +159,7 @@ class _ProfileCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16),
-          Container(height: 1, color: Colors.white.withValues(alpha: 0.07)),
+          Container(height: 1, color: brand.border),
           const SizedBox(height: 14),
           Row(
             children: [
@@ -179,6 +182,7 @@ class _Stat extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final brand = context.brand;
     return Expanded(
       child: Column(
         children: [
@@ -186,12 +190,12 @@ class _Stat extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: AppTextStyles.displaySection(
-                  size: 16, color: AppColors.crema)),
+                  size: 16, color: brand.textPrimary)),
           const SizedBox(height: 3),
           Text(label,
               textAlign: TextAlign.center,
               style: AppTextStyles.eyebrow(
-                  size: 8, color: AppColors.crema.withValues(alpha: 0.45))),
+                  size: 8, color: brand.textMuted)),
         ],
       ),
     );
@@ -210,6 +214,7 @@ class _ActiveGameCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final brand = context.brand;
     return QuizGlassCard(
       tint: AppColors.atlantico.withValues(alpha: 0.16),
       borderColor: AppColors.atlantico.withValues(alpha: 0.5),
@@ -227,13 +232,13 @@ class _ActiveGameCard extends StatelessWidget {
               const Spacer(),
               Text('${session.score} pts',
                   style: AppTextStyles.displaySection(
-                      size: 14, color: AppColors.crema)),
+                      size: 14, color: brand.textPrimary)),
             ],
           ),
           const SizedBox(height: 4),
           Text('${session.wedges.length}/7 quesitos · ${session.lives} vidas',
               style: AppTextStyles.ui(
-                  size: 12, color: AppColors.crema.withValues(alpha: 0.6))),
+                  size: 12, color: brand.textSecondary)),
           const SizedBox(height: 12),
           if (categories.isNotEmpty)
             QuizWedgesStrip(
@@ -263,6 +268,7 @@ class _PreviewSkeleton extends StatelessWidget {
   const _PreviewSkeleton();
   @override
   Widget build(BuildContext context) {
+    final brand = context.brand;
     return Wrap(
       spacing: 8,
       runSpacing: 8,
@@ -272,7 +278,7 @@ class _PreviewSkeleton extends StatelessWidget {
             width: 90,
             height: 32,
             decoration: BoxDecoration(
-              color: AppColors.glassDark,
+              color: brand.glass,
               borderRadius: BorderRadius.circular(AppRadius.full),
             ),
           ),

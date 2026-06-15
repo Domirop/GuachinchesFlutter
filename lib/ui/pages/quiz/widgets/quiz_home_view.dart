@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:guachinches/config/app_colors.dart';
 import 'package:guachinches/config/app_shapes.dart';
 import 'package:guachinches/config/app_text_styles.dart';
+import 'package:guachinches/config/brand_colors.dart';
 import 'package:guachinches/data/cubit/quiz/quiz_game_state.dart';
 import 'package:guachinches/data/model/quiz/quiz_models.dart';
 import 'package:guachinches/ui/pages/quiz/widgets/quiz_glass.dart';
@@ -93,15 +94,16 @@ class _Segmented extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final brand = context.brand;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Container(
         height: 44,
         padding: const EdgeInsets.all(4),
         decoration: BoxDecoration(
-          color: AppColors.glassDark,
+          color: brand.glass,
           borderRadius: BorderRadius.circular(AppRadius.full),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+          border: Border.all(color: brand.border),
         ),
         child: Row(
           children: [
@@ -129,6 +131,7 @@ class _Seg extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final brand = context.brand;
     return Expanded(
       child: GestureDetector(
         onTap: onTap,
@@ -155,7 +158,7 @@ class _Seg extends StatelessWidget {
                   size: 11.5,
                   color: active
                       ? Colors.white
-                      : AppColors.crema.withValues(alpha: 0.6))
+                      : brand.textSecondary)
                   .copyWith(letterSpacing: 0.5)),
         ),
       ),

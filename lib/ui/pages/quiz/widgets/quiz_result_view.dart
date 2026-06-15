@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:guachinches/config/app_colors.dart';
 import 'package:guachinches/config/app_shapes.dart';
 import 'package:guachinches/config/app_text_styles.dart';
+import 'package:guachinches/config/brand_colors.dart';
 import 'package:guachinches/core/analytics/analytics.dart';
 import 'package:guachinches/data/cubit/quiz/quiz_game_state.dart';
 import 'package:guachinches/ui/pages/quiz/widgets/quiz_glass.dart';
@@ -58,6 +59,7 @@ class _QuizResultViewState extends State<QuizResultView> {
 
   @override
   Widget build(BuildContext context) {
+    final brand = context.brand;
     final st = widget.state;
     final s = st.session;
     final colors =
@@ -83,7 +85,7 @@ class _QuizResultViewState extends State<QuizResultView> {
                 Text(_won ? '¡PLENO!' : 'FIN DE LA PARTIDA',
                     style: AppTextStyles.displayHero(
                         size: _won ? 44 : 30,
-                        color: _won ? AppColors.sol : AppColors.crema)),
+                        color: _won ? AppColors.sol : brand.textPrimary)),
                 const SizedBox(height: 4),
                 Text(
                   _won
@@ -91,7 +93,7 @@ class _QuizResultViewState extends State<QuizResultView> {
                       : 'No pasa nada, los guanches también caían. Otra vez será.',
                   textAlign: TextAlign.center,
                   style: AppTextStyles.editorial(
-                      size: 14, color: AppColors.crema.withValues(alpha: 0.7)),
+                      size: 14, color: brand.textSecondary),
                 ),
                 const SizedBox(height: 28),
                 QuizWedgesRing(
@@ -100,7 +102,7 @@ class _QuizResultViewState extends State<QuizResultView> {
                   size: 180,
                   center: Text(_won ? '7/7' : '${wedges.length}/7',
                       style: AppTextStyles.displayHero(
-                          size: 30, color: AppColors.crema)),
+                          size: 30, color: brand.textPrimary)),
                 ),
                 const SizedBox(height: 28),
                 // Stats de la partida
@@ -180,6 +182,7 @@ class _Stat extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final brand = context.brand;
     return Expanded(
       child: Column(
         children: [
@@ -187,11 +190,11 @@ class _Stat extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style:
-                  AppTextStyles.displayHero(size: 24, color: AppColors.crema)),
+                  AppTextStyles.displayHero(size: 24, color: brand.textPrimary)),
           const SizedBox(height: 2),
           Text(label,
               style: AppTextStyles.eyebrow(
-                  size: 9, color: AppColors.crema.withValues(alpha: 0.45))),
+                  size: 9, color: brand.textMuted)),
         ],
       ),
     );
@@ -231,23 +234,24 @@ class _OutlineBtn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final brand = context.brand;
     return GestureDetector(
       onTap: onTap,
       child: Container(
         height: 54,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
+          border: Border.all(color: brand.border),
           borderRadius: BorderRadius.circular(AppRadius.full),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 16, color: AppColors.crema),
+            Icon(icon, size: 16, color: brand.textPrimary),
             const SizedBox(width: 6),
             Text(label,
                 style: AppTextStyles.displaySection(
-                    size: 12, color: AppColors.crema)),
+                    size: 12, color: brand.textPrimary)),
           ],
         ),
       ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:guachinches/config/app_colors.dart';
 import 'package:guachinches/config/app_shapes.dart';
 import 'package:guachinches/config/app_text_styles.dart';
+import 'package:guachinches/config/brand_colors.dart';
 import 'package:guachinches/data/cubit/quiz/quiz_game_cubit.dart';
 import 'package:guachinches/data/model/quiz/quiz_models.dart';
 import 'package:guachinches/ui/pages/quiz/widgets/quiz_lives.dart';
@@ -38,6 +39,7 @@ class QuizQuestionView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final brand = context.brand;
     final color = question.color;
     final warn = secondsLeft <= QuizGameCubit.warningSeconds;
     return SafeArea(
@@ -91,11 +93,11 @@ class QuizQuestionView extends StatelessWidget {
                     children: [
                       Text(question.categoryName.toUpperCase(),
                           style: AppTextStyles.displaySection(
-                              size: 13, color: AppColors.crema)),
+                              size: 13, color: brand.textPrimary)),
                       Text(question.island,
                           style: AppTextStyles.eyebrow(
                               size: 9,
-                              color: AppColors.crema.withValues(alpha: 0.5))),
+                              color: brand.textSecondary)),
                     ],
                   ),
                 ),
@@ -109,7 +111,7 @@ class QuizQuestionView extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Text(
               question.question,
-              style: AppTextStyles.displaySection(size: 20, color: AppColors.crema)
+              style: AppTextStyles.displaySection(size: 20, color: brand.textPrimary)
                   .copyWith(height: 1.25, letterSpacing: 0.2),
             ),
           ),
@@ -162,9 +164,10 @@ class _Option extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Color bg = AppColors.glassDark;
-    Color border = Colors.white.withValues(alpha: 0.12);
-    Color fg = AppColors.crema;
+    final brand = context.brand;
+    Color bg = brand.glass;
+    Color border = brand.border;
+    Color fg = brand.textPrimary;
     IconData? trailing;
     Color? trailingColor;
     double opacity = 1;
@@ -213,12 +216,12 @@ class _Option extends StatelessWidget {
                 height: 26,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.08),
+                  color: brand.border,
                   shape: BoxShape.circle,
                 ),
                 child: Text(letter,
                     style: AppTextStyles.displaySection(
-                        size: 12, color: AppColors.crema)),
+                        size: 12, color: brand.textPrimary)),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -245,6 +248,7 @@ class _TimerRing extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final brand = context.brand;
     final color = warn ? AppColors.mojo : AppColors.atlanticoClaro;
     return SizedBox(
       width: 46,
@@ -258,7 +262,7 @@ class _TimerRing extends StatelessWidget {
             child: CircularProgressIndicator(
               value: (secondsLeft / QuizGameCubit.questionSeconds).clamp(0, 1),
               strokeWidth: 4,
-              backgroundColor: Colors.white.withValues(alpha: 0.10),
+              backgroundColor: brand.border,
               valueColor: AlwaysStoppedAnimation(color),
             ),
           ),
@@ -276,6 +280,7 @@ class _RevealBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final brand = context.brand;
     final ok = result.isCorrect;
     final color = ok ? AppColors.laurisilva : AppColors.mojo;
     return Container(
@@ -312,7 +317,7 @@ class _RevealBar extends StatelessWidget {
             const SizedBox(height: 6),
             Text(result.explanation!,
                 style: AppTextStyles.editorial(
-                    size: 13, color: AppColors.crema.withValues(alpha: 0.8))),
+                    size: 13, color: brand.textSecondary)),
           ],
         ],
       ),
