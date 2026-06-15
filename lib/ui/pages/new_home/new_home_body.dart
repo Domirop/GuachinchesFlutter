@@ -27,6 +27,7 @@ import 'package:guachinches/data/model/TopRestaurants.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/card_visit.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/hour_aware_banner.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/parallax_hero.dart';
+import 'package:guachinches/ui/pages/new_home/widgets/quiz_banner.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/parallax_hero_slot.dart';
 import 'package:guachinches/ui/components/canarismo_card.dart';
 import 'package:guachinches/ui/components/location_prompt_banner.dart';
@@ -278,6 +279,14 @@ class _NewHomeBodyState extends State<NewHomeBody> {
 
             // ── CANARISMO DEL DÍA (teaser colapsable) ──────────────
             const SliverToBoxAdapter(child: CanarismoCard()),
+
+            // ── JUEGO: ¿CUÁNTO SABES DE CANARIAS? ───────────────
+            SliverToBoxAdapter(
+              child: Semantics(
+                identifier: 'home-section-quiz-banner',
+                child: const QuizBanner(),
+              ),
+            ),
 
             // ── CERCA DE TI ────────────────────────
             if (widget.nearbyList.isNotEmpty)
