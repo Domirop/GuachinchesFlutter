@@ -7,6 +7,7 @@ import 'package:guachinches/config/app_colors.dart';
 import 'package:guachinches/config/app_text_styles.dart';
 import 'package:guachinches/config/brand_colors.dart';
 import 'package:guachinches/data/model/quiz/quiz_models.dart';
+import 'package:guachinches/ui/pages/quiz/widgets/quiz_glass.dart';
 import 'package:guachinches/ui/pages/quiz/widgets/quiz_lives.dart';
 import 'package:guachinches/ui/pages/quiz/widgets/quiz_wedges.dart';
 
@@ -21,6 +22,7 @@ class QuizWheelView extends StatefulWidget {
   final Set<String> owned;
   final VoidCallback onNeedSpin;
   final VoidCallback onSettled;
+  final VoidCallback onExit;
 
   const QuizWheelView({
     super.key,
@@ -31,6 +33,7 @@ class QuizWheelView extends StatefulWidget {
     required this.owned,
     required this.onNeedSpin,
     required this.onSettled,
+    required this.onExit,
   });
 
   @override
@@ -106,6 +109,11 @@ class _QuizWheelViewState extends State<QuizWheelView>
           children: [
             Row(
               children: [
+                QuizGlassCircleButton(
+                    icon: Icons.arrow_back_rounded,
+                    onTap: widget.onExit,
+                    size: 38),
+                const SizedBox(width: 12),
                 QuizLives(lives: widget.lives),
                 const Spacer(),
                 Text('${widget.score}',

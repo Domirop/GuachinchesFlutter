@@ -97,6 +97,7 @@ class _QuizGameScaffoldState extends State<_QuizGameScaffold> {
                   owned: state.wedges.toSet(),
                   onNeedSpin: cubit.spin,
                   onSettled: cubit.onSpinSettled,
+                  onExit: () => _confirmExit(context, cubit),
                 );
               case QuizPhase.question:
               case QuizPhase.revealing:
@@ -113,6 +114,7 @@ class _QuizGameScaffoldState extends State<_QuizGameScaffold> {
                   selectedIndex: state.selectedIndex,
                   result: state.result,
                   onAnswer: cubit.answer,
+                  onExit: () => _confirmExit(context, cubit),
                 );
               case QuizPhase.won:
               case QuizPhase.lost:
@@ -254,3 +256,111 @@ Widget _rule(BuildContext context, String emoji, String text) => Padding(
         ],
       ),
     );
+
+/// Confirmación al salir de una partida en curso: seguir, salir (continuable)
+/// o abandonar (se pierde).
+void _confirmExit(BuildContext context, QuizGameCubit cubit) {
+  final brand = context.brand;
+  showModalBottomSheet(
+    context: context,
+    backgroundColor: Colors.transparent,
+    builder: (sheetCtx) => ClipRRect(
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+        child: Container(
+          decoration: BoxDecoration(
+            color: brand.elevated.withValues(alpha: 0.94),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+            border: Border(top: BorderSide(color: brand.border)),
+          ),
+          padding: EdgeInsets.fromLTRB(
+              20, 16, 20, 20 + MediaQuery.of(sheetCtx).padding.bottom),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: brand.textMuted,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
+              Text('SALIR DE LA PARTIDA',
+                  style: AppTextStyles.displaySection(
+                      size: 16, color: brand.textPrimary)),
+              const SizedBox(height: 6),
+              Text(
+                'Si sales, podrás continuarla luego. Si la abandonas, la pierdes.',
+                style:
+                    AppTextStyles.ui(size: 13, color: brand.textSecondary),
+              ),
+              const SizedBox(height: 18),
+              _SheetAction(
+                label: 'SEGUIR JUGANDO',
+                filled: true,
+                onTap: () => Navigator.of(sheetCtx).pop(),
+              ),
+              const SizedBox(height: 10),
+              _SheetAction(
+                label: 'SALIR · CONTINÚO LUEGO',
+                onTap: () {
+                  Navigator.of(sheetCtx).pop();
+                  cubit.leaveToLobby();
+                },
+              ),
+              const SizedBox(height: 10),
+              _SheetAction(
+                label: 'ABANDONAR PARTIDA',
+                danger: true,
+                onTap: () {
+                  Navigator.of(sheetCtx).pop();
+                  cubit.abandonAndLeave();
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+class _SheetAction extends StatelessWidget {
+  final String label;
+  final VoidCallback onTap;
+  final bool filled;
+  final bool danger;
+  const _SheetAction({
+    required this.label,
+    required this.onTap,
+    this.filled = false,
+    this.danger = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = danger ? AppColors.mojo : AppColors.atlantico;
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        height: 52,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: filled ? AppColors.atlantico : Colors.transparent,
+          borderRadius: BorderRadius.circular(AppRadius.full),
+          border: filled ? null : Border.all(color: color.withValues(alpha: 0.6), width: 1.4),
+        ),
+        child: Text(label,
+            style: AppTextStyles.displaySection(
+                size: 13, color: filled ? Colors.white : color)),
+      ),
+    );
+  }
+}

@@ -272,6 +272,37 @@ class QuizGameCubit extends Cubit<QuizGameState> {
     emit(const QuizGameState());
   }
 
+  /// Vuelve al lobby DEJANDO la partida activa (se podrá continuar luego).
+  /// No abandona la sesión; sigue 'active' en el backend.
+  void leaveToLobby() {
+    _cancelTimer();
+    emit(state.copyWith(
+      clearQuestion: true,
+      clearResult: true,
+      clearSelected: true,
+      clearLanded: true,
+    ));
+    loadLobby();
+  }
+
+  /// Abandona la partida (no se podrá continuar) y vuelve al lobby.
+  Future<void> abandonAndLeave() async {
+    _cancelTimer();
+    final s = state.session;
+    if (s != null && s.isActive) {
+      try {
+        await _repo.abandon(s.id);
+      } catch (_) {}
+    }
+    emit(state.copyWith(
+      clearQuestion: true,
+      clearResult: true,
+      clearSelected: true,
+      clearLanded: true,
+    ));
+    await loadLobby();
+  }
+
   // ── Internos ────────────────────────────────────────────────────────────────
 
   void _emitAnalyticsForAnswer(QuizAnswerResult res, QuizQuestion q) {

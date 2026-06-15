@@ -22,6 +22,7 @@ class QuizQuestionView extends StatelessWidget {
   final int? selectedIndex;
   final QuizAnswerResult? result;
   final ValueChanged<int> onAnswer;
+  final VoidCallback onExit;
 
   const QuizQuestionView({
     super.key,
@@ -35,6 +36,7 @@ class QuizQuestionView extends StatelessWidget {
     required this.selectedIndex,
     required this.result,
     required this.onAnswer,
+    required this.onExit,
   });
 
   @override
@@ -58,6 +60,24 @@ class QuizQuestionView extends StatelessWidget {
               children: [
                 Row(
                   children: [
+                    GestureDetector(
+                      onTap: onExit,
+                      behavior: HitTestBehavior.opaque,
+                      child: Container(
+                        width: 34,
+                        height: 34,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.28),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.25)),
+                        ),
+                        child: const Icon(Icons.arrow_back_rounded,
+                            color: Colors.white, size: 18),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
                     QuizLives(lives: lives, size: 22),
                     const Spacer(),
                     Text('$score',
