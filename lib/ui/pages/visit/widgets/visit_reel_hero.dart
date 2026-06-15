@@ -228,8 +228,10 @@ class _InlineReelState extends State<_InlineReel> {
     _c = VideoPlayerController.networkUrl(Uri.parse(widget.url));
     _c.initialize().then((_) {
       if (!mounted) return;
+      // Respeta el estado de silencio actual: el usuario puede haber tocado el
+      // botón de sonido ANTES de que terminara de inicializar.
       _c
-        ..setVolume(0)
+        ..setVolume(_muted ? 0 : 1)
         ..setLooping(true)
         ..play();
       setState(() => _ready = true);
@@ -245,7 +247,9 @@ class _InlineReelState extends State<_InlineReel> {
   void _toggleMute() {
     setState(() {
       _muted = !_muted;
-      _c.setVolume(_muted ? 0 : 1);
+      // Si aún no ha inicializado, no aplicamos el volumen ahora (sería un
+      // no-op); lo aplica el `.then` de initialize al estar listo.
+      if (_c.value.isInitialized) _c.setVolume(_muted ? 0 : 1);
     });
   }
 
