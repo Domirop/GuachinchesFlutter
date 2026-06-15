@@ -75,6 +75,12 @@ class Visit {
   /// URL del mp4 self-host en S3 (backend migration 033). Si no es null, se
   /// reproduce in-app vertical (TikTok) en vez del embed de YouTube.
   String? videoFileUrl;
+
+  /// Códec de vídeo del mp4 self-host (`youtubeVideo.videoFile.videoCodec`,
+  /// backend migration 035). iOS (AVPlayer) NO decodifica AV1/VP9 → frame
+  /// negro; solo H.264/HEVC son seguros. Lo usamos para gatear la reproducción
+  /// in-app: si el códec no es compatible (o no lo conocemos), caemos a YouTube.
+  String? videoCodec;
   String? creator;
   String? extraText;
   late String restaurantId;
@@ -118,6 +124,7 @@ class Visit {
     this.videoUrl,
     this.youtubeVideoId,
     this.videoFileUrl,
+    this.videoCodec,
     this.creator,
     this.extraText,
     required this.restaurantId,
@@ -200,6 +207,18 @@ class Visit {
       return (flat != null && flat.isNotEmpty) ? flat : null;
     }
 
+    // Códec del mp4 self-host (backend migration 035). Tolera camelCase/snake.
+    String? parseVideoCodec() {
+      final vf = yt?['videoFile'] ?? yt?['video_file'];
+      if (vf is Map) {
+        final c = (vf['videoCodec'] ?? vf['video_codec'] ?? vf['codec'])
+            ?.toString();
+        if (c != null && c.isNotEmpty) return c.toLowerCase();
+      }
+      final flat = (json['videoCodec'] ?? json['video_codec'])?.toString();
+      return (flat != null && flat.isNotEmpty) ? flat.toLowerCase() : null;
+    }
+
     final videoUrl = json['videoUrl'] ??
         json['video_url'] ??
         (ytVideoId != null && ytVideoId.isNotEmpty
@@ -215,6 +234,7 @@ class Visit {
       videoUrl: videoUrl?.toString(),
       youtubeVideoId: ytVideoId,
       videoFileUrl: parseVideoFileUrl(),
+      videoCodec: parseVideoCodec(),
       creator: json['creator']?.toString(),
       extraText: (json['extraText'] ?? json['extra_text'])?.toString(),
       restaurantId:
@@ -285,6 +305,25 @@ class Visit {
   /// Fecha canónica para ordenar visitas: la del vídeo de YouTube si existe,
   /// si no la de publicación en la app, y como último recurso la de creación.
   String? get sortDate => videoPublishedAt ?? publishedAt ?? createdAt;
+
+  /// Códecs que iOS (AVPlayer) y Android pueden decodificar de forma fiable.
+  /// AV1 / VP9 quedan FUERA a propósito: la mayoría de iPhones (y el simulador)
+  /// no los decodifican → reproducen audio pero pintan el frame negro.
+  static const _iosSafeCodecs = {
+    'h264', 'avc', 'avc1', 'hevc', 'h265', 'hvc1',
+  };
+
+  /// ¿Podemos reproducir el mp4 self-host in-app sin riesgo de frame negro?
+  /// Solo si hay URL y el backend ha confirmado un códec compatible (migration
+  /// 035). Si el códec es desconocido o no-compatible (p.ej. los mp4 AV1 que
+  /// guarda hoy el backend), devolvemos false → el caller cae a YouTube embed.
+  bool get selfHostVideoPlayable {
+    final u = videoFileUrl;
+    if (u == null || u.trim().isEmpty) return false;
+    final c = videoCodec;
+    if (c == null) return false; // desconocido → conservador, no arriesgar negro
+    return _iosSafeCodecs.contains(c);
+  }
 
   Map<String, dynamic> toJson() {
     return {

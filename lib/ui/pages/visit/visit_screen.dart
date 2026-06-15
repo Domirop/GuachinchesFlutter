@@ -162,9 +162,10 @@ class _VisitDetailPageState extends State<VisitDetailPage>
   void _playVideo() {
     final v = _visit;
     if (v == null) return;
-    final mp4 = v.videoFileUrl;
-    if (mp4 != null && mp4.trim().isNotEmpty) {
-      showVerticalVideo(context, mp4);
+    // mp4 self-host SOLO si el códec es reproducible en iOS (H.264/HEVC); si es
+    // AV1/desconocido pintaría negro → fallback a YouTube embed.
+    if (v.selfHostVideoPlayable) {
+      showVerticalVideo(context, v.videoFileUrl!);
       return;
     }
     final ytId = v.youtubeVideoId;

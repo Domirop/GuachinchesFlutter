@@ -233,11 +233,10 @@ class _VideoTeaser extends StatelessWidget {
     return Center(
       child: GestureDetector(
         onTap: () {
-          // mp4 self-host → reproductor in-app vertical (TikTok); si no,
-          // fallback al embed de YouTube.
-          final mp4 = visit.videoFileUrl;
-          if (mp4 != null && mp4.trim().isNotEmpty) {
-            showVerticalVideo(context, mp4);
+          // mp4 self-host SOLO si el códec es reproducible en iOS (H.264/HEVC);
+          // si es AV1/desconocido reproduciría negro → caemos a YouTube embed.
+          if (visit.selfHostVideoPlayable) {
+            showVerticalVideo(context, visit.videoFileUrl!);
           } else if (visit.youtubeVideoId != null) {
             YoutubeEmbedSheet.show(context, videoId: visit.youtubeVideoId!);
           }
