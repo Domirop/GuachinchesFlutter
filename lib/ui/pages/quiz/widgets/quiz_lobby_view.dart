@@ -7,19 +7,19 @@ import 'package:guachinches/data/model/quiz/quiz_models.dart';
 import 'package:guachinches/ui/pages/quiz/widgets/quiz_glass.dart';
 import 'package:guachinches/ui/pages/quiz/widgets/quiz_wedges.dart';
 
-/// Lobby del juego: título, leyenda CLARA de los 7 quesitos (qué tienes / qué
-/// te falta), tu nivel, puntos y mejor racha, y JUGAR. Dark-glass DCC.
+/// Pestaña INICIO: partida en curso (si la hay), reto de los 7 quesitos con tu
+/// progreso claro, tu nivel/puntos/racha, JUGAR y tus últimas partidas.
 class QuizLobbyView extends StatelessWidget {
   final QuizGameState state;
   final VoidCallback onPlay;
-  final VoidCallback onClose;
+  final ValueChanged<QuizSession> onResume;
   final VoidCallback onHowTo;
 
   const QuizLobbyView({
     super.key,
     required this.state,
     required this.onPlay,
-    required this.onClose,
+    required this.onResume,
     required this.onHowTo,
   });
 
@@ -29,79 +29,70 @@ class QuizLobbyView extends StatelessWidget {
     final cats = state.categories;
     final owned = stats?.categoriesMastered.toSet() ?? <String>{};
     final ownedCount = cats.where((c) => owned.contains(c.slug)).length;
+    final active = state.activeSession;
 
-    return SafeArea(
-      child: Column(
-        children: [
-          // Top bar
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
-            child: Row(
-              children: [
-                QuizGlassCircleButton(
-                    icon: Icons.close_rounded, onTap: onClose),
-                const Spacer(),
-                QuizGlassCircleButton(
-                    icon: Icons.help_outline_rounded, onTap: onHowTo),
-              ],
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
+      children: [
+        // Partida en curso
+        if (active != null) ...[
+          _ActiveGameCard(
+            session: active,
+            categories: cats,
+            onResume: () => onResume(active),
+          ),
+          const SizedBox(height: 20),
+        ],
+        // Hero
+        Center(
+          child: Text('EL RETO DE LOS',
+              style: AppTextStyles.eyebrow(
+                  size: 11, color: AppColors.atlanticoClaro)),
+        ),
+        const SizedBox(height: 2),
+        Center(
+          child: Text('7 QUESITOS',
+              style: AppTextStyles.displayHero(size: 34, color: AppColors.crema)),
+        ),
+        const SizedBox(height: 16),
+        _PlayButton(
+            label: active != null ? 'NUEVA PARTIDA' : 'JUGAR', onTap: onPlay),
+        const SizedBox(height: 24),
+        // Progreso claro
+        Row(
+          children: [
+            Text('TUS QUESITOS',
+                style: AppTextStyles.displaySection(
+                    size: 13, color: AppColors.crema)),
+            const Spacer(),
+            Text('$ownedCount/7',
+                style: AppTextStyles.displaySection(
+                    size: 14, color: AppColors.atlanticoClaro)),
+          ],
+        ),
+        const SizedBox(height: 12),
+        if (cats.isNotEmpty)
+          QuizWedgesLegend(categories: cats, owned: owned)
+        else
+          const _LegendSkeleton(),
+        const SizedBox(height: 20),
+        _StatsRow(stats: stats),
+        // Historial
+        if (state.history.isNotEmpty) ...[
+          const SizedBox(height: 24),
+          Text('ÚLTIMAS PARTIDAS',
+              style:
+                  AppTextStyles.displaySection(size: 13, color: AppColors.crema)),
+          const SizedBox(height: 10),
+          for (final h in state.history)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: _HistoryRow(summary: h),
             ),
-          ),
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Center(
-                    child: Text('EL RETO DE LOS',
-                        style: AppTextStyles.eyebrow(
-                            size: 12, color: AppColors.atlanticoClaro)),
-                  ),
-                  const SizedBox(height: 4),
-                  Center(
-                    child: Text('7 QUESITOS',
-                        style: AppTextStyles.displayHero(
-                            size: 40, color: AppColors.crema)),
-                  ),
-                  const SizedBox(height: 6),
-                  Center(
-                    child: Text('Pon a prueba tu canariedad',
-                        style: AppTextStyles.editorial(
-                            size: 14,
-                            color: AppColors.crema.withValues(alpha: 0.6))),
-                  ),
-                  const SizedBox(height: 24),
-                  // Cabecera de progreso
-                  Row(
-                    children: [
-                      Text('TUS QUESITOS',
-                          style: AppTextStyles.displaySection(
-                              size: 13, color: AppColors.crema)),
-                      const Spacer(),
-                      Text('$ownedCount/7',
-                          style: AppTextStyles.displaySection(
-                              size: 14, color: AppColors.atlanticoClaro)),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  // Leyenda clara (la corrección principal)
-                  if (cats.isNotEmpty)
-                    QuizWedgesLegend(categories: cats, owned: owned)
-                  else
-                    _LegendSkeleton(),
-                  const SizedBox(height: 20),
-                  // Stats
-                  _StatsRow(stats: stats),
-                ],
-              ),
-            ),
-          ),
-          // JUGAR fijo
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
-            child: _PlayButton(onTap: onPlay),
-          ),
-          TextButton(
+        ],
+        const SizedBox(height: 12),
+        Center(
+          child: TextButton(
             onPressed: onHowTo,
             child: Text('¿Cómo se juega?',
                 style: AppTextStyles.ui(
@@ -109,7 +100,116 @@ class QuizLobbyView extends StatelessWidget {
                     color: AppColors.crema.withValues(alpha: 0.6),
                     weight: FontWeight.w600)),
           ),
-          const SizedBox(height: 6),
+        ),
+      ],
+    );
+  }
+}
+
+class _ActiveGameCard extends StatelessWidget {
+  final QuizSession session;
+  final List<QuizCategory> categories;
+  final VoidCallback onResume;
+  const _ActiveGameCard({
+    required this.session,
+    required this.categories,
+    required this.onResume,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return QuizGlassCard(
+      tint: AppColors.atlantico.withValues(alpha: 0.16),
+      borderColor: AppColors.atlantico.withValues(alpha: 0.5),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.play_circle_fill_rounded,
+                  color: AppColors.atlanticoClaro, size: 20),
+              const SizedBox(width: 8),
+              Text('PARTIDA EN CURSO',
+                  style: AppTextStyles.eyebrow(
+                      size: 11, color: AppColors.atlanticoClaro)),
+              const Spacer(),
+              Text('${session.score} pts',
+                  style: AppTextStyles.displaySection(
+                      size: 14, color: AppColors.crema)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (categories.isNotEmpty)
+            QuizWedgesStrip(
+                categories: categories, owned: session.wedges.toSet()),
+          const SizedBox(height: 14),
+          GestureDetector(
+            onTap: onResume,
+            child: Container(
+              height: 46,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: AppColors.atlantico,
+                borderRadius: BorderRadius.circular(AppRadius.full),
+              ),
+              child: Text('CONTINUAR',
+                  style: AppTextStyles.displaySection(
+                      size: 14, color: Colors.white)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HistoryRow extends StatelessWidget {
+  final QuizSessionSummary summary;
+  const _HistoryRow({required this.summary});
+
+  String _date(String? iso) {
+    if (iso == null) return '';
+    final d = DateTime.tryParse(iso);
+    if (d == null) return '';
+    const m = [
+      '', 'ene', 'feb', 'mar', 'abr', 'may', 'jun',
+      'jul', 'ago', 'sep', 'oct', 'nov', 'dic'
+    ];
+    return '${d.day} ${m[d.month]}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final won = summary.isWon;
+    final color = won ? AppColors.laurisilva : AppColors.crema;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppColors.glassDark,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+      ),
+      child: Row(
+        children: [
+          Icon(won ? Icons.emoji_events_rounded : Icons.flag_rounded,
+              color: won ? AppColors.sol : AppColors.crema.withValues(alpha: 0.5),
+              size: 20),
+          const SizedBox(width: 10),
+          Text(won ? '¡Pleno!' : 'Partida',
+              style: AppTextStyles.ui(
+                  size: 13, color: color, weight: FontWeight.w600)),
+          const SizedBox(width: 8),
+          Text('· ${summary.wedges.length}/7 🧀',
+              style: AppTextStyles.ui(
+                  size: 12, color: AppColors.crema.withValues(alpha: 0.5))),
+          const Spacer(),
+          Text(_date(summary.endedAt),
+              style: AppTextStyles.ui(
+                  size: 11, color: AppColors.crema.withValues(alpha: 0.4))),
+          const SizedBox(width: 10),
+          Text('${summary.score}',
+              style: AppTextStyles.displaySection(
+                  size: 14, color: AppColors.crema)),
         ],
       ),
     );
@@ -117,6 +217,7 @@ class QuizLobbyView extends StatelessWidget {
 }
 
 class _LegendSkeleton extends StatelessWidget {
+  const _LegendSkeleton();
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -126,7 +227,7 @@ class _LegendSkeleton extends StatelessWidget {
             height: 54,
             margin: const EdgeInsets.only(bottom: 8),
             decoration: BoxDecoration(
-              color: AppColors.surface,
+              color: AppColors.glassDark,
               borderRadius: BorderRadius.circular(AppRadius.md),
             ),
           ),
@@ -195,8 +296,9 @@ class _Divider extends StatelessWidget {
 }
 
 class _PlayButton extends StatelessWidget {
+  final String label;
   final VoidCallback onTap;
-  const _PlayButton({required this.onTap});
+  const _PlayButton({required this.label, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -204,7 +306,7 @@ class _PlayButton extends StatelessWidget {
       onTap: onTap,
       child: Container(
         width: double.infinity,
-        height: 58,
+        height: 56,
         alignment: Alignment.center,
         decoration: BoxDecoration(
           gradient: const LinearGradient(
@@ -219,11 +321,10 @@ class _PlayButton extends StatelessWidget {
             ),
           ],
         ),
-        child: Text('JUGAR',
+        child: Text(label,
             style: AppTextStyles.displaySection(size: 18, color: Colors.white)
                 .copyWith(letterSpacing: 2)),
       ),
     );
   }
 }
-

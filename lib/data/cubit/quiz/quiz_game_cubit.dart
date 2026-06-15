@@ -31,22 +31,81 @@ class QuizGameCubit extends Cubit<QuizGameState> {
   /// Resiliente: si una llamada falla (p.ej. backend aún sin desplegar), deja
   /// lo que se pudo cargar y no rompe la pantalla.
   Future<void> loadLobby() async {
-    if (state.phase == QuizPhase.idle) {
+    if (state.phase == QuizPhase.idle && state.categories.isEmpty) {
       emit(state.copyWith(phase: QuizPhase.loading, clearError: true));
     }
     List<QuizCategory>? cats;
     QuizStats? stats;
-    try {
-      cats = await _repo.getCategories();
-    } catch (_) {}
-    try {
-      stats = await _repo.getStats();
-    } catch (_) {}
+    QuizSession? active;
+    List<QuizSessionSummary>? history;
+    await Future.wait([
+      () async {
+        try {
+          cats = await _repo.getCategories();
+        } catch (_) {}
+      }(),
+      () async {
+        try {
+          stats = await _repo.getStats();
+        } catch (_) {}
+      }(),
+      () async {
+        try {
+          active = await _repo.getActiveSession();
+        } catch (_) {}
+      }(),
+      () async {
+        try {
+          history = await _repo.getMySessions();
+        } catch (_) {}
+      }(),
+    ]);
     emit(state.copyWith(
       phase: QuizPhase.idle,
       categories: cats ?? state.categories,
       stats: stats ?? state.stats,
+      activeSession: active,
+      clearActiveSession: active == null,
+      history: history ?? state.history,
     ));
+  }
+
+  /// Carga el ranking (pestaña Ranking, on-demand).
+  Future<void> loadRanking() async {
+    emit(state.copyWith(rankingLoading: true));
+    try {
+      final r = await _repo.getRanking();
+      emit(state.copyWith(ranking: r, rankingLoading: false));
+    } catch (_) {
+      emit(state.copyWith(rankingLoading: false));
+    }
+  }
+
+  /// Continúa una partida activa sin terminar.
+  Future<void> resumeGame(QuizSession session) async {
+    emit(state.copyWith(
+      phase: QuizPhase.loading,
+      clearError: true,
+      clearQuestion: true,
+      clearResult: true,
+      clearSelected: true,
+      clearLanded: true,
+    ));
+    _exhausted.clear();
+    try {
+      var cats = state.categories;
+      if (cats.isEmpty) cats = await _repo.getCategories();
+      _gamesWonBefore = state.stats?.gamesWon ?? 0;
+      emit(state.copyWith(
+        phase: QuizPhase.spinning,
+        categories: cats,
+        session: session,
+        clearActiveSession: true,
+        secondsLeft: questionSeconds,
+      ));
+    } catch (e) {
+      emit(state.copyWith(phase: QuizPhase.error, error: e.toString()));
+    }
   }
 
   // ── Ciclo de partida ───────────────────────────────────────────────────────
@@ -77,6 +136,7 @@ class QuizGameCubit extends Cubit<QuizGameState> {
         phase: QuizPhase.spinning,
         categories: cats,
         session: session,
+        clearActiveSession: true,
         secondsLeft: questionSeconds,
       ));
     } catch (e) {

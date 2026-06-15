@@ -58,6 +58,46 @@ class QuizRepository {
     return QuizStats.fromJson(_decodeMap(r, 'getStats'));
   }
 
+  /// Partida activa del usuario (para continuar), o null.
+  Future<QuizSession?> getActiveSession() async {
+    final r = await _client.get(Uri.parse('${_base}quiz/me/active'),
+        headers: await _authHeaders());
+    if (r.statusCode != 200 || r.body.isEmpty || r.body == 'null') return null;
+    final d = jsonDecode(r.body);
+    if (d is! Map<String, dynamic>) return null;
+    return QuizSession.fromJson(d);
+  }
+
+  /// Historial de partidas terminadas.
+  Future<List<QuizSessionSummary>> getMySessions({int limit = 10}) async {
+    final r = await _client.get(
+        Uri.parse('${_base}quiz/me/sessions?limit=$limit'),
+        headers: await _authHeaders());
+    if (r.statusCode != 200) {
+      throw QuizException('getMySessions falló (${r.statusCode})');
+    }
+    final list = jsonDecode(r.body) as List;
+    return list
+        .map((e) =>
+            QuizSessionSummary.fromJson((e as Map).cast<String, dynamic>()))
+        .toList();
+  }
+
+  /// Ranking por puntos totales (top N + tu posición).
+  Future<List<QuizRankingEntry>> getRanking({int limit = 50}) async {
+    final r = await _client.get(
+        Uri.parse('${_base}quiz/ranking?limit=$limit'),
+        headers: await _authHeaders());
+    if (r.statusCode != 200) {
+      throw QuizException('getRanking falló (${r.statusCode})');
+    }
+    final list = jsonDecode(r.body) as List;
+    return list
+        .map((e) =>
+            QuizRankingEntry.fromJson((e as Map).cast<String, dynamic>()))
+        .toList();
+  }
+
   /// Inicia una partida nueva.
   Future<QuizSession> startSession() async {
     final r = await _client.post(Uri.parse('${_base}quiz/sessions'),

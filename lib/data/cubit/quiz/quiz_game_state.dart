@@ -22,6 +22,16 @@ class QuizGameState {
   /// Stats acumuladas del jugador (para el lobby/victoria). null = sin cargar.
   final QuizStats? stats;
 
+  /// Partida activa sin terminar (para "continuar"), o null.
+  final QuizSession? activeSession;
+
+  /// Historial de partidas terminadas (lobby → "tus partidas").
+  final List<QuizSessionSummary> history;
+
+  /// Ranking de jugadores (pestaña Ranking). Vacío = sin cargar.
+  final List<QuizRankingEntry> ranking;
+  final bool rankingLoading;
+
   /// Categoría en la que cae la ruleta este turno.
   final QuizCategory? landed;
 
@@ -47,6 +57,10 @@ class QuizGameState {
     this.categories = const [],
     this.session,
     this.stats,
+    this.activeSession,
+    this.history = const [],
+    this.ranking = const [],
+    this.rankingLoading = false,
     this.landed,
     this.question,
     this.selectedIndex,
@@ -66,6 +80,10 @@ class QuizGameState {
     List<QuizCategory>? categories,
     QuizSession? session,
     QuizStats? stats,
+    QuizSession? activeSession,
+    List<QuizSessionSummary>? history,
+    List<QuizRankingEntry>? ranking,
+    bool? rankingLoading,
     QuizCategory? landed,
     QuizQuestion? question,
     int? selectedIndex,
@@ -78,12 +96,18 @@ class QuizGameState {
     bool clearSelected = false,
     bool clearResult = false,
     bool clearError = false,
+    bool clearActiveSession = false,
   }) {
     return QuizGameState(
       phase: phase ?? this.phase,
       categories: categories ?? this.categories,
       session: session ?? this.session,
       stats: stats ?? this.stats,
+      activeSession:
+          clearActiveSession ? null : (activeSession ?? this.activeSession),
+      history: history ?? this.history,
+      ranking: ranking ?? this.ranking,
+      rankingLoading: rankingLoading ?? this.rankingLoading,
       landed: clearLanded ? null : (landed ?? this.landed),
       question: clearQuestion ? null : (question ?? this.question),
       selectedIndex:

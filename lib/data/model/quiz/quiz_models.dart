@@ -191,6 +191,71 @@ class QuizRank {
       );
 }
 
+/// Resumen de una partida terminada (historial "tus partidas").
+class QuizSessionSummary {
+  final String id;
+  final String status; // won | lost
+  final int score;
+  final int bestStreak;
+  final List<String> wedges;
+  final String? endedAt;
+
+  const QuizSessionSummary({
+    required this.id,
+    required this.status,
+    required this.score,
+    required this.bestStreak,
+    required this.wedges,
+    this.endedAt,
+  });
+
+  bool get isWon => status == 'won';
+
+  factory QuizSessionSummary.fromJson(Map<String, dynamic> j) =>
+      QuizSessionSummary(
+        id: j['id']?.toString() ?? '',
+        status: j['status']?.toString() ?? 'lost',
+        score: QuizSession._int(j['score']),
+        bestStreak: QuizSession._int(j['bestStreak']),
+        wedges: (j['wedges'] is List)
+            ? (j['wedges'] as List).map((e) => e.toString()).toList()
+            : const [],
+        endedAt: j['endedAt']?.toString(),
+      );
+}
+
+/// Una fila del ranking de jugadores.
+class QuizRankingEntry {
+  final int position;
+  final String userId;
+  final String name;
+  final int totalPoints;
+  final int gamesWon;
+  final QuizRank rank;
+  final bool isMe;
+
+  const QuizRankingEntry({
+    required this.position,
+    required this.userId,
+    required this.name,
+    required this.totalPoints,
+    required this.gamesWon,
+    required this.rank,
+    required this.isMe,
+  });
+
+  factory QuizRankingEntry.fromJson(Map<String, dynamic> j) => QuizRankingEntry(
+        position: QuizSession._int(j['position']),
+        userId: j['userId']?.toString() ?? '',
+        name: j['name']?.toString() ?? 'Jugador',
+        totalPoints: QuizSession._int(j['totalPoints']),
+        gamesWon: QuizSession._int(j['gamesWon']),
+        rank: QuizRank.fromJson(
+            (j['rank'] as Map?)?.cast<String, dynamic>() ?? const {}),
+        isMe: j['isMe'] == true,
+      );
+}
+
 /// Stats acumuladas del jugador + su rango.
 class QuizStats {
   final int totalPoints;

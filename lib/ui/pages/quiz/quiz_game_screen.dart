@@ -11,7 +11,7 @@ import 'package:guachinches/data/cubit/quiz/quiz_game_state.dart';
 import 'package:guachinches/data/quiz/quiz_repository.dart';
 import 'package:guachinches/ui/pages/quiz/quiz_sound.dart';
 import 'package:guachinches/ui/pages/quiz/widgets/quiz_glass.dart';
-import 'package:guachinches/ui/pages/quiz/widgets/quiz_lobby_view.dart';
+import 'package:guachinches/ui/pages/quiz/widgets/quiz_home_view.dart';
 import 'package:guachinches/ui/pages/quiz/widgets/quiz_question_view.dart';
 import 'package:guachinches/ui/pages/quiz/widgets/quiz_result_view.dart';
 import 'package:guachinches/ui/pages/quiz/widgets/quiz_wheel_view.dart';
@@ -73,11 +73,13 @@ class _QuizGameScaffoldState extends State<_QuizGameScaffold> {
             switch (state.phase) {
               case QuizPhase.idle:
               case QuizPhase.loading:
-                return QuizLobbyView(
+                return QuizHomeView(
                   state: state,
                   onPlay: cubit.startGame,
+                  onResume: cubit.resumeGame,
                   onClose: () => Navigator.of(context).maybePop(),
                   onHowTo: () => _showRules(context),
+                  onLoadRanking: cubit.loadRanking,
                 );
               case QuizPhase.error:
                 return _ErrorView(
