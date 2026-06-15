@@ -236,7 +236,8 @@ class _VideoTeaser extends StatelessWidget {
           // mp4 self-host SOLO si el códec es reproducible en iOS (H.264/HEVC);
           // si es AV1/desconocido reproduciría negro → caemos a YouTube embed.
           if (visit.selfHostVideoPlayable) {
-            showVerticalVideo(context, visit.videoFileUrl!);
+            showVerticalVideo(context,
+                url: visit.videoFileUrl!, visit: visit);
           } else if (visit.youtubeVideoId != null) {
             YoutubeEmbedSheet.show(context, videoId: visit.youtubeVideoId!);
           }

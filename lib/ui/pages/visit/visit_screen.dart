@@ -113,7 +113,8 @@ class _VisitDetailPageState extends State<VisitDetailPage>
     // mp4 self-host SOLO si el códec es reproducible en iOS (H.264/HEVC); si es
     // AV1/desconocido pintaría negro → fallback a YouTube embed.
     if (v.selfHostVideoPlayable) {
-      showVerticalVideo(context, v.videoFileUrl!);
+      showVerticalVideo(context,
+          url: v.videoFileUrl!, visit: v, onOpenRestaurant: _goToRestaurant);
       return;
     }
     final ytId = v.youtubeVideoId;
