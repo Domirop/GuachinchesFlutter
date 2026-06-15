@@ -320,6 +320,9 @@ class _NewHomeBodyState extends State<NewHomeBody> {
                 ),
               ),
 
+            // ── ÚLTIMAS VISITAS (encima de Mejor Valorados) ──
+            SliverToBoxAdapter(child: _buildVisitsSection(context)),
+
             // ── MEJOR VALORADOS · {ISLA} ─────────────
             if (TopRatedSection.shouldRender(widget.topRated))
               SliverToBoxAdapter(
@@ -343,15 +346,14 @@ class _NewHomeBodyState extends State<NewHomeBody> {
               ),
             ),
 
-            // ── GUÍAS + VISITAS (lazy, on-demand via SliverChildBuilderDelegate) ─
+            // ── GUÍAS (lazy, on-demand via SliverChildBuilderDelegate) ─
             SliverList(
               delegate: SliverChildBuilderDelegate(
                 (c, i) {
                   if (i == 0) return _buildCuratedListsSection(c);
-                  if (i == 1) return _buildVisitsSection(c);
                   return null;
                 },
-                childCount: 2,
+                childCount: 1,
               ),
             ),
 
