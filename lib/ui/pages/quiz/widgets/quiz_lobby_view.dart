@@ -47,17 +47,18 @@ class QuizLobbyView extends StatelessWidget {
           const SizedBox(height: 20),
         ],
         Center(
-          child: Text('EL RETO DE LOS',
+          child: Text('PON A PRUEBA TU CANARIEDAD',
               style: AppTextStyles.eyebrow(
                   size: 11, color: AppColors.atlanticoClaro)),
         ),
-        const SizedBox(height: 2),
+        const SizedBox(height: 4),
         Center(
-          child: Text('7 QUESITOS',
-              style:
-                  AppTextStyles.displayHero(size: 34, color: brand.textPrimary)),
+          child: Text('¿CUÁNTO SABES\nDE CANARIAS?',
+              textAlign: TextAlign.center,
+              style: AppTextStyles.displayHero(size: 32, color: brand.textPrimary)
+                  .copyWith(height: 1.04)),
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 8),
         Center(
           child: Text(
             'Reúne un quesito de cada isla con 3 vidas. Cada partida empieza de cero.',
