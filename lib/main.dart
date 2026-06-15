@@ -49,6 +49,7 @@ import 'package:http/http.dart';
 import 'data/cubit/restaurants/basic/restaurant_cubit.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:guachinches/core/analytics/analytics.dart';
+import 'package:guachinches/core/app_route_observer.dart';
 import 'package:guachinches/core/analytics/firebase_analytics_service.dart';
 import 'package:guachinches/core/analytics/posthog_analytics_service.dart';
 import 'package:posthog_flutter/posthog_flutter.dart';
@@ -303,6 +304,8 @@ class _MyAppState extends State<MyApp> {
           title: 'Guachinches',
           navigatorKey: navigatorKey,
           navigatorObservers: [
+            // Pausa/reanuda vídeos inline cuando se apila/desapila una pantalla.
+            appRouteObserver,
             // Screen-tracking automático para PostHog (paths, funnels por
             // pantalla, duración de sesión). Solo si PostHog está activo.
             if (Analytics.posthogEnabled) PosthogObserver(),

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:guachinches/config/app_colors.dart';
 import 'package:guachinches/config/app_shapes.dart';
 import 'package:guachinches/config/brand_colors.dart';
+import 'package:guachinches/core/app_route_observer.dart';
 import 'package:guachinches/data/model/Visit.dart' as vm;
 import 'package:guachinches/ui/pages/restaurant_detail/widgets/dishes_section.dart';
 import 'package:video_player/video_player.dart';
@@ -220,7 +221,7 @@ class _InlineReel extends StatefulWidget {
   State<_InlineReel> createState() => _InlineReelState();
 }
 
-class _InlineReelState extends State<_InlineReel> {
+class _InlineReelState extends State<_InlineReel> with RouteAware {
   late final VideoPlayerController _c;
   bool _ready = false;
   bool _muted = true;
@@ -242,7 +243,31 @@ class _InlineReelState extends State<_InlineReel> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    if (route is PageRoute) appRouteObserver.subscribe(this, route);
+  }
+
+  /// Se apiló otra pantalla encima (p.ej. "ver local" o el fullscreen): pausa.
+  @override
+  void didPushNext() {
+    if (_c.value.isInitialized) _c.pause();
+    if (mounted) setState(() {});
+  }
+
+  /// Volvimos a esta pantalla: reanuda el loop.
+  @override
+  void didPopNext() {
+    if (mounted && _c.value.isInitialized) {
+      _c.play();
+      setState(() {});
+    }
+  }
+
+  @override
   void dispose() {
+    appRouteObserver.unsubscribe(this);
     _c.dispose();
     super.dispose();
   }
