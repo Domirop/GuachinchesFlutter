@@ -1,7 +1,7 @@
-import 'dart:ui';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:guachinches/config/app_colors.dart';
+import 'package:guachinches/config/app_shapes.dart';
 import 'package:guachinches/config/brand_colors.dart';
 import 'package:guachinches/config/app_text_styles.dart';
 import 'package:guachinches/data/HttpRemoteRepository.dart';
@@ -17,15 +17,13 @@ import 'package:guachinches/ui/pages/restaurant_detail/widgets/restaurant_info_c
 import 'package:guachinches/ui/pages/restaurant_detail/widgets/services_chips_section.dart';
 import 'package:guachinches/ui/pages/restaurant_detail/widgets/visit_header_section.dart';
 import 'package:guachinches/ui/pages/restaurant_detail/widgets/visit_pills_row.dart';
-import 'package:guachinches/ui/components/bottom_cta_bar.dart';
 import 'package:guachinches/ui/components/shimmer_box.dart';
 import 'package:guachinches/ui/components/video/vertical_video_player.dart';
 import 'package:guachinches/ui/components/video/youtube_embed_sheet.dart';
 import 'package:guachinches/ui/pages/visit/visit_presenter.dart';
-import 'package:maps_launcher/maps_launcher.dart';
+import 'package:guachinches/ui/pages/visit/widgets/visit_reel_hero.dart';
 import 'package:share_plus/share_plus.dart' show SharePlus, ShareParams;
 import 'package:url_launcher/url_launcher.dart';
-import 'package:youtube_player_iframe/youtube_player_iframe.dart';
 
 class VisitDetailPage extends StatefulWidget {
   final String visitId;
@@ -53,9 +51,9 @@ class _VisitDetailPageState extends State<VisitDetailPage>
   late VisitDetailPresenter _presenter;
 
   vm.Visit? _visit;
-  YoutubePlayerController? _ytController;
   bool _loading = true;
-  bool _ytEmbedBlocked = false;
+  bool _liked = false;
+  bool _saved = false;
   String? _error;
 
   @override
@@ -64,12 +62,6 @@ class _VisitDetailPageState extends State<VisitDetailPage>
     _repo = HttpRemoteRepository(sharedHttpClient);
     _presenter = VisitDetailPresenter(_repo, this);
     _presenter.loadVisit(widget.visitId);
-  }
-
-  @override
-  void dispose() {
-    _ytController?.close();
-    super.dispose();
   }
 
   // ===== VisitDetailView =====
@@ -86,30 +78,6 @@ class _VisitDetailPageState extends State<VisitDetailPage>
   @override
   void showVisit(vm.Visit visit) {
     if (!mounted) return;
-    final videoId = _extractVideoId(visit.videoUrl);
-    _ytController?.close();
-    _ytEmbedBlocked = false;
-    if (videoId != null) {
-      _ytController = YoutubePlayerController.fromVideoId(
-        videoId: videoId,
-        autoPlay: false,
-        params: const YoutubePlayerParams(
-          showControls: true,
-          showFullscreenButton: true,
-          enableCaption: false,
-          playsInline: true,
-          color: 'white',
-        ),
-      );
-      // Detecta error de embedding (código 101/150/152) y cae al thumbnail
-      _ytController!.listen((value) {
-        if (value.error != YoutubeError.none && mounted && !_ytEmbedBlocked) {
-          setState(() => _ytEmbedBlocked = true);
-        }
-      });
-    } else {
-      _ytController = null;
-    }
     setState(() {
       _visit = visit;
       _loading = false;
@@ -124,26 +92,6 @@ class _VisitDetailPageState extends State<VisitDetailPage>
       _error = message;
       _loading = false;
     });
-  }
-
-  // ===== Helpers =====
-
-  static String? _extractVideoId(String? url) {
-    if (url == null || url.isEmpty) return null;
-    final uri = Uri.tryParse(url);
-    if (uri == null) return null;
-    // ?v=ID
-    if (uri.queryParameters.containsKey('v')) return uri.queryParameters['v'];
-    final segs = uri.pathSegments;
-    if (segs.isEmpty) return null;
-    // youtu.be/ID
-    if (uri.host.contains('youtu.be')) return segs.first;
-    // /shorts/ID  or  /embed/ID
-    for (final kw in ['shorts', 'embed']) {
-      final idx = segs.indexOf(kw);
-      if (idx != -1 && idx + 1 < segs.length) return segs[idx + 1];
-    }
-    return null;
   }
 
   // ===== Acciones =====
@@ -174,24 +122,6 @@ class _VisitDetailPageState extends State<VisitDetailPage>
       return;
     }
     _openVideoExternal();
-  }
-
-  Future<void> _openMaps() async {
-    final mapsUrl = _visit?.googleMapsUrl;
-    if (mapsUrl != null && mapsUrl.isNotEmpty) {
-      final uri = Uri.parse(mapsUrl);
-      if (await canLaunchUrl(uri)) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-        return;
-      }
-    }
-    final r = _visit?.restaurant;
-    final name = _visit?.name ?? r?.nombre ?? '';
-    if (r != null && r.lat != 0 && r.lon != 0) {
-      MapsLauncher.launchCoordinates(r.lat, r.lon, name);
-    } else if (name.isNotEmpty) {
-      MapsLauncher.launchQuery(name);
-    }
   }
 
   void _share() {
@@ -233,109 +163,116 @@ class _VisitDetailPageState extends State<VisitDetailPage>
       );
     }
 
-    // Player inline de YouTube SOLO en pantalla completa: dentro de un sheet
-    // (BackdropFilter) la platform-view del webview se renderiza en negro, así
-    // que ahí usamos el thumbnail estático + tap para reproducir in-app.
-    if (_ytController != null && !_ytEmbedBlocked && !widget.asSheet) {
-      return YoutubePlayerScaffold(
-        controller: _ytController!,
-        aspectRatio: 16 / 9,
-        backgroundColor: widget.asSheet ? Colors.transparent : Colors.black,
-        builder: (context, player) => _buildScaffold(context, player: player),
-      );
-    }
-
-    // Sin video ID: thumbnail estático
-    return _buildScaffold(context, player: null);
-  }
-
-  Widget _buildScaffold(BuildContext context, {required Widget? player}) {
     return Scaffold(
-      backgroundColor: widget.asSheet ? Colors.transparent : context.brand.base,
+      backgroundColor: bg,
       body: Stack(
         children: [
-          _buildScrollContent(context, player),
+          _buildScrollContent(context),
           _buildFloatingButtons(context),
         ],
-      ),
-      bottomNavigationBar: BottomCtaBar(
-        onPrimary: _openMaps,
-        onSecondary: _share,
-        primaryIdentifier: 'visit-detail-maps-button',
-        secondaryIdentifier: 'visit-detail-share-button',
       ),
     );
   }
 
-  Widget _buildScrollContent(BuildContext context, Widget? player) {
+  Widget _buildScrollContent(BuildContext context) {
     final v = _visit!;
     final r = v.restaurant;
+    final title = (v.name?.isNotEmpty == true ? v.name! : r?.nombre) ?? '';
+    final summary = _summary(v);
 
     return Semantics(
       identifier: 'visit-detail-content',
       child: SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // ① Hero: player inline o thumbnail estático
-          if (player != null)
-            player
-          else
-            _StaticVideoHero(visit: v, onTap: _playVideo),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ① Hero reel: vídeo (+ fotos de platos) en marco de móvil flotante.
+            if (VisitReelHero.hasMedia(v))
+              VisitReelHero(
+                visit: v,
+                asSheet: widget.asSheet,
+                onPlayVideo: _playVideo,
+              )
+            else
+              SizedBox(height: MediaQuery.of(context).padding.top + 64),
 
-          // ② Visit header
-          VisitHeaderSection(visit: v),
+            // ② Autor + fecha + sentimiento.
+            VisitHeaderSection(visit: v),
 
-          // ③ Info restaurante
-          if (r != null) ...[
-            RestaurantInfoCard(
-              restaurant: r,
-              visit: v,
-              onTap: _goToRestaurant,
-            ),
-            const SizedBox(height: 12),
-            VisitPillsRow(restaurant: r, visit: v),
-            const SizedBox(height: 16),
-          ],
-
-          // ④ Descripción
-          if (_description(v) != null) ...[
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Text(
-                _description(v)!,
-                style: AppTextStyles.ui(size: 13, color: context.brand.textSecondary),
+            // ③ Título editorial.
+            if (title.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 2, 16, 0),
+                child: Text(title, style: _titleStyle(context)),
               ),
+
+            // ④ Resumen en cursiva editorial.
+            if (summary != null) ...[
+              const SizedBox(height: 10),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Text(
+                  summary,
+                  style: AppTextStyles.editorial(size: 14),
+                ),
+              ),
+            ],
+
+            // ⑤ VER LOCAL + me gusta + guardar.
+            const SizedBox(height: 18),
+            _ActionRow(
+              liked: _liked,
+              saved: _saved,
+              onVerLocal: _goToRestaurant,
+              onLike: () {
+                HapticFeedback.selectionClick();
+                setState(() => _liked = !_liked);
+              },
+              onSave: () {
+                HapticFeedback.selectionClick();
+                setState(() => _saved = !_saved);
+              },
             ),
-            const SizedBox(height: 16),
-          ],
+            const SizedBox(height: 22),
 
-          // ⑤ SERVICIOS (justo debajo de la descripción)
-          if (ServicesChipsSection.shouldRender(v.services)) ...[
-            ServicesChipsSection(services: v.services),
-            const SizedBox(height: 20),
-          ],
+            // ⑥ Tarjeta del local.
+            if (r != null) ...[
+              RestaurantInfoCard(
+                restaurant: r,
+                visit: v,
+                onTap: _goToRestaurant,
+              ),
+              const SizedBox(height: 12),
+              VisitPillsRow(restaurant: r, visit: v),
+              const SizedBox(height: 20),
+            ],
 
-          // ⑧ LO QUE PEDIMOS
-          if (DishesSection.shouldRender(v.dishes)) ...[
-            DishesSection(dishes: v.dishes, heroPrefix: v.id),
-            const SizedBox(height: 20),
-          ],
+            // ⑦ SERVICIOS.
+            if (ServicesChipsSection.shouldRender(v.services)) ...[
+              ServicesChipsSection(services: v.services),
+              const SizedBox(height: 20),
+            ],
 
-          // ⑨ A FAVOR / EN CONTRA
-          if (ProsConsSection.shouldRender(v.highlights, v.lowlights)) ...[
-            ProsConsSection(pros: v.highlights, cons: v.lowlights),
-            const SizedBox(height: 20),
-          ],
+            // ⑧ LO QUE PEDIMOS.
+            if (DishesSection.shouldRender(v.dishes)) ...[
+              DishesSection(dishes: v.dishes, heroPrefix: v.id),
+              const SizedBox(height: 20),
+            ],
 
-          // ⑩ LO QUE NECESITAS SABER
-          if (r != null) ...[
-            NTKBox(restaurant: r, visit: v, instagram: v.instagram),
-            const SizedBox(height: 24),
+            // ⑨ A FAVOR / EN CONTRA.
+            if (ProsConsSection.shouldRender(v.highlights, v.lowlights)) ...[
+              ProsConsSection(pros: v.highlights, cons: v.lowlights),
+              const SizedBox(height: 20),
+            ],
+
+            // ⑩ LO QUE NECESITAS SABER.
+            if (r != null) ...[
+              NTKBox(restaurant: r, visit: v, instagram: v.instagram),
+              const SizedBox(height: 24),
+            ],
           ],
-        ],
+        ),
       ),
-    ),
     );
   }
 
@@ -346,133 +283,158 @@ class _VisitDetailPageState extends State<VisitDetailPage>
         // En sheet no hay botón "atrás": se cierra arrastrando/tocando fuera.
         if (!widget.asSheet)
           Positioned(
-            top: top, left: 12,
-            child: FloatingCircleButton(icon: Icons.arrow_back_ios_new, onTap: () => Navigator.pop(context), identifier: 'visit-detail-back-button'),
+            top: top,
+            left: 12,
+            child: FloatingCircleButton(
+                icon: Icons.arrow_back_ios_new,
+                onTap: () => Navigator.pop(context),
+                identifier: 'visit-detail-back-button'),
           ),
         Positioned(
-          top: top, right: 12,
-          child: FloatingCircleButton(icon: Icons.storefront_outlined, onTap: _goToRestaurant, identifier: 'visit-detail-restaurant-button'),
+          top: top,
+          right: 12,
+          child: Row(
+            children: [
+              FloatingCircleButton(
+                  icon: Icons.ios_share_rounded,
+                  onTap: _share,
+                  identifier: 'visit-detail-share-button'),
+              const SizedBox(width: 10),
+              FloatingCircleButton(
+                  icon: Icons.storefront_outlined,
+                  onTap: _goToRestaurant,
+                  identifier: 'visit-detail-restaurant-button'),
+            ],
+          ),
         ),
       ],
     );
   }
 
-  String? _description(vm.Visit v) {
+  TextStyle _titleStyle(BuildContext context) => TextStyle(
+        fontFamily: 'Merriweather',
+        fontWeight: FontWeight.w700,
+        fontSize: 25,
+        height: 1.16,
+        color: context.brand.textPrimary,
+      );
+
+  String? _summary(vm.Visit v) {
     if (v.summary?.isNotEmpty == true) return v.summary;
+    if (v.extraText?.isNotEmpty == true) return v.extraText;
     final editorial = v.restaurant?.editorialBody;
     if (editorial != null && editorial.isNotEmpty) return editorial;
-    if (v.extraText?.isNotEmpty == true) return v.extraText;
     return null;
   }
-
 }
 
-// ── Thumbnail estático (sin video ID válido) ──────────────────────────────────
+// ── Fila de acciones (VER LOCAL + me gusta + guardar) ──────────────────────
 
-class _StaticVideoHero extends StatelessWidget {
-  final vm.Visit visit;
-  final VoidCallback onTap;
+class _ActionRow extends StatelessWidget {
+  final bool liked;
+  final bool saved;
+  final VoidCallback onVerLocal;
+  final VoidCallback onLike;
+  final VoidCallback onSave;
 
-  const _StaticVideoHero({required this.visit, required this.onTap});
-
-  bool get _hasVideo => visit.videoUrl?.isNotEmpty == true;
+  const _ActionRow({
+    required this.liked,
+    required this.saved,
+    required this.onVerLocal,
+    required this.onLike,
+    required this.onSave,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: _hasVideo ? onTap : null,
-      child: AspectRatio(
-        aspectRatio: 16 / 9,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            _buildThumb(context),
-            const DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [Colors.transparent, Color(0xCC000000)],
-                  stops: [0.4, 1.0],
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        children: [
+          // VER LOCAL — pill outline atlántico.
+          Expanded(
+            child: Semantics(
+              identifier: 'visit-detail-ver-local-button',
+              button: true,
+              child: GestureDetector(
+                onTap: onVerLocal,
+                behavior: HitTestBehavior.opaque,
+                child: Container(
+                  height: 48,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(AppRadius.full),
+                    border:
+                        Border.all(color: AppColors.atlantico, width: 1.4),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.near_me_rounded,
+                          size: 16, color: AppColors.atlantico),
+                      const SizedBox(width: 8),
+                      Text('VER LOCAL',
+                          style: AppTextStyles.displaySection(
+                              size: 12, color: AppColors.atlantico)),
+                    ],
+                  ),
                 ),
               ),
             ),
-            if (_hasVideo) const Center(child: _PlayButton()),
-            if (visit.durationSeconds != null)
-              Positioned(
-                bottom: 10, right: 12,
-                child: _DurationBadge(visit.durationSeconds!),
-              ),
-          ],
-        ),
+          ),
+          const SizedBox(width: 12),
+          _RoundAction(
+            icon: liked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+            color: liked ? AppColors.mojo : context.brand.textSecondary,
+            onTap: onLike,
+            identifier: 'visit-detail-like-button',
+          ),
+          const SizedBox(width: 10),
+          _RoundAction(
+            icon: saved ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
+            color: saved ? AppColors.atlantico : context.brand.textSecondary,
+            onTap: onSave,
+            identifier: 'visit-detail-save-button',
+          ),
+        ],
       ),
     );
   }
-
-  Widget _buildThumb(BuildContext context) {
-    final thumb = visit.thumbnail;
-    final fallback = visit.restaurant?.mainFoto ?? '';
-    if (thumb?.isNotEmpty == true) {
-      return CachedNetworkImage(
-        imageUrl: thumb!,
-        fit: BoxFit.cover,
-        errorWidget: (_, __, ___) => _fallback(context, fallback),
-      );
-    }
-    return _fallback(context, fallback);
-  }
-
-  Widget _fallback(BuildContext context, String url) {
-    if (url.isNotEmpty) {
-      return CachedNetworkImage(
-        imageUrl: url,
-        fit: BoxFit.cover,
-        errorWidget: (_, __, ___) => Container(color: context.brand.elevated),
-      );
-    }
-    return Container(color: context.brand.elevated);
-  }
 }
 
-class _PlayButton extends StatelessWidget {
-  const _PlayButton();
+class _RoundAction extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+  final String identifier;
+
+  const _RoundAction({
+    required this.icon,
+    required this.color,
+    required this.onTap,
+    required this.identifier,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return ClipOval(
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+    return Semantics(
+      identifier: identifier,
+      button: true,
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
         child: Container(
-          width: 64, height: 64,
-          decoration: BoxDecoration(
-            color: AppColors.atlantico.withOpacity(0.85),
-            shape: BoxShape.circle,
-            border: Border.all(color: Colors.white.withOpacity(0.35)),
-          ),
+          width: 48,
+          height: 48,
           alignment: Alignment.center,
-          child: const Padding(
-            padding: EdgeInsets.only(left: 4),
-            child: Icon(Icons.play_arrow, color: Colors.white, size: 34),
+          decoration: BoxDecoration(
+            color: context.brand.surface,
+            shape: BoxShape.circle,
+            border: Border.all(color: context.brand.border),
           ),
+          child: Icon(icon, size: 20, color: color),
         ),
       ),
-    );
-  }
-}
-
-class _DurationBadge extends StatelessWidget {
-  final int seconds;
-  const _DurationBadge(this.seconds);
-
-  @override
-  Widget build(BuildContext context) {
-    final m = seconds ~/ 60;
-    final s = seconds % 60;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(color: AppColors.glassDark, borderRadius: BorderRadius.circular(7)),
-      child: Text('$m:${s.toString().padLeft(2, '0')}',
-          style: AppTextStyles.ui(size: 10, weight: FontWeight.w600, color: Colors.white)),
     );
   }
 }
@@ -491,15 +453,18 @@ class _LoadingView extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Hero 16:9
-            AspectRatio(
-              aspectRatio: 16 / 9,
-              child: ShimmerBox(
-                width: double.infinity,
-                height: 220,
-                radius: 0,
-              ),
-            ),
+            // Hero: marco de móvil vertical (9:16) centrado.
+            Builder(builder: (context) {
+              final w = (MediaQuery.of(context).size.width * 0.62)
+                  .clamp(210.0, 280.0);
+              return Padding(
+                padding: EdgeInsets.only(
+                    top: MediaQuery.of(context).padding.top + 56, bottom: 4),
+                child: Center(
+                  child: ShimmerBox(width: w, height: w * 16 / 9, radius: 34),
+                ),
+              );
+            }),
             const SizedBox(height: 16),
             // Title
             Padding(

@@ -6,6 +6,32 @@ import 'package:guachinches/config/app_text_styles.dart';
 import 'package:guachinches/data/model/Visit.dart';
 import 'package:guachinches/ui/pages/discover/visit_sentiment.dart';
 
+/// Abre el visor de fotos de plato a pantalla completa (PageView swipeable con
+/// Hero + arrastrar-para-cerrar). Público para reusarlo desde el hero de la
+/// visita; usa un [heroPrefix] distinto en cada origen para no colisionar tags.
+void showDishPhotoViewer(
+  BuildContext context, {
+  required List<VisitDish> dishes,
+  int initialIndex = 0,
+  String heroPrefix = 'dish',
+}) {
+  Navigator.of(context).push(
+    PageRouteBuilder(
+      opaque: false,
+      barrierColor: Colors.transparent,
+      transitionDuration: const Duration(milliseconds: 260),
+      reverseTransitionDuration: const Duration(milliseconds: 200),
+      pageBuilder: (_, __, ___) => _DishPhotoViewer(
+        dishes: dishes,
+        initialIndex: initialIndex,
+        heroPrefix: heroPrefix,
+      ),
+      transitionsBuilder: (_, anim, __, child) =>
+          FadeTransition(opacity: anim, child: child),
+    ),
+  );
+}
+
 /// "LO QUE PEDIMOS" — los platos de la visita, siempre como **lista** limpia.
 ///
 /// El backend genera una foto por plato (migrations 031+032). Cuando un plato
@@ -80,24 +106,9 @@ class DishesSection extends StatelessWidget {
   }
 
   void _openViewer(
-      BuildContext context, List<VisitDish> photoDishes, int index) {
-    Navigator.of(context).push(
-      PageRouteBuilder(
-        opaque: false,
-        // El fondo lo pinta el propio visor para poder aclararlo al arrastrar.
-        barrierColor: Colors.transparent,
-        transitionDuration: const Duration(milliseconds: 260),
-        reverseTransitionDuration: const Duration(milliseconds: 200),
-        pageBuilder: (_, __, ___) => _DishPhotoViewer(
-          dishes: photoDishes,
-          initialIndex: index,
-          heroPrefix: heroPrefix,
-        ),
-        transitionsBuilder: (_, anim, __, child) =>
-            FadeTransition(opacity: anim, child: child),
-      ),
-    );
-  }
+          BuildContext context, List<VisitDish> photoDishes, int index) =>
+      showDishPhotoViewer(context,
+          dishes: photoDishes, initialIndex: index, heroPrefix: heroPrefix);
 }
 
 class _DishRow extends StatelessWidget {
