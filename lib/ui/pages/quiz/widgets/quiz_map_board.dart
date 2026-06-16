@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:guachinches/config/app_colors.dart';
 import 'package:guachinches/config/app_shapes.dart';
 import 'package:guachinches/config/app_text_styles.dart';
@@ -13,14 +14,17 @@ class QuizMapIsland {
   const QuizMapIsland(this.slug, this.name, this.dx, this.dy);
 }
 
+/// Centroides reales (de todas-islas.svg, viewBox 265×119). El tablero usa el
+/// mismo aspect que el SVG para que los marcadores caigan sobre cada isla.
+const double kQuizMapAspect = 265 / 119;
 const List<QuizMapIsland> kQuizMapIslands = [
-  QuizMapIsland('la_palma', 'La Palma', 0.14, 0.26),
-  QuizMapIsland('el_hierro', 'El Hierro', 0.10, 0.74),
-  QuizMapIsland('la_gomera', 'La Gomera', 0.29, 0.58),
-  QuizMapIsland('tenerife', 'Tenerife', 0.43, 0.44),
-  QuizMapIsland('gran_canaria', 'Gran Canaria', 0.58, 0.64),
-  QuizMapIsland('fuerteventura', 'Fuerteventura', 0.77, 0.44),
-  QuizMapIsland('lanzarote', 'Lanzarote', 0.89, 0.20),
+  QuizMapIsland('la_palma', 'La Palma', 0.106, 0.427),
+  QuizMapIsland('el_hierro', 'El Hierro', 0.067, 0.855),
+  QuizMapIsland('la_gomera', 'La Gomera', 0.190, 0.676),
+  QuizMapIsland('tenerife', 'Tenerife', 0.341, 0.588),
+  QuizMapIsland('gran_canaria', 'Gran Canaria', 0.534, 0.713),
+  QuizMapIsland('fuerteventura', 'Fuerteventura', 0.805, 0.514),
+  QuizMapIsland('lanzarote', 'Lanzarote', 0.894, 0.167),
 ];
 
 /// Mapa de conquista de Canarias: las 7 islas posicionadas ~geográficamente,
@@ -43,15 +47,16 @@ class QuizMapBoard extends StatelessWidget {
   Widget build(BuildContext context) {
     final brand = context.brand;
     return AspectRatio(
-      aspectRatio: 16 / 11,
+      aspectRatio: kQuizMapAspect,
       child: Container(
+        clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
               Color.alphaBlend(
-                  AppColors.atlantico.withValues(alpha: 0.12), brand.surface),
+                  AppColors.atlantico.withValues(alpha: 0.14), brand.surface),
               brand.surface,
             ],
           ),
@@ -62,12 +67,23 @@ class QuizMapBoard extends StatelessWidget {
           builder: (context, c) {
             return Stack(
               children: [
+                // Siluetas reales de las islas (todas-islas.svg). El aspect del
+                // tablero = el del SVG, así los marcadores caen sobre cada isla.
+                Positioned.fill(
+                  child: Opacity(
+                    opacity: 0.85,
+                    child: SvgPicture.asset(
+                      'assets/images/quiz-canarias.svg',
+                      fit: BoxFit.contain,
+                    ),
+                  ),
+                ),
                 for (final isl in kQuizMapIslands)
                   Positioned(
-                    left: isl.dx * c.maxWidth - 44,
-                    top: isl.dy * c.maxHeight - 24,
+                    left: isl.dx * c.maxWidth - 40,
+                    top: isl.dy * c.maxHeight - 14,
                     child: SizedBox(
-                      width: 88,
+                      width: 80,
                       child: _IslandToken(
                         name: isl.name,
                         conquered: owned.contains(isl.slug),
@@ -153,8 +169,8 @@ class _IslandTokenState extends State<_IslandToken>
             builder: (_, child) {
               final t = widget.selectable ? _pulse.value : 0.0;
               return Container(
-                width: 30 + t * 4,
-                height: 30 + t * 4,
+                width: 26 + t * 4,
+                height: 26 + t * 4,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   color: conquered
