@@ -10,6 +10,7 @@ import 'package:guachinches/core/analytics/analytics.dart';
 import 'package:guachinches/data/cubit/quiz/quiz_game_state.dart';
 import 'package:guachinches/data/model/quiz/quiz_models.dart';
 import 'package:guachinches/ui/pages/quiz/widgets/quiz_glass.dart';
+import 'package:guachinches/ui/pages/quiz/widgets/quiz_map_board.dart';
 import 'package:guachinches/ui/pages/quiz/widgets/quiz_wedges.dart';
 import 'package:share_plus/share_plus.dart' show SharePlus, ShareParams;
 
@@ -208,62 +209,30 @@ class _IslandPicker extends StatelessWidget {
   Widget build(BuildContext context) {
     final brand = context.brand;
     final color = quizTierColor(conquest.tier);
-    final remaining = conquest.remaining;
-    return Column(
-      children: [
-        Text('ELIGE TU ISLA A CONQUISTAR',
-            style: AppTextStyles.displaySection(size: 14, color: color)),
-        const SizedBox(height: 4),
-        Text('Has ganado: reclama una isla del mapa.',
-            style: AppTextStyles.ui(size: 12, color: brand.textMuted)),
-        const SizedBox(height: 14),
-        Expanded(
-          child: AbsorbPointer(
+    return SingleChildScrollView(
+      child: Column(
+        children: [
+          Text('TOCA LA ISLA QUE QUIERES GANAR',
+              textAlign: TextAlign.center,
+              style: AppTextStyles.displaySection(size: 14, color: color)),
+          const SizedBox(height: 4),
+          Text('La conquistas y se enciende en tu arena.',
+              style: AppTextStyles.ui(size: 12, color: brand.textMuted)),
+          const SizedBox(height: 14),
+          AbsorbPointer(
             absorbing: busy,
             child: Opacity(
               opacity: busy ? 0.5 : 1,
-              child: GridView.count(
-                crossAxisCount: 2,
-                childAspectRatio: 2.6,
-                mainAxisSpacing: 10,
-                crossAxisSpacing: 10,
-                children: [
-                  for (final isl in remaining)
-                    GestureDetector(
-                      onTap: () => onConquer(isl.slug),
-                      behavior: HitTestBehavior.opaque,
-                      child: Container(
-                        alignment: Alignment.center,
-                        padding: const EdgeInsets.symmetric(horizontal: 10),
-                        decoration: BoxDecoration(
-                          color: Color.alphaBlend(
-                              color.withValues(alpha: 0.18), brand.glass),
-                          borderRadius: BorderRadius.circular(AppRadius.md),
-                          border: Border.all(
-                              color: color.withValues(alpha: 0.6), width: 1.4),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.flag_rounded, size: 16, color: color),
-                            const SizedBox(width: 8),
-                            Flexible(
-                              child: Text(isl.name,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: AppTextStyles.displaySection(
-                                      size: 12, color: brand.textPrimary)),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                ],
+              // El mapa ES el selector: islas libres laten y son tocables.
+              child: QuizMapBoard(
+                owned: conquest.conqueredIslands.toSet(),
+                tierColor: color,
+                onTapIsland: onConquer,
               ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -279,39 +248,55 @@ class _ConquestDone extends StatelessWidget {
   Widget build(BuildContext context) {
     final brand = context.brand;
     final conquest = result.conquest;
-    final color = quizTierColor(conquest.tier);
+    final promoted = result.promoted;
+    final tier = conquest.tier;
+    // Al ascender, el mapa se reinició: mostramos la arena ANTERIOR completa.
+    final displayColor =
+        promoted ? quizTierColor(tier - 1) : quizTierColor(tier);
+    final displayOwned = promoted
+        ? kQuizMapIslands.map((i) => i.slug).toSet()
+        : {...conquest.conqueredIslands, result.island};
     final islandName = conquest.islands
         .firstWhere((i) => i.slug == result.island,
             orElse: () => QuizIsland(slug: result.island, name: result.island))
         .name;
-    return Column(
-      children: [
-        const Spacer(),
-        Icon(Icons.flag_circle_rounded, size: 64, color: color),
-        const SizedBox(height: 10),
-        Text('${islandName.toUpperCase()}\nCONQUISTADA',
-            textAlign: TextAlign.center,
-            style: AppTextStyles.displaySection(size: 20, color: brand.textPrimary)
-                .copyWith(height: 1.1)),
-        const SizedBox(height: 8),
-        Text('${conquest.conqueredCount}/${conquest.total} islas en ${conquest.tierName}',
-            style: AppTextStyles.ui(size: 13, color: brand.textSecondary)),
-        if (result.promoted) ...[
-          const SizedBox(height: 18),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.16),
-              borderRadius: BorderRadius.circular(AppRadius.full),
-              border: Border.all(color: color.withValues(alpha: 0.6)),
+
+    return SingleChildScrollView(
+      child: Column(
+        children: [
+          Text(
+              promoted
+                  ? '¡ARENA COMPLETADA!'
+                  : '${islandName.toUpperCase()} CONQUISTADA',
+              textAlign: TextAlign.center,
+              style: AppTextStyles.displaySection(
+                  size: 16, color: brand.textPrimary)),
+          const SizedBox(height: 12),
+          QuizMapBoard(owned: displayOwned, tierColor: displayColor),
+          if (promoted) ...[
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+              decoration: BoxDecoration(
+                color: quizTierColor(tier).withValues(alpha: 0.16),
+                borderRadius: BorderRadius.circular(AppRadius.full),
+                border:
+                    Border.all(color: quizTierColor(tier).withValues(alpha: 0.6)),
+              ),
+              child: Text('⭐  ¡ASCIENDES A ${conquest.tierName.toUpperCase()}!',
+                  style: AppTextStyles.displaySection(
+                      size: 14, color: quizTierColor(tier))),
             ),
-            child: Text('⭐  ¡ASCIENDES A ${conquest.tierName.toUpperCase()}!',
-                style: AppTextStyles.displaySection(size: 14, color: color)),
-          ),
+          ] else ...[
+            const SizedBox(height: 10),
+            Text(
+                '${conquest.conqueredCount}/${conquest.total} islas en ${conquest.tierName}',
+                style: AppTextStyles.ui(size: 13, color: brand.textSecondary)),
+          ],
+          const SizedBox(height: 18),
+          _FilledBtn(label: 'JUGAR OTRA VEZ', onTap: onPlayAgain),
         ],
-        const Spacer(),
-        _FilledBtn(label: 'JUGAR OTRA VEZ', onTap: onPlayAgain),
-      ],
+      ),
     );
   }
 }

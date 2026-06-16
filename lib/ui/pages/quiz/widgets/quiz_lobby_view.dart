@@ -6,26 +6,8 @@ import 'package:guachinches/config/brand_colors.dart';
 import 'package:guachinches/data/cubit/quiz/quiz_game_state.dart';
 import 'package:guachinches/data/model/quiz/quiz_models.dart';
 import 'package:guachinches/ui/pages/quiz/widgets/quiz_glass.dart';
+import 'package:guachinches/ui/pages/quiz/widgets/quiz_map_board.dart';
 import 'package:guachinches/ui/pages/quiz/widgets/quiz_wedges.dart';
-
-/// Posición relativa (0..1) de cada isla en el mapa, ~geográfica oeste→este.
-class _Isl {
-  final String slug;
-  final String name;
-  final double dx;
-  final double dy;
-  const _Isl(this.slug, this.name, this.dx, this.dy);
-}
-
-const List<_Isl> _islandLayout = [
-  _Isl('la_palma', 'La Palma', 0.14, 0.26),
-  _Isl('el_hierro', 'El Hierro', 0.10, 0.74),
-  _Isl('la_gomera', 'La Gomera', 0.29, 0.58),
-  _Isl('tenerife', 'Tenerife', 0.43, 0.44),
-  _Isl('gran_canaria', 'Gran Canaria', 0.58, 0.64),
-  _Isl('fuerteventura', 'Fuerteventura', 0.77, 0.44),
-  _Isl('lanzarote', 'Lanzarote', 0.89, 0.20),
-];
 
 /// Pestaña INICIO: el **mapa de conquista de Canarias**. Las 7 islas se
 /// iluminan en el color del tier al conquistarlas. Debajo: continuar / nueva
@@ -90,7 +72,7 @@ class QuizLobbyView extends StatelessWidget {
             style: AppTextStyles.editorial(size: 13, color: brand.textSecondary)),
         const SizedBox(height: 14),
         // El mapa
-        _MapBoard(owned: owned, tierColor: color),
+        QuizMapBoard(owned: owned, tierColor: color),
         const SizedBox(height: 18),
         // Partida en curso
         if (active != null) ...[
@@ -116,109 +98,6 @@ class QuizLobbyView extends StatelessWidget {
                     weight: FontWeight.w600)),
           ),
         ),
-      ],
-    );
-  }
-}
-
-class _MapBoard extends StatelessWidget {
-  final Set<String> owned;
-  final Color tierColor;
-  const _MapBoard({required this.owned, required this.tierColor});
-
-  @override
-  Widget build(BuildContext context) {
-    final brand = context.brand;
-    return AspectRatio(
-      aspectRatio: 16 / 11,
-      child: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Color.alphaBlend(
-                  AppColors.atlantico.withValues(alpha: 0.12), brand.surface),
-              brand.surface,
-            ],
-          ),
-          borderRadius: BorderRadius.circular(AppRadius.lg),
-          border: Border.all(color: brand.border),
-        ),
-        child: LayoutBuilder(
-          builder: (context, c) {
-            return Stack(
-              children: [
-                for (final isl in _islandLayout)
-                  Positioned(
-                    left: isl.dx * c.maxWidth - 44,
-                    top: isl.dy * c.maxHeight - 22,
-                    child: SizedBox(
-                      width: 88,
-                      child: _IslandToken(
-                        name: isl.name,
-                        conquered: owned.contains(isl.slug),
-                        color: tierColor,
-                      ),
-                    ),
-                  ),
-              ],
-            );
-          },
-        ),
-      ),
-    );
-  }
-}
-
-class _IslandToken extends StatelessWidget {
-  final String name;
-  final bool conquered;
-  final Color color;
-  const _IslandToken({
-    required this.name,
-    required this.conquered,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final brand = context.brand;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 30,
-          height: 30,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: conquered ? color : brand.glass,
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: conquered
-                  ? Colors.white.withValues(alpha: 0.6)
-                  : brand.borderStrong,
-              width: 1.5,
-            ),
-            boxShadow: conquered
-                ? [BoxShadow(color: color.withValues(alpha: 0.6), blurRadius: 10)]
-                : null,
-          ),
-          child: Icon(
-            conquered ? Icons.flag_rounded : Icons.location_on_outlined,
-            size: 16,
-            color: conquered ? Colors.white : brand.textMuted,
-          ),
-        ),
-        const SizedBox(height: 3),
-        Text(name,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.center,
-            style: AppTextStyles.ui(
-                size: 10,
-                weight: FontWeight.w700,
-                color: conquered ? brand.textPrimary : brand.textMuted)),
       ],
     );
   }
