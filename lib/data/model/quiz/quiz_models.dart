@@ -231,7 +231,8 @@ class QuizRankingEntry {
   final String name;
   final int totalPoints;
   final int gamesWon;
-  final QuizRank rank;
+  final int tier;
+  final String tierName; // arena: Marea · Volcán · Leyenda
   final bool isMe;
 
   const QuizRankingEntry({
@@ -240,7 +241,8 @@ class QuizRankingEntry {
     required this.name,
     required this.totalPoints,
     required this.gamesWon,
-    required this.rank,
+    required this.tier,
+    required this.tierName,
     required this.isMe,
   });
 
@@ -250,8 +252,8 @@ class QuizRankingEntry {
         name: j['name']?.toString() ?? 'Jugador',
         totalPoints: QuizSession._int(j['totalPoints']),
         gamesWon: QuizSession._int(j['gamesWon']),
-        rank: QuizRank.fromJson(
-            (j['rank'] as Map?)?.cast<String, dynamic>() ?? const {}),
+        tier: QuizSession._int(j['tier']) == 0 ? 1 : QuizSession._int(j['tier']),
+        tierName: j['tierName']?.toString() ?? 'Marea',
         isMe: j['isMe'] == true,
       );
 }

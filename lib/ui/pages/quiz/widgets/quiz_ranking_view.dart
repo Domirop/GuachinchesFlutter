@@ -5,6 +5,7 @@ import 'package:guachinches/config/app_text_styles.dart';
 import 'package:guachinches/config/brand_colors.dart';
 import 'package:guachinches/data/cubit/quiz/quiz_game_state.dart';
 import 'package:guachinches/data/model/quiz/quiz_models.dart';
+import 'package:guachinches/ui/pages/quiz/widgets/quiz_wedges.dart';
 
 /// Pestaña RANKING: tabla de jugadores por puntos totales. Tu fila resaltada.
 class QuizRankingView extends StatelessWidget {
@@ -89,9 +90,17 @@ class _RankRow extends StatelessWidget {
                         color: brand.textPrimary,
                         weight: FontWeight.w700)),
                 const SizedBox(height: 2),
-                Text(entry.rank.name,
-                    style: AppTextStyles.eyebrow(
-                        size: 9, color: AppColors.atlanticoClaro)),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.terrain_rounded,
+                        size: 11, color: quizTierColor(entry.tier)),
+                    const SizedBox(width: 4),
+                    Text('ARENA ${entry.tierName.toUpperCase()}',
+                        style: AppTextStyles.eyebrow(
+                            size: 9, color: quizTierColor(entry.tier))),
+                  ],
+                ),
               ],
             ),
           ),
