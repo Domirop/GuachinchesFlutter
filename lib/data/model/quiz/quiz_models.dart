@@ -256,6 +256,85 @@ class QuizRankingEntry {
       );
 }
 
+/// Una isla conquistable.
+class QuizIsland {
+  final String slug;
+  final String name;
+  const QuizIsland({required this.slug, required this.name});
+
+  factory QuizIsland.fromJson(Map<String, dynamic> j) => QuizIsland(
+        slug: j['slug']?.toString() ?? '',
+        name: j['name']?.toString() ?? '',
+      );
+}
+
+/// Estado de conquista: tier (arena) + islas conquistadas en el tier actual.
+class QuizConquest {
+  final int tier; // 1 Marea · 2 Volcán · 3 Leyenda
+  final String tierName;
+  final int maxTier;
+  final List<String> conqueredIslands; // slugs en el tier actual
+  final List<QuizIsland> islands; // las 7, oeste→este
+
+  const QuizConquest({
+    required this.tier,
+    required this.tierName,
+    required this.maxTier,
+    required this.conqueredIslands,
+    required this.islands,
+  });
+
+  bool isConquered(String slug) => conqueredIslands.contains(slug);
+  int get conqueredCount => conqueredIslands.length;
+  int get total => islands.length;
+  List<QuizIsland> get remaining =>
+      islands.where((i) => !conqueredIslands.contains(i.slug)).toList();
+
+  static QuizConquest empty() => const QuizConquest(
+        tier: 1,
+        tierName: 'Marea',
+        maxTier: 3,
+        conqueredIslands: [],
+        islands: [],
+      );
+
+  factory QuizConquest.fromJson(Map<String, dynamic> j) => QuizConquest(
+        tier: QuizSession._int(j['tier']) == 0 ? 1 : QuizSession._int(j['tier']),
+        tierName: j['tierName']?.toString() ?? 'Marea',
+        maxTier: QuizSession._int(j['maxTier']) == 0
+            ? 3
+            : QuizSession._int(j['maxTier']),
+        conqueredIslands: (j['conqueredIslands'] is List)
+            ? (j['conqueredIslands'] as List).map((e) => e.toString()).toList()
+            : const [],
+        islands: (j['islands'] is List)
+            ? (j['islands'] as List)
+                .map((e) => QuizIsland.fromJson((e as Map).cast<String, dynamic>()))
+                .toList()
+            : const [],
+      );
+}
+
+/// Resultado de reclamar una conquista tras ganar.
+class QuizConquerResult {
+  final String island;
+  final bool promoted;
+  final QuizConquest conquest;
+  const QuizConquerResult({
+    required this.island,
+    required this.promoted,
+    required this.conquest,
+  });
+
+  factory QuizConquerResult.fromJson(Map<String, dynamic> j) =>
+      QuizConquerResult(
+        island: j['island']?.toString() ?? '',
+        promoted: j['promoted'] == true,
+        conquest: QuizConquest.fromJson(
+            (j['conquest'] as Map).cast<String, dynamic>()),
+      );
+}
+
 /// Stats acumuladas del jugador + su rango.
 class QuizStats {
   final int totalPoints;

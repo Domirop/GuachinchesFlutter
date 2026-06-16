@@ -22,6 +22,15 @@ class QuizGameState {
   /// Stats acumuladas del jugador (para el lobby/victoria). null = sin cargar.
   final QuizStats? stats;
 
+  /// Estado de conquista de islas + tier (arena). null = sin cargar.
+  final QuizConquest? conquest;
+
+  /// Mientras se reclama una conquista tras ganar.
+  final bool conquering;
+
+  /// Resultado de la última conquista (isla conquistada + posible ascenso).
+  final QuizConquerResult? conquerResult;
+
   /// Partida activa sin terminar (para "continuar"), o null.
   final QuizSession? activeSession;
 
@@ -47,6 +56,9 @@ class QuizGameState {
   /// Segundos restantes del temporizador (para el anillo de progreso).
   final int secondsLeft;
 
+  /// Segundos totales de esta pregunta (varía por tier; denominador del anillo).
+  final int secondsTotal;
+
   /// Si en esta partida acaba de subir de nivel (para celebrarlo en victoria).
   final bool leveledUp;
 
@@ -57,6 +69,9 @@ class QuizGameState {
     this.categories = const [],
     this.session,
     this.stats,
+    this.conquest,
+    this.conquering = false,
+    this.conquerResult,
     this.activeSession,
     this.history = const [],
     this.ranking = const [],
@@ -66,6 +81,7 @@ class QuizGameState {
     this.selectedIndex,
     this.result,
     this.secondsLeft = 0,
+    this.secondsTotal = 20,
     this.leveledUp = false,
     this.error,
   });
@@ -80,6 +96,9 @@ class QuizGameState {
     List<QuizCategory>? categories,
     QuizSession? session,
     QuizStats? stats,
+    QuizConquest? conquest,
+    bool? conquering,
+    QuizConquerResult? conquerResult,
     QuizSession? activeSession,
     List<QuizSessionSummary>? history,
     List<QuizRankingEntry>? ranking,
@@ -89,6 +108,7 @@ class QuizGameState {
     int? selectedIndex,
     QuizAnswerResult? result,
     int? secondsLeft,
+    int? secondsTotal,
     bool? leveledUp,
     String? error,
     bool clearLanded = false,
@@ -97,12 +117,17 @@ class QuizGameState {
     bool clearResult = false,
     bool clearError = false,
     bool clearActiveSession = false,
+    bool clearConquerResult = false,
   }) {
     return QuizGameState(
       phase: phase ?? this.phase,
       categories: categories ?? this.categories,
       session: session ?? this.session,
       stats: stats ?? this.stats,
+      conquest: conquest ?? this.conquest,
+      conquering: conquering ?? this.conquering,
+      conquerResult:
+          clearConquerResult ? null : (conquerResult ?? this.conquerResult),
       activeSession:
           clearActiveSession ? null : (activeSession ?? this.activeSession),
       history: history ?? this.history,
@@ -114,6 +139,7 @@ class QuizGameState {
           clearSelected ? null : (selectedIndex ?? this.selectedIndex),
       result: clearResult ? null : (result ?? this.result),
       secondsLeft: secondsLeft ?? this.secondsLeft,
+      secondsTotal: secondsTotal ?? this.secondsTotal,
       leveledUp: leveledUp ?? this.leveledUp,
       error: clearError ? null : (error ?? this.error),
     );

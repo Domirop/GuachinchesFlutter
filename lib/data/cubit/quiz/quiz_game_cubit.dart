@@ -38,6 +38,7 @@ class QuizGameCubit extends Cubit<QuizGameState> {
     QuizStats? stats;
     QuizSession? active;
     List<QuizSessionSummary>? history;
+    QuizConquest? conquest;
     await Future.wait([
       () async {
         try {
@@ -59,15 +60,56 @@ class QuizGameCubit extends Cubit<QuizGameState> {
           history = await _repo.getMySessions();
         } catch (_) {}
       }(),
+      () async {
+        try {
+          conquest = await _repo.getConquest();
+        } catch (_) {}
+      }(),
     ]);
     emit(state.copyWith(
       phase: QuizPhase.idle,
       categories: cats ?? state.categories,
       stats: stats ?? state.stats,
+      conquest: conquest ?? state.conquest,
       activeSession: active,
       clearActiveSession: active == null,
       history: history ?? state.history,
     ));
+  }
+
+  /// Segundos por pregunta según el tier (arena). Tiers altos = menos tiempo.
+  int _secondsForTier() {
+    switch (state.conquest?.tier ?? 1) {
+      case 3:
+        return 15;
+      case 2:
+        return 18;
+      default:
+        return questionSeconds; // 20
+    }
+  }
+
+  /// Reclama la conquista de una isla tras GANAR. Actualiza el mapa y marca si
+  /// hubo ascenso de tier.
+  Future<void> conquer(String islandSlug) async {
+    final s = state.session;
+    if (s == null || !s.isWon || state.conquering) return;
+    emit(state.copyWith(conquering: true, clearConquerResult: true));
+    try {
+      final res = await _repo.conquerIsland(s.id, islandSlug);
+      Analytics.I.logEvent('quiz_island_conquered', {
+        'island': res.island,
+        'promoted': res.promoted,
+        'tier': res.conquest.tier,
+      });
+      emit(state.copyWith(
+        conquering: false,
+        conquest: res.conquest,
+        conquerResult: res,
+      ));
+    } catch (e) {
+      emit(state.copyWith(conquering: false, error: e.toString()));
+    }
   }
 
   /// Carga el ranking (pestaña Ranking, on-demand).
@@ -191,9 +233,11 @@ class QuizGameCubit extends Cubit<QuizGameState> {
       'difficulty': q.difficulty,
     });
     _questionShownAt = DateTime.now();
+    final secs = _secondsForTier();
     emit(state.copyWith(
       phase: QuizPhase.question,
-      secondsLeft: questionSeconds,
+      secondsLeft: secs,
+      secondsTotal: secs,
       clearSelected: true,
       clearResult: true,
     ));

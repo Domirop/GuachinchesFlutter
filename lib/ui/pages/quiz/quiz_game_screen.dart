@@ -108,6 +108,7 @@ class _QuizGameScaffoldState extends State<_QuizGameScaffold> {
                   categories: state.categories,
                   owned: state.wedges.toSet(),
                   secondsLeft: state.secondsLeft,
+                  secondsTotal: state.secondsTotal,
                   lives: state.lives,
                   score: state.score,
                   revealing: state.phase == QuizPhase.revealing,
@@ -122,6 +123,7 @@ class _QuizGameScaffoldState extends State<_QuizGameScaffold> {
                   state: state,
                   onPlayAgain: cubit.restart,
                   onClose: () => Navigator.of(context).maybePop(),
+                  onConquer: cubit.conquer,
                 );
             }
           },

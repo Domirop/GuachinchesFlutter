@@ -98,6 +98,24 @@ class QuizRepository {
         .toList();
   }
 
+  /// Estado de conquista (tier + islas conquistadas + catálogo).
+  Future<QuizConquest> getConquest() async {
+    final r = await _client.get(Uri.parse('${_base}quiz/me/conquest'),
+        headers: await _authHeaders());
+    return QuizConquest.fromJson(_decodeMap(r, 'getConquest'));
+  }
+
+  /// Reclama la conquista de una isla tras ganar la partida.
+  Future<QuizConquerResult> conquerIsland(
+      String sessionId, String islandSlug) async {
+    final r = await _client.post(
+      Uri.parse('${_base}quiz/sessions/$sessionId/conquer'),
+      headers: await _authHeaders(),
+      body: jsonEncode({'island': islandSlug}),
+    );
+    return QuizConquerResult.fromJson(_decodeMap(r, 'conquerIsland'));
+  }
+
   /// Inicia una partida nueva.
   Future<QuizSession> startSession() async {
     final r = await _client.post(Uri.parse('${_base}quiz/sessions'),

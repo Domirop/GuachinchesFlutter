@@ -16,6 +16,7 @@ class QuizQuestionView extends StatelessWidget {
   final List<QuizCategory> categories;
   final Set<String> owned;
   final int secondsLeft;
+  final int secondsTotal;
   final int lives;
   final int score;
   final bool revealing;
@@ -30,6 +31,7 @@ class QuizQuestionView extends StatelessWidget {
     required this.categories,
     required this.owned,
     required this.secondsLeft,
+    required this.secondsTotal,
     required this.lives,
     required this.score,
     required this.revealing,
@@ -121,7 +123,10 @@ class QuizQuestionView extends StatelessWidget {
                     ],
                   ),
                 ),
-                _TimerRing(secondsLeft: secondsLeft, warn: warn),
+                _TimerRing(
+                    secondsLeft: secondsLeft,
+                    total: secondsTotal,
+                    warn: warn),
               ],
             ),
           ),
@@ -263,8 +268,10 @@ class _Option extends StatelessWidget {
 
 class _TimerRing extends StatelessWidget {
   final int secondsLeft;
+  final int total;
   final bool warn;
-  const _TimerRing({required this.secondsLeft, required this.warn});
+  const _TimerRing(
+      {required this.secondsLeft, required this.total, required this.warn});
 
   @override
   Widget build(BuildContext context) {
@@ -280,7 +287,7 @@ class _TimerRing extends StatelessWidget {
             width: 46,
             height: 46,
             child: CircularProgressIndicator(
-              value: (secondsLeft / QuizGameCubit.questionSeconds).clamp(0, 1),
+              value: total <= 0 ? 0 : (secondsLeft / total).clamp(0, 1),
               strokeWidth: 4,
               backgroundColor: brand.border,
               valueColor: AlwaysStoppedAnimation(color),

@@ -1,8 +1,6 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:guachinches/config/app_shapes.dart';
-import 'package:guachinches/config/app_text_styles.dart';
 import 'package:guachinches/config/brand_colors.dart';
 import 'package:guachinches/data/model/quiz/quiz_models.dart';
 
@@ -25,6 +23,18 @@ IconData quizCategoryIcon(String key) {
       return Icons.celebration_rounded;
     default:
       return Icons.help_rounded;
+  }
+}
+
+/// Color del tier (arena): Marea=azul Atlántico, Volcán=plata, Leyenda=oro.
+Color quizTierColor(int tier) {
+  switch (tier) {
+    case 3:
+      return const Color(0xFFE0A93B); // oro
+    case 2:
+      return const Color(0xFFAEB4BD); // plata
+    default:
+      return const Color(0xFF0085C4); // azul Atlántico (Marea)
   }
 }
 
@@ -180,47 +190,6 @@ class _WedgesPainter extends CustomPainter {
   @override
   bool shouldRepaint(_WedgesPainter old) =>
       old.owned != owned || old.colors != colors;
-}
-
-/// Preview NEUTRAL de las 7 categorías ("a qué te enfrentas"), sin estado de
-/// conseguido — los quesitos solo se ganan DENTRO de una partida. Chips con el
-/// color e icono de cada categoría.
-class QuizCategoriesPreview extends StatelessWidget {
-  final List<QuizCategory> categories;
-  const QuizCategoriesPreview({super.key, required this.categories});
-
-  @override
-  Widget build(BuildContext context) {
-    final brand = context.brand;
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: [
-        for (final c in categories)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-            decoration: BoxDecoration(
-              color: Color.alphaBlend(
-                  c.color.withValues(alpha: 0.14), brand.glass),
-              borderRadius: BorderRadius.circular(AppRadius.full),
-              border: Border.all(color: c.color.withValues(alpha: 0.45)),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(quizCategoryIcon(c.icon), size: 14, color: c.color),
-                const SizedBox(width: 6),
-                Text(c.name,
-                    style: AppTextStyles.ui(
-                        size: 11.5,
-                        color: brand.textPrimary,
-                        weight: FontWeight.w600)),
-              ],
-            ),
-          ),
-      ],
-    );
-  }
 }
 
 /// Tira compacta de progreso para el HUD del juego: 7 iconos de categoría;
