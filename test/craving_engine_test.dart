@@ -34,7 +34,7 @@ void main() {
   });
 
   group('ranking contextual', () {
-    test('mañana ⇒ desayuno manda', () {
+    test('mañana ⇒ desayuno manda y NADA de cena/copas/atardecer', () {
       const ctx = CravingContext(
         dayPart: DayPart.desayuno,
         sky: Sky.clear,
@@ -42,7 +42,12 @@ void main() {
         dayType: DayType.weekday,
         hour: 9,
       );
-      expect(ids(ctx).first, 'desayuno');
+      final top = ids(ctx);
+      expect(top.first, 'desayuno');
+      // Lo que chirría de mañana no debe aparecer (intención del rediseño).
+      expect(top, isNot(contains('cena')));
+      expect(top, isNot(contains('copas')));
+      expect(top, isNot(contains('atardecer')));
     });
 
     test('mediodía lluvioso y frío ⇒ de cuchara manda; terraza no sale', () {

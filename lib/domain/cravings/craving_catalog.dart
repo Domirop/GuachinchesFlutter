@@ -6,15 +6,18 @@ import 'package:guachinches/utils/contextual_pool.dart';
 ///
 /// Fuente única de los pesos del motor. Cada antojo mapea a tipos/categorías
 /// REALES del backend (vía [RestaurantTypeIds] / [CategoryIds]). Tunear el
-/// comportamiento del feature = tocar solo este fichero.
+/// comportamiento = tocar solo este fichero.
 ///
-/// Reglas de pulgar para los pesos:
-///  - `dayPart`: marca SOLO las franjas donde el antojo tiene sentido (fuera de
-///    ahí cae al `offHoursWeight` y casi no aparece).
-///  - `sky` / `temp`: modulan (>1 sube, <1 baja). Deja neutro lo que no aplica.
-///  - `dayType`: viernes/finde para planes y caprichos.
+/// Filosofía de los pesos (para que el set SIEMPRE sea coherente con el momento):
+///  - `dayPart`: marca su franja fuerte y deja **caídas suaves** a franjas
+///    vecinas (un desayuno aún tiene sentido a media mañana). Lo que NO debe
+///    salir nunca fuera de hora (cenar/copas/atardecer de mañana) lleva un
+///    `offHoursWeight` casi nulo.
+///  - "Guachinche" actúa de comodín canario todo-el-día (offHours alto): si nada
+///    encaja, rellena con algo que en Canarias siempre cuadra.
+///  - `sky`/`temp`: modulan (>1 sube, <1 baja). `dayType`: viernes/finde para planes.
 const List<Craving> kCravingCatalog = [
-  // ── Desayuno ────────────────────────────────────────────────────────────
+  // ── Desayuno ──────────────────────────────────────────────────────────────
   Craving(
     id: 'desayuno',
     emoji: '☕',
@@ -24,7 +27,21 @@ const List<Craving> kCravingCatalog = [
     weights: CravingWeights(
       dayPart: {DayPart.desayuno: 1.7, DayPart.madrugada: 0.5},
       sky: {Sky.rain: 1.1},
-      offHoursWeight: 0.05,
+      offHoursWeight: 0.04,
+    ),
+  ),
+
+  // ── Merienda / café de tarde (misma familia 'cafe' → no coexiste con desayuno)
+  Craving(
+    id: 'merienda',
+    emoji: '🥐',
+    label: 'Merienda',
+    family: 'cafe',
+    typeIds: {RestaurantTypeIds.barCafeteria},
+    weights: CravingWeights(
+      dayPart: {DayPart.tarde: 1.35, DayPart.sobremesa: 0.8, DayPart.mediodia: 0.25},
+      sky: {Sky.rain: 1.1, Sky.clouds: 1.05},
+      offHoursWeight: 0.03,
     ),
   ),
 
@@ -37,6 +54,7 @@ const List<Craving> kCravingCatalog = [
     categoryIds: {CategoryIds.terraza, CategoryIds.conVistas},
     weights: CravingWeights(
       dayPart: {
+        DayPart.desayuno: 0.2,
         DayPart.mediodia: 1.0,
         DayPart.sobremesa: 1.1,
         DayPart.tarde: 1.3,
@@ -45,6 +63,7 @@ const List<Craving> kCravingCatalog = [
       sky: {Sky.clear: 1.6, Sky.clouds: 1.0, Sky.fog: 0.5, Sky.rain: 0.15, Sky.storm: 0.1},
       temp: {TempBand.cold: 0.4, TempBand.mild: 1.0, TempBand.warm: 1.4, TempBand.hot: 1.5},
       dayType: {DayType.friday: 1.15, DayType.weekend: 1.2},
+      offHoursWeight: 0.05,
     ),
   ),
 
@@ -56,10 +75,17 @@ const List<Craving> kCravingCatalog = [
     family: 'mar',
     categoryIds: {CategoryIds.pescadoMarisco},
     weights: CravingWeights(
-      dayPart: {DayPart.mediodia: 1.4, DayPart.sobremesa: 1.0, DayPart.noche: 1.2},
+      dayPart: {
+        DayPart.desayuno: 0.25,
+        DayPart.mediodia: 1.4,
+        DayPart.sobremesa: 1.0,
+        DayPart.tarde: 0.5,
+        DayPart.noche: 1.2,
+      },
       sky: {Sky.clear: 1.2, Sky.rain: 0.8},
       temp: {TempBand.warm: 1.2, TempBand.hot: 1.2},
       dayType: {DayType.weekend: 1.15},
+      offHoursWeight: 0.08,
     ),
   ),
 
@@ -71,14 +97,15 @@ const List<Craving> kCravingCatalog = [
     family: 'cuchara',
     categoryIds: {CategoryIds.puchero},
     weights: CravingWeights(
-      dayPart: {DayPart.mediodia: 1.4, DayPart.sobremesa: 1.2, DayPart.noche: 0.6},
+      dayPart: {DayPart.mediodia: 1.4, DayPart.sobremesa: 1.2, DayPart.tarde: 0.4, DayPart.noche: 0.6},
       sky: {Sky.rain: 1.7, Sky.storm: 1.6, Sky.fog: 1.4, Sky.clouds: 1.15, Sky.clear: 0.7},
       temp: {TempBand.cold: 1.7, TempBand.mild: 1.1, TempBand.warm: 0.6, TempBand.hot: 0.3},
       dayType: {DayType.weekend: 1.1},
+      offHoursWeight: 0.06,
     ),
   ),
 
-  // ── Guachinche (plan canario) ─────────────────────────────────────────────
+  // ── Guachinche (comodín canario todo el día) ──────────────────────────────
   Craving(
     id: 'guachinche',
     emoji: '🍷',
@@ -90,12 +117,14 @@ const List<Craving> kCravingCatalog = [
     },
     weights: CravingWeights(
       dayPart: {
+        DayPart.desayuno: 0.5,
         DayPart.mediodia: 1.2,
         DayPart.sobremesa: 1.3,
-        DayPart.tarde: 1.0,
+        DayPart.tarde: 1.1,
         DayPart.noche: 1.0,
       },
       dayType: {DayType.friday: 1.2, DayType.weekend: 1.4},
+      offHoursWeight: 0.3,
     ),
   ),
 
@@ -107,8 +136,24 @@ const List<Craving> kCravingCatalog = [
     family: 'tapeo',
     categoryIds: {CategoryIds.papasPinasCostillas},
     weights: CravingWeights(
-      dayPart: {DayPart.sobremesa: 0.9, DayPart.tarde: 1.2, DayPart.noche: 1.3},
+      dayPart: {DayPart.mediodia: 0.5, DayPart.sobremesa: 0.9, DayPart.tarde: 1.2, DayPart.noche: 1.3},
       dayType: {DayType.friday: 1.2, DayType.weekend: 1.15},
+      offHoursWeight: 0.07,
+    ),
+  ),
+
+  // ── Carne canaria (cabra / cochino) ───────────────────────────────────────
+  Craving(
+    id: 'carne',
+    emoji: '🥩',
+    label: 'Carne',
+    family: 'carne',
+    categoryIds: {CategoryIds.carneCabra, CategoryIds.cochinoNegro},
+    weights: CravingWeights(
+      dayPart: {DayPart.mediodia: 1.1, DayPart.sobremesa: 1.0, DayPart.noche: 1.1},
+      temp: {TempBand.cold: 1.1},
+      dayType: {DayType.weekend: 1.2},
+      offHoursWeight: 0.08,
     ),
   ),
 
@@ -123,6 +168,7 @@ const List<Craving> kCravingCatalog = [
       dayPart: {DayPart.mediodia: 0.5, DayPart.tarde: 1.6, DayPart.noche: 0.7},
       sky: {Sky.clear: 1.5, Sky.clouds: 0.9, Sky.rain: 0.2, Sky.storm: 0.1},
       temp: {TempBand.warm: 1.2, TempBand.hot: 1.2},
+      offHoursWeight: 0.03,
     ),
   ),
 
@@ -136,6 +182,7 @@ const List<Craving> kCravingCatalog = [
     weights: CravingWeights(
       dayPart: {DayPart.tarde: 0.7, DayPart.noche: 1.5},
       dayType: {DayType.friday: 1.2, DayType.weekend: 1.2},
+      offHoursWeight: 0.02,
     ),
   ),
 
@@ -147,24 +194,25 @@ const List<Craving> kCravingCatalog = [
     family: 'tasca',
     typeIds: {RestaurantTypeIds.tascas, RestaurantTypeIds.bodegones},
     weights: CravingWeights(
-      dayPart: {DayPart.sobremesa: 1.0, DayPart.tarde: 1.1, DayPart.noche: 1.2},
+      dayPart: {DayPart.mediodia: 0.6, DayPart.sobremesa: 1.0, DayPart.tarde: 1.1, DayPart.noche: 1.2},
       temp: {TempBand.cold: 1.15},
       sky: {Sky.rain: 1.1, Sky.clouds: 1.05},
       dayType: {DayType.friday: 1.25, DayType.weekend: 1.15},
+      offHoursWeight: 0.06,
     ),
   ),
 
-  // ── Merienda / café de tarde ──────────────────────────────────────────────
+  // ── Copas / lounge (noche) ────────────────────────────────────────────────
   Craving(
-    id: 'merienda',
-    emoji: '🥐',
-    label: 'Merienda',
-    family: 'cafe',
-    typeIds: {RestaurantTypeIds.barCafeteria},
+    id: 'copas',
+    emoji: '🍸',
+    label: 'Copas',
+    family: 'copas',
+    typeIds: {RestaurantTypeIds.loungeTenerife},
     weights: CravingWeights(
-      dayPart: {DayPart.tarde: 1.25, DayPart.sobremesa: 0.8},
-      sky: {Sky.rain: 1.1, Sky.clouds: 1.05},
-      offHoursWeight: 0.05,
+      dayPart: {DayPart.tarde: 0.6, DayPart.noche: 1.3},
+      dayType: {DayType.friday: 1.4, DayType.weekend: 1.3},
+      offHoursWeight: 0.02,
     ),
   ),
 ];
