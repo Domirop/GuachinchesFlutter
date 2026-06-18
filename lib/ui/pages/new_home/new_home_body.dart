@@ -11,6 +11,11 @@ import 'package:guachinches/data/model/SimpleMunicipality.dart';
 import 'package:guachinches/data/model/Types.dart';
 import 'package:guachinches/data/model/restaurant.dart';
 import 'package:guachinches/data/model/weather_data.dart';
+import 'package:guachinches/domain/cravings/craving.dart';
+import 'package:guachinches/domain/cravings/craving_catalog.dart';
+import 'package:guachinches/domain/cravings/craving_context.dart';
+import 'package:guachinches/domain/cravings/craving_engine.dart';
+import 'package:guachinches/ui/pages/new_home/widgets/craving_chips_row.dart';
 import 'package:guachinches/data/model/zone.dart';
 import 'package:guachinches/ui/pages/new_home/new_home_presenter.dart';
 import 'package:guachinches/data/model/Island.dart';
@@ -131,9 +136,46 @@ class _NewHomeBodyState extends State<NewHomeBody> {
     }
   }
 
+  // "¿Qué te apetece?": ranking memoizado. Solo recalcula cuando cambia el
+  // contexto (franja/cielo/temperatura/día), no en cada rebuild por scroll.
+  CravingContext? _memoCravingCtx;
+  List<Craving> _cravings = const [];
+
+  void _refreshCravingsIfNeeded() {
+    final ctx = CravingContext(
+      dayPart: dayPartFromHour(widget.hour),
+      sky: skyFromCondition(widget.weather.condition),
+      tempBand: tempBandFromCelsius(widget.weather.tempC),
+      dayType: dayTypeFromWeekday(DateTime.now().weekday),
+      hour: widget.hour,
+    );
+    if (_memoCravingCtx != ctx) {
+      _memoCravingCtx = ctx;
+      _cravings = rankCravings(kCravingCatalog, ctx, max: 4);
+    }
+  }
+
+  /// Abre la búsqueda con el filtro temático del antojo (mismo patrón que
+  /// [_openContextualSearch]): resuelve los IDs contra los tipos/categorías
+  /// cargados y aplica `openOnly`.
+  void _openCravingSearch(Craving c) {
+    final types = widget.types
+        .where((t) => c.typeIds.contains(t.id))
+        .toList(growable: false);
+    final categories = widget.categories
+        .where((cat) => c.categoryIds.contains(cat.id))
+        .toList(growable: false);
+    widget.onSearchPreSelected(
+      types: types.isEmpty ? null : types,
+      categories: categories.isEmpty ? null : categories,
+      openOnly: true,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     _refreshMemoIfNeeded();
+    _refreshCravingsIfNeeded();
 
     final filters = widget.filters;
     final zoneLabel = filters.zoneLabel ?? filters.islandLabel;
@@ -207,6 +249,21 @@ class _NewHomeBodyState extends State<NewHomeBody> {
             // si LocationPermanentlyDenied/ServiceDisabled → push guía a
             // Ajustes. Auto-oculto cuando hay permiso (LocationLoaded).
             const SliverToBoxAdapter(child: LocationPromptBanner()),
+
+            // ── ¿QUÉ TE APETECE AHORA? ───────────────────────────────────
+            // Chips de antojo rankeados por hora + clima + día (motor en
+            // domain/cravings/). Tap → búsqueda con filtro temático + abierto.
+            if (!widget.bootstrapLoading && _cravings.isNotEmpty) ...[
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: CravingChipsRow(
+                    cravings: _cravings,
+                    onTap: _openCravingSearch,
+                  ),
+                ),
+              ),
+            ],
 
             // ── ABIERTOS CERCA AHORA ─────────────────────────────────────
             // Callout "N sitios abiertos cerca" retirado de momento (decisión
