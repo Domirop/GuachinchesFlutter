@@ -18,7 +18,7 @@ const List<Craving> kCravingCatalog = [
   Craving(
     id: 'desayuno',
     emoji: '☕',
-    label: 'Desayunar',
+    label: 'Desayuno',
     family: 'cafe',
     typeIds: {RestaurantTypeIds.barCafeteria},
     weights: CravingWeights(
@@ -52,7 +52,7 @@ const List<Craving> kCravingCatalog = [
   Craving(
     id: 'pescado',
     emoji: '🐟',
-    label: 'Pescado fresco',
+    label: 'Pescado',
     family: 'mar',
     categoryIds: {CategoryIds.pescadoMarisco},
     weights: CravingWeights(
@@ -67,7 +67,7 @@ const List<Craving> kCravingCatalog = [
   Craving(
     id: 'cuchara',
     emoji: '🍲',
-    label: 'De cuchara',
+    label: 'Cuchara',
     family: 'cuchara',
     categoryIds: {CategoryIds.puchero},
     weights: CravingWeights(
@@ -116,7 +116,7 @@ const List<Craving> kCravingCatalog = [
   Craving(
     id: 'atardecer',
     emoji: '🌅',
-    label: 'Con vistas',
+    label: 'Vistas',
     family: 'vistas',
     categoryIds: {CategoryIds.conVistas},
     weights: CravingWeights(
@@ -130,7 +130,7 @@ const List<Craving> kCravingCatalog = [
   Craving(
     id: 'cena',
     emoji: '🍽️',
-    label: 'Cenar',
+    label: 'Cena',
     family: 'cena',
     typeIds: {RestaurantTypeIds.restaurantes, RestaurantTypeIds.loungeTenerife},
     weights: CravingWeights(
