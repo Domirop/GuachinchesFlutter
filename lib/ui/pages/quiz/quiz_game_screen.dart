@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ui';
 
+import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:guachinches/config/app_colors.dart';
@@ -42,8 +43,36 @@ class _QuizGameScaffoldState extends State<_QuizGameScaffold> {
   final QuizSound _sound = QuizSound();
   Timer? _revealTimer;
 
+  // Intro de carga (~7 s) al entrar al juego: imagen + pito herreño de fondo
+  // mientras se cargan las peticiones (loadLobby corre en paralelo).
+  final AudioPlayer _intro = AudioPlayer();
+  Timer? _introTimer;
+  bool _showIntro = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _startIntro();
+  }
+
+  Future<void> _startIntro() async {
+    try {
+      await _intro.setReleaseMode(ReleaseMode.stop);
+      await _intro.play(AssetSource('audio/pito-herreno-intro.mp3'));
+    } catch (_) {/* silencio si no se puede reproducir */}
+    _introTimer = Timer(const Duration(seconds: 10), _endIntro);
+  }
+
+  void _endIntro() {
+    if (!mounted) return;
+    setState(() => _showIntro = false);
+    _intro.stop();
+  }
+
   @override
   void dispose() {
+    _introTimer?.cancel();
+    _intro.dispose();
     _revealTimer?.cancel();
     _sound.dispose();
     super.dispose();
@@ -62,6 +91,7 @@ class _QuizGameScaffoldState extends State<_QuizGameScaffold> {
 
   @override
   Widget build(BuildContext context) {
+    if (_showIntro) return const _QuizIntroLoading();
     return Scaffold(
       backgroundColor: context.brand.base,
       body: Container(
@@ -128,6 +158,142 @@ class _QuizGameScaffoldState extends State<_QuizGameScaffold> {
             }
           },
         ),
+      ),
+    );
+  }
+}
+
+/// Pantalla de carga: la escena festiva canaria a pantalla completa mientras
+/// suena el pito herreño y se cargan las peticiones (~7 s).
+class _QuizIntroLoading extends StatefulWidget {
+  const _QuizIntroLoading();
+
+  @override
+  State<_QuizIntroLoading> createState() => _QuizIntroLoadingState();
+}
+
+class _QuizIntroLoadingState extends State<_QuizIntroLoading>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(
+    vsync: this,
+    duration: const Duration(seconds: 10),
+  )..forward();
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottom = MediaQuery.of(context).padding.bottom;
+    return Scaffold(
+      backgroundColor: const Color(0xFF0B1E47),
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          // La escena festiva.
+          Image.asset('assets/images/quiz-loading.png', fit: BoxFit.cover),
+          // Velo inferior para legibilidad del texto y la barra.
+          const Align(
+            alignment: Alignment.bottomCenter,
+            child: FractionallySizedBox(
+              heightFactor: 0.42,
+              widthFactor: 1,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Color(0x00000000), Color(0xCC04122E)],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          // Título + barra de progreso abajo.
+          Positioned(
+            left: 28,
+            right: 28,
+            bottom: 28 + bottom,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '¿CUÁNTO SABES DE CANARIAS?',
+                  textAlign: TextAlign.center,
+                  style: AppTextStyles.displayHero(size: 22, color: Colors.white)
+                      .copyWith(
+                    letterSpacing: 0.5,
+                    shadows: const [
+                      Shadow(color: Color(0xAA000000), blurRadius: 12),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                AnimatedBuilder(
+                  animation: _c,
+                  builder: (context, _) {
+                    final pct = (_c.value * 100).round();
+                    return Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Porcentaje centrado.
+                        Text(
+                          '$pct%',
+                          textAlign: TextAlign.center,
+                          style: AppTextStyles.displayHero(
+                                  size: 26, color: Colors.white)
+                              .copyWith(
+                            shadows: const [
+                              Shadow(color: Color(0xAA000000), blurRadius: 10),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        // Barra: se llena de izquierda a derecha.
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(AppRadius.full),
+                          child: SizedBox(
+                            height: 8,
+                            child: Stack(
+                              children: [
+                                const Positioned.fill(
+                                  child: ColoredBox(color: Color(0x33FFFFFF)),
+                                ),
+                                FractionallySizedBox(
+                                  alignment: Alignment.centerLeft,
+                                  widthFactor: _c.value.clamp(0.02, 1.0),
+                                  child: const DecoratedBox(
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(colors: [
+                                        AppColors.atlanticoClaro,
+                                        AppColors.sol,
+                                      ]),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'Preparando la fiesta…',
+                  style: AppTextStyles.ui(
+                      size: 13,
+                      weight: FontWeight.w600,
+                      color: Colors.white.withValues(alpha: 0.9)),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

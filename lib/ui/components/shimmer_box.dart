@@ -50,19 +50,23 @@ class _ShimmerBoxState extends State<ShimmerBox>
     final baseColor = base.withValues(alpha: 0.06);
     final highlight = base.withValues(alpha: 0.16);
 
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (_, __) => Container(
-        width: widget.width,
-        height: widget.height,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(widget.radius),
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [baseColor, highlight, baseColor],
-            stops: const [0.35, 0.5, 0.65],
-            transform: _SlideGradient(_controller.value),
+    // RepaintBoundary: el barrido del shimmer corre en bucle; en una skeleton
+    // con muchos bloques, aislar cada uno evita repintados en cascada.
+    return RepaintBoundary(
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (_, __) => Container(
+          width: widget.width,
+          height: widget.height,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(widget.radius),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [baseColor, highlight, baseColor],
+              stops: const [0.35, 0.5, 0.65],
+              transform: _SlideGradient(_controller.value),
+            ),
           ),
         ),
       ),

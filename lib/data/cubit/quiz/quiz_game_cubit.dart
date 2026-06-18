@@ -25,6 +25,46 @@ class QuizGameCubit extends Cubit<QuizGameState> {
   int _gamesWonBefore = 0;
   DateTime? _questionShownAt;
 
+  /// Permutación de la pregunta actual: `_optionPerm[i]` = índice ORIGINAL de la
+  /// opción que se muestra en la posición barajada `i`. Las opciones se barajan
+  /// en el cliente (el seed las servía con la correcta siempre en A); al enviar
+  /// se traduce a índice original y al revelar se mapea de vuelta a la barajada.
+  List<int>? _optionPerm;
+
+  /// Devuelve una copia de [q] con las opciones barajadas + la permutación
+  /// (barajada→original).
+  (QuizQuestion, List<int>) _shuffleQuestion(QuizQuestion q) {
+    final perm = List<int>.generate(q.options.length, (i) => i)..shuffle(_rng);
+    final shuffled = QuizQuestion(
+      id: q.id,
+      difficulty: q.difficulty,
+      question: q.question,
+      options: [for (final i in perm) q.options[i]],
+      categorySlug: q.categorySlug,
+      categoryName: q.categoryName,
+      island: q.island,
+      colorHex: q.colorHex,
+      icon: q.icon,
+    );
+    return (shuffled, perm);
+  }
+
+  /// Traduce el `correctIndex` (orden original) del servidor a la posición
+  /// barajada que ve el usuario, para que el reveal ilumine bien.
+  QuizAnswerResult _mapResultToShuffled(
+      QuizAnswerResult res, List<int>? perm) {
+    if (perm == null) return res;
+    final shownCorrect = perm.indexOf(res.correctIndex);
+    return QuizAnswerResult(
+      isCorrect: res.isCorrect,
+      correctIndex: shownCorrect < 0 ? res.correctIndex : shownCorrect,
+      explanation: res.explanation,
+      points: res.points,
+      newWedge: res.newWedge,
+      session: res.session,
+    );
+  }
+
   // ── Lobby ───────────────────────────────────────────────────────────────────
 
   /// Carga categorías + stats para el lobby. No inicia partida (sigue en idle).
@@ -213,9 +253,11 @@ class QuizGameCubit extends Cubit<QuizGameState> {
         return;
       }
       Analytics.I.logEvent('quiz_spin', {'category': landed.slug});
+      final (shuffledQ, perm) = _shuffleQuestion(question);
+      _optionPerm = perm;
       emit(state.copyWith(
         landed: landed,
-        question: question,
+        question: shuffledQ,
         clearResult: true,
         clearSelected: true,
       ));
@@ -257,24 +299,33 @@ class QuizGameCubit extends Cubit<QuizGameState> {
         ? DateTime.now().difference(_questionShownAt!).inMilliseconds
         : (questionSeconds - secondsLeft) * 1000;
 
-    // Muestra de inmediato la opción elegida; el reveal llega con el servidor.
+    // `index` es la posición BARAJADA que tocó el usuario; el servidor valida
+    // contra el orden original, así que traducimos.
+    final perm = _optionPerm;
+    final originalIndex =
+        (index != null && perm != null) ? perm[index] : index;
+
+    // Muestra de inmediato la opción elegida (en su posición barajada).
     emit(state.copyWith(selectedIndex: index));
 
     try {
       final res = await _repo.submitAnswer(
         sessionId: session.id,
         questionId: q.id,
-        selectedIndex: index,
+        selectedIndex: originalIndex,
         timeMs: timeMs,
         secondsLeft: secondsLeft,
       );
       _emitAnalyticsForAnswer(res, q);
+      // El servidor devuelve correctIndex en orden ORIGINAL; lo mapeamos a la
+      // posición barajada para que el reveal ilumine la opción correcta.
+      final shown = _mapResultToShuffled(res, perm);
       final won = res.session.isWon;
       final leveled = won &&
           _rankIndex(_gamesWonBefore) != _rankIndex(_gamesWonBefore + 1);
       emit(state.copyWith(
         phase: QuizPhase.revealing,
-        result: res,
+        result: shown,
         session: res.session,
         leveledUp: leveled,
       ));

@@ -277,9 +277,6 @@ class _NewHomeBodyState extends State<NewHomeBody> {
               ),
             ],
 
-            // ── CANARISMO DEL DÍA (teaser colapsable) ──────────────
-            const SliverToBoxAdapter(child: CanarismoCard()),
-
             // ── JUEGO: ¿CUÁNTO SABES DE CANARIAS? ───────────────
             SliverToBoxAdapter(
               child: Semantics(
@@ -331,6 +328,9 @@ class _NewHomeBodyState extends State<NewHomeBody> {
 
             // ── ÚLTIMAS VISITAS (encima de Mejor Valorados) ──
             SliverToBoxAdapter(child: _buildVisitsSection(context)),
+
+            // ── CANARISMO DEL DÍA (teaser colapsable) ──────────────
+            const SliverToBoxAdapter(child: CanarismoCard()),
 
             // ── MEJOR VALORADOS · {ISLA} ─────────────
             if (TopRatedSection.shouldRender(widget.topRated))

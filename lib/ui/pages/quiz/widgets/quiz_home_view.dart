@@ -48,40 +48,85 @@ class _QuizHomeViewState extends State<QuizHomeView> {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
-            child: Row(
-              children: [
-                QuizGlassCircleButton(
-                    icon: Icons.close_rounded, onTap: widget.onClose),
-                const Spacer(),
-                QuizGlassCircleButton(
-                    icon: Icons.help_outline_rounded, onTap: widget.onHowTo),
-              ],
+    return LayoutBuilder(
+      builder: (context, c) {
+        return Stack(
+          children: [
+            // Escena canaria full-bleed detrás de TODA la cabecera (close +
+            // tabs + título + islas). Solo en INICIO; se funde en `surface`.
+            if (_tab == 0)
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: _SceneBackdrop(height: c.maxHeight),
+              ),
+            SafeArea(
+              // Sin inset inferior: la repisa de cristal del lobby sangra hasta
+              // el borde y mete su propio padding para el home indicator.
+              bottom: false,
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+                    child: Row(
+                      children: [
+                        QuizGlassCircleButton(
+                            icon: Icons.close_rounded, onTap: widget.onClose),
+                        const Spacer(),
+                        QuizGlassCircleButton(
+                            icon: Icons.help_outline_rounded,
+                            onTap: widget.onHowTo),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  _Segmented(index: _tab, onChanged: _select),
+                  const SizedBox(height: 8),
+                  Expanded(
+                    child: IndexedStack(
+                      index: _tab,
+                      children: [
+                        QuizLobbyView(
+                          state: widget.state,
+                          onPlay: widget.onPlay,
+                          onResume: widget.onResume,
+                          onHowTo: widget.onHowTo,
+                        ),
+                        SafeArea(
+                            top: false,
+                            child: QuizHistoryView(state: widget.state)),
+                        SafeArea(
+                            top: false,
+                            child: QuizRankingView(state: widget.state)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(height: 14),
-          _Segmented(index: _tab, onChanged: _select),
-          const SizedBox(height: 8),
-          Expanded(
-            child: IndexedStack(
-              index: _tab,
-              children: [
-                QuizLobbyView(
-                  state: widget.state,
-                  onPlay: widget.onPlay,
-                  onResume: widget.onResume,
-                  onHowTo: widget.onHowTo,
-                ),
-                QuizHistoryView(state: widget.state),
-                QuizRankingView(state: widget.state),
-              ],
-            ),
-          ),
-        ],
+          ],
+        );
+      },
+    );
+  }
+}
+
+/// Fondo de INICIO: la escena canaria a pantalla completa, a sangre. La
+/// legibilidad de la zona de jugar la da la repisa de cristal del lobby.
+class _SceneBackdrop extends StatelessWidget {
+  final double height;
+  const _SceneBackdrop({required this.height});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: height,
+      width: double.infinity,
+      child: Image.asset(
+        'assets/images/quiz-stage-bg.png',
+        fit: BoxFit.cover,
+        alignment: const Alignment(0, 0.30),
       ),
     );
   }

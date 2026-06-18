@@ -289,19 +289,22 @@ class _ReservePill extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  AnimatedBuilder(
-                    animation: ringAngle,
-                    builder: (_, child) =>
-                        Transform.rotate(angle: ringAngle.value, child: child),
-                    child: const Icon(Icons.phone_rounded,
-                        size: 19, color: AppColors.atlantico),
+                  // RepaintBoundary: el icono "suena" en bucle; lo aislamos en
+                  // su capa para no repintar la píldora en cada frame.
+                  RepaintBoundary(
+                    child: AnimatedBuilder(
+                      animation: ringAngle,
+                      builder: (_, child) => Transform.rotate(
+                          angle: ringAngle.value, child: child),
+                      child: const Icon(Icons.phone_rounded,
+                          size: 19, color: AppColors.atlantico),
+                    ),
                   ),
                   const SizedBox(width: 8),
                   Text(
                     'RESERVA YA',
-                    style: AppTextStyles.displaySection(size: 11)
-                        .copyWith(
-                            color: AppColors.atlantico, letterSpacing: 1.0),
+                    style: AppTextStyles.displaySection(size: 11).copyWith(
+                        color: AppColors.atlantico, letterSpacing: 1.0),
                   ),
                 ],
               ),

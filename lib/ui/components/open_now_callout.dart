@@ -69,9 +69,8 @@ class _OpenNowCalloutState extends State<OpenNowCallout>
     final eyebrowText = hasOpen
         ? eyebrowJoin(['ABIERTOS AHORA', widget.contextLabel.toUpperCase()])
         : eyebrowJoin(['ABRE PRONTO', widget.contextLabel.toUpperCase()]);
-    final headlineText = hasOpen
-        ? _headlineForCount(widget.count)
-        : 'Sin abiertos cerca';
+    final headlineText =
+        hasOpen ? _headlineForCount(widget.count) : 'Sin abiertos cerca';
     final supportText =
         hasOpen ? 'Toca para ver el listado' : 'Abren a lo largo del día';
 
@@ -118,7 +117,8 @@ class _OpenNowCalloutState extends State<OpenNowCallout>
                                 children: [
                                   if (hasOpen) ...[
                                     ExcludeSemantics(
-                                      child: _LiveDot(controller: _pulse, color: accent),
+                                      child: _LiveDot(
+                                          controller: _pulse, color: accent),
                                     ),
                                     const SizedBox(width: 6),
                                   ],
@@ -205,37 +205,41 @@ class _LiveDot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: controller,
-      builder: (_, __) {
-        final t = controller.value; // 0 → 1 → 0
-        final opacity = 0.45 + 0.55 * t;
-        final scale = 0.85 + 0.15 * t;
-        return SizedBox(
-          width: 10,
-          height: 10,
-          child: Center(
-            child: Transform.scale(
-              scale: scale,
-              child: Container(
-                width: 8,
-                height: 8,
-                decoration: BoxDecoration(
-                  color: color.withOpacity(opacity),
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: color.withOpacity(0.35 * t),
-                      blurRadius: 6,
-                      spreadRadius: 1,
-                    ),
-                  ],
+    // RepaintBoundary: el punto "en vivo" late en bucle; aislándolo evitamos
+    // repintar la tarjeta entera en cada frame.
+    return RepaintBoundary(
+      child: AnimatedBuilder(
+        animation: controller,
+        builder: (_, __) {
+          final t = controller.value; // 0 → 1 → 0
+          final opacity = 0.45 + 0.55 * t;
+          final scale = 0.85 + 0.15 * t;
+          return SizedBox(
+            width: 10,
+            height: 10,
+            child: Center(
+              child: Transform.scale(
+                scale: scale,
+                child: Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(opacity),
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: color.withOpacity(0.35 * t),
+                        blurRadius: 6,
+                        spreadRadius: 1,
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 }
