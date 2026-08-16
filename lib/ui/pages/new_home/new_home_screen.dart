@@ -304,7 +304,14 @@ class _NewHomeScreenState extends State<NewHomeScreen>
           setRestaurants(state.restaurantResponse.restaurants);
         }
       },
-      child: BlocBuilder<NewHomeFiltersCubit, NewHomeFiltersState>(
+      // La isla puede cambiar desde FUERA del home (selector del mapa, o el
+      // auto-cambio al arrastrar el mapa sobre otra isla). La etiqueta se pinta
+      // desde el cubit, así que sin este listener el título decía "Lanzarote"
+      // mientras la lista seguía mostrando restaurantes de Tenerife.
+      child: BlocListener<NewHomeFiltersCubit, NewHomeFiltersState>(
+        listenWhen: (prev, curr) => prev.islandId != curr.islandId,
+        listener: (_, filters) => _reloadForIsland(filters.islandId),
+        child: BlocBuilder<NewHomeFiltersCubit, NewHomeFiltersState>(
         builder: (_, filters) {
           return BlocBuilder<WeatherCubit, WeatherState>(
             // El clima refresca cada hora; solo reconstruimos la home si el
@@ -368,19 +375,14 @@ class _NewHomeScreenState extends State<NewHomeScreen>
                         final key = (island.key != null && island.key!.isNotEmpty)
                             ? island.key!
                             : islandKeyFromName(island.name);
+                        // Solo cambiamos el estado: la recarga la dispara el
+                        // BlocListener de arriba (_reloadForIsland), común a
+                        // todos los orígenes de cambio de isla.
                         context.read<NewHomeFiltersCubit>().selectIsland(
                               id: island.id,
                               key: key,
                               label: island.name,
                             );
-                        setState(() {
-                          _filterMunicipalityId = null;
-                          _filterZoneMuniIds = const {};
-                          _filterZoneKey = null;
-                          _filterZoneId = null;
-                        });
-                        _presenter.onIslandChanged(island.id);
-                        _loadOldMunicipalities(island.id);
                       },
                       onMunicipalitySelected: (muni) {
                         if (muni == null) {
@@ -437,8 +439,24 @@ class _NewHomeScreenState extends State<NewHomeScreen>
             },
           );
         },
+        ),
       ),
     );
+  }
+
+  /// Recarga TODO lo que depende de la isla. Punto único: lo llama el listener
+  /// del cubit, así que da igual quién cambie la isla (home, mapa o el
+  /// auto-cambio por cámara) — los datos y la etiqueta nunca se desincronizan.
+  void _reloadForIsland(String islandId) {
+    if (!mounted) return;
+    setState(() {
+      _filterMunicipalityId = null;
+      _filterZoneMuniIds = const {};
+      _filterZoneKey = null;
+      _filterZoneId = null;
+    });
+    _presenter.onIslandChanged(islandId);
+    _loadOldMunicipalities(islandId);
   }
 
   void _onRestaurantTap(String restaurantId) {

@@ -7,6 +7,7 @@ import 'package:guachinches/config/brand_colors.dart';
 import 'package:guachinches/config/app_text_styles.dart';
 import 'package:guachinches/data/model/restaurant.dart';
 import 'package:guachinches/ui/pages/restaurant_detail/restaurant_photos_gallery.dart';
+import 'package:guachinches/utils/restaurant_type_label.dart';
 
 class DetailHero extends StatefulWidget {
   final Restaurant restaurant;
@@ -219,7 +220,10 @@ class _DetailHeroState extends State<DetailHero> {
   String _eyebrowText() {
     final r = widget.restaurant;
     final parts = <String>[];
-    if (r.type.isNotEmpty && r.type != 'vacio') parts.add(r.type.toUpperCase());
+    // `r.type` es el UUID de restaurantTypeId: hay que traducirlo o se pinta
+    // el identificador crudo encima del título.
+    final typeLabel = restaurantTypeLabel(r.type);
+    if (typeLabel.isNotEmpty) parts.add(typeLabel.toUpperCase());
     if (r.season != null && r.season!.isNotEmpty) parts.add('TEMPORADA');
     if (r.rankNumber != null) parts.add('Nº ${r.rankNumber}');
     return parts.join(' · ');
