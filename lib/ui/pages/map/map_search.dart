@@ -23,12 +23,17 @@ import 'package:guachinches/data/cubit/new_home/new_home_filters_cubit.dart';
 import 'package:guachinches/data/cubit/new_home/new_home_filters_state.dart';
 import 'package:guachinches/ui/pages/map/map_search_presenter.dart';
 import 'package:guachinches/ui/pages/map/map_style.dart';
+import 'package:guachinches/ui/pages/map/label_placement.dart';
 import 'package:guachinches/ui/pages/map/marker_render_mode.dart';
 import 'package:guachinches/ui/pages/restaurant_detail/restaurant_detail_screen.dart';
 import 'package:guachinches/data/http_client.dart';
 import 'package:maps_launcher/maps_launcher.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:guachinches/ui/pages/new_home/sheets/island_picker_sheet.dart';
+import 'package:guachinches/core/logging/app_logger.dart';
+import 'package:guachinches/data/cubit/new_home/islands_cubit.dart';
+import 'package:guachinches/data/model/Island.dart';
+import 'package:guachinches/utils/island_bounds.dart';
 import 'package:guachinches/utils/island_key_utils.dart';
 
 const double _markerHueOpen = BitmapDescriptor.hueGreen;
@@ -263,6 +268,10 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
       visible = [...preserved, ...newlyVisible];
     }
 
+    // Al arrastrar sobre otra isla, cambiamos de isla y cargamos sus
+    // restaurantes (si no, el mapa se queda sin marcadores en esa isla).
+    _maybeSwitchIslandFor(bounds);
+
     if (!mounted) return;
     setState(() {
       _visibleRestaurants = visible;
@@ -465,42 +474,52 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
     // pantalla y lo visible quedaría sin nombres.
     final visibleIds = _visibleRestaurants.map((e) => e.id).toSet();
     final Set<Marker> aux = {};
-    int labelCandidateIdx = 0;
-    int totalLabelCandidates = 0;
 
-    // Pre-count label candidates so we can log the cap.
+    // Candidatas a etiqueta, en orden de prioridad (el de la lista, que ya
+    // viene ordenada por relevancia/cercanía).
+    final labelCandidates = <LabelCandidate>[];
     for (final r in restaurants) {
       if (r.lat == 0.0 && r.lon == 0.0) continue;
       if (_selectedRestaurantId != r.id &&
           !isDriving &&
           _currentZoom >= _kLabelZoomThreshold &&
           visibleIds.contains(r.id)) {
-        totalLabelCandidates++;
+        labelCandidates.add(LabelCandidate(
+          id: r.id,
+          lat: r.lat,
+          lon: r.lon,
+          width: _estimatedLabelWidth(r.nombre),
+          height: _kLabelHeight,
+        ));
       }
     }
+
+    // Se etiquetan solo las que NO se pisan en pantalla (antes el tope era por
+    // orden de lista, y dos sitios contiguos acababan con los nombres
+    // superpuestos). Ver label_placement.dart.
+    final labelledIds = selectNonOverlappingLabels(
+      candidates: labelCandidates,
+      zoom: _currentZoom,
+      maxLabels: _kMaxLabelsInViewport,
+    );
+    final totalLabelCandidates = labelCandidates.length;
 
     for (final r in restaurants) {
       if (r.lat == 0.0 && r.lon == 0.0) continue;
       final isSelected = _selectedRestaurantId == r.id;
 
-      final bool isLabelCandidate = !isSelected &&
-          !isDriving &&
-          _currentZoom >= _kLabelZoomThreshold &&
-          visibleIds.contains(r.id);
-      final int idxForMode = isLabelCandidate ? labelCandidateIdx : 0;
-
       final mode = resolveMarkerRenderMode(
         zoom: _currentZoom,
         isSelected: isSelected,
         isDriving: isDriving,
-        indexInViewport: idxForMode,
+        // 0 = tiene sitio para su etiqueta; el cap lo resolvió ya la
+        // de-conflicción espacial de arriba.
+        indexInViewport: labelledIds.contains(r.id) ? 0 : _kMaxLabelsInViewport,
         viewportCount: totalLabelCandidates,
         bubbleZoomThreshold: _kBubbleZoomThreshold,
         labelZoomThreshold: _kLabelZoomThreshold,
         maxLabelsInViewport: _kMaxLabelsInViewport,
       );
-
-      if (isLabelCandidate) labelCandidateIdx++;
 
       BitmapDescriptor icon;
       Offset anchor;
@@ -538,11 +557,26 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
       ));
     }
 
-    if (totalLabelCandidates > _kMaxLabelsInViewport) {
+    if (totalLabelCandidates > labelledIds.length) {
       debugPrint(
-          'mapa: ${totalLabelCandidates - _kMaxLabelsInViewport} label(s) omitted by viewport cap ($_kMaxLabelsInViewport max)');
+          'mapa: ${totalLabelCandidates - labelledIds.length} label(s) omitidas por solape/cap (${labelledIds.length}/$totalLabelCandidates pintadas, $_kMaxLabelsInViewport max)');
     }
     _markers = aux;
+  }
+
+  /// Alto aproximado de la etiqueta (una línea de nombre) en px lógicos.
+  static const double _kLabelHeight = 18.0;
+
+  /// Ancho aproximado de la etiqueta: dot + hueco + nombre (recortado al mismo
+  /// `maxNameW` que usa el pintado real). Es una estimación deliberada: sirve
+  /// para separar cajas, no para pintar, y evita un TextPainter por marcador en
+  /// cada movimiento de cámara.
+  static double _estimatedLabelWidth(String name) {
+    const double dotAndGap = 18.0;
+    const double perChar = 7.0;
+    const double maxNameW = 150.0;
+    final nameW = math.min(name.length * perChar, maxNameW);
+    return dotAndGap + nameW;
   }
 
   void _onCameraMove(CameraPosition position) {
@@ -903,11 +937,119 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
     );
   }
 
+  /// Isla cuyo cambio automático ya hemos disparado (evita relanzarlo en cada
+  /// `onCameraIdle` mientras la carga está en vuelo).
+  String? _autoIslandKeyInFlight;
+
+  /// Mientras movemos la cámara nosotros (al elegir isla en el selector), el
+  /// auto-cambio queda MUDO. Si no, la cámara aún está sobre la isla anterior
+  /// cuando salta `onCameraIdle` y revertiría la elección del usuario.
+  bool _movingCameraToIsland = false;
+
+  /// Si el centro del viewport cae sobre OTRA isla, cambia a esa isla.
+  ///
+  /// Solo actúa cuando el centro está dentro de la envolvente de una isla: sobre
+  /// mar abierto no se toca nada, para no dar saltos al arrastrar entre islas.
+  /// En modo conducción no se cambia (sería desconcertante a mitad de ruta).
+  void _maybeSwitchIslandFor(LatLngBounds bounds) {
+    if (!mounted || _driving.isDriving.value) return;
+    if (_movingCameraToIsland) return; // vuelo programático en curso
+
+    final centerLat =
+        (bounds.northeast.latitude + bounds.southwest.latitude) / 2;
+    final centerLon =
+        (bounds.northeast.longitude + bounds.southwest.longitude) / 2;
+
+    final key = islandKeyAt(centerLat, centerLon);
+    if (key == null) return; // mar abierto → sin cambios
+
+    final islandsState = context.read<IslandsCubit>().state;
+    if (islandsState is! IslandsLoaded) return;
+
+    Island? target;
+    for (final i in islandsState.islands) {
+      final iKey = (i.key != null && i.key!.isNotEmpty)
+          ? i.key!
+          : islandKeyFromName(i.name);
+      if (iKey.toUpperCase() == key) {
+        target = i;
+        break;
+      }
+    }
+    if (target == null) return;
+
+    final filters = context.read<NewHomeFiltersCubit>();
+    if (filters.state.islandId == target.id) {
+      _autoIslandKeyInFlight = null;
+      return;
+    }
+    if (_autoIslandKeyInFlight == key) return; // ya lanzado
+
+    _autoIslandKeyInFlight = key;
+    AppLogger.info('mapa', 'auto-isla → ${target.name} (centro sobre $key)');
+    // Cambia la isla en el cubit: el BlocListener de abajo recarga
+    // restaurantes y municipios, y el chip del mapa se actualiza solo.
+    filters.selectIsland(
+      id: target.id,
+      key: key,
+      label: target.name,
+    );
+  }
+
   void _onIslandChanged(String newIslandId) {
     if (!mounted) return;
     setState(() => islandId = newIslandId);
     presenter.getAllMunicipalities(newIslandId);
     presenter.getAllRestaurants(newIslandId);
+    // Y llevamos la cámara a esa isla. Sin esto, al elegir isla en el selector
+    // el mapa se quedaba mirando la anterior y el auto-cambio por cámara
+    // revertía la elección al instante.
+    _flyToIsland(newIslandId);
+  }
+
+  /// Encuadra la isla [targetIslandId] en el mapa.
+  Future<void> _flyToIsland(String targetIslandId) async {
+    if (!_controller.isCompleted) return;
+
+    final islandsState = context.read<IslandsCubit>().state;
+    if (islandsState is! IslandsLoaded) return;
+
+    Island? island;
+    for (final i in islandsState.islands) {
+      if (i.id == targetIslandId) {
+        island = i;
+        break;
+      }
+    }
+    if (island == null) return;
+
+    final key = (island.key != null && island.key!.isNotEmpty)
+        ? island.key!
+        : islandKeyFromName(island.name);
+    final bounds = islandBoundsForKey(key);
+    if (bounds == null) return;
+
+    _autoIslandKeyInFlight = key.toUpperCase();
+    _movingCameraToIsland = true;
+    try {
+      final controller = await _controller.future;
+      await controller.animateCamera(
+        CameraUpdate.newLatLngBounds(
+          LatLngBounds(
+            southwest: LatLng(bounds.minLat, bounds.minLon),
+            northeast: LatLng(bounds.maxLat, bounds.maxLon),
+          ),
+          48, // padding en px
+        ),
+      );
+      // La animación de Google Maps no expone un "onDone": esperamos a que
+      // termine antes de reactivar el auto-cambio.
+      await Future.delayed(const Duration(milliseconds: 900));
+    } catch (_) {
+      // Si el mapa aún no está listo, no bloqueamos el auto-cambio.
+    } finally {
+      if (mounted) _movingCameraToIsland = false;
+    }
   }
 
   void _showIslandSheet(BuildContext context) {
