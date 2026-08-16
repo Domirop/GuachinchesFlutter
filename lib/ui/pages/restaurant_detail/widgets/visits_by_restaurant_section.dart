@@ -11,6 +11,21 @@ import 'package:guachinches/ui/components/video/youtube_embed_sheet.dart';
 import 'package:guachinches/ui/pages/restaurant_detail/widgets/dishes_section.dart';
 import 'package:guachinches/ui/pages/restaurant_detail/widgets/pros_cons_section.dart';
 import 'package:guachinches/ui/pages/visit/visit_screen.dart';
+import 'package:guachinches/ui/pages/visit/widgets/visit_reel_hero.dart';
+
+/// Reproduce el vídeo de la visita igual que la pantalla de detalle: mp4
+/// self-host reproducible → reproductor vertical in-app (LOCAL); si no, embed
+/// de YouTube.
+Future<void> _openVisitVideo(BuildContext context, Visit v) {
+  if (v.selfHostVideoPlayable) {
+    return showVerticalVideo(context, url: v.videoFileUrl!, visit: v);
+  }
+  final yt = v.youtubeVideoId;
+  if (yt != null && yt.trim().isNotEmpty) {
+    return YoutubeEmbedSheet.show(context, videoId: yt);
+  }
+  return Future.value();
+}
 
 /// "VISITAS DE JONAY Y JOANA" en la ficha del negocio.
 ///
@@ -143,9 +158,15 @@ class _VisitExpandableState extends State<_VisitExpandable> {
           ),
         ),
         // ── Contenido desplegable (curado) ──────────────────────────────
+        // LAZY: el contenido (con el reel de vídeo, que inicializa un
+        // VideoPlayerController y autoreproduce) solo se monta al expandir. Si
+        // construyéramos `_ExpandedContent` siempre, cada visita arrancaría su
+        // vídeo nada más abrir la ficha aunque esté colapsada.
         AnimatedCrossFade(
           firstChild: const SizedBox(width: double.infinity, height: 0),
-          secondChild: _ExpandedContent(visit: v),
+          secondChild: _open
+              ? _ExpandedContent(visit: v)
+              : const SizedBox(width: double.infinity),
           crossFadeState:
               _open ? CrossFadeState.showSecond : CrossFadeState.showFirst,
           duration: const Duration(milliseconds: 240),
@@ -163,14 +184,18 @@ class _ExpandedContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final v = visit;
-    final hasVideo =
-        (v.youtubeVideoId != null && v.youtubeVideoId!.trim().isNotEmpty) ||
-            (v.videoFileUrl != null && v.videoFileUrl!.trim().isNotEmpty);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (hasVideo) ...[
-          _VideoTeaser(visit: v),
+        // Mismo reel que la pantalla de detalle de visita: marco de móvil +
+        // reproducción INLINE en local (mp4 self-host) cuando se puede. Embebido
+        // con topPadding 0 (aquí no hay botones flotantes que despejar).
+        if (VisitReelHero.hasMedia(v)) ...[
+          VisitReelHero(
+            visit: v,
+            topPadding: 0,
+            onPlayVideo: () => _openVisitVideo(context, v),
+          ),
           const SizedBox(height: 14),
         ],
         if (v.summary != null && v.summary!.trim().isNotEmpty) ...[
@@ -222,92 +247,6 @@ class _ExpandedContent extends StatelessWidget {
   }
 }
 
-class _VideoTeaser extends StatelessWidget {
-  final Visit visit;
-  const _VideoTeaser({required this.visit});
-
-  @override
-  Widget build(BuildContext context) {
-    final brand = context.brand;
-    // Card vertical 9:16 (formato TikTok), centrada — saca provecho del vídeo.
-    return Center(
-      child: GestureDetector(
-        onTap: () {
-          // mp4 self-host SOLO si el códec es reproducible en iOS (H.264/HEVC);
-          // si es AV1/desconocido reproduciría negro → caemos a YouTube embed.
-          if (visit.selfHostVideoPlayable) {
-            showVerticalVideo(context,
-                url: visit.videoFileUrl!, visit: visit);
-          } else if (visit.youtubeVideoId != null) {
-            YoutubeEmbedSheet.show(context, videoId: visit.youtubeVideoId!);
-          }
-        },
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(18),
-          child: SizedBox(
-            width: 208,
-            child: AspectRatio(
-              aspectRatio: 9 / 16,
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  if (visit.thumbnail != null && visit.thumbnail!.isNotEmpty)
-                    CachedNetworkImage(
-                      imageUrl: visit.thumbnail!,
-                      fit: BoxFit.cover,
-                      placeholder: (_, __) => Container(color: brand.surface),
-                      errorWidget: (_, __, ___) =>
-                          Container(color: brand.surface),
-                    )
-                  else
-                    Container(color: brand.surface),
-                  // Scrim para profundidad y contraste del play.
-                  const Positioned.fill(
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          stops: [0.0, 0.5, 1.0],
-                          colors: [
-                            Colors.black26,
-                            Colors.transparent,
-                            Colors.black45,
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  // Botón play estilo TikTok.
-                  Center(
-                    child: Container(
-                      width: 64,
-                      height: 64,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.92),
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.25),
-                            blurRadius: 12,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: const Icon(Icons.play_arrow_rounded,
-                          color: AppColors.atlantico, size: 38),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _Thumb extends StatelessWidget {
   final String? thumbnail;
   const _Thumb({required this.thumbnail});
@@ -336,7 +275,7 @@ class _Thumb extends StatelessWidget {
               Container(color: brand.surface),
             DecoratedBox(
               decoration:
-                  BoxDecoration(color: Colors.black.withOpacity(0.22)),
+                  BoxDecoration(color: Colors.black.withValues(alpha: 0.22)),
             ),
             const Center(
               child: Icon(Icons.play_arrow_rounded,

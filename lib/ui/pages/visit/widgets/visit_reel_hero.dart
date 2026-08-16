@@ -27,11 +27,17 @@ class VisitReelHero extends StatefulWidget {
   /// volver, para que el reel inline pueda pausar mientras tanto y reanudar.
   final Future<void> Function() onPlayVideo;
 
+  /// Override del hueco superior. Útil para EMBEBER el reel dentro de otra
+  /// pantalla (p. ej. la ficha del negocio), donde no hay botones flotantes que
+  /// despejar. Si es null, se usa el cálculo por defecto (sheet vs pantalla).
+  final double? topPadding;
+
   const VisitReelHero({
     super.key,
     required this.visit,
     required this.onPlayVideo,
     this.asSheet = false,
+    this.topPadding,
   });
 
   /// ¿Hay algo que mostrar en el hero (vídeo o al menos una foto de plato)?
@@ -71,8 +77,8 @@ class _VisitReelHeroState extends State<VisitReelHero> {
 
     // Hueco superior: en pantalla deja sitio a los botones flotantes; en sheet
     // basta un respiro bajo el grabber.
-    final topPad =
-        widget.asSheet ? 14.0 : media.padding.top + 56.0;
+    final topPad = widget.topPadding ??
+        (widget.asSheet ? 14.0 : media.padding.top + 56.0);
 
     final pages = <Widget>[
       if (_hasVideo)
