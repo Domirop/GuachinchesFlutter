@@ -115,6 +115,7 @@ flutter:
   assets:
     - assets/images/
     - assets/images/new-home/
+    - assets/images/characters/
     - assets/images/backgrounds/
     - assets/images/backgrounds/ddc_island_bg/
     - assets/audio/

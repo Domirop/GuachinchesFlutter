@@ -11,11 +11,11 @@ import 'package:guachinches/data/model/SimpleMunicipality.dart';
 import 'package:guachinches/data/model/Types.dart';
 import 'package:guachinches/data/model/restaurant.dart';
 import 'package:guachinches/data/model/weather_data.dart';
-import 'package:guachinches/domain/cravings/craving.dart';
-import 'package:guachinches/domain/cravings/craving_catalog.dart';
-import 'package:guachinches/domain/cravings/craving_context.dart';
-import 'package:guachinches/domain/cravings/craving_engine.dart';
-import 'package:guachinches/ui/pages/new_home/widgets/craving_chips_row.dart';
+import 'package:guachinches/domain/occasions/occasion.dart';
+import 'package:guachinches/domain/occasions/occasion_catalog.dart';
+import 'package:guachinches/domain/occasions/occasion_context.dart';
+import 'package:guachinches/domain/occasions/occasion_engine.dart';
+import 'package:guachinches/ui/pages/new_home/widgets/occasion_planner_card.dart';
 import 'package:guachinches/data/model/zone.dart';
 import 'package:guachinches/ui/pages/new_home/new_home_presenter.dart';
 import 'package:guachinches/data/model/Island.dart';
@@ -136,46 +136,45 @@ class _NewHomeBodyState extends State<NewHomeBody> {
     }
   }
 
-  // "¿Qué te apetece?": ranking memoizado. Solo recalcula cuando cambia el
-  // contexto (franja/cielo/temperatura/día), no en cada rebuild por scroll.
-  CravingContext? _memoCravingCtx;
-  List<Craving> _cravings = const [];
+  // "Planificador por ocasión": UNA recomendación anticipada (Jonay & Joana)
+  // según día/franja/festivo. Memoizado: solo recalcula cuando cambia el
+  // contexto discreto, no en cada rebuild por scroll. Es time-based (no usa
+  // clima), por eso resuelve sobre DateTime.now() y no sobre widget.weather.
+  OccasionContext? _memoOccasionCtx;
+  Occasion? _occasion;
+  // Banner cerrado por el usuario en esta sesión (por id de ocasión: si cambia
+  // el plan —p. ej. llega un festivo— vuelve a mostrarse).
+  String? _dismissedOccasionId;
 
-  void _refreshCravingsIfNeeded() {
-    final ctx = CravingContext(
-      dayPart: dayPartFromHour(widget.hour),
-      sky: skyFromCondition(widget.weather.condition),
-      tempBand: tempBandFromCelsius(widget.weather.tempC),
-      dayType: dayTypeFromWeekday(DateTime.now().weekday),
-      hour: widget.hour,
-    );
-    if (_memoCravingCtx != ctx) {
-      _memoCravingCtx = ctx;
-      _cravings = rankCravings(kCravingCatalog, ctx, max: 4);
+  void _refreshOccasionIfNeeded() {
+    final ctx = OccasionContext.resolve(now: DateTime.now());
+    if (_memoOccasionCtx != ctx) {
+      _memoOccasionCtx = ctx;
+      _occasion = activeOccasion(kOccasionCatalog, ctx);
     }
   }
 
-  /// Abre la búsqueda con el filtro temático del antojo (mismo patrón que
+  /// Abre la búsqueda con el filtro de la ocasión (mismo patrón que
   /// [_openContextualSearch]): resuelve los IDs contra los tipos/categorías
   /// cargados y aplica `openOnly`.
-  void _openCravingSearch(Craving c) {
+  void _openOccasionSearch(Occasion o) {
     final types = widget.types
-        .where((t) => c.typeIds.contains(t.id))
+        .where((t) => o.typeIds.contains(t.id))
         .toList(growable: false);
     final categories = widget.categories
-        .where((cat) => c.categoryIds.contains(cat.id))
+        .where((cat) => o.categoryIds.contains(cat.id))
         .toList(growable: false);
     widget.onSearchPreSelected(
       types: types.isEmpty ? null : types,
       categories: categories.isEmpty ? null : categories,
-      openOnly: true,
+      openOnly: o.openOnly,
     );
   }
 
   @override
   Widget build(BuildContext context) {
     _refreshMemoIfNeeded();
-    _refreshCravingsIfNeeded();
+    _refreshOccasionIfNeeded();
 
     final filters = widget.filters;
     final zoneLabel = filters.zoneLabel ?? filters.islandLabel;
@@ -250,17 +249,18 @@ class _NewHomeBodyState extends State<NewHomeBody> {
             // Ajustes. Auto-oculto cuando hay permiso (LocationLoaded).
             const SliverToBoxAdapter(child: LocationPromptBanner()),
 
-            // ── ¿QUÉ TE APETECE AHORA? ───────────────────────────────────
-            // Chips de antojo rankeados por hora + clima + día (motor en
-            // domain/cravings/). Tap → búsqueda con filtro temático + abierto.
-            if (!widget.bootstrapLoading && _cravings.isNotEmpty) ...[
+            // ── DESCUBRE PLANES ──────────────────────────────────────────
+            // Banner de plan anticipado según día/franja/festivo (motor en
+            // domain/occasions/). Tap → búsqueda filtrada al plan.
+            if (!widget.bootstrapLoading &&
+                _occasion != null &&
+                _occasion!.id != _dismissedOccasionId) ...[
               SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.only(bottom: 4),
-                  child: CravingChipsRow(
-                    cravings: _cravings,
-                    onTap: _openCravingSearch,
-                  ),
+                child: OccasionPlannerCard(
+                  occasion: _occasion!,
+                  onTap: () => _openOccasionSearch(_occasion!),
+                  onDismiss: () =>
+                      setState(() => _dismissedOccasionId = _occasion!.id),
                 ),
               ),
             ],
