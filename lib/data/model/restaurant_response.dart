@@ -21,9 +21,16 @@ class RestaurantResponse {
   RestaurantResponse.fromJson(dynamic json) {
     _count = json["count"];
     if (json["rows"] != null) {
-      json["rows"].forEach((v) {
-        _restaurants.add(Restaurant.fromJson(v));
-      });
+      // Tolerante por-item: si UN restaurante trae datos malformados y su
+      // `fromJson` lanza, lo saltamos en vez de tumbar la lista entera (antes,
+      // un solo registro roto dejaba la home sin NINGÚN restaurante).
+      for (final v in json["rows"]) {
+        try {
+          _restaurants.add(Restaurant.fromJson(v));
+        } catch (_) {
+          // Registro corrupto: lo ignoramos y seguimos con el resto.
+        }
+      }
     }
   }
 

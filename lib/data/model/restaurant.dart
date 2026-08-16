@@ -265,10 +265,17 @@ class Restaurant {
   }
 
   static generateOpen(googleHorario){
+   try {
     bool auxOpen = true;
     bool alwaysOpen = false;
-    if (googleHorario.toLowerCase() == "cerrado" ||
-        googleHorario.toLowerCase() == "sin horario"||googleHorario == null) {
+    // Blindaje: google_horarios puede llegar vacío o con formato inesperado
+    // (p. ej. "Froyosi Canarias" con ""). Sin esto, un split[index] fuera de
+    // rango lanzaba RangeError y tumbaba el parseo de TODA la lista → home
+    // vacío. Ante cualquier formato no esperado, lo tratamos como cerrado.
+    if (googleHorario == null ||
+        googleHorario.toString().trim().isEmpty ||
+        googleHorario.toLowerCase() == "cerrado" ||
+        googleHorario.toLowerCase() == "sin horario") {
       auxOpen = false;
     } else {
       String auxValue2 = googleHorario
@@ -317,6 +324,10 @@ class Restaurant {
       }
     }
     return auxOpen;
+   } catch (_) {
+     // Cualquier horario con forma rara → cerrado, nunca rompe el parseo.
+     return false;
+   }
   }
 
 
