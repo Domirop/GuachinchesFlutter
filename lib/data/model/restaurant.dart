@@ -110,16 +110,21 @@ class Restaurant {
   }
 
   Restaurant.fromJson(dynamic json) {
-    id = json["id"];
-    horarios = json["horarios"];
+    // Estos campos son String NO nullable en el modelo, pero el backend manda
+    // `null` en varios negocios (p. ej. TODOS los de Lanzarote y Fuerteventura
+    // traen `horarios` y `googleUrl` a null). Asignar null a un String
+    // no-nullable lanza TypeError y el registro entero se perdía: esas islas
+    // salían con 0 restaurantes aunque la API devolviera 11 y 10.
+    id = _asString(json["id"]);
+    horarios = _asString(json["horarios"]);
     if(json['enable']!=null){
       enable = json["enable"];
 
     }
-    googleUrl = json["googleUrl"];
-    nombre = json["nombre"];
-    direccion = json["direccion"];
-    telefono = json["telefono"];
+    googleUrl = _asString(json["googleUrl"]);
+    nombre = _asString(json["nombre"]);
+    direccion = _asString(json["direccion"]);
+    telefono = _asString(json["telefono"]);
     if(json["destacado"]!=null){
       destacado = json["destacado"];
     }
@@ -256,6 +261,10 @@ class Restaurant {
       editorialBody = editorial["body"]?.toString();
     }
   }
+
+  /// `null` → '' para los campos String no-nullable del modelo. El backend
+  /// manda null en muchos negocios y no puede costarnos el registro entero.
+  static String _asString(dynamic v) => v?.toString() ?? '';
 
   static int? _asInt(dynamic v) {
     if (v == null) return null;
