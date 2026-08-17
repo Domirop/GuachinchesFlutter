@@ -11,11 +11,13 @@ import 'package:guachinches/data/model/SimpleMunicipality.dart';
 import 'package:guachinches/data/model/Types.dart';
 import 'package:guachinches/data/model/restaurant.dart';
 import 'package:guachinches/data/model/weather_data.dart';
-import 'package:guachinches/domain/occasions/occasion.dart';
-import 'package:guachinches/domain/occasions/occasion_catalog.dart';
-import 'package:guachinches/domain/occasions/occasion_context.dart';
-import 'package:guachinches/domain/occasions/occasion_engine.dart';
-import 'package:guachinches/ui/pages/new_home/widgets/occasion_planner_card.dart';
+// "Descubre planes" desactivado de momento — ver el bloque comentado en
+// _NewHomeBodyState. El motor y el widget siguen en el repo con sus tests.
+// import 'package:guachinches/domain/occasions/occasion.dart';
+// import 'package:guachinches/domain/occasions/occasion_catalog.dart';
+// import 'package:guachinches/domain/occasions/occasion_context.dart';
+// import 'package:guachinches/domain/occasions/occasion_engine.dart';
+// import 'package:guachinches/ui/pages/new_home/widgets/occasion_planner_card.dart';
 import 'package:guachinches/data/model/zone.dart';
 import 'package:guachinches/ui/pages/new_home/new_home_presenter.dart';
 import 'package:guachinches/data/model/Island.dart';
@@ -136,45 +138,49 @@ class _NewHomeBodyState extends State<NewHomeBody> {
     }
   }
 
-  // "Planificador por ocasión": UNA recomendación anticipada (Jonay & Joana)
-  // según día/franja/festivo. Memoizado: solo recalcula cuando cambia el
-  // contexto discreto, no en cada rebuild por scroll. Es time-based (no usa
-  // clima), por eso resuelve sobre DateTime.now() y no sobre widget.weather.
-  OccasionContext? _memoOccasionCtx;
-  Occasion? _occasion;
-  // Banner cerrado por el usuario en esta sesión (por id de ocasión: si cambia
-  // el plan —p. ej. llega un festivo— vuelve a mostrarse).
-  String? _dismissedOccasionId;
-
-  void _refreshOccasionIfNeeded() {
-    final ctx = OccasionContext.resolve(now: DateTime.now());
-    if (_memoOccasionCtx != ctx) {
-      _memoOccasionCtx = ctx;
-      _occasion = activeOccasion(kOccasionCatalog, ctx);
-    }
-  }
-
-  /// Abre la búsqueda con el filtro de la ocasión (mismo patrón que
-  /// [_openContextualSearch]): resuelve los IDs contra los tipos/categorías
-  /// cargados y aplica `openOnly`.
-  void _openOccasionSearch(Occasion o) {
-    final types = widget.types
-        .where((t) => o.typeIds.contains(t.id))
-        .toList(growable: false);
-    final categories = widget.categories
-        .where((cat) => o.categoryIds.contains(cat.id))
-        .toList(growable: false);
-    widget.onSearchPreSelected(
-      types: types.isEmpty ? null : types,
-      categories: categories.isEmpty ? null : categories,
-      openOnly: o.openOnly,
-    );
-  }
+  // ── "Descubre planes" — DESACTIVADO de momento ───────────────────────────
+  // El banner del planificador por ocasión queda comentado, no borrado: el
+  // motor (domain/occasions/), su widget y sus tests siguen en el repo y
+  // verdes. Para reactivarlo: descomentar este bloque, el sliver de más abajo
+  // y los imports de occasions al principio del fichero.
+  //
+  // Pendiente antes de reactivarlo: la búsqueda a la que lleva se titula
+  // "5 TIPOS" en vez del nombre del plan.
+  //
+  // OccasionContext? _memoOccasionCtx;
+  // Occasion? _occasion;
+  // // Banner cerrado por el usuario en esta sesión (por id de ocasión: si
+  // // cambia el plan —p. ej. llega un festivo— vuelve a mostrarse).
+  // String? _dismissedOccasionId;
+  //
+  // void _refreshOccasionIfNeeded() {
+  //   final ctx = OccasionContext.resolve(now: DateTime.now());
+  //   if (_memoOccasionCtx != ctx) {
+  //     _memoOccasionCtx = ctx;
+  //     _occasion = activeOccasion(kOccasionCatalog, ctx);
+  //   }
+  // }
+  //
+  // /// Abre la búsqueda con el filtro de la ocasión (mismo patrón que
+  // /// [_openContextualSearch]): resuelve los IDs contra los tipos/categorías
+  // /// cargados y aplica `openOnly`.
+  // void _openOccasionSearch(Occasion o) {
+  //   final types = widget.types
+  //       .where((t) => o.typeIds.contains(t.id))
+  //       .toList(growable: false);
+  //   final categories = widget.categories
+  //       .where((cat) => o.categoryIds.contains(cat.id))
+  //       .toList(growable: false);
+  //   widget.onSearchPreSelected(
+  //     types: types.isEmpty ? null : types,
+  //     categories: categories.isEmpty ? null : categories,
+  //     openOnly: o.openOnly,
+  //   );
+  // }
 
   @override
   Widget build(BuildContext context) {
     _refreshMemoIfNeeded();
-    _refreshOccasionIfNeeded();
 
     final filters = widget.filters;
     final zoneLabel = filters.zoneLabel ?? filters.islandLabel;
@@ -249,21 +255,24 @@ class _NewHomeBodyState extends State<NewHomeBody> {
             // Ajustes. Auto-oculto cuando hay permiso (LocationLoaded).
             const SliverToBoxAdapter(child: LocationPromptBanner()),
 
-            // ── DESCUBRE PLANES ──────────────────────────────────────────
+            // ── DESCUBRE PLANES — DESACTIVADO ────────────────────────────
             // Banner de plan anticipado según día/franja/festivo (motor en
             // domain/occasions/). Tap → búsqueda filtrada al plan.
-            if (!widget.bootstrapLoading &&
-                _occasion != null &&
-                _occasion!.id != _dismissedOccasionId) ...[
-              SliverToBoxAdapter(
-                child: OccasionPlannerCard(
-                  occasion: _occasion!,
-                  onTap: () => _openOccasionSearch(_occasion!),
-                  onDismiss: () =>
-                      setState(() => _dismissedOccasionId = _occasion!.id),
-                ),
-              ),
-            ],
+            // Para reactivarlo, descomentar también el bloque de estado en
+            // _NewHomeBodyState y los imports de occasions.
+            //
+            // if (!widget.bootstrapLoading &&
+            //     _occasion != null &&
+            //     _occasion!.id != _dismissedOccasionId) ...[
+            //   SliverToBoxAdapter(
+            //     child: OccasionPlannerCard(
+            //       occasion: _occasion!,
+            //       onTap: () => _openOccasionSearch(_occasion!),
+            //       onDismiss: () =>
+            //           setState(() => _dismissedOccasionId = _occasion!.id),
+            //     ),
+            //   ),
+            // ],
 
             // ── ABIERTOS CERCA AHORA ─────────────────────────────────────
             // Callout "N sitios abiertos cerca" retirado de momento (decisión
