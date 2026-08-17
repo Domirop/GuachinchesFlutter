@@ -919,12 +919,24 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
       listenWhen: (prev, curr) => prev.selectedIndex != curr.selectedIndex,
       listener: (_, state) {
         final onMap = state.selectedIndex == _kMapTabIndex;
+        _onMapTab = onMap;
         // Primera vez que el usuario entra al tab Mapa: montamos la
         // platform view con un frame de delay para evitar tiles en blanco.
         if (onMap && !_mapMounted) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (!mounted || _mapMounted) return;
             setState(() => _mapMounted = true);
+          });
+        }
+        // Si cambiaron de isla mientras el mapa estaba oculto, encuadramos
+        // ahora: animar la cámara de un mapa que no se ve no surte efecto, y al
+        // volver el auto-cambio veía la isla ANTERIOR bajo el centro y
+        // revertía la elección del usuario.
+        if (onMap && _pendingFlyIslandId != null) {
+          final pending = _pendingFlyIslandId!;
+          _pendingFlyIslandId = null;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _flyToIsland(pending);
           });
         }
         _setSensorsActive(onMap);
@@ -946,6 +958,15 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
   /// cuando salta `onCameraIdle` y revertiría la elección del usuario.
   bool _movingCameraToIsland = false;
 
+  /// ¿Está el tab Mapa en pantalla? El auto-cambio de isla SOLO puede actuar
+  /// si el usuario está mirando el mapa: si no, cambiar de isla desde el home
+  /// hacía que el mapa (oculto, con la cámara en la isla vieja) revirtiera la
+  /// elección por detrás.
+  bool _onMapTab = false;
+
+  /// Isla que hay que encuadrar en cuanto el mapa vuelva a ser visible.
+  String? _pendingFlyIslandId;
+
   /// Si el centro del viewport cae sobre OTRA isla, cambia a esa isla.
   ///
   /// Solo actúa cuando el centro está dentro de la envolvente de una isla: sobre
@@ -953,6 +974,7 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
   /// En modo conducción no se cambia (sería desconcertante a mitad de ruta).
   void _maybeSwitchIslandFor(LatLngBounds bounds) {
     if (!mounted || _driving.isDriving.value) return;
+    if (!_onMapTab) return; // el mapa no está en pantalla: no mandamos
     if (_movingCameraToIsland) return; // vuelo programático en curso
 
     final centerLat =
@@ -1004,7 +1026,13 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
     // Y llevamos la cámara a esa isla. Sin esto, al elegir isla en el selector
     // el mapa se quedaba mirando la anterior y el auto-cambio por cámara
     // revertía la elección al instante.
-    _flyToIsland(newIslandId);
+    if (_onMapTab) {
+      _flyToIsland(newIslandId);
+    } else {
+      // Con el mapa oculto la animación no surte efecto: lo dejamos pendiente
+      // para encuadrarlo cuando el usuario vuelva al tab.
+      _pendingFlyIslandId = newIslandId;
+    }
   }
 
   /// Encuadra la isla [targetIslandId] en el mapa.
