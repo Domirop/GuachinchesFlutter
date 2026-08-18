@@ -52,4 +52,24 @@ platform :ios do
       automatic_release: false,
     )
   end
+
+  # Envia a revision un build YA SUBIDO a TestFlight (no recompila ni resube).
+  # `automatic_release: false` a proposito: si Apple aprueba, la publicacion la
+  # decide una persona, no el pipeline.
+  desc "Envia a revision de la App Store un build ya subido"
+  lane :submit_existing do |options|
+    upload_to_app_store(
+      api_key: asc_api_key,
+      app_version: options[:version],
+      build_number: options[:build],
+      skip_binary_upload: true,
+      skip_screenshots: true,
+      skip_metadata: false,
+      overwrite_screenshots: false,
+      force: true,
+      precheck_include_in_app_purchases: false,
+      submit_for_review: true,
+      automatic_release: false,
+    )
+  end
 end

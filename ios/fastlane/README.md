@@ -13,6 +13,17 @@ For _fastlane_ installation instructions, see [Installing _fastlane_](https://do
 
 # Available Actions
 
+### estado
+
+```sh
+[bundle exec] fastlane estado
+```
+
+
+
+----
+
+
 ## iOS
 
 ### ios beta
@@ -30,6 +41,14 @@ Sube el .ipa a TestFlight
 ```
 
 Sube a la App Store y envía a revisión (con confirmación)
+
+### ios submit_existing
+
+```sh
+[bundle exec] fastlane ios submit_existing
+```
+
+Envia a revision de la App Store un build ya subido
 
 ----
 

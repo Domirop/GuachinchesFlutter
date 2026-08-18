@@ -1,0 +1,7 @@
+Arreglado: en el juego, la respuesta correcta salía siempre la primera. Ahora las opciones se barajan en cada pregunta.
+
+Arreglado: algunos negocios no aparecían y varias islas se veían vacías.
+
+Arreglado: al cambiar de isla, el contenido no siempre correspondía a la isla elegida.
+
+Mejoras en el mapa: nombres más legibles y cambio automático de isla al navegar.
