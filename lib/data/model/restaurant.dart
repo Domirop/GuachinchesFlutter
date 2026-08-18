@@ -30,6 +30,10 @@ class Restaurant {
   String googleHorarios = '';
   double avgRating = 0;
   Map<String, dynamic>? horariosJson;
+  /// Isla del municipio (`municipios.islandId`). El backend NO manda `island`
+  /// en varios endpoints (p. ej. visitas), pero sí el municipio con su isla:
+  /// es la referencia fiable para saber a qué isla pertenece el negocio.
+  String? municipioIslandId;
   String? googleHorariosSyncedAt;
   String mainFoto = '';
   String area = '';
@@ -180,6 +184,15 @@ class Restaurant {
       final muniNested = json["municipios"];
       if (muniNested is Map && muniNested["Nombre"] != null) {
         municipio = muniNested["Nombre"].toString();
+      }
+    }
+    // Isla del municipio: shape plano o anidado, igual que el nombre.
+    if (json["municipios.islandId"] != null) {
+      municipioIslandId = json["municipios.islandId"].toString();
+    } else {
+      final muniNested = json["municipios"];
+      if (muniNested is Map && muniNested["islandId"] != null) {
+        municipioIslandId = muniNested["islandId"].toString();
       }
     }
     if (json["municipios.area_municipiosId"] != null){

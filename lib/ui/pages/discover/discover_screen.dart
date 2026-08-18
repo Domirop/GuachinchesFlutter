@@ -16,7 +16,7 @@ import 'package:guachinches/ui/pages/discover/widgets/sort_sheet.dart';
 import 'package:guachinches/ui/pages/discover/widgets/visit_filter_sheet.dart';
 import 'package:guachinches/ui/pages/discover/widgets/visit_list_tile.dart';
 import 'package:guachinches/ui/pages/visit/visit_screen.dart';
-import 'package:guachinches/utils/island_key_utils.dart';
+import 'package:guachinches/utils/island_bounds.dart';
 
 /// Catálogo de visitas (Jonay, Joana…). Permite buscar texto libre,
 /// filtrar por creador / sentimiento / zona, y ordenar por fecha,
@@ -109,15 +109,38 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
 
   // ── Filtering / sorting ────────────────────────────────────────────────
 
-  List<Visit> _applyIslandFilter(List<Visit> source, String islandName) {
-    if (islandName.isEmpty) return source;
-    final needle = islandName.toLowerCase().trim();
+  /// Filtra las visitas por la isla seleccionada.
+  ///
+  /// Antes se comparaba `restaurant.island` por NOMBRE y, si venía vacío, la
+  /// visita se incluía igual. Pero el endpoint de visitas NO manda ese campo
+  /// (0 de 300 lo traen), así que TODAS pasaban el filtro: la pestaña decía
+  /// "LANZAROTE · 300 visitas" y listaba sitios de Tenerife.
+  ///
+  /// Ahora se usa la referencia fiable, en dos pasos:
+  ///  1. `municipios.islandId` del negocio (exacto; presente en 293/300).
+  ///  2. Si falta, la isla que corresponde a sus lat/lon (los 7 restantes).
+  /// Entre ambos cubren el 100% del catálogo, así que lo que no se puede
+  /// ubicar se EXCLUYE: colar visitas de otra isla es peor que omitir una.
+  List<Visit> _applyIslandFilter(
+    List<Visit> source,
+    String islandId,
+    String islandKey,
+  ) {
+    if (islandId.isEmpty && islandKey.isEmpty) return source;
+    final wantedKey = islandKey.toUpperCase();
     return source.where((v) {
-      final rIsland = (v.restaurant?.island ?? '').toLowerCase().trim();
-      if (rIsland.isEmpty) return true;
-      return rIsland == needle ||
-          rIsland.contains(needle) ||
-          needle.contains(rIsland);
+      final r = v.restaurant;
+      if (r == null) return false;
+
+      final muniIsland = r.municipioIslandId;
+      if (muniIsland != null && muniIsland.isNotEmpty) {
+        return muniIsland == islandId;
+      }
+
+      if (r.lat != 0.0 || r.lon != 0.0) {
+        return islandKeyAt(r.lat, r.lon) == wantedKey;
+      }
+      return false;
     }).toList();
   }
 
@@ -255,7 +278,8 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
 
                 final islandFilteredVisits = _islandFilterDisabledForKey == islandKey
                     ? allVisits
-                    : _applyIslandFilter(allVisits, islandNameFromKey(islandKey));
+                    : _applyIslandFilter(
+                        allVisits, filtersState.islandId, islandKey);
 
                 final isIslandEmpty = _islandFilterDisabledForKey != islandKey &&
                     !isLoading &&
