@@ -431,7 +431,8 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
               });
               Navigator.of(context).push(
                 MaterialPageRoute(
-                  builder: (_) => VisitDetailPage(visitId: filtered[i].id),
+                  builder: (_) => VisitDetailPage(
+                      visitId: filtered[i].id, initialVisit: filtered[i]),
                 ),
               );
             },

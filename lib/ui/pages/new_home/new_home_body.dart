@@ -772,8 +772,10 @@ class _NewHomeBodyState extends State<NewHomeBody> {
                               onTap: () => Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (_) =>
-                                      VisitDetailPage(visitId: v.id),
+                                  // Reel de la visita, al instante con lo
+                                  // que ya trae la home.
+                                  builder: (_) => VisitDetailPage(
+                                      visitId: v.id, initialVisit: v),
                                 ),
                               ),
                             ),
