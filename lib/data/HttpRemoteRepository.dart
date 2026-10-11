@@ -318,11 +318,34 @@ class HttpRemoteRepository implements RemoteRepository {
     var uri = Uri.parse(
         dotenv.env['ENDPOINT_V1']! + "user/" + userId + "/review/" + reviewId);
 
-    var body;
-    body = jsonEncode({"title": title, "review": review, "rating": rating});
-    var response = await _client.put(uri,
+    final body =
+        jsonEncode({"title": title, "review": review, "rating": rating});
+    final response = await _client.put(uri,
         headers: {"Content-Type": "application/json"}, body: body);
-    return true;
+    return reviewWriteSucceeded(response.statusCode, response.body);
+  }
+
+  /// Éxito de editar una reseña: HTTP 2xx y cuerpo JSON cuyo `code`, si
+  /// viene, sea 200 (como responde el v1 en saveReview). Un cuerpo que no es
+  /// JSON se registra y cuenta como fallo: nunca un falso «ok».
+  static bool reviewWriteSucceeded(int status, String body) {
+    if (status < 200 || status >= 300) {
+      AppLogger.warn('http-repo', '[updateReview] HTTP $status');
+      return false;
+    }
+    try {
+      final decoded = jsonDecode(body);
+      if (decoded is Map && decoded.containsKey('code')) {
+        final code = decoded['code'];
+        final ok = code == 200 || code?.toString() == '200';
+        if (!ok) AppLogger.warn('http-repo', '[updateReview] code=$code');
+        return ok;
+      }
+      return true;
+    } catch (e) {
+      AppLogger.warn('http-repo', '[updateReview] cuerpo no JSON: $e');
+      return false;
+    }
   }
 
   @override

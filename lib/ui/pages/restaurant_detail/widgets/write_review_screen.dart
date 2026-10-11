@@ -120,7 +120,9 @@ class _WriteReviewScreenState extends State<WriteReviewScreen> {
         Navigator.pop(context, true);
       } else {
         setState(() => _submitting = false);
-        _showError('No se pudo publicar tu reseña. Inténtalo de nuevo.');
+        _showError(_editing
+            ? 'No se pudieron guardar los cambios. Inténtalo de nuevo.'
+            : 'No se pudo publicar tu reseña. Inténtalo de nuevo.');
       }
     } catch (_) {
       if (!mounted) return;
