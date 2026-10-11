@@ -96,21 +96,24 @@ class GmFichaHeader extends StatelessWidget {
               right: -40,
               top: -40,
               bottom: -40,
-              child: ImageFiltered(
-                imageFilter: ui.ImageFilter.blur(sigmaX: 28, sigmaY: 28),
-                child: ColorFiltered(
-                  colorFilter: const ColorFilter.matrix(<double>[
-                    0.92, 0.12, 0.0, 0, 0, //
-                    0.04, 0.96, 0.0, 0, 0, //
-                    0.0, 0.12, 0.84, 0, 0, //
-                    0, 0, 0, 1, 0,
-                  ]),
-                  child: CachedNetworkImage(
-                    imageUrl: urls.first,
-                    fit: BoxFit.cover,
-                    memCacheWidth: 300,
-                    placeholder: (_, __) => const SizedBox.shrink(),
-                    errorWidget: (_, __, ___) => const SizedBox.shrink(),
+              // El desenfoque a pantalla completa se rasteriza aparte.
+              child: RepaintBoundary(
+                child: ImageFiltered(
+                  imageFilter: ui.ImageFilter.blur(sigmaX: 28, sigmaY: 28),
+                  child: ColorFiltered(
+                    colorFilter: const ColorFilter.matrix(<double>[
+                      0.92, 0.12, 0.0, 0, 0, //
+                      0.04, 0.96, 0.0, 0, 0, //
+                      0.0, 0.12, 0.84, 0, 0, //
+                      0, 0, 0, 1, 0,
+                    ]),
+                    child: CachedNetworkImage(
+                      imageUrl: urls.first,
+                      fit: BoxFit.cover,
+                      memCacheWidth: 300,
+                      placeholder: (_, __) => const SizedBox.shrink(),
+                      errorWidget: (_, __, ___) => const SizedBox.shrink(),
+                    ),
                   ),
                 ),
               ),
@@ -537,15 +540,21 @@ class _Action extends StatelessWidget {
             children: [
               GmIcon(icon, size: 22, color: ink),
               const SizedBox(height: 3),
-              Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 13,
-                  height: 16 / 13,
-                  fontWeight: FontWeight.w600,
-                  color: ink,
+              // «Cómo llegar» no debe rozar los bordes del botón.
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    style: TextStyle(
+                      fontSize: 13,
+                      height: 16 / 13,
+                      fontWeight: FontWeight.w600,
+                      color: ink,
+                    ),
+                  ),
                 ),
               ),
             ],
