@@ -272,7 +272,8 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen>
   void _openVisit(Visit v) {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => VisitDetailPage(visitId: v.id)),
+      MaterialPageRoute(
+          builder: (_) => VisitDetailPage(visitId: v.id, initialVisit: v)),
     );
   }
 

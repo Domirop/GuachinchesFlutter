@@ -1,11 +1,11 @@
 import 'dart:math' as math;
 
+import 'package:flutter/cupertino.dart' show CupertinoActivityIndicator;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:guachinches/config/app_colors.dart';
-import 'package:guachinches/config/brand_colors.dart';
-import 'package:guachinches/config/app_text_styles.dart';
+import 'package:guachinches/core/app_route_observer.dart';
+import 'package:guachinches/core/logging/app_logger.dart';
 import 'package:guachinches/data/HttpRemoteRepository.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
 import 'package:guachinches/data/cubit/location/location_cubit.dart';
@@ -13,18 +13,18 @@ import 'package:guachinches/data/cubit/location/location_state.dart';
 import 'package:guachinches/data/http_client.dart';
 import 'package:guachinches/data/model/Visit.dart' as vm;
 import 'package:guachinches/data/model/restaurant.dart';
+import 'package:guachinches/ui/components/video/youtube_embed_sheet.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/gm_place_card.dart'
-    show gmDisplayName, gmDistanceLabel, gmPlaceName;
+    show GmPhoto, gmDisplayName, gmDistanceLabel, gmPlaceName;
+import 'package:guachinches/ui/pages/restaurant_detail/ficha_logic.dart';
 import 'package:guachinches/ui/pages/restaurant_detail/restaurant_detail_screen.dart';
+import 'package:guachinches/ui/pages/restaurant_detail/widgets/ficha_visit_reels.dart'
+    show FichaLovedSeal, FichaStoryAvatar;
 import 'package:guachinches/ui/pages/restaurant_detail/widgets/ntk_box.dart';
 import 'package:guachinches/ui/pages/restaurant_detail/widgets/pros_cons_section.dart';
 import 'package:guachinches/ui/pages/restaurant_detail/widgets/services_chips_section.dart';
-import 'package:guachinches/ui/components/shimmer_box.dart';
-import 'package:guachinches/ui/components/video/vertical_video_player.dart';
-import 'package:guachinches/ui/components/video/youtube_embed_sheet.dart';
 import 'package:guachinches/ui/pages/visit/visit_dishes_screen.dart';
 import 'package:guachinches/ui/pages/visit/visit_presenter.dart';
-import 'package:guachinches/ui/pages/visit/widgets/gm_visit_hero.dart';
 import 'package:guachinches/ui/theme/gm_favorites.dart';
 import 'package:guachinches/ui/theme/gm_icons.dart';
 import 'package:guachinches/ui/theme/gm_motion.dart';
@@ -34,26 +34,34 @@ import 'package:guachinches/utils/open_now_utils.dart';
 import 'package:guachinches/utils/restaurant_type_label.dart';
 import 'package:share_plus/share_plus.dart' show SharePlus, ShareParams;
 import 'package:url_launcher/url_launcher.dart';
+import 'package:video_player/video_player.dart';
 
-/// Detalle de una visita de Jonay y Joana (rediseño iOS 27 · tablero Visita):
-/// vídeo a sangre con la hoja encima (r30), cápsula «Ver el vídeo» + corazón,
-/// la cita en la tarjeta vino, «Lo que probaron» (→ [VisitDishesScreen]) y
-/// la tarjeta del local. Debajo siguen servicios, a favor/en contra y lo que
-/// necesitas saber, con los mismos datos de siempre.
+/// Visita de Jonay y Joana como Reel (rediseño iOS 27 · tablero Visita):
+/// el vídeo vertical a pantalla completa sobre negro, barras de historia,
+/// botones de cristal (Cerrar · Sonido · Compartir), abajo el avatar con
+/// anillo, el sitio, «Les encantó» y una cita literal, la tira de platos
+/// como «stickers» y una hoja que asoma («Desliza para ver los platos y el
+/// sitio») con el contenido de siempre: platos, el sitio, servicios, a favor
+/// / en contra y lo que necesitas saber.
+///
+/// Reproducción (misma lógica de siempre): mp4 self-host con códec seguro
+/// (H.264/HEVC) → en la propia pantalla, en bucle y en silencio con botón de
+/// sonido; si no, la miniatura con play que abre el embed de YouTube. El
+/// vídeo se pausa con la hoja abierta, al apilar otra pantalla y con la app
+/// en segundo plano.
 class VisitDetailPage extends StatefulWidget {
   final String visitId;
   final String? title;
 
-  /// Cuando se presenta dentro de un sheet glass: fondos transparentes (para
-  /// que el frost se vea entre las tarjetas) y sin botón "atrás" (el sheet se
-  /// cierra arrastrando o tocando fuera).
-  final bool asSheet;
+  /// Visita ya cargada (p. ej. desde la ficha): se pinta al instante y se
+  /// refresca en segundo plano.
+  final vm.Visit? initialVisit;
 
   const VisitDetailPage({
     Key? key,
     required this.visitId,
     this.title,
-    this.asSheet = false,
+    this.initialVisit,
   }) : super(key: key);
 
   @override
@@ -61,6 +69,7 @@ class VisitDetailPage extends StatefulWidget {
 }
 
 class _VisitDetailPageState extends State<VisitDetailPage>
+    with WidgetsBindingObserver, RouteAware
     implements VisitDetailView {
   late RemoteRepository _repo;
   late VisitDetailPresenter _presenter;
@@ -69,30 +78,51 @@ class _VisitDetailPageState extends State<VisitDetailPage>
   bool _loading = true;
   String? _error;
 
-  /// Barra de estado clara sobre el vídeo; oscura (en día) cuando la hoja de
-  /// lienzo pasa bajo el reloj.
-  final ScrollController _scroll = ScrollController();
-  bool _overVideo = true;
+  // Vídeo en la propia pantalla.
+  VideoPlayerController? _video;
+  bool _videoReady = false;
+  bool _videoFailed = false;
+  bool _muted = true;
+  bool _userPaused = false;
+  bool _covered = false; // otra pantalla encima
+  bool _appActive = true;
 
-  void _onScroll() {
-    final top = MediaQuery.paddingOf(context).top;
-    final over = _scroll.offset < GmVisitHero.height - 30 - top;
-    if (over != _overVideo) setState(() => _overVideo = over);
-  }
+  // Hoja de platos y sitio.
+  final DraggableScrollableController _sheet = DraggableScrollableController();
+  final ValueNotifier<double> _extent = ValueNotifier(0);
+  bool _sheetOpen = false;
+  static const double _sheetMax = 0.9;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _repo = HttpRemoteRepository(sharedHttpClient);
     _presenter = VisitDetailPresenter(_repo, this);
+    final initial = widget.initialVisit;
+    if (initial != null) {
+      _visit = initial;
+      _loading = false;
+      _initVideo(initial);
+    }
     _presenter.loadVisit(widget.visitId);
-    _scroll.addListener(_onScroll);
     GmFavorites.instance.ensureLoaded();
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    if (route is PageRoute) appRouteObserver.subscribe(this, route);
+  }
+
+  @override
   void dispose() {
-    _scroll.dispose();
+    WidgetsBinding.instance.removeObserver(this);
+    appRouteObserver.unsubscribe(this);
+    _video?.dispose();
+    _sheet.dispose();
+    _extent.dispose();
     super.dispose();
   }
 
@@ -100,7 +130,8 @@ class _VisitDetailPageState extends State<VisitDetailPage>
 
   @override
   void showLoading() {
-    if (!mounted) return;
+    // Con la visita ya pintada, el refresco va en silencio.
+    if (!mounted || _visit != null) return;
     setState(() {
       _loading = true;
       _error = null;
@@ -115,58 +146,127 @@ class _VisitDetailPageState extends State<VisitDetailPage>
       _loading = false;
       _error = null;
     });
+    _initVideo(visit);
   }
 
   @override
   void showError(String message) {
     if (!mounted) return;
+    if (_visit != null) {
+      AppLogger.warn('visit-detail',
+          'no se pudo refrescar la visita ${widget.visitId}: $message');
+      return;
+    }
     setState(() {
       _error = message;
       _loading = false;
     });
   }
 
-  // ===== Acciones =====
+  // ===== Vídeo =====
+
+  bool get _inline => _video != null && !_videoFailed;
+
+  void _initVideo(vm.Visit v) {
+    if (_video != null || !v.selfHostVideoPlayable) return;
+    final c = VideoPlayerController.networkUrl(Uri.parse(v.videoFileUrl!));
+    _video = c;
+    c.initialize().then((_) {
+      if (!mounted) return;
+      c
+        ..setVolume(_muted ? 0 : 1)
+        ..setLooping(true);
+      setState(() => _videoReady = true);
+      _syncPlayback();
+    }).catchError((Object e) {
+      AppLogger.warn('visit-detail', 'no se pudo cargar el mp4 de ${v.id}: $e');
+      if (mounted) setState(() => _videoFailed = true);
+    });
+  }
+
+  /// Reproduce solo si nadie lo impide: pausa del usuario, hoja abierta,
+  /// otra pantalla encima o app en segundo plano.
+  void _syncPlayback() {
+    final c = _video;
+    if (c == null || !c.value.isInitialized) return;
+    final play = !_userPaused && !_sheetOpen && !_covered && _appActive;
+    if (play && !c.value.isPlaying) c.play();
+    if (!play && c.value.isPlaying) c.pause();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _appActive = state == AppLifecycleState.resumed;
+    _syncPlayback();
+  }
+
+  @override
+  void didPushNext() {
+    _covered = true;
+    _syncPlayback();
+  }
+
+  @override
+  void didPopNext() {
+    _covered = false;
+    _syncPlayback();
+  }
+
+  void _toggleMute() {
+    HapticFeedback.selectionClick();
+    setState(() => _muted = !_muted);
+    final c = _video;
+    if (c != null && c.value.isInitialized) c.setVolume(_muted ? 0 : 1);
+  }
+
+  void _onVideoTap() {
+    if (_inline && _videoReady) {
+      setState(() => _userPaused = !_userPaused);
+      _syncPlayback();
+      return;
+    }
+    _playElsewhere();
+  }
 
   Future<void> _openVideoExternal() async {
     final url = _visit?.videoUrl;
     if (url == null || url.isEmpty) return;
-    final uri = Uri.parse(url);
-    if (await canLaunchUrl(uri)) {
+    final uri = Uri.tryParse(url);
+    if (uri == null) return;
+    try {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (e) {
+      AppLogger.warn('visit-detail', 'no se pudo abrir $url: $e');
     }
   }
 
-  bool get _hasVideo {
-    final v = _visit;
-    if (v == null) return false;
-    return v.selfHostVideoPlayable ||
-        (v.youtubeVideoId?.trim().isNotEmpty == true) ||
-        (v.videoUrl?.isNotEmpty == true);
-  }
-
-  /// Reproduce el vídeo del hero: mp4 self-host → reproductor in-app vertical;
-  /// si no, embed de YouTube in-app; último recurso, abrir externo.
-  Future<void> _playVideo() {
+  /// Sin mp4 reproducible aquí: embed de YouTube in-app; último recurso,
+  /// abrir fuera.
+  Future<void> _playElsewhere() {
     final v = _visit;
     if (v == null) return Future.value();
-    // mp4 self-host SOLO si el códec es reproducible en iOS (H.264/HEVC); si es
-    // AV1/desconocido pintaría negro → fallback a YouTube embed.
-    if (v.selfHostVideoPlayable) {
-      return showVerticalVideo(context,
-          url: v.videoFileUrl!, visit: v, onOpenRestaurant: _goToRestaurant);
-    }
-    final ytId = v.youtubeVideoId;
-    if (ytId != null && ytId.trim().isNotEmpty) {
+    final ytId = fichaYoutubeId(v);
+    if (ytId != null) {
       return YoutubeEmbedSheet.show(context, videoId: ytId);
     }
     return _openVideoExternal();
   }
 
+  bool get _hasAnyVideo {
+    final v = _visit;
+    if (v == null) return false;
+    return v.selfHostVideoPlayable ||
+        fichaYoutubeId(v) != null ||
+        (v.videoUrl?.isNotEmpty == true);
+  }
+
+  // ===== Acciones =====
+
   void _share() {
     final name =
         _visit?.name ?? _visit?.restaurant?.nombre ?? widget.title ?? 'Visita';
-    SharePlus.instance.share(ShareParams(text: '$name en ¿Dónde Comer Canarias?'));
+    SharePlus.instance
+        .share(ShareParams(text: '$name en ¿Dónde Comer Canarias?'));
   }
 
   void _goToRestaurant() {
@@ -189,92 +289,349 @@ class _VisitDetailPageState extends State<VisitDetailPage>
     );
   }
 
+  // ===== Hoja =====
+
+  /// Alto de la hoja plegada: asa + «Desliza…» + zona del indicador de inicio.
+  double _peekHeight(BuildContext context) {
+    final bottom = MediaQuery.paddingOf(context).bottom;
+    final label =
+        MediaQuery.textScalerOf(context).clamp(maxScaleFactor: 1.3).scale(18);
+    return 20 + label + math.max(bottom - 6, 14);
+  }
+
+  bool _onSheetExtent(DraggableScrollableNotification n) {
+    _extent.value = n.extent;
+    final open = n.extent > n.minExtent + 0.08;
+    if (open != _sheetOpen) {
+      setState(() => _sheetOpen = open);
+      _syncPlayback();
+    }
+    return false;
+  }
+
+  void _animateSheet(double to) {
+    if (!_sheet.isAttached) return;
+    if (GmMotion.reduced(context)) {
+      _sheet.jumpTo(to);
+      return;
+    }
+    _sheet.animateTo(to,
+        duration: const Duration(milliseconds: 420), curve: GmMotion.settle);
+  }
+
   // ===== Build =====
 
   @override
   Widget build(BuildContext context) {
-    final gm = GmColors.of(context);
-    // En sheet, los fondos van transparentes para dejar ver el cristal.
-    final bg = widget.asSheet ? Colors.transparent : gm.canvas;
-    if (_loading) {
-      return Scaffold(
-        backgroundColor: bg,
-        body: const _LoadingView(),
+    final Widget body;
+    if (_visit != null) {
+      body = _buildReel(context, _visit!);
+    } else if (_error != null) {
+      body = _ErrorView(
+        message: _error!,
+        onRetry: () => _presenter.loadVisit(widget.visitId),
+        onClose: () => Navigator.pop(context),
       );
-    }
-    if (_error != null) {
-      return Scaffold(
-        backgroundColor: bg,
-        body: _ErrorView(
-          message: _error!,
-          onRetry: () => _presenter.loadVisit(widget.visitId),
-        ),
-      );
+    } else {
+      body = _LoadingView(onClose: () => Navigator.pop(context));
     }
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      // Barra de estado clara sobre el vídeo.
-      value: (widget.asSheet || !_overVideo)
-          ? (gm.isDark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark)
-          : SystemUiOverlayStyle.light,
-      child: Scaffold(
-        backgroundColor: bg,
-        body: Stack(
-          children: [
-            _buildScrollContent(context),
-            if (!widget.asSheet) GmTopScrim(visible: !_overVideo),
-          ],
+      // Barra de estado clara: siempre hay vídeo (o negro) bajo el reloj.
+      value: SystemUiOverlayStyle.light,
+      child: PopScope(
+        // Atrás con la hoja abierta: primero se pliega.
+        canPop: !_sheetOpen,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop)
+            _animateSheet(
+                _peekHeight(context) / MediaQuery.sizeOf(context).height);
+        },
+        child: Scaffold(
+          backgroundColor: Colors.black,
+          body: body,
         ),
       ),
     );
   }
 
-  Widget _buildScrollContent(BuildContext context) {
+  Widget _buildReel(BuildContext context, vm.Visit v) {
     final gm = GmColors.of(context);
-    final v = _visit!;
-    final r = v.restaurant;
-    final quote = _quoteFor(v);
-    final dishes = v.dishes.where((d) => d.name.trim().isNotEmpty).toList();
+    final media = MediaQuery.of(context);
+    final top = media.padding.top;
+    final peek = _peekHeight(context);
+    final peekF = (peek / media.size.height).clamp(0.05, 0.3);
+    final dishes = fichaNamedDishes(v);
+    final showPlay = !_inline || _userPaused;
 
-    final sheet = Container(
-      decoration: BoxDecoration(
-        color: widget.asSheet ? gm.canvas.withValues(alpha: 0.92) : gm.canvas,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
-        boxShadow: const [
-          BoxShadow(
-              color: Color(0x2E000000), offset: Offset(0, -10), blurRadius: 30),
+    return Semantics(
+      identifier: 'visit-detail-content',
+      child: Stack(
+        children: [
+          // ① El vídeo (o su miniatura) a sangre.
+          Positioned.fill(
+            child: Semantics(
+              identifier: 'visit-detail-video',
+              button: true,
+              label: _inline
+                  ? (_userPaused ? 'Reanudar el vídeo' : 'Pausar el vídeo')
+                  : 'Ver el vídeo',
+              excludeSemantics: true,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: _hasAnyVideo ? _onVideoTap : null,
+                child: _VideoLayer(
+                  visit: v,
+                  video: _inline && _videoReady ? _video : null,
+                ),
+              ),
+            ),
+          ),
+          // Degradado: arriba para los botones, abajo para el texto y la tira.
+          const Positioned.fill(
+            child: IgnorePointer(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Color(0x80000000),
+                      Color(0x00000000),
+                      Color(0x00000000),
+                      Color(0x9E000000),
+                      Color(0xF5000000),
+                      Color(0xFF000000),
+                    ],
+                    stops: [0, 0.18, 0.42, 0.62, 0.8, 1],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          // Play / pausa en el centro de la zona libre (sobre el texto).
+          if (_hasAnyVideo)
+            Align(
+              alignment: const Alignment(0, -0.32),
+              child: IgnorePointer(
+                ignoring: !showPlay,
+                child: AnimatedOpacity(
+                  opacity: showPlay ? 1 : 0,
+                  duration: Duration(
+                      milliseconds: GmMotion.reduced(context) ? 0 : 180),
+                  child: Semantics(
+                    identifier: 'visit-detail-play-button',
+                    button: true,
+                    label: 'Ver el vídeo',
+                    excludeSemantics: true,
+                    child: GmPressable(
+                      onTap: _onVideoTap,
+                      pressedScale: 0.9,
+                      child: const _PlayDisc(),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          // ② Barras de historia.
+          if (_inline && _videoReady)
+            Positioned(
+              left: 16,
+              right: 16,
+              top: top,
+              child: IgnorePointer(
+                child: Semantics(
+                  label: 'Avance del vídeo',
+                  child: _StoryBars(
+                    count: dishes.length.clamp(1, 8),
+                    video: _video!,
+                  ),
+                ),
+              ),
+            ),
+          // ③ Cerrar · Sonido · Compartir.
+          Positioned(
+            left: 16,
+            right: 16,
+            top: top + 14,
+            child: Row(
+              children: [
+                GmToolbarButton(
+                  icon: GmIcons.close,
+                  iconSize: 16,
+                  semanticLabel: 'Cerrar',
+                  identifier: 'visit-detail-back-button',
+                  onTap: () => Navigator.maybePop(context),
+                ),
+                const Spacer(),
+                if (_inline) ...[
+                  GmToolbarButton(
+                    icon: _muted ? GmIcons.muted : GmIcons.volume,
+                    semanticLabel: _muted ? 'Activar sonido' : 'Silenciar',
+                    identifier: 'visit-detail-mute-button',
+                    onTap: _toggleMute,
+                  ),
+                  const SizedBox(width: 10),
+                ],
+                GmToolbarButton(
+                  icon: GmIcons.share,
+                  semanticLabel: 'Compartir',
+                  identifier: 'visit-detail-share-button',
+                  onTap: _share,
+                ),
+              ],
+            ),
+          ),
+          // ④ Texto de la visita + tira de platos sobre el vídeo.
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: peek + 22,
+            child: MediaQuery.withClampedTextScaling(
+              maxScaleFactor: 1.3,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: GmRise(
+                      trigger: GmTrigger.mount,
+                      child: _ReelCaption(visit: v, title: widget.title),
+                    ),
+                  ),
+                  if (dishes.isNotEmpty) ...[
+                    const SizedBox(height: 30),
+                    GmRise(
+                      trigger: GmTrigger.mount,
+                      index: 2,
+                      child: _DishStrip(dishes: dishes, onTap: _openDishes),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          // Velo sobre el vídeo al subir la hoja (tocar → plegar).
+          Positioned.fill(
+            child: ValueListenableBuilder<double>(
+              valueListenable: _extent,
+              builder: (_, e, __) {
+                final t = ((e - peekF) / (_sheetMax - peekF)).clamp(0.0, 1.0);
+                if (t <= 0) return const SizedBox.shrink();
+                return GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => _animateSheet(peekF),
+                  child: ColoredBox(
+                      color: Colors.black.withValues(alpha: 0.55 * t)),
+                );
+              },
+            ),
+          ),
+          // ⑤ La hoja que asoma.
+          NotificationListener<DraggableScrollableNotification>(
+            onNotification: _onSheetExtent,
+            child: DraggableScrollableSheet(
+              controller: _sheet,
+              initialChildSize: peekF,
+              minChildSize: peekF,
+              maxChildSize: _sheetMax,
+              snap: true,
+              builder: (ctx, scroll) => Semantics(
+                identifier: 'visit-detail-sheet',
+                container: true,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: gm.canvas,
+                    borderRadius:
+                        const BorderRadius.vertical(top: Radius.circular(28)),
+                    boxShadow: const [
+                      BoxShadow(
+                          color: Color(0x4D000000),
+                          offset: Offset(0, -8),
+                          blurRadius: 24),
+                    ],
+                  ),
+                  child: ClipRRect(
+                    borderRadius:
+                        const BorderRadius.vertical(top: Radius.circular(28)),
+                    child: CustomScrollView(
+                      controller: scroll,
+                      slivers: [
+                        SliverToBoxAdapter(
+                          child: _SheetHandle(
+                            height: peek,
+                            open: _sheetOpen,
+                            onTap: () =>
+                                _animateSheet(_sheetOpen ? peekF : _sheetMax),
+                          ),
+                        ),
+                        SliverToBoxAdapter(child: _sheetContent(context, v)),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
         ],
       ),
-      padding: EdgeInsets.only(
-          top: 20, bottom: MediaQuery.paddingOf(context).bottom + 24),
+    );
+  }
+
+  /// Contenido de la hoja: lo de siempre de la visita.
+  Widget _sheetContent(BuildContext context, vm.Visit v) {
+    final r = v.restaurant;
+    final dishes = fichaNamedDishes(v);
+    final loved = fichaLovedDishCount(v);
+    return Padding(
+      padding:
+          EdgeInsets.only(bottom: MediaQuery.paddingOf(context).bottom + 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // ① Ver el vídeo + guardar.
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: GmRise(
-              trigger: GmTrigger.mount,
-              index: 1,
+          // ① Lo que probaron.
+          if (dishes.isNotEmpty) ...[
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: GmSectionHeader(
+                title: 'Lo que probaron',
+                eyebrow: GmEyebrow(
+                  text: [
+                    dishes.length == 1 ? '1 plato' : '${dishes.length} platos',
+                    if (loved > 0)
+                      loved == 1 ? '1 les encantó' : '$loved les encantaron',
+                  ].join(' · '),
+                ),
+                identifier: 'visit-detail-dishes-title',
+                onTap: _openDishes,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: _SheetDishGrid(dishes: dishes, onTap: _openDishes),
+            ),
+          ],
+
+          // ② El sitio (+ guardar).
+          if (r != null) ...[
+            const SizedBox(height: 20),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Row(
                 children: [
                   Expanded(
-                    child: GmCapsuleButton(
-                      height: 52,
-                      fontSize: 17,
-                      iconSize: 15,
-                      icon: _hasVideo ? GmIcons.play : null,
-                      label: _hasVideo ? _playLabel(v) : 'Ver el local',
-                      identifier: _hasVideo
-                          ? 'visit-detail-play-button'
-                          : 'visit-detail-ver-local-button',
-                      onTap: _hasVideo ? _playVideo : _goToRestaurant,
+                    child: _RestaurantCard(
+                      restaurant: r,
+                      priceRange: v.priceRange,
+                      onTap: _goToRestaurant,
                     ),
                   ),
-                  const SizedBox(width: 10),
-                  // Guarda el LOCAL de la visita en los guardados de siempre
-                  // (misma tabla que la ficha, Favoritos y los corazones).
-                  if (v.restaurantId.isNotEmpty)
+                  if (v.restaurantId.isNotEmpty) ...[
+                    const SizedBox(width: 10),
+                    // Guarda el LOCAL de la visita en los guardados de siempre
+                    // (misma tabla que la ficha, Favoritos y los corazones).
                     ValueListenableBuilder<Set<String>>(
                       valueListenable: GmFavorites.instance,
                       builder: (_, ids, __) => _SaveCircle(
@@ -285,106 +642,25 @@ class _VisitDetailPageState extends State<VisitDetailPage>
                         },
                       ),
                     ),
-                ],
-              ),
-            ),
-          ),
-
-          // ② La cita, en la tarjeta vino.
-          if (quote != null) ...[
-            const SizedBox(height: 16),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: GmRise(
-                trigger: GmTrigger.mount,
-                index: 2,
-                child: _QuoteCard(text: quote.$1, caption: quote.$2),
-              ),
-            ),
-          ],
-
-          // ③ Lo que probaron.
-          if (dishes.isNotEmpty) ...[
-            const SizedBox(height: 16),
-            GmRise(
-              trigger: GmTrigger.mount,
-              index: 3,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: GmSectionHeader(
-                      title: 'Lo que probaron',
-                      identifier: 'visit-detail-dishes-title',
-                      onTap: _openDishes,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        for (var i = 0; i < 3; i++) ...[
-                          if (i > 0) const SizedBox(width: 10),
-                          Expanded(
-                            child: i < dishes.length
-                                ? SizedBox(
-                                    height: 6 + 84 + 8 + 4 + 6 +
-                                        MediaQuery.textScalerOf(context)
-                                                .scale(18) *
-                                            2,
-                                    child: GmDishCard(
-                                      dish: dishes[i],
-                                      cardRadius: GmRadius.tile,
-                                      photoRadius: 16,
-                                      photoHeight: 84,
-                                      nameLines: 2,
-                                      onTap: _openDishes,
-                                    ),
-                                  )
-                                : const SizedBox.shrink(),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
+                  ],
                 ],
               ),
             ),
           ],
 
-          // ④ El local.
-          if (r != null) ...[
-            const SizedBox(height: 16),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: GmRise(
-                trigger: GmTrigger.mount,
-                index: 4,
-                child: _RestaurantCard(
-                  restaurant: r,
-                  priceRange: v.priceRange,
-                  onTap: _goToRestaurant,
-                ),
-              ),
-            ),
-          ],
-
-          // ⑤ Servicios.
+          // ③ Servicios.
           if (ServicesChipsSection.shouldRender(v.services)) ...[
             const SizedBox(height: 20),
             ServicesChipsSection(services: v.services),
           ],
 
-          // ⑥ A favor / en contra.
+          // ④ A favor / en contra.
           if (ProsConsSection.shouldRender(v.highlights, v.lowlights)) ...[
             const SizedBox(height: 20),
             ProsConsSection(pros: v.highlights, cons: v.lowlights),
           ],
 
-          // ⑦ Lo que necesitas saber.
+          // ⑤ Lo que necesitas saber.
           if (r != null) ...[
             const SizedBox(height: 20),
             NTKBox(
@@ -396,83 +672,518 @@ class _VisitDetailPageState extends State<VisitDetailPage>
         ],
       ),
     );
+  }
+}
 
-    return Semantics(
-      identifier: 'visit-detail-content',
-      child: SingleChildScrollView(
-        controller: _scroll,
-        child: Stack(
-          children: [
-            Positioned(
-              left: 0,
-              right: 0,
-              top: 0,
-              height: GmVisitHero.height,
-              child: GmVisitHero(
-                visit: v,
-                asSheet: widget.asSheet,
-                onPlayVideo: _playVideo,
-                onShare: _share,
-                onClose:
-                    widget.asSheet ? null : () => Navigator.pop(context),
-              ),
+/// «1:48» desde «00:01:48» / «1:48» / «108». `null` si no hay dato.
+String? visitMinute(String? raw) {
+  if (raw == null || raw.trim().isEmpty) return null;
+  final parts =
+      raw.trim().split(':').map((p) => int.tryParse(p.trim()) ?? 0).toList();
+  int secs;
+  if (parts.length == 1) {
+    secs = parts[0];
+  } else if (parts.length == 2) {
+    secs = parts[0] * 60 + parts[1];
+  } else {
+    secs = parts[0] * 3600 + parts[1] * 60 + parts[2];
+  }
+  if (secs <= 0) return null;
+  return '${secs ~/ 60}:${(secs % 60).toString().padLeft(2, '0')}';
+}
+
+/// La cita del reel (la mejor literal) y su pie factual: solo el minuto si
+/// el backend lo da; si no, sin pie.
+({String text, String? caption})? visitReelQuote(vm.Visit v) {
+  final text = fichaReelQuote(v);
+  if (text == null) return null;
+  String? minute;
+  for (final q in v.quotes) {
+    if (fichaQuote(q.text) == text) {
+      minute = visitMinute(q.timestamp);
+      break;
+    }
+  }
+  return (text: text, caption: minute == null ? null : 'Minuto $minute');
+}
+
+/// Vídeo a sangre (9:16 recortado a la pantalla) sobre su miniatura.
+class _VideoLayer extends StatelessWidget {
+  final vm.Visit visit;
+  final VideoPlayerController? video;
+  const _VideoLayer({required this.visit, this.video});
+
+  @override
+  Widget build(BuildContext context) {
+    final thumbs = fichaReelThumbs(visit);
+    final c = video;
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        const ColoredBox(color: Colors.black),
+        GmPhoto(
+          thumbs.firstOrNull,
+          decodeWidth: 1080,
+          fallbacks: thumbs.skip(1).toList(),
+        ),
+        if (c != null)
+          FittedBox(
+            fit: BoxFit.cover,
+            clipBehavior: Clip.hardEdge,
+            child: SizedBox(
+              width: c.value.size.width,
+              height: c.value.size.height,
+              child: VideoPlayer(c),
             ),
-            Padding(
-              padding: const EdgeInsets.only(top: GmVisitHero.height - 30),
-              child: sheet,
-            ),
-          ],
+          ),
+      ],
+    );
+  }
+}
+
+class _PlayDisc extends StatelessWidget {
+  const _PlayDisc();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 72,
+      height: 72,
+      child: GmGlass(
+        borderRadius: BorderRadius.circular(36),
+        tint: const Color(0x4D1C1612),
+        edge: const Color(0x80FFFFFF),
+        edgeWidth: 0.5,
+        blur: 20,
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.only(left: 4),
+            child: GmIcon(GmIcons.play, size: 26, color: Colors.white),
+          ),
         ),
       ),
     );
   }
+}
 
-  /// «Ver el vídeo · 4:12» (duración si la conocemos).
-  String _playLabel(vm.Visit v) {
-    final s = v.durationSeconds;
-    if (s == null || s <= 0) return 'Ver el vídeo';
-    final m = s ~/ 60;
-    final ss = (s % 60).toString().padLeft(2, '0');
-    return 'Ver el vídeo · $m:$ss';
+/// Barras de historia: el avance del vídeo repartido en [count] tramos.
+class _StoryBars extends StatelessWidget {
+  final int count;
+  final VideoPlayerController video;
+  const _StoryBars({required this.count, required this.video});
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<VideoPlayerValue>(
+      valueListenable: video,
+      builder: (_, val, __) {
+        final d = val.duration.inMilliseconds;
+        final p = d <= 0 ? 0.0 : val.position.inMilliseconds / d;
+        return Row(
+          children: [
+            for (var i = 0; i < count; i++) ...[
+              if (i > 0) const SizedBox(width: 4),
+              Expanded(
+                child: Container(
+                  height: 3,
+                  decoration: BoxDecoration(
+                    color: const Color(0x59FFFFFF),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                  alignment: Alignment.centerLeft,
+                  child: FractionallySizedBox(
+                    widthFactor: (p * count - i).clamp(0.0, 1.0),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ],
+        );
+      },
+    );
   }
+}
 
-  /// (cita, pie). Primero una cita literal del vídeo; si no hay, el resumen.
-  (String, String?)? _quoteFor(vm.Visit v) {
-    for (final q in v.quotes) {
-      final t = q.text.trim();
-      if (t.isEmpty) continue;
-      final text = t.startsWith('«') || t.startsWith('"') ? t : '«$t»';
-      final ts = _minute(q.timestamp);
-      return (text, ts == null ? 'Jonay y Joana' : 'Jonay y Joana · minuto $ts');
+/// «Jonay y Joana · fecha · duración», el sitio 34/41, «Les encantó · tipo ·
+/// municipio» y la cita literal.
+class _ReelCaption extends StatelessWidget {
+  final vm.Visit visit;
+  final String? title;
+  const _ReelCaption({required this.visit, this.title});
+
+  static const _shadow = [Shadow(color: Color(0x66000000), blurRadius: 14)];
+
+  @override
+  Widget build(BuildContext context) {
+    final v = visit;
+    final r = v.restaurant;
+    final name = gmDisplayName((r?.nombre.trim().isNotEmpty == true
+            ? r!.nombre
+            : (v.name?.trim().isNotEmpty == true ? v.name! : title)) ??
+        '');
+    final meta = [
+      if (fichaDateFromIso(v.sortDate) != null) fichaDateFromIso(v.sortDate)!,
+      if (fichaVisitDuration(v) != null) fichaVisitDuration(v)!,
+    ];
+    final type = restaurantTypeLabel(r?.type);
+    final town = gmPlaceName(
+        (r?.municipio.trim().isNotEmpty == true ? r!.municipio : v.zone) ?? '');
+    final place = [if (type.isNotEmpty) type, if (town.isNotEmpty) town];
+    final loved = fichaLoved(v);
+    final quote = visitReelQuote(v);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          children: [
+            FichaStoryAvatar(
+              thumbs: fichaReelThumbs(v),
+              size: 32,
+              photo: 26,
+            ),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text.rich(
+                TextSpan(
+                  text: 'Jonay y Joana',
+                  children: [
+                    if (meta.isNotEmpty)
+                      TextSpan(
+                        text: '  · ${meta.join(' · ')}',
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w500,
+                            color: Color(0xCCFFFFFF)),
+                      ),
+                  ],
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: GmText.sub(color: Colors.white, w: FontWeight.w600)
+                    .copyWith(shadows: _shadow),
+              ),
+            ),
+          ],
+        ),
+        if (name.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Semantics(
+            header: true,
+            child: Text(
+              name,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: GmText.largeTitle(color: Colors.white).copyWith(
+                letterSpacing: -0.8,
+                shadows: const [
+                  Shadow(
+                      color: Color(0x66000000),
+                      blurRadius: 14,
+                      offset: Offset(0, 2)),
+                ],
+              ),
+            ),
+          ),
+        ],
+        if (loved || place.isNotEmpty) ...[
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              if (loved) ...[
+                const FichaLovedSeal(),
+                const SizedBox(width: 8),
+              ],
+              if (place.isNotEmpty)
+                Flexible(
+                  child: Text(
+                    place.join(' · '),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GmText.eyebrow(color: const Color(0xEBFFFFFF))
+                        .copyWith(shadows: _shadow),
+                  ),
+                ),
+            ],
+          ),
+        ],
+        if (quote != null) ...[
+          const SizedBox(height: 12),
+          Text(
+            quote.text,
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 17,
+              height: 23 / 17,
+              fontWeight: FontWeight.w600,
+              fontStyle: FontStyle.italic,
+              color: Colors.white,
+              shadows: [Shadow(color: Color(0x80000000), blurRadius: 10)],
+            ),
+          ),
+          if (quote.caption != null) ...[
+            const SizedBox(height: 3),
+            Text(
+              quote.caption!,
+              style: GmText.chip(
+                  color: const Color(0xC7FFFFFF), w: FontWeight.w400),
+            ),
+          ],
+        ],
+      ],
+    );
+  }
+}
+
+/// Tira de platos sobre el vídeo: tarjetas de 92 en blanco translúcido con
+/// foto, sello «Top» y el nombre en dos líneas (se desvanece por la derecha).
+class _DishStrip extends StatelessWidget {
+  final List<vm.VisitDish> dishes;
+  final VoidCallback onTap;
+  const _DishStrip({required this.dishes, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final nameH = MediaQuery.textScalerOf(context).scale(14) * 2;
+    final h = 4 + 62 + 5 + nameH + 6;
+    return Semantics(
+      identifier: 'visit-detail-dish-strip',
+      container: true,
+      label: 'Platos de la visita',
+      child: SizedBox(
+        height: h + 20,
+        child: ShaderMask(
+          blendMode: BlendMode.dstIn,
+          shaderCallback: (rect) => LinearGradient(
+            colors: const [Colors.black, Colors.black, Colors.transparent],
+            stops: [0, (rect.width - 28) / rect.width, 1],
+          ).createShader(rect),
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.fromLTRB(20, 2, 20, 18),
+            clipBehavior: Clip.none,
+            itemCount: dishes.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 8),
+            itemBuilder: (_, i) {
+              final d = dishes[i];
+              return GmPressable(
+                onTap: onTap,
+                semanticsLabel: d.name,
+                child: Container(
+                  width: 92,
+                  padding: const EdgeInsets.fromLTRB(4, 4, 4, 6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xF0FFFFFF),
+                    borderRadius: BorderRadius.circular(18),
+                    boxShadow: const [
+                      BoxShadow(
+                          color: Color(0x4D000000),
+                          offset: Offset(0, 6),
+                          blurRadius: 16),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(14),
+                        child: SizedBox(
+                          height: 62,
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              d.photoUrl != null
+                                  ? GmPhoto(d.photoUrl, decodeWidth: 260)
+                                  : const ColoredBox(color: Color(0xFFEDE6DA)),
+                              if (d.isTop)
+                                Positioned(
+                                  left: 4,
+                                  top: 4,
+                                  child: Container(
+                                    height: 18,
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 6),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xEBFFFFFF),
+                                      borderRadius:
+                                          BorderRadius.circular(GmRadius.pill),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        GmIcon(GmIcons.star,
+                                            size: 8, color: GmColors.star),
+                                        const SizedBox(width: 3),
+                                        const Text(
+                                          'Top',
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            height: 1.2,
+                                            fontWeight: FontWeight.w700,
+                                            color: Color(0xFF1F1A14),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 5),
+                      SizedBox(
+                        height: nameH,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 3),
+                          child: Text(
+                            d.name,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              height: 14 / 11,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF1F1A14),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Asa de la hoja: grabber + «Desliza para ver los platos y el sitio» (con un
+/// único empujoncito hacia arriba).
+class _SheetHandle extends StatelessWidget {
+  final double height;
+  final bool open;
+  final VoidCallback onTap;
+  const _SheetHandle(
+      {required this.height, required this.open, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final gm = GmColors.of(context);
+    return Semantics(
+      identifier: 'visit-detail-sheet-handle',
+      button: true,
+      label:
+          open ? 'Plegar los platos y el sitio' : 'Ver los platos y el sitio',
+      excludeSemantics: true,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: SizedBox(
+          height: height,
+          child: Column(
+            children: [
+              const SizedBox(height: 8),
+              Container(
+                width: 36,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: gm.sep,
+                  borderRadius: BorderRadius.circular(GmRadius.pill),
+                ),
+              ),
+              const SizedBox(height: 7),
+              MediaQuery.withClampedTextScaling(
+                maxScaleFactor: 1.3,
+                child: GmOnce(
+                  trigger: GmTrigger.mount,
+                  duration: const Duration(milliseconds: 1100),
+                  delay: const Duration(milliseconds: 1600),
+                  builder: (_, t, child) => Transform.translate(
+                    offset: Offset(
+                        0,
+                        gmKeyframes(
+                            t, const [(0, 0), (0.4, -6), (0.7, 1), (1, 0)],
+                            curve: GmMotion.settle)),
+                    child: child,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      GmIcon(open ? GmIcons.chevronDown : GmIcons.chevronUp,
+                          size: 12, color: gm.label),
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Text(
+                          open
+                              ? 'Desliza para volver al vídeo'
+                              : 'Desliza para ver los platos y el sitio',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GmText.sub(color: gm.label, w: FontWeight.w600)
+                              .copyWith(height: 18 / 14),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// «Lo que probaron» dentro de la hoja: todos los platos en filas de tres.
+class _SheetDishGrid extends StatelessWidget {
+  final List<vm.VisitDish> dishes;
+  final VoidCallback onTap;
+  const _SheetDishGrid({required this.dishes, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final cellH =
+        6 + 84 + 8 + 4 + 6 + MediaQuery.textScalerOf(context).scale(18) * 2;
+    final rows = <Widget>[];
+    for (var i = 0; i < dishes.length; i += 3) {
+      if (i > 0) rows.add(const SizedBox(height: 10));
+      rows.add(Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (var k = 0; k < 3; k++) ...[
+            if (k > 0) const SizedBox(width: 10),
+            Expanded(
+              child: i + k < dishes.length
+                  ? SizedBox(
+                      height: cellH,
+                      child: GmDishCard(
+                        dish: dishes[i + k],
+                        cardRadius: GmRadius.tile,
+                        photoRadius: 16,
+                        photoHeight: 84,
+                        nameLines: 2,
+                        onTap: onTap,
+                      ),
+                    )
+                  : const SizedBox.shrink(),
+            ),
+          ],
+        ],
+      ));
     }
-    final summary = _summary(v);
-    if (summary != null) return (summary, null);
-    return null;
-  }
-
-  /// «00:01:48» / «1:48» / «108» → «1:48».
-  String? _minute(String? raw) {
-    if (raw == null || raw.trim().isEmpty) return null;
-    final t = raw.trim();
-    final parts = t.split(':').map((p) => int.tryParse(p) ?? 0).toList();
-    int secs;
-    if (parts.length == 1) {
-      secs = parts[0];
-    } else if (parts.length == 2) {
-      secs = parts[0] * 60 + parts[1];
-    } else {
-      secs = parts[0] * 3600 + parts[1] * 60 + parts[2];
-    }
-    if (secs <= 0) return null;
-    return '${secs ~/ 60}:${(secs % 60).toString().padLeft(2, '0')}';
-  }
-
-  String? _summary(vm.Visit v) {
-    if (v.summary?.isNotEmpty == true) return v.summary;
-    if (v.extraText?.isNotEmpty == true) return v.extraText;
-    final editorial = v.restaurant?.editorialBody;
-    if (editorial != null && editorial.isNotEmpty) return editorial;
-    return null;
+    return Column(children: rows);
   }
 }
 
@@ -509,104 +1220,6 @@ class _SaveCircle extends StatelessWidget {
             color: saved ? GmColors.heart : gm.label,
           ),
         ),
-      ),
-    );
-  }
-}
-
-/// La cita de la visita en la tarjeta vino + oro, con «»» que se balancea.
-class _QuoteCard extends StatelessWidget {
-  final String text;
-  final String? caption;
-  const _QuoteCard({required this.text, this.caption});
-
-  @override
-  Widget build(BuildContext context) {
-    final gm = GmColors.of(context);
-    return Container(
-      decoration: BoxDecoration(
-        color: GmColors.wine,
-        borderRadius: BorderRadius.circular(GmRadius.card),
-        border: gm.isDark ? Border.all(color: gm.wineEdge) : null,
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0xB32A0E14),
-            offset: Offset(0, 14),
-            blurRadius: 30,
-            spreadRadius: -16,
-          ),
-        ],
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Stack(
-        children: [
-          const Positioned.fill(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: RadialGradient(
-                  center: Alignment.topRight,
-                  radius: 1.0,
-                  colors: [Color(0x38C9A96B), Color(0x00C9A96B)],
-                  stops: [0, 0.6],
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            right: 16,
-            top: 4,
-            child: GmOnce(
-              duration: const Duration(milliseconds: 1200),
-              delay: const Duration(milliseconds: 1400),
-              builder: (_, t, child) {
-                final rot = gmKeyframes(t, const [
-                  (0, 8), (0.3, -4), (0.6, 12), (0.85, 7), (1, 8)
-                ]);
-                return Transform.rotate(
-                    angle: rot * math.pi / 180, child: child);
-              },
-              child: const Opacity(
-                opacity: 0.9,
-                child: Text(
-                  '»',
-                  style: TextStyle(
-                    fontSize: 44,
-                    height: 1,
-                    fontWeight: FontWeight.w800,
-                    color: GmColors.gold,
-                  ),
-                ),
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.only(right: 36),
-                  child: Text(
-                    text,
-                    maxLines: 6,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      height: 24 / 18,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: -0.3,
-                      color: GmColors.creamHi,
-                    ),
-                  ),
-                ),
-                if (caption != null) ...[
-                  const SizedBox(height: 8),
-                  Text(caption!, style: GmText.eyebrow(color: GmColors.gold)),
-                ],
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -681,8 +1294,7 @@ class _RestaurantCard extends StatelessWidget {
                               ),
                             ),
                             const SizedBox(width: 5),
-                            Text(type,
-                                style: GmText.chip(color: gm.bandInk)),
+                            Text(type, style: GmText.chip(color: gm.bandInk)),
                           ],
                         ),
                       Text(
@@ -750,7 +1362,8 @@ class _MiniMapPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     canvas.scale(size.width / 56, size.height / 56);
-    canvas.drawRect(const Rect.fromLTWH(0, 0, 56, 56), Paint()..color = gm.band);
+    canvas.drawRect(
+        const Rect.fromLTWH(0, 0, 56, 56), Paint()..color = gm.band);
     canvas.drawPath(
       Path()
         ..moveTo(-4, 38)
@@ -763,16 +1376,23 @@ class _MiniMapPainter extends CustomPainter {
         ..strokeCap = StrokeCap.round,
     );
     const ease = Cubic(0.4, 0, 0.2, 1);
-    final ss = gmKeyframes(t, const [(0, 0.55), (0.4, 1.15), (0.8, 1), (1, 1)], curve: ease);
+    final ss = gmKeyframes(t, const [(0, 0.55), (0.4, 1.15), (0.8, 1), (1, 1)],
+        curve: ease);
     canvas.save();
     canvas.translate(30, 40);
     canvas.scale(ss, ss);
     canvas.drawOval(Rect.fromCenter(center: Offset.zero, width: 12, height: 4),
         Paint()..color = const Color(0x59003C5A));
     canvas.restore();
-    final dy = gmKeyframes(t, const [(0, -8), (0.4, 0), (0.62, -2), (0.8, 0), (1, 0)], curve: ease);
-    final sx = gmKeyframes(t, const [(0, 0.94), (0.4, 1.14), (0.62, 0.97), (0.8, 1), (1, 1)], curve: ease);
-    final sy = gmKeyframes(t, const [(0, 1.08), (0.4, 0.84), (0.62, 1.04), (0.8, 1), (1, 1)], curve: ease);
+    final dy = gmKeyframes(
+        t, const [(0, -8), (0.4, 0), (0.62, -2), (0.8, 0), (1, 0)],
+        curve: ease);
+    final sx = gmKeyframes(
+        t, const [(0, 0.94), (0.4, 1.14), (0.62, 0.97), (0.8, 1), (1, 1)],
+        curve: ease);
+    final sy = gmKeyframes(
+        t, const [(0, 1.08), (0.4, 0.84), (0.62, 1.04), (0.8, 1), (1, 1)],
+        curve: ease);
     canvas.save();
     canvas.translate(30, 40 + dy);
     canvas.scale(sx, sy);
@@ -789,77 +1409,39 @@ class _MiniMapPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _MiniMapPainter old) => old.t != t || old.gm != gm;
+  bool shouldRepaint(covariant _MiniMapPainter old) =>
+      old.t != t || old.gm != gm;
 }
 
 // ── Estados ───────────────────────────────────────────────────────────────────
 
+/// Cargando: negro (como el reel) con Cerrar y un indicador.
 class _LoadingView extends StatelessWidget {
-  const _LoadingView();
+  final VoidCallback onClose;
+  const _LoadingView({required this.onClose});
 
   @override
   Widget build(BuildContext context) {
     return Semantics(
       identifier: 'visit-detail-skeleton',
-      child: SingleChildScrollView(
-        physics: const NeverScrollableScrollPhysics(),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Hero: marco de móvil vertical (9:16) centrado.
-            Builder(builder: (context) {
-              final w = (MediaQuery.of(context).size.width * 0.62)
-                  .clamp(210.0, 280.0);
-              return Padding(
-                padding: EdgeInsets.only(
-                    top: MediaQuery.of(context).padding.top + 56, bottom: 4),
-                child: Center(
-                  child: ShimmerBox(width: w, height: w * 16 / 9, radius: 34),
-                ),
-              );
-            }),
-            const SizedBox(height: 16),
-            // Title
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: ShimmerBox(width: 220, height: 22, radius: 6),
+      label: 'Cargando la visita',
+      child: Stack(
+        children: [
+          const Center(
+            child: CupertinoActivityIndicator(color: Colors.white, radius: 12),
+          ),
+          Positioned(
+            left: 16,
+            top: MediaQuery.paddingOf(context).top + 14,
+            child: GmToolbarButton(
+              icon: GmIcons.close,
+              iconSize: 16,
+              semanticLabel: 'Cerrar',
+              identifier: 'visit-detail-back-button',
+              onTap: onClose,
             ),
-            const SizedBox(height: 10),
-            // Subtitle
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: ShimmerBox(width: 160, height: 16, radius: 6),
-            ),
-            const SizedBox(height: 20),
-            // Paragraph block 1
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  ShimmerBox(width: double.infinity, height: 14, radius: 4),
-                  const SizedBox(height: 8),
-                  ShimmerBox(width: double.infinity, height: 14, radius: 4),
-                  const SizedBox(height: 8),
-                  ShimmerBox(width: 200, height: 14, radius: 4),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-            // Paragraph block 2
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  ShimmerBox(width: double.infinity, height: 14, radius: 4),
-                  const SizedBox(height: 8),
-                  ShimmerBox(width: 240, height: 14, radius: 4),
-                ],
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -868,39 +1450,50 @@ class _LoadingView extends StatelessWidget {
 class _ErrorView extends StatelessWidget {
   final String message;
   final VoidCallback onRetry;
+  final VoidCallback onClose;
 
-  const _ErrorView({required this.message, required this.onRetry});
+  const _ErrorView(
+      {required this.message, required this.onRetry, required this.onClose});
 
   @override
   Widget build(BuildContext context) => Semantics(
         identifier: 'visit-detail-error',
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(32),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.error_outline, color: context.brand.textMuted, size: 32),
-                const SizedBox(height: 12),
-                Text(message,
-                    style: AppTextStyles.ui(size: 13, color: context.brand.textSecondary),
-                    textAlign: TextAlign.center),
-                const SizedBox(height: 20),
-                Semantics(
-                  identifier: 'visit-detail-retry-button',
-                  button: true,
-                  child: ElevatedButton(
-                    onPressed: onRetry,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.atlantico,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        child: Stack(
+          children: [
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.all(32),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      message,
+                      textAlign: TextAlign.center,
+                      style: GmText.body17(
+                          color: Colors.white, w: FontWeight.w600),
                     ),
-                    child: const Text('Reintentar'),
-                  ),
+                    const SizedBox(height: 20),
+                    GmCapsuleButton(
+                      label: 'Reintentar',
+                      identifier: 'visit-detail-retry-button',
+                      onTap: onRetry,
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
-          ),
+            Positioned(
+              left: 16,
+              top: MediaQuery.paddingOf(context).top + 14,
+              child: GmToolbarButton(
+                icon: GmIcons.close,
+                iconSize: 16,
+                semanticLabel: 'Cerrar',
+                identifier: 'visit-detail-back-button',
+                onTap: onClose,
+              ),
+            ),
+          ],
         ),
       );
 }
