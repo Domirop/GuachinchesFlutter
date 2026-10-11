@@ -43,6 +43,26 @@ class GmColors {
   final Color edgeFade0;
   final Color edgeFade1;
 
+
+  // Ficha de negocio (Sistema §07): cerrado, aviso, mapa claro, avatares.
+  final Color closedText;
+  final Color warnText;
+  final Color warnSoft;
+  final Color okSoft;
+  final Color mapLand;
+  final Color mapRoad;
+  final Color mapCasing;
+  final Color mapMajor;
+  final Color mapSea;
+  final Color mapPark;
+  final Color mapLabel;
+  final Color avAbg;
+  final Color avAink;
+  final Color avTbg;
+  final Color avTink;
+  final Color avPbg;
+  final Color avPink;
+
   /// Fundido superior bajo la barra de estado (InicioScroll · edgeTop).
   final Color edgeTop0;
   final Color edgeTop1;
@@ -81,6 +101,23 @@ class GmColors {
     required this.edgeFade0,
     required this.edgeFade1,
     required this.edgeTop0,
+    required this.closedText,
+    required this.warnText,
+    required this.warnSoft,
+    required this.okSoft,
+    required this.mapLand,
+    required this.mapRoad,
+    required this.mapCasing,
+    required this.mapMajor,
+    required this.mapSea,
+    required this.mapPark,
+    required this.mapLabel,
+    required this.avAbg,
+    required this.avAink,
+    required this.avTbg,
+    required this.avTink,
+    required this.avPbg,
+    required this.avPink,
     required this.edgeTop1,
     required this.shadow1,
     required this.shadow2,
@@ -131,6 +168,23 @@ class GmColors {
     edgeFade1: Color(0xF0F8F4EC),
     edgeTop0: Color(0xF5F8F4EC), // .96
     edgeTop1: Color(0xE6F8F4EC), // .9
+    closedText: Color(0xFFC0352B),
+    warnText: Color(0xFF8A5A00),
+    warnSoft: Color(0x24D69614),
+    okSoft: Color(0x212FBF5B),
+    mapLand: Color(0xFFF1ECE2),
+    mapRoad: Color(0xFFFFFFFF),
+    mapCasing: Color(0x295A4018),
+    mapMajor: Color(0xFFF6D58E),
+    mapSea: Color(0xFFCFE6F2),
+    mapPark: Color(0xFFDDE8CF),
+    mapLabel: Color(0xFF6E6253),
+    avAbg: Color(0xFFDCEBF5),
+    avAink: Color(0xFF005A85),
+    avTbg: Color(0xFFF3DCDF),
+    avTink: Color(0xFF7A1E2C),
+    avPbg: Color(0xFFE1E8D2),
+    avPink: Color(0xFF3F5A1C),
     // 0 0 0 1px rgba(90,64,24,.06), 0 1px 2px rgba(90,64,24,.06),
     // 0 10px 24px -10px rgba(90,64,24,.22)
     shadow1: [
@@ -185,6 +239,23 @@ class GmColors {
     edgeFade1: Color(0xF00A141B),
     edgeTop0: Color(0xF50A141B),
     edgeTop1: Color(0xE60A141B),
+    closedText: Color(0xFFFF6B5E),
+    warnText: Color(0xFFF2B84B),
+    warnSoft: Color(0x24F2B84B),
+    okSoft: Color(0x2430D158),
+    mapLand: Color(0xFF15232D),
+    mapRoad: Color(0xFF24343F),
+    mapCasing: Color(0x4D000000),
+    mapMajor: Color(0xFF5B4A2A),
+    mapSea: Color(0xFF0D2737),
+    mapPark: Color(0xFF16302A),
+    mapLabel: Color(0xB3F3EEE4),
+    avAbg: Color(0x2E4DAEDB),
+    avAink: Color(0xFF8FD0EE),
+    avTbg: Color(0x2EE8788C),
+    avTink: Color(0xFFF2A7B4),
+    avPbg: Color(0x2E8CBE50),
+    avPink: Color(0xFFB9D98A),
     shadow1: [
       BoxShadow(color: Color(0x0DFFFFFF), spreadRadius: 1),
       BoxShadow(

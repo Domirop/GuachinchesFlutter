@@ -150,6 +150,67 @@ class GmIcons {
       '<path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z" fill="currentColor" stroke="none"/><path d="M16 9.5l5 5M21 9.5l-5 5"/>',
       attrs:
           'fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"');
+
+  // ── Ficha de negocio ─────────────────────────────────────────────────────
+  static final photos = _wrap(
+      '<rect x="3" y="5" width="15" height="14" rx="3"/><path d="M21 8v10a3 3 0 01-3 3H7"/><path d="M3 16l4-4 3 3 3-3 5 5" stroke-linecap="round"/>',
+      attrs:
+          'fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"');
+  static final conV = _wrap(
+      '<circle cx="12" cy="12" r="9.5" fill="#E1E8D2"/><path d="M7.6 7.5l4.4 9.5 4.4-9.5" fill="none" stroke="#5E7D2E" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>');
+  static final cabraChip = _wrap(
+      '<path d="M8.6 7.2C7.6 4.8 5.6 3.6 3.5 4c1.7.9 2.8 2.4 3.1 4.4"/><path d="M15.4 7.2c1-2.4 3-3.6 5.1-3.2-1.7.9-2.8 2.4-3.1 4.4"/><path d="M6.8 9.6L3.6 10l2.9 2"/><path d="M17.2 9.6l3.2.4-2.9 2"/><path d="M8 9c0-1.7 1.8-3 4-3s4 1.3 4 3v5.4a4 4 0 01-8 0z" fill="#D9B38C"/><path d="M10.6 18.3l1.4 3 1.4-3"/><circle cx="10.4" cy="11.2" r=".7" fill="currentColor" stroke="none"/><circle cx="13.6" cy="11.2" r=".7" fill="currentColor" stroke="none"/>',
+      attrs:
+          'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"');
+  static final parking = _wrap(
+      '<rect x="3" y="3" width="18" height="18" rx="5" fill="#0085C4"/><path d="M9.5 17V7h3.6a3 3 0 010 6H9.5" fill="none" stroke="#FFFFFF" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>');
+  static final accessible = _wrap(
+      '<circle cx="11" cy="4.5" r="1.8" fill="currentColor" stroke="none"/><path d="M11 7.5v6h5l2.5 5"/><path d="M11 10.5h4.5"/><path d="M8.2 10.8a5.5 5.5 0 105.6 8.6"/>',
+      attrs:
+          'fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"');
+  static final paw = _wrap(
+      '<ellipse cx="6.5" cy="10" rx="2" ry="2.6"/><ellipse cx="10" cy="6" rx="2" ry="2.6"/><ellipse cx="14.5" cy="6" rx="2" ry="2.6"/><ellipse cx="18" cy="10" rx="2" ry="2.6"/><path d="M12.2 11.5c2.8 0 5.3 3.6 5.3 5.8 0 1.9-1.7 2.7-3.2 2.2-1.3-.4-2.9-.4-4.2 0-1.5.5-3.2-.3-3.2-2.2 0-2.2 2.5-5.8 5.3-5.8z"/>',
+      attrs: 'fill="#8A5A3A"');
+  static final card = _wrap(
+      '<rect x="2.5" y="5.5" width="19" height="13" rx="3"/><path d="M2.5 10h19M6.5 15h4"/>',
+      attrs:
+          'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"');
+  static final map = _wrap(
+      '<path d="M9 4L3 6.5v13L9 17l6 2.5 6-2.5v-13L15 6.5z"/><path d="M9 4v13M15 6.5v13"/>',
+      attrs:
+          'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"');
+  static final sparkle = _wrap(
+      '<path d="M12 2l1.9 5.6L19.5 9.5l-5.6 1.9L12 17l-1.9-5.6L4.5 9.5l5.6-1.9z"/><path d="M19 15l.9 2.3 2.3.9-2.3.9L19 21.4l-.9-2.3-2.3-.9 2.3-.9z"/>',
+      attrs: 'fill="currentColor"');
+  static final check = _wrap('<path d="M5 12.5l4.5 4.5L19 7.5"/>',
+      attrs:
+          'fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"');
+  static final warn = _wrap('<path d="M12 4l9 16H3z"/><path d="M12 10v4M12 17.2v.1"/>',
+      attrs:
+          'fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"');
+  static final chevronUp = _wrap('<path d="M6 15l6-6 6 6"/>',
+      attrs:
+          'fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"');
+  static final starOutline = _wrap(
+      '<path d="M12 2.8l2.8 5.8 6.3.9-4.6 4.4 1.1 6.3L12 17.2l-5.6 3 1.1-6.3-4.6-4.4 6.3-.9z"/>',
+      attrs:
+          'fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"');
+  static final instagram = _wrap(
+      '<rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.2" cy="6.8" r="1" fill="currentColor" stroke="none"/>',
+      attrs: 'fill="none" stroke="currentColor" stroke-width="2"');
+  static final menu = _wrap(
+      '<path d="M6 3.5h9l3 3v14H6z"/><path d="M9 10h6M9 13.5h6M9 17h4"/>',
+      attrs:
+          'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"');
+  static final calendar = _wrap(
+      '<rect x="3.5" y="5" width="17" height="15" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/>',
+      attrs:
+          'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"');
+  static final person = _wrap(
+      '<circle cx="12" cy="8.5" r="3.8"/><path d="M4.5 20c1.3-3.6 4.1-5.5 7.5-5.5s6.2 1.9 7.5 5.5"/>',
+      attrs:
+          'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"');
+
   static final volume = _wrap(
       '<path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z" fill="currentColor" stroke="none"/><path d="M15.5 9a4 4 0 010 6M18 6.5a7.5 7.5 0 010 11"/>',
       attrs:
