@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:guachinches/core/logging/app_logger.dart';
 import 'location_state.dart';
 
 class LocationCubit extends Cubit<LocationState> {
@@ -107,7 +108,9 @@ class LocationCubit extends Cubit<LocationState> {
         return;
       }
       if (state.runtimeType != LocationDenied) emit(LocationDenied());
-    } catch (_) {}
+    } catch (e) {
+      AppLogger.warn('location-cubit', 'syncPermissionState: $e');
+    }
   }
 
   /// Llamado al resume de la app. Nunca muestra modal del sistema. Si el
@@ -133,7 +136,9 @@ class LocationCubit extends Cubit<LocationState> {
             ? LocationPermanentlyDenied()
             : LocationDenied());
       }
-    } catch (_) {}
+    } catch (e) {
+      AppLogger.warn('location-cubit', 'checkLocationSilently: $e');
+    }
   }
 
   Future<void> _fetchAndEmitLocation() async {

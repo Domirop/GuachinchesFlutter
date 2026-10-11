@@ -5,6 +5,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:guachinches/ui/theme/gm_tokens.dart';
 import 'package:guachinches/data/HttpRemoteRepository.dart';
 import 'package:guachinches/data/cubit/location/location_cubit.dart';
+import 'package:guachinches/data/cubit/location/location_state.dart';
 import 'package:guachinches/data/cubit/new_home/curated_lists_cubit.dart';
 import 'package:guachinches/data/cubit/new_home/new_home_filters_cubit.dart';
 import 'package:guachinches/data/cubit/new_home/new_home_filters_state.dart';
@@ -46,6 +47,7 @@ class NewHomeScreen extends StatefulWidget {
 }
 
 class _NewHomeScreenState extends State<NewHomeScreen>
+    with WidgetsBindingObserver
     implements NewHomeView {
   late final NewHomePresenter _presenter;
   late final HttpRemoteRepository _repo;
@@ -65,7 +67,11 @@ class _NewHomeScreenState extends State<NewHomeScreen>
   String? _filterZoneId;
   Set<String> _filterZoneMuniIds = const {};
   String? _filterMunicipalityId;
-  Position? _userPosition;
+  /// Posición del usuario: la única fuente es el [LocationCubit] (un solo
+  /// fix de GPS). Se actualiza en cuanto el usuario concede el permiso desde
+  /// el aviso, la tarjeta bloqueada o Ajustes.
+  double? _userLat;
+  double? _userLon;
 
   // Scroll para parallax
   final ScrollController _scrollCtrl = ScrollController();
@@ -91,7 +97,34 @@ class _NewHomeScreenState extends State<NewHomeScreen>
     _startMinuteTimer();
     _startWeatherTimer();
     _scrollCtrl.addListener(_onScroll);
+    WidgetsBinding.instance.addObserver(this);
+    _applyLocation(context.read<LocationCubit>().state);
     _requestLocation();
+  }
+
+  /// Al volver de Ajustes (o de cualquier otra app) resincroniza el permiso:
+  /// si se concedió fuera, el aviso desaparece y «Cerca de ti» vuelve.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) {
+      unawaited(context.read<LocationCubit>().syncPermissionState());
+    }
+  }
+
+  void _applyLocation(LocationState s) {
+    if (s is LocationLoaded) {
+      if (_userLat != s.latitude || _userLon != s.longitude) {
+        setState(() {
+          _userLat = s.latitude;
+          _userLon = s.longitude;
+        });
+      }
+    } else if (s is LocationDenied && _userLat != null) {
+      setState(() {
+        _userLat = null;
+        _userLon = null;
+      });
+    }
   }
 
   void _startMinuteTimer() {
@@ -109,22 +142,18 @@ class _NewHomeScreenState extends State<NewHomeScreen>
     });
   }
 
+  /// Pide el permiso (modal nativo solo si aún no se ha decidido) y deja que
+  /// el [LocationCubit] haga el único fix de GPS y refleje el estado.
   Future<void> _requestLocation() async {
     try {
       final perm = await Geolocator.checkPermission();
       if (perm == LocationPermission.denied) {
         await Geolocator.requestPermission();
       }
-    } catch (_) {}
-    // Sin modal: refleja el permiso en el LocationCubit (aviso «Ubicación
-    // desactivada», tarjeta bloqueada de «Cerca de ti» y distancias).
-    if (mounted) unawaited(context.read<LocationCubit>().syncPermissionState());
-    try {
-      final pos = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.reduced,
-      );
-      if (mounted) setState(() => _userPosition = pos);
-    } catch (_) {}
+    } catch (e) {
+      AppLogger.warn('new-home', 'permiso de ubicación: $e');
+    }
+    if (mounted) await context.read<LocationCubit>().syncPermissionState();
   }
 
   Future<void> _loadOldMunicipalities(String islandId) async {
@@ -149,6 +178,7 @@ class _NewHomeScreenState extends State<NewHomeScreen>
   void dispose() {
     _minuteTimer?.cancel();
     _weatherTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
     _scrollCtrl.removeListener(_onScroll);
     _scrollCtrl.dispose();
     _scrollOffset.dispose();
@@ -292,10 +322,11 @@ class _NewHomeScreenState extends State<NewHomeScreen>
   }
 
   List<NearbyRestaurant> get _nearbyList {
-    final pos = _userPosition;
-    if (pos == null) return [];
+    final lat = _userLat;
+    final lon = _userLon;
+    if (lat == null || lon == null) return [];
     return _presenter.filterNearby(
-      _filteredPool, pos.latitude, pos.longitude,
+      _filteredPool, lat, lon,
       types: _types,
     );
   }
@@ -304,7 +335,9 @@ class _NewHomeScreenState extends State<NewHomeScreen>
 
   @override
   Widget build(BuildContext context) {
-    return BlocListener<RestaurantCubit, RestaurantState>(
+    return BlocListener<LocationCubit, LocationState>(
+      listener: (_, s) => _applyLocation(s),
+      child: BlocListener<RestaurantCubit, RestaurantState>(
       listener: (_, state) {
         if (state is AllRestaurantLoaded) {
           setRestaurants(state.restaurantResponse.restaurants);
@@ -448,6 +481,7 @@ class _NewHomeScreenState extends State<NewHomeScreen>
         },
         ),
       ),
+    ),
     );
   }
 
