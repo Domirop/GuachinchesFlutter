@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:guachinches/data/model/Visit.dart' as vm;
 import 'package:guachinches/ui/pages/new_home/widgets/gm_place_card.dart'
     show GmPhoto, gmDisplayName;
@@ -56,7 +57,9 @@ class VisitDishesScreen extends StatelessWidget {
     final photoDishes = [for (final d in dishes) if (d.photoUrl != null) d];
     final top = MediaQuery.paddingOf(context).top;
 
-    return Scaffold(
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: gm.isDark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark,
+      child: Scaffold(
       backgroundColor: gm.canvas,
       body: Stack(
         children: [
@@ -146,12 +149,13 @@ class VisitDishesScreen extends StatelessWidget {
                     crossAxisCount: 2,
                     mainAxisSpacing: 12,
                     crossAxisSpacing: 12,
-                    // Foto 4:3 + nombre: (ancho − 12) · ¾ + 42.
+                    // Foto 4:3 + nombre: (ancho − 12) · ¾ + 24 + nombre.
                     mainAxisExtent:
                         ((MediaQuery.sizeOf(context).width - 44) / 2 - 12) *
                                 3 /
                                 4 +
-                            42,
+                            24 +
+                            MediaQuery.textScalerOf(context).scale(18),
                   ),
                   delegate: SliverChildBuilderDelegate(
                     (ctx, i) {
@@ -232,6 +236,7 @@ class VisitDishesScreen extends StatelessWidget {
           ),
         ],
       ),
+    ),
     );
   }
 }
@@ -307,7 +312,7 @@ class GmDishCard extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.fromLTRB(6, 8, 6, 4),
                 child: SizedBox(
-                  height: 18.0 * nameLines,
+                  height: MediaQuery.textScalerOf(context).scale(18) * nameLines,
                   child: Text(
                     dish.name,
                     maxLines: nameLines,

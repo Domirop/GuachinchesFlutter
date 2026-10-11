@@ -19,13 +19,13 @@ import 'package:guachinches/ui/pages/restaurant_detail/restaurant_detail_screen.
 import 'package:guachinches/ui/pages/restaurant_detail/widgets/ntk_box.dart';
 import 'package:guachinches/ui/pages/restaurant_detail/widgets/pros_cons_section.dart';
 import 'package:guachinches/ui/pages/restaurant_detail/widgets/services_chips_section.dart';
-import 'package:guachinches/ui/pages/restaurant_detail/widgets/visit_pills_row.dart';
 import 'package:guachinches/ui/components/shimmer_box.dart';
 import 'package:guachinches/ui/components/video/vertical_video_player.dart';
 import 'package:guachinches/ui/components/video/youtube_embed_sheet.dart';
 import 'package:guachinches/ui/pages/visit/visit_dishes_screen.dart';
 import 'package:guachinches/ui/pages/visit/visit_presenter.dart';
 import 'package:guachinches/ui/pages/visit/widgets/gm_visit_hero.dart';
+import 'package:guachinches/ui/theme/gm_favorites.dart';
 import 'package:guachinches/ui/theme/gm_icons.dart';
 import 'package:guachinches/ui/theme/gm_motion.dart';
 import 'package:guachinches/ui/theme/gm_tokens.dart';
@@ -67,8 +67,18 @@ class _VisitDetailPageState extends State<VisitDetailPage>
 
   vm.Visit? _visit;
   bool _loading = true;
-  bool _saved = false;
   String? _error;
+
+  /// Barra de estado clara sobre el vídeo; oscura (en día) cuando la hoja de
+  /// lienzo pasa bajo el reloj.
+  final ScrollController _scroll = ScrollController();
+  bool _overVideo = true;
+
+  void _onScroll() {
+    final top = MediaQuery.paddingOf(context).top;
+    final over = _scroll.offset < GmVisitHero.height - 30 - top;
+    if (over != _overVideo) setState(() => _overVideo = over);
+  }
 
   @override
   void initState() {
@@ -76,6 +86,14 @@ class _VisitDetailPageState extends State<VisitDetailPage>
     _repo = HttpRemoteRepository(sharedHttpClient);
     _presenter = VisitDetailPresenter(_repo, this);
     _presenter.loadVisit(widget.visitId);
+    _scroll.addListener(_onScroll);
+    GmFavorites.instance.ensureLoaded();
+  }
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
   }
 
   // ===== VisitDetailView =====
@@ -196,7 +214,7 @@ class _VisitDetailPageState extends State<VisitDetailPage>
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       // Barra de estado clara sobre el vídeo.
-      value: widget.asSheet
+      value: (widget.asSheet || !_overVideo)
           ? (gm.isDark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark)
           : SystemUiOverlayStyle.light,
       child: Scaffold(
@@ -249,13 +267,19 @@ class _VisitDetailPageState extends State<VisitDetailPage>
                     ),
                   ),
                   const SizedBox(width: 10),
-                  _SaveCircle(
-                    saved: _saved,
-                    onTap: () {
-                      HapticFeedback.selectionClick();
-                      setState(() => _saved = !_saved);
-                    },
-                  ),
+                  // Guarda el LOCAL de la visita en los guardados de siempre
+                  // (misma tabla que la ficha, Favoritos y los corazones).
+                  if (v.restaurantId.isNotEmpty)
+                    ValueListenableBuilder<Set<String>>(
+                      valueListenable: GmFavorites.instance,
+                      builder: (_, ids, __) => _SaveCircle(
+                        saved: ids.contains(v.restaurantId),
+                        onTap: () {
+                          HapticFeedback.selectionClick();
+                          GmFavorites.instance.toggle(v.restaurantId);
+                        },
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -302,7 +326,10 @@ class _VisitDetailPageState extends State<VisitDetailPage>
                           Expanded(
                             child: i < dishes.length
                                 ? SizedBox(
-                                    height: 6 + 84 + 8 + 36 + 4 + 6,
+                                    height: 6 + 84 + 8 + 4 + 6 +
+                                        MediaQuery.textScalerOf(context)
+                                                .scale(18) *
+                                            2,
                                     child: GmDishCard(
                                       dish: dishes[i],
                                       cardRadius: GmRadius.tile,
@@ -333,12 +360,11 @@ class _VisitDetailPageState extends State<VisitDetailPage>
                 index: 4,
                 child: _RestaurantCard(
                   restaurant: r,
+                  priceRange: v.priceRange,
                   onTap: _goToRestaurant,
                 ),
               ),
             ),
-            const SizedBox(height: 16),
-            VisitPillsRow(restaurant: r, visit: v),
           ],
 
           // ⑤ Servicios.
@@ -369,6 +395,7 @@ class _VisitDetailPageState extends State<VisitDetailPage>
     return Semantics(
       identifier: 'visit-detail-content',
       child: SingleChildScrollView(
+        controller: _scroll,
         child: Stack(
           children: [
             Positioned(
@@ -457,7 +484,7 @@ class _SaveCircle extends StatelessWidget {
       identifier: 'visit-detail-save-button',
       button: true,
       toggled: saved,
-      label: saved ? 'Quitar de guardados' : 'Guardar visita',
+      label: saved ? 'Quitar el local de guardados' : 'Guardar el local',
       excludeSemantics: true,
       child: GmPressable(
         onTap: onTap,
@@ -584,8 +611,10 @@ class _QuoteCard extends StatelessWidget {
 /// «● Abierto · municipio · distancia» → ficha.
 class _RestaurantCard extends StatelessWidget {
   final Restaurant restaurant;
+  final String? priceRange;
   final VoidCallback onTap;
-  const _RestaurantCard({required this.restaurant, required this.onTap});
+  const _RestaurantCard(
+      {required this.restaurant, required this.onTap, this.priceRange});
 
   @override
   Widget build(BuildContext context) {
@@ -602,6 +631,8 @@ class _RestaurantCard extends StatelessWidget {
     final metaParts = <String>[
       if (r.municipio.trim().isNotEmpty) gmPlaceName(r.municipio),
       if (dist != null) dist,
+      if (priceRange != null && priceRange!.trim().isNotEmpty)
+        priceRange!.trim().replaceAll(r'$', '€'),
     ];
 
     return Semantics(
