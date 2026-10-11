@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:guachinches/ui/theme/gm_favorites.dart';
 import 'package:guachinches/config/app_colors.dart';
 import 'package:guachinches/config/app_text_styles.dart';
 import 'package:guachinches/config/brand_colors.dart';
@@ -117,7 +118,10 @@ class FavoritoDetailScreen extends StatelessWidget {
             identifier: 'favorito-detail-confirm-remove-button',
             child: TextButton(
               onPressed: () {
-                SqlLiteLocalRepository().removeRestaurant(restaurant.id);
+                SqlLiteLocalRepository()
+                    .removeRestaurant(restaurant.id)
+                    .then((_) =>
+                        GmFavorites.instance.ensureLoaded(force: true));
                 if (dialogContext.mounted) Navigator.pop(dialogContext);
                 if (context.mounted) Navigator.pop(context, true);
               },

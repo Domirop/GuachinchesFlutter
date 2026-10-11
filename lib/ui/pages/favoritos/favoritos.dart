@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:guachinches/ui/theme/gm_favorites.dart';
 import 'package:guachinches/config/app_colors.dart';
 import 'package:guachinches/config/app_text_styles.dart';
 import 'package:guachinches/config/brand_colors.dart';
@@ -58,6 +59,8 @@ class _FavoritosPageState extends State<FavoritosPage> {
 
   Future<void> _remove(Restaurant r) async {
     await _localRepo.removeRestaurant(r.id);
+    // Los corazones de la home leen la misma tabla: resincroniza.
+    GmFavorites.instance.ensureLoaded(force: true);
     if (!mounted) return;
     setState(() {
       _restaurants = _restaurants.where((x) => x.id != r.id).toList();
@@ -72,6 +75,7 @@ class _FavoritosPageState extends State<FavoritosPage> {
           textColor: AppColors.atlanticoClaro,
           onPressed: () async {
             await _localRepo.insertRestaurant(r.id);
+            GmFavorites.instance.ensureLoaded(force: true);
             if (!mounted) return;
             setState(() => _restaurants = [..._restaurants, r]);
           },
