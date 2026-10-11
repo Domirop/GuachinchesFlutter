@@ -39,7 +39,9 @@ class GmCard extends StatelessWidget {
         clipBehavior: clip,
         child: ColoredBox(
           color: color ?? gm.card,
-          child: padding == null ? child : Padding(padding: padding!, child: child),
+          child: padding == null
+              ? child
+              : Padding(padding: padding!, child: child),
         ),
       ),
     );
@@ -263,7 +265,8 @@ class GmDetailTitle extends StatelessWidget {
         constraints: const BoxConstraints(minHeight: 32),
         padding: const EdgeInsets.symmetric(horizontal: 4),
         alignment: Alignment.centerLeft,
-        child: Text(text, style: GmText.poster(color: GmColors.of(context).label)),
+        child:
+            Text(text, style: GmText.poster(color: GmColors.of(context).label)),
       );
 }
 
@@ -299,8 +302,9 @@ class GmCapsuleButton extends StatelessWidget {
         onTap: onTap,
         pressedScale: 0.95,
         child: Container(
-          height: height,
-          padding: padding,
+          // Mínimo de 44/52; crece con el tamaño de texto del sistema.
+          constraints: BoxConstraints(minHeight: height),
+          padding: padding.add(const EdgeInsets.symmetric(vertical: 6)),
           decoration: BoxDecoration(
             gradient: GmColors.accentFill,
             borderRadius: BorderRadius.circular(GmRadius.pill),
@@ -318,28 +322,39 @@ class GmCapsuleButton extends StatelessWidget {
             gradient: const LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [Color(0x26FFFFFF), Color(0x00FFFFFF), Color(0x00002846), Color(0x1A002846)],
+              colors: [
+                Color(0x26FFFFFF),
+                Color(0x00FFFFFF),
+                Color(0x00002846),
+                Color(0x1A002846)
+              ],
               stops: [0, 0.12, 0.88, 1],
             ),
           ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              if (icon != null) ...[
-                GmIcon(icon!, size: iconSize, color: Colors.white),
-                const SizedBox(width: 7),
-              ],
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: fontSize,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: -0.2,
-                  color: Colors.white,
+          child: Align(
+            widthFactor: 1,
+            heightFactor: 1,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                if (icon != null) ...[
+                  GmIcon(icon!, size: iconSize, color: Colors.white),
+                  const SizedBox(width: 7),
+                ],
+                Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: fontSize,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: -0.2,
+                    color: Colors.white,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -465,10 +480,18 @@ class _GmFavButtonState extends State<GmFavButton>
                   builder: (_, child) {
                     final t = _c.value;
                     final sx = gmKeyframes(t, const [
-                      (0, 1), (0.3, 1.25), (0.52, 0.9), (0.72, 1.05), (1, 1)
+                      (0, 1),
+                      (0.3, 1.25),
+                      (0.52, 0.9),
+                      (0.72, 1.05),
+                      (1, 1)
                     ]);
                     final sy = gmKeyframes(t, const [
-                      (0, 1), (0.3, 0.82), (0.52, 1.1), (0.72, 0.97), (1, 1)
+                      (0, 1),
+                      (0.3, 0.82),
+                      (0.52, 1.1),
+                      (0.72, 0.97),
+                      (1, 1)
                     ]);
                     return Transform(
                       alignment: Alignment.center,
@@ -570,8 +593,7 @@ class GmRating extends StatelessWidget {
   const GmRating(this.value,
       {super.key, this.fontSize = 13, this.starSize = 12});
 
-  static String format(double v) =>
-      v.toStringAsFixed(1).replaceAll('.', ',');
+  static String format(double v) => v.toStringAsFixed(1).replaceAll('.', ',');
 
   @override
   Widget build(BuildContext context) {
@@ -631,7 +653,8 @@ class GmGinghamPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    canvas.drawRect(Offset.zero & size, Paint()..color = const Color(0xFFFFF7EC));
+    canvas.drawRect(
+        Offset.zero & size, Paint()..color = const Color(0xFFFFF7EC));
     final p = Paint()..color = const Color(0x9EC8202C); // rgba(200,32,44,.62)
     // Bandas verticales y horizontales de medio paso; donde se cruzan se
     // superponen (más oscuro), como el vichy real.
@@ -653,6 +676,7 @@ class GmFill extends StatelessWidget {
   const GmFill({super.key, this.child});
 
   @override
-  Widget build(BuildContext context) =>
-      ColoredBox(color: GmColors.of(context).fill, child: child ?? const SizedBox.expand());
+  Widget build(BuildContext context) => ColoredBox(
+      color: GmColors.of(context).fill,
+      child: child ?? const SizedBox.expand());
 }

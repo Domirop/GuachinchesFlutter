@@ -20,8 +20,12 @@ class CardNearbyMinimap extends StatelessWidget {
 
   static const double width = 240;
 
-  /// Alto total: 6 + foto 150 + 10 + 21 + 2 + 19 + 6 + 6.
-  static const double height = 220;
+  /// Alto total: 6 + foto 150 + 10 + 21 + 2 + 19 + 6 + 6 (texto escalado
+  /// con el tamaño de texto del sistema; el carrusel lo limita a 1,3×).
+  static double heightFor(BuildContext context) {
+    final t = MediaQuery.textScalerOf(context);
+    return 6 + 150 + 10 + t.scale(21) + 2 + t.scale(19) + 6 + 6 + 1;
+  }
 
   /// «1834,2 km» no ayuda: por encima de 200 km se oculta el chip.
   static bool _sensible(String label) {

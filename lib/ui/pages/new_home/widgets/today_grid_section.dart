@@ -235,7 +235,8 @@ class _Grid extends StatelessWidget {
     } else if (rows.isNotEmpty) {
       rows.removeLast();
     }
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: rows);
+    return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch, children: rows);
   }
 }
 
@@ -279,7 +280,7 @@ class _BreakfastTile extends StatelessWidget {
       onTap: onTap,
       semanticsLabel: 'Ver los $total sitios con desayuno',
       child: Container(
-        height: 213,
+        constraints: const BoxConstraints(minHeight: 213),
         padding: const EdgeInsets.fromLTRB(20, 18, 18, 18),
         decoration: BoxDecoration(
           color: gm.band,
@@ -301,13 +302,16 @@ class _BreakfastTile extends StatelessWidget {
                   gradient: RadialGradient(colors: [
                     Color(0x59C9A96B),
                     Color(0x00C9A96B),
-                  ], stops: [0, 0.7]),
+                  ], stops: [
+                    0,
+                    0.7
+                  ]),
                 ),
               ),
             ),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
                   width: 56,
@@ -320,6 +324,7 @@ class _BreakfastTile extends StatelessWidget {
                   alignment: Alignment.center,
                   child: const GmGlyph(GmGlyphKind.barraquito, size: 34),
                 ),
+                const SizedBox(height: 7),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -339,9 +344,9 @@ class _BreakfastTile extends StatelessWidget {
                     ),
                   ],
                 ),
+                const SizedBox(height: 7),
                 Container(
-                  height: 36,
-                  padding: const EdgeInsets.fromLTRB(16, 0, 12, 0),
+                  padding: const EdgeInsets.fromLTRB(16, 8, 12, 8),
                   decoration: BoxDecoration(
                     color: gm.card,
                     borderRadius: BorderRadius.circular(GmRadius.pill),
@@ -351,8 +356,8 @@ class _BreakfastTile extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text('Ver los $total sitios',
-                          style: GmText.body(
-                              color: gm.label, w: FontWeight.w600)),
+                          style:
+                              GmText.body(color: gm.label, w: FontWeight.w600)),
                       const SizedBox(width: 2),
                       GmIcon(GmIcons.chevronRight, size: 14, color: gm.label2),
                     ],
@@ -399,7 +404,8 @@ class _GridSkeleton extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            ShimmerBox(width: double.infinity, height: 14, radius: 5),
+                            ShimmerBox(
+                                width: double.infinity, height: 14, radius: 5),
                             SizedBox(height: 7),
                             ShimmerBox(width: 90, height: 14, radius: 5),
                           ],

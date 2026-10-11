@@ -3,7 +3,8 @@ import 'dart:ui' as ui;
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:guachinches/data/model/Visit.dart';
-import 'package:guachinches/ui/pages/new_home/widgets/gm_place_card.dart' show gmDisplayName, gmPlaceName;
+import 'package:guachinches/ui/pages/new_home/widgets/gm_place_card.dart'
+    show gmDisplayName, gmPlaceName;
 import 'package:guachinches/ui/theme/gm_icons.dart';
 import 'package:guachinches/ui/theme/gm_motion.dart';
 import 'package:guachinches/ui/theme/gm_tokens.dart';
@@ -34,8 +35,18 @@ class CardVisit extends StatelessWidget {
   static const double cardHeight = 306;
 
   static const _months = [
-    'ene', 'feb', 'mar', 'abr', 'may', 'jun',
-    'jul', 'ago', 'sep', 'oct', 'nov', 'dic',
+    'ene',
+    'feb',
+    'mar',
+    'abr',
+    'may',
+    'jun',
+    'jul',
+    'ago',
+    'sep',
+    'oct',
+    'nov',
+    'dic',
   ];
 
   /// «8 oct» (año en curso) · «8 oct 2025» (otro año).
@@ -80,92 +91,97 @@ class CardVisit extends StatelessWidget {
         '');
     final dateLabel = formatVideoDate(v.sortDate);
 
-    return GmPressable(
-      onTap: onTap,
-      semanticsLabel: name,
-      child: Container(
-        width: cardWidth,
-        height: cardHeight,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(GmRadius.poster),
-          boxShadow: gm.shadow2,
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(GmRadius.poster),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              _Photo(url: photoUrl),
-              const DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Color(0x47000000),
-                      Color(0x00000000),
-                      Color(0x00000000),
-                      Color(0xDB000000),
-                    ],
-                    stops: [0, 0.24, 0.40, 1],
+    // Póster de tamaño fijo: el texto escala como mucho a 1,3×.
+    return MediaQuery.withClampedTextScaling(
+      maxScaleFactor: 1.3,
+      child: GmPressable(
+        onTap: onTap,
+        semanticsLabel: name,
+        child: Container(
+          width: cardWidth,
+          height: cardHeight,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(GmRadius.poster),
+            boxShadow: gm.shadow2,
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(GmRadius.poster),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                _Photo(url: photoUrl),
+                const DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Color(0x47000000),
+                        Color(0x00000000),
+                        Color(0x00000000),
+                        Color(0xDB000000),
+                      ],
+                      stops: [0, 0.24, 0.40, 1],
+                    ),
                   ),
                 ),
-              ),
-              if (dateLabel != null)
+                if (dateLabel != null)
+                  Positioned(
+                    left: 12,
+                    top: 12,
+                    child: _BlurChip(
+                        child: GmPhotoChip(label: dateLabel, dark: true)),
+                  ),
+                if (hasYoutube)
+                  Positioned(
+                    right: 12,
+                    top: 12,
+                    child: _PlayGlass(key: CardVisit.playKey, pulse: pulse),
+                  ),
                 Positioned(
-                  left: 12,
-                  top: 12,
-                  child: _BlurChip(child: GmPhotoChip(label: dateLabel, dark: true)),
-                ),
-              if (hasYoutube)
-                Positioned(
-                  right: 12,
-                  top: 12,
-                  child: _PlayGlass(key: CardVisit.playKey, pulse: pulse),
-                ),
-              Positioned(
-                left: 16,
-                right: 16,
-                bottom: 16,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (loved(v)) ...[
-                      const LovedSeal(),
-                      const SizedBox(height: 6),
+                  left: 16,
+                  right: 16,
+                  bottom: 16,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (loved(v)) ...[
+                        const LovedSeal(),
+                        const SizedBox(height: 6),
+                      ],
+                      if (location.isNotEmpty)
+                        Text(
+                          location,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GmText.chip(
+                              color: Colors.white.withValues(alpha: 0.85)),
+                        ),
+                      if (location.isNotEmpty) const SizedBox(height: 2),
+                      if (name.isNotEmpty)
+                        Text(
+                          name,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: GmText.poster(color: Colors.white),
+                        ),
+                      if (caption != null && caption.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          caption,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: GmText.meta(
+                                  color: Colors.white.withValues(alpha: 0.94))
+                              .copyWith(fontStyle: FontStyle.italic),
+                        ),
+                      ],
                     ],
-                    if (location.isNotEmpty)
-                      Text(
-                        location,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: GmText.chip(
-                            color: Colors.white.withValues(alpha: 0.85)),
-                      ),
-                    if (location.isNotEmpty) const SizedBox(height: 2),
-                    if (name.isNotEmpty)
-                      Text(
-                        name,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: GmText.poster(color: Colors.white),
-                      ),
-                    if (caption != null && caption.isNotEmpty) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        caption,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: GmText.meta(
-                                color: Colors.white.withValues(alpha: 0.94))
-                            .copyWith(fontStyle: FontStyle.italic),
-                      ),
-                    ],
-                  ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

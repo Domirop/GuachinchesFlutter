@@ -202,7 +202,16 @@ class GmPlaceCard extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         if (twoLineTitle)
-                          SizedBox(height: 42, child: title)
+                          // Reserva dos líneas (escaladas con el tamaño de
+                          // texto del sistema) para alinear la fila meta.
+                          ConstrainedBox(
+                            constraints: BoxConstraints(
+                                minHeight: MediaQuery.textScalerOf(context)
+                                        .scale(21) *
+                                    2),
+                            child: Align(
+                                alignment: Alignment.topLeft, child: title),
+                          )
                         else
                           title,
                         SizedBox(height: metaGap),
@@ -243,11 +252,26 @@ class GmMetaRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: fontSize == 13 ? 18 : 19,
+    return ConstrainedBox(
+      constraints: BoxConstraints(
+          minHeight: MediaQuery.textScalerOf(context)
+              .scale(fontSize == 13 ? 18 : 19)),
       child: Row(
         children: [
-          Expanded(child: Align(alignment: Alignment.centerLeft, child: leading)),
+          Expanded(
+            child: Align(
+              alignment: Alignment.centerLeft,
+              // Un texto suelto se recorta con «…»; las piezas compuestas
+              // («● Abierto») se encogen antes que desbordar.
+              child: leading is Text
+                  ? leading
+                  : FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: leading,
+                    ),
+            ),
+          ),
           if (rating > 0) ...[
             const SizedBox(width: 8),
             GmRating(rating, fontSize: fontSize),

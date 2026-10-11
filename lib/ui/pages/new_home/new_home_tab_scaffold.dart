@@ -145,8 +145,8 @@ class _NewHomeTabScaffoldState extends State<NewHomeTabScaffold> {
                 GmIcons.tabExploraOn),
             _NavItem('tab-listas', l10n.tabListas, GmIcons.tabListas,
                 GmIcons.tabListas),
-            _NavItem('tab-mapa', l10n.tabMapa, GmIcons.tabMapa,
-                GmIcons.tabMapa),
+            _NavItem(
+                'tab-mapa', l10n.tabMapa, GmIcons.tabMapa, GmIcons.tabMapa),
             _NavItem('tab-visitas', l10n.tabVisitas, GmIcons.tabVisitas,
                 GmIcons.tabVisitas),
             _NavItem('tab-perfil', l10n.tabPerfil, GmIcons.tabPerfil,
@@ -206,8 +206,8 @@ class _FloatingGlassNavBarState extends State<_FloatingGlassNavBar>
   double _innerW = 0;
   int _lastSlot = -1;
 
-  late final AnimationController _squash = AnimationController(
-      vsync: this, duration: GmMotion.tabSquash, value: 1);
+  late final AnimationController _squash =
+      AnimationController(vsync: this, duration: GmMotion.tabSquash, value: 1);
   late final AnimationController _hop = AnimationController(
       vsync: this, duration: const Duration(milliseconds: 800), value: 1);
   late final AnimationController _min = AnimationController(
@@ -273,44 +273,47 @@ class _FloatingGlassNavBarState extends State<_FloatingGlassNavBar>
     final bottomInset = MediaQuery.paddingOf(context).bottom;
     final bottomPad = bottomInset > 0 ? math.max(bottomInset - 6, 12.0) : 12.0;
 
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        // Fundido del borde inferior bajo la barra (el contenido se apaga
-        // antes de pasar por debajo del cristal).
-        if (widget.showEdgeFade)
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            height: 132,
-            child: IgnorePointer(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [gm.edgeFade0, gm.edgeFade1],
-                    stops: const [0, 0.62],
+    // Barra de alto fijo (como la de iOS): las etiquetas escalan hasta 1,2×.
+    return MediaQuery.withClampedTextScaling(
+      maxScaleFactor: 1.2,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          // Fundido del borde inferior bajo la barra (el contenido se apaga
+          // antes de pasar por debajo del cristal).
+          if (widget.showEdgeFade)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              height: 132,
+              child: IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [gm.edgeFade0, gm.edgeFade1],
+                      stops: const [0, 0.62],
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
-        Padding(
-          padding: EdgeInsets.fromLTRB(16, 8, 16, bottomPad),
-          child: SizedBox(
-            height: 64,
-            child: LayoutBuilder(
-              builder: (context, c) => AnimatedBuilder(
-                animation: _min,
-                builder: (context, _) =>
-                    _buildMorph(context, gm, c.maxWidth),
+          Padding(
+            padding: EdgeInsets.fromLTRB(16, 8, 16, bottomPad),
+            child: SizedBox(
+              height: 64,
+              child: LayoutBuilder(
+                builder: (context, c) => AnimatedBuilder(
+                  animation: _min,
+                  builder: (context, _) => _buildMorph(context, gm, c.maxWidth),
+                ),
               ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -391,12 +394,12 @@ class _FloatingGlassNavBarState extends State<_FloatingGlassNavBar>
       animation: _squash,
       builder: (_, child) {
         final k = _squash.value;
-        final sx = gmKeyframes(k, const [
-          (0, 0.8), (0.3, 1.18), (0.52, 0.94), (0.72, 1.03), (1, 1)
-        ], curve: GmMotion.spring);
-        final sy = gmKeyframes(k, const [
-          (0, 0.8), (0.3, 0.84), (0.52, 1.06), (0.72, 0.98), (1, 1)
-        ], curve: GmMotion.spring);
+        final sx = gmKeyframes(k,
+            const [(0, 0.8), (0.3, 1.18), (0.52, 0.94), (0.72, 1.03), (1, 1)],
+            curve: GmMotion.spring);
+        final sy = gmKeyframes(k,
+            const [(0, 0.8), (0.3, 0.84), (0.52, 1.06), (0.72, 0.98), (1, 1)],
+            curve: GmMotion.spring);
         return Transform(
           alignment: Alignment.center,
           transform: Matrix4.diagonal3Values(sx, sy, 1),
@@ -431,8 +434,8 @@ class _FloatingGlassNavBarState extends State<_FloatingGlassNavBar>
               )
             else
               AnimatedPositioned(
-                duration: Duration(
-                    milliseconds: GmMotion.reduced(context) ? 0 : 420),
+                duration:
+                    Duration(milliseconds: GmMotion.reduced(context) ? 0 : 420),
                 curve: GmMotion.settle,
                 left: widget.index * slotW,
                 top: 0,
@@ -524,8 +527,9 @@ class _AccessoryCapsule extends StatelessWidget {
                         data.title,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: GmText.body(color: gm.glassInk, w: FontWeight.w600)
-                            .copyWith(letterSpacing: -0.2),
+                        style:
+                            GmText.body(color: gm.glassInk, w: FontWeight.w600)
+                                .copyWith(letterSpacing: -0.2),
                       ),
                     ],
                   ),
@@ -533,7 +537,8 @@ class _AccessoryCapsule extends StatelessWidget {
                 const SizedBox(width: 8),
                 Opacity(
                   opacity: 0.5,
-                  child: GmIcon(GmIcons.chevronRight, size: 14, color: gm.glassInk),
+                  child: GmIcon(GmIcons.chevronRight,
+                      size: 14, color: gm.glassInk),
                 ),
               ],
             ),
@@ -561,8 +566,8 @@ class _NavButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final gm = GmColors.of(context);
     final color = selected ? gm.accent : gm.glassInk;
-    Widget icon = GmIcon(selected ? item.activeIcon : item.icon,
-        size: 25, color: color);
+    Widget icon =
+        GmIcon(selected ? item.activeIcon : item.icon, size: 25, color: color);
     if (hop != null) {
       icon = AnimatedBuilder(
         animation: hop!,
@@ -570,11 +575,14 @@ class _NavButton extends StatelessWidget {
         builder: (_, child) {
           // iconhop: 700 ms con 100 ms de retardo (del total de 800).
           final k = ((hop!.value * 800 - 100) / 700).clamp(0.0, 1.0);
-          final dy = gmKeyframes(k, const [(0, 0), (0.35, -5), (0.65, 1), (1, 0)],
+          final dy = gmKeyframes(
+              k, const [(0, 0), (0.35, -5), (0.65, 1), (1, 0)],
               curve: GmMotion.spring);
-          final sx = gmKeyframes(k, const [(0, 1), (0.35, 0.94), (0.65, 1.06), (1, 1)],
+          final sx = gmKeyframes(
+              k, const [(0, 1), (0.35, 0.94), (0.65, 1.06), (1, 1)],
               curve: GmMotion.spring);
-          final sy = gmKeyframes(k, const [(0, 1), (0.35, 1.08), (0.65, 0.94), (1, 1)],
+          final sy = gmKeyframes(
+              k, const [(0, 1), (0.35, 1.08), (0.65, 0.94), (1, 1)],
               curve: GmMotion.spring);
           return Transform(
             alignment: Alignment.bottomCenter,

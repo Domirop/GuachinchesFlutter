@@ -93,8 +93,7 @@ class CanarianSpecialtiesSection extends StatelessWidget {
         children: [
           GmSectionHeader(
             eyebrow: GmEyebrow(
-              leading:
-                  GmIcon(GmIcons.wineGlass, size: 14, color: gm.bandInk),
+              leading: GmIcon(GmIcons.wineGlass, size: 14, color: gm.bandInk),
               text: 'Sabores de aquí',
               color: gm.bandInk,
             ),
@@ -119,24 +118,29 @@ class CanarianSpecialtiesSection extends StatelessWidget {
                 if (tradicional != null && tiles.isNotEmpty)
                   const SizedBox(height: 12),
                 if (tiles.isNotEmpty)
-                  Row(
-                    children: [
-                      for (var i = 0; i < 3; i++) ...[
-                        if (i > 0) const SizedBox(width: 10),
-                        Expanded(
-                          child: i < tiles.length
-                              ? GmRise(
-                                  index: 2 + i,
-                                  child: _SpecialtyTile(
-                                    def: tiles[i],
-                                    onTap: () => onSearchPreSelected(
-                                        categories: [tiles[i].category!]),
-                                  ),
-                                )
-                              : const SizedBox.shrink(),
-                        ),
+                  // Losetas del mismo alto (el de la más alta si el texto
+                  // del sistema crece).
+                  IntrinsicHeight(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        for (var i = 0; i < 3; i++) ...[
+                          if (i > 0) const SizedBox(width: 10),
+                          Expanded(
+                            child: i < tiles.length
+                                ? GmRise(
+                                    index: 2 + i,
+                                    child: _SpecialtyTile(
+                                      def: tiles[i],
+                                      onTap: () => onSearchPreSelected(
+                                          categories: [tiles[i].category!]),
+                                    ),
+                                  )
+                                : const SizedBox.shrink(),
+                          ),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
               ],
             ),
@@ -183,7 +187,8 @@ class _TraditionalHero extends StatelessWidget {
             fit: StackFit.expand,
             children: [
               if (photoUrl != null)
-                GmPhoto(photoUrl, decodeWidth: 900, alignment: const Alignment(0, 0.16))
+                GmPhoto(photoUrl,
+                    decodeWidth: 900, alignment: const Alignment(0, 0.16))
               else
                 const DecoratedBox(
                   decoration: BoxDecoration(
@@ -350,7 +355,7 @@ class _SpecialtyTile extends StatelessWidget {
       pressedScale: 0.96,
       semanticsLabel: def.label,
       child: Container(
-        height: 100,
+        constraints: const BoxConstraints(minHeight: 100),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: gm.bandCard,
@@ -404,18 +409,14 @@ class _IdleGlyph extends StatelessWidget {
           delay: const Duration(milliseconds: 600),
           child: glyph,
           builder: (_, t, c) {
-            final rot = gmKeyframes(t, const [
-              (0, 0), (0.25, -12), (0.5, 12), (0.75, -3), (1, 0)
-            ]);
-            final dx = gmKeyframes(t, const [
-              (0, 0), (0.25, -3), (0.5, 4), (0.75, 0), (1, 0)
-            ]);
-            final s = gmKeyframes(t, const [
-              (0, 1), (0.25, 1), (0.5, 1.06), (0.75, 1), (1, 1)
-            ]);
-            final sy = gmKeyframes(t, const [
-              (0, 1), (0.25, 1), (0.5, 0.95), (0.75, 1), (1, 1)
-            ]);
+            final rot = gmKeyframes(
+                t, const [(0, 0), (0.25, -12), (0.5, 12), (0.75, -3), (1, 0)]);
+            final dx = gmKeyframes(
+                t, const [(0, 0), (0.25, -3), (0.5, 4), (0.75, 0), (1, 0)]);
+            final s = gmKeyframes(
+                t, const [(0, 1), (0.25, 1), (0.5, 1.06), (0.75, 1), (1, 1)]);
+            final sy = gmKeyframes(
+                t, const [(0, 1), (0.25, 1), (0.5, 0.95), (0.75, 1), (1, 1)]);
             return Transform(
               alignment: const Alignment(0, 0.8),
               transform: Matrix4.translationValues(dx, 0, 0)
@@ -431,15 +432,12 @@ class _IdleGlyph extends StatelessWidget {
           delay: const Duration(milliseconds: 1100),
           child: glyph,
           builder: (_, t, c) {
-            final dy = gmKeyframes(t, const [
-              (0, 0), (0.2, 1), (0.5, -8), (0.75, 0), (1, 0)
-            ]);
-            final sx = gmKeyframes(t, const [
-              (0, 1), (0.2, 1.14), (0.5, 0.93), (0.75, 1.06), (1, 1)
-            ]);
-            final sy = gmKeyframes(t, const [
-              (0, 1), (0.2, 0.86), (0.5, 1.08), (0.75, 0.95), (1, 1)
-            ]);
+            final dy = gmKeyframes(
+                t, const [(0, 0), (0.2, 1), (0.5, -8), (0.75, 0), (1, 0)]);
+            final sx = gmKeyframes(t,
+                const [(0, 1), (0.2, 1.14), (0.5, 0.93), (0.75, 1.06), (1, 1)]);
+            final sy = gmKeyframes(t,
+                const [(0, 1), (0.2, 0.86), (0.5, 1.08), (0.75, 0.95), (1, 1)]);
             return Transform(
               alignment: Alignment.bottomCenter,
               transform: Matrix4.translationValues(0, dy, 0)
@@ -455,10 +453,20 @@ class _IdleGlyph extends StatelessWidget {
           child: glyph,
           builder: (_, t, c) {
             final rot = gmKeyframes(t, const [
-              (0, 0), (0.15, 12), (0.35, -12), (0.55, 8), (0.75, -4), (1, 0)
+              (0, 0),
+              (0.15, 12),
+              (0.35, -12),
+              (0.55, 8),
+              (0.75, -4),
+              (1, 0)
             ]);
             final dx = gmKeyframes(t, const [
-              (0, 0), (0.15, 2), (0.35, 3), (0.55, 2), (0.75, 0), (1, 0)
+              (0, 0),
+              (0.15, 2),
+              (0.35, 3),
+              (0.55, 2),
+              (0.75, 0),
+              (1, 0)
             ]);
             return Transform(
               alignment: const Alignment(0.2, 0),

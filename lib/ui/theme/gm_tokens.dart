@@ -35,6 +35,10 @@ class GmColors {
   final Color edgeFade0;
   final Color edgeFade1;
 
+  /// Fundido superior bajo la barra de estado (InicioScroll · edgeTop).
+  final Color edgeTop0;
+  final Color edgeTop1;
+
   /// e1 · tarjeta: filo 1 px + sombra cálida.
   final List<BoxShadow> shadow1;
 
@@ -68,6 +72,8 @@ class GmColors {
     required this.volcInk,
     required this.edgeFade0,
     required this.edgeFade1,
+    required this.edgeTop0,
+    required this.edgeTop1,
     required this.shadow1,
     required this.shadow2,
     required this.isDark,
@@ -115,6 +121,8 @@ class GmColors {
     volcInk: Color(0xFF1F1A14),
     edgeFade0: Color(0x00F8F4EC),
     edgeFade1: Color(0xF0F8F4EC),
+    edgeTop0: Color(0xF5F8F4EC), // .96
+    edgeTop1: Color(0xE6F8F4EC), // .9
     // 0 0 0 1px rgba(90,64,24,.06), 0 1px 2px rgba(90,64,24,.06),
     // 0 10px 24px -10px rgba(90,64,24,.22)
     shadow1: [
@@ -167,6 +175,8 @@ class GmColors {
     volcInk: Color(0xFFF3EEE4),
     edgeFade0: Color(0x000A141B),
     edgeFade1: Color(0xF00A141B),
+    edgeTop0: Color(0xF50A141B),
+    edgeTop1: Color(0xE60A141B),
     shadow1: [
       BoxShadow(color: Color(0x0DFFFFFF), spreadRadius: 1),
       BoxShadow(

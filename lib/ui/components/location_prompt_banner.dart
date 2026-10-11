@@ -135,8 +135,9 @@ class LocationLockedCard extends StatelessWidget {
         return Semantics(
           identifier: 'home-nearby-locked',
           container: true,
-          child: SizedBox(
-            height: 160,
+          child: ConstrainedBox(
+            // 160 en el tamaño de texto estándar; crece si el sistema lo pide.
+            constraints: const BoxConstraints(minHeight: 160),
             child: GmCard(
               child: Stack(
                 children: [
@@ -153,15 +154,16 @@ class LocationLockedCard extends StatelessWidget {
                       width: 198,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
                             'Activa la ubicación y te enseñamos lo que tienes a menos de 2 km',
-                            maxLines: 3,
+                            maxLines: 5,
                             overflow: TextOverflow.ellipsis,
                             style: GmText.body17(
                                 color: gm.label, w: FontWeight.w600),
                           ),
+                          const SizedBox(height: 11),
                           GmCapsuleButton(
                             label: copy.lockedCta,
                             fontSize: 15,
