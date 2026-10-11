@@ -230,7 +230,7 @@ class _BlurChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) => ClipRRect(
         borderRadius: BorderRadius.circular(GmRadius.pill),
-        child: BackdropFilter(
+        child: BackdropFilter.grouped(
           filter: ui.ImageFilter.blur(sigmaX: 7, sigmaY: 7),
           child: child,
         ),
@@ -245,7 +245,7 @@ class _PlayGlass extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final button = ClipOval(
-      child: BackdropFilter(
+      child: BackdropFilter.grouped(
         filter: ui.ImageFilter.blur(sigmaX: 7, sigmaY: 7),
         child: Container(
           width: 36,

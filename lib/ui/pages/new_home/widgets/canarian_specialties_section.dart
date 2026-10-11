@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:guachinches/data/model/Category.dart';
 import 'package:guachinches/data/model/Types.dart';
+import 'package:guachinches/data/model/Visit.dart';
 import 'package:guachinches/data/model/restaurant.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/gm_place_card.dart';
 import 'package:guachinches/ui/theme/gm_icons.dart';
@@ -24,6 +25,9 @@ class CanarianSpecialtiesSection extends StatelessWidget {
 
   /// Pool de la isla: de aquí sale la foto del hero (si hay).
   final List<Restaurant> pool;
+
+  /// Visitas de Jonay y Joana: sus platos dan la foto preferida del hero.
+  final List<Visit> visits;
   final void Function({
     List<ModelCategory>? categories,
     List<Types>? types,
@@ -35,6 +39,7 @@ class CanarianSpecialtiesSection extends StatelessWidget {
     required this.types,
     required this.onSearchPreSelected,
     this.pool = const [],
+    this.visits = const [],
   });
 
   Types? _findType(String contains) {
@@ -53,8 +58,27 @@ class CanarianSpecialtiesSection extends StatelessWidget {
     return null;
   }
 
-  /// Foto del hero: el tradicional mejor valorado del pool que tenga foto.
+  /// Foto del hero. Preferimos un PLATO (las fotos principales de los
+  /// locales a veces son el letrero): el plato destacado de una visita a un
+  /// guachinche tradicional; si no hay, la foto del tradicional mejor
+  /// valorado del pool.
   String? _heroPhoto(Types t) {
+    final tradIds = {
+      for (final r in pool)
+        if (r.type == t.id) r.id,
+    };
+    String? anyDish;
+    for (final v in visits) {
+      final isTrad = tradIds.contains(v.restaurantId) ||
+          v.restaurant?.type == t.id;
+      if (!isTrad) continue;
+      for (final d in v.dishes) {
+        if (d.photoUrl == null) continue;
+        if (d.isTop) return d.photoUrl;
+        anyDish ??= d.photoUrl;
+      }
+    }
+    if (anyDish != null) return anyDish;
     Restaurant? best;
     for (final r in pool) {
       if (r.type != t.id) continue;

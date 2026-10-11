@@ -102,7 +102,11 @@ class TodayGridSection extends StatelessWidget {
         _isBreakfast(hour) &&
         (n ?? 0) > 2 &&
         restaurants.length >= 2;
-    final cards = restaurants.take(breakfastTile ? 2 : 4).toList();
+    // Rejilla sin huecos: número par de tarjetas (1 sola ocupa el ancho).
+    var cards = restaurants.take(breakfastTile ? 2 : 4).toList();
+    if (cards.length > 1 && cards.length.isOdd) {
+      cards = cards.take(cards.length - 1).toList();
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -193,7 +197,7 @@ class _Grid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final now = DateTime.now();
-    Widget card(Restaurant r, int i) {
+    Widget card(Restaurant r, int i, {double photoAspect = 4 / 3}) {
       final Widget leading;
       if (openingSoon) {
         final at = nextOpenLabel(r.horariosJson, now);
@@ -207,6 +211,7 @@ class _Grid extends StatelessWidget {
         index: 2 + i,
         child: GmPlaceCard(
           restaurant: r,
+          photoAspect: photoAspect,
           onTap: () => onRestaurantTap(r.id),
           chip: gmLocationChip(context, r,
               distanceLabel: gmDistanceLabel(r, userLat, userLon)),
@@ -216,7 +221,13 @@ class _Grid extends StatelessWidget {
     }
 
     final rows = <Widget>[];
-    for (var i = 0; i < restaurants.length; i += 2) {
+    if (restaurants.length == 1) {
+      // Un único sitio: tarjeta a todo el ancho con foto más apaisada.
+      rows
+        ..add(card(restaurants.first, 0, photoAspect: 2))
+        ..add(const SizedBox(height: 12));
+    }
+    for (var i = 0; restaurants.length > 1 && i < restaurants.length; i += 2) {
       final right = i + 1 < restaurants.length ? restaurants[i + 1] : null;
       rows.add(Row(
         crossAxisAlignment: CrossAxisAlignment.start,

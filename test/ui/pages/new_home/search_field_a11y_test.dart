@@ -22,7 +22,7 @@ void main() {
       await tester.pumpWidget(_wrap(SearchFieldDynamic(onTap: () {})));
       await tester.pump();
 
-      final textFinder = find.text('Buscar restaurante...');
+      final textFinder = find.text('Buscar restaurante');
       expect(textFinder, findsOneWidget);
 
       final textWidget = tester.widget<Text>(textFinder);
@@ -54,7 +54,7 @@ void main() {
       ));
       await tester.pump();
 
-      final textFinder = find.text('Buscar restaurante...');
+      final textFinder = find.text('Buscar restaurante');
       expect(textFinder, findsOneWidget);
 
       final textWidget = tester.widget<Text>(textFinder);

@@ -40,6 +40,10 @@ class TopRatedSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final gm = GmColors.of(context);
     final top = restaurants.take(3).toList();
+    // Subtítulos coherentes: el tipo solo si se conoce para los tres; si no,
+    // municipio en todos.
+    final types = [for (final r in top) typeLabelFor?.call(r.id) ?? ''];
+    final showTypes = types.every((t) => t.isNotEmpty);
     return Semantics(
       identifier: 'home-section-top-rated',
       child: Column(
@@ -73,7 +77,7 @@ class TopRatedSection extends StatelessWidget {
                         _Row(
                           restaurant: top[i],
                           rank: i + 1,
-                          typeLabel: typeLabelFor?.call(top[i].id),
+                          typeLabel: showTypes ? types[i] : null,
                           onTap: () => onRestaurantTap(top[i].id),
                         ),
                       ],

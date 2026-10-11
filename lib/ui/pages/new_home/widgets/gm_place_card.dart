@@ -7,23 +7,41 @@ import 'package:guachinches/ui/theme/gm_tokens.dart';
 import 'package:guachinches/ui/theme/gm_widgets.dart';
 import 'package:guachinches/utils/distance_utils.dart';
 
-/// Nombres que llegan TODO EN MAYÚSCULAS desde el backend («BAR RESTAURANTE
-/// TERRAZA RAUL») se pintan en tipo título («Bar Restaurante Terraza Raul»):
-/// la rampa SF del rediseño no grita. El resto se respeta tal cual.
+/// Nombres que llegan (casi) TODO EN MAYÚSCULAS desde el backend («BAR
+/// RESTAURANTE TERRAZA RAUL», «BODEGON LA TABONA (Casa Luis)») se pintan en
+/// tipo título: la rampa SF del rediseño no grita. Se normaliza cuando ≥ 70 %
+/// de las letras son mayúsculas; las palabras ya mixtas («Casa», «McDonald's»)
+/// y las siglas sin vocales («BBQ», «GC») se respetan.
 String gmDisplayName(String raw) {
   final s = raw.trim();
   final letters = s.replaceAll(RegExp(r'[^A-Za-zÁÉÍÓÚÜÑáéíóúüñ]'), '');
-  if (letters.length < 3 || s != s.toUpperCase()) return s;
+  if (letters.length < 3) return s;
+  final upper = letters.split('').where((c) => c != c.toLowerCase()).length;
+  if (upper / letters.length < 0.7) return s;
   const small = {'de', 'del', 'la', 'las', 'el', 'los', 'y', 'en', 'a', 'al'};
+  final vowel = RegExp(r'[AEIOUÁÉÍÓÚÜaeiouáéíóúü]');
+  final letter = RegExp(r'[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]');
   var first = true;
   return s.split(' ').map((w) {
     if (w.isEmpty) return w;
+    final isCaps = w == w.toUpperCase() && w != w.toLowerCase();
+    if (!isCaps) {
+      first = false;
+      return w; // ya viene en tipo mixto: se respeta
+    }
+    final core = w.replaceAll(RegExp(r'[^A-Za-zÁÉÍÓÚÜÑáéíóúüñ]'), '');
+    if (core.length >= 2 && !vowel.hasMatch(core)) {
+      first = false;
+      return w; // sigla (BBQ, GC)
+    }
     final lower = w.toLowerCase();
-    final out = (!first && small.contains(lower))
-        ? lower
-        : lower[0].toUpperCase() + lower.substring(1);
+    if (!first && small.contains(lower)) return lower;
     first = false;
-    return out;
+    final k = lower.indexOf(letter);
+    if (k < 0) return lower;
+    return lower.substring(0, k) +
+        lower[k].toUpperCase() +
+        lower.substring(k + 1);
   }).join(' ');
 }
 
@@ -68,6 +86,29 @@ double? gmDistanceMeters(Restaurant r, double? userLat, double? userLon) {
   if (r.lat == 0.0 && r.lon == 0.0) return null;
   final m = haversineDistanceMeters(userLat, userLon, r.lat, r.lon);
   return m > kGmMaxDistanceMeters ? null : m;
+}
+
+/// Antetítulo honesto de «Cerca de ti» a partir de las distancias que se
+/// ven («850 m», «1,2 km»): «A menos de 2 km», «A menos de N km» o, si no hay
+/// distancias creíbles (> 200 km), «Lo más cerca de ti».
+String gmNearbyEyebrow(List<String> distanceLabels) {
+  double? maxM;
+  for (final raw in distanceLabels) {
+    final l = raw.trim();
+    double? m;
+    if (l.endsWith(' km')) {
+      m = double.tryParse(
+          l.replaceAll(' km', '').replaceAll('.', '').replaceAll(',', '.'));
+      if (m != null) m *= 1000;
+    } else if (l.endsWith(' m')) {
+      m = double.tryParse(l.replaceAll(' m', ''));
+    }
+    if (m == null) continue;
+    if (maxM == null || m > maxM) maxM = m;
+  }
+  if (maxM == null || maxM > kGmMaxDistanceMeters) return 'Lo más cerca de ti';
+  if (maxM <= 2000) return 'A menos de 2 km';
+  return 'A menos de ${(maxM / 1000).ceil()} km';
 }
 
 /// Chip de foto: con ubicación → flecha + distancia; sin ella → chincheta +

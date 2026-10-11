@@ -288,7 +288,7 @@ class _NewHomeBodyState extends State<NewHomeBody> {
                         GmRise(
                           trigger: GmTrigger.mount,
                           child: SearchFieldDynamic(
-                            zone: filters.zoneLabel,
+                            zone: filters.zoneLabel ?? filters.islandLabel,
                             onTap: widget.onSearchTap,
                           ),
                         ),
@@ -407,11 +407,14 @@ class _NewHomeBodyState extends State<NewHomeBody> {
                 // ── ESPECIALIDADES CANARIAS (banda crema) ──────────────
                 section(Semantics(
                   identifier: 'home-section-specialties',
-                  child: CanarianSpecialtiesSection(
-                    categories: widget.categories,
-                    types: widget.types,
-                    pool: widget.pool,
-                    onSearchPreSelected: widget.onSearchPreSelected,
+                  child: BlocBuilder<VisitsCubit, VisitsState>(
+                    builder: (_, vs) => CanarianSpecialtiesSection(
+                      categories: widget.categories,
+                      types: widget.types,
+                      pool: widget.pool,
+                      visits: vs is VisitsLoaded ? vs.visits : const [],
+                      onSearchPreSelected: widget.onSearchPreSelected,
+                    ),
                   ),
                 )),
 
@@ -556,28 +559,6 @@ class _NewHomeBodyState extends State<NewHomeBody> {
     super.dispose();
   }
 
-  /// Antetítulo honesto de «Cerca de ti»: el radio real de lo que se ve.
-  String _nearbyEyebrow(List<NearbyRestaurant> shown) {
-    double? maxM;
-    for (final n in shown) {
-      final l = n.distanceLabel.trim();
-      double? m;
-      if (l.endsWith(' km')) {
-        m = double.tryParse(
-            l.replaceAll(' km', '').replaceAll('.', '').replaceAll(',', '.'));
-        if (m != null) m *= 1000;
-      } else if (l.endsWith(' m')) {
-        m = double.tryParse(l.replaceAll(' m', ''));
-      }
-      if (m == null) continue;
-      if (maxM == null || m > maxM) maxM = m;
-    }
-    if (maxM == null || maxM > kGmMaxDistanceMeters)
-      return 'Lo más cerca de ti';
-    if (maxM <= 2000) return 'A menos de 2 km';
-    return 'A menos de ${(maxM / 1000).ceil()} km';
-  }
-
   Widget _buildNearbySection(BuildContext context) {
     final gm = GmColors.of(context);
     final shown = widget.nearbyList.take(8).toList();
@@ -591,7 +572,7 @@ class _NewHomeBodyState extends State<NewHomeBody> {
             child: GmSectionHeader(
               eyebrow: GmEyebrow(
                 leading: GmIcon(GmIcons.pin, size: 11, color: gm.accent),
-                text: _nearbyEyebrow(shown),
+                text: gmNearbyEyebrow([for (final n in shown) n.distanceLabel]),
               ),
               title: AppL10n.of(context).homeNearbySectionTitle,
               onTap: widget.onShowAllNearby,
@@ -768,36 +749,41 @@ class _NewHomeBodyState extends State<NewHomeBody> {
             builder: (_, state) {
               if (state is VisitsLoaded) {
                 if (state.visits.isEmpty) return const SizedBox.shrink();
-                return SizedBox(
-                  height: CardVisit.cardHeight,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    // Sin recorte vertical: el carrusel mide exactamente la
-                    // card y sin esto la sombra inferior se corta en seco.
-                    clipBehavior: Clip.none,
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: GmSpace.gutter),
-                    itemCount: state.visits.length,
-                    separatorBuilder: (_, __) =>
-                        const SizedBox(width: GmSpace.cardGap),
-                    itemBuilder: (_, i) {
-                      final v = state.visits[i];
-                      return RepaintBoundary(
-                        child: GmRise(
-                          index: 2 + i.clamp(0, 2),
-                          child: CardVisit(
-                            visit: v,
-                            pulse: i == 0,
-                            onTap: () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => VisitDetailPage(visitId: v.id),
+                // Un único grupo de desenfoque para todos los pósters: los
+                // chips y botones de cristal comparten la lectura del fondo.
+                return BackdropGroup(
+                  child: SizedBox(
+                    height: CardVisit.cardHeight,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      // Sin recorte vertical: el carrusel mide exactamente la
+                      // card y sin esto la sombra inferior se corta en seco.
+                      clipBehavior: Clip.none,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: GmSpace.gutter),
+                      itemCount: state.visits.length,
+                      separatorBuilder: (_, __) =>
+                          const SizedBox(width: GmSpace.cardGap),
+                      itemBuilder: (_, i) {
+                        final v = state.visits[i];
+                        return RepaintBoundary(
+                          child: GmRise(
+                            index: 2 + i.clamp(0, 2),
+                            child: CardVisit(
+                              visit: v,
+                              pulse: i == 0,
+                              onTap: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) =>
+                                      VisitDetailPage(visitId: v.id),
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                      );
-                    },
+                        );
+                      },
+                    ),
                   ),
                 );
               }

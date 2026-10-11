@@ -4,7 +4,9 @@ import 'package:guachinches/ui/theme/gm_motion.dart';
 import 'package:guachinches/ui/theme/gm_tokens.dart';
 
 /// Cápsula de búsqueda (señuelo → abre la búsqueda avanzada).
-/// Rediseño iOS 27: blanca, sombra cálida, lupa + micrófono.
+/// Rediseño iOS 27: blanca, sombra cálida y lupa. El placeholder nombra la
+/// zona elegida o, si no hay, la isla («Buscar en Tenerife»). Sin micrófono:
+/// la app no tiene búsqueda por voz y un icono que no hace nada confunde.
 class SearchFieldDynamic extends StatelessWidget {
   final String? zone;
   final VoidCallback onTap;
@@ -19,7 +21,7 @@ class SearchFieldDynamic extends StatelessWidget {
   Widget build(BuildContext context) {
     final gm = GmColors.of(context);
     final placeholder =
-        zone != null ? 'Buscar en $zone...' : 'Buscar restaurante...';
+        zone != null ? 'Buscar en $zone' : 'Buscar restaurante';
 
     return Semantics(
       identifier: 'home-search-field',
@@ -51,14 +53,7 @@ class SearchFieldDynamic extends StatelessWidget {
                     style: GmText.body17(color: gm.label2),
                   ),
                 ),
-                SizedBox(
-                  width: 44,
-                  height: 44,
-                  child: Center(
-                    child: GmIcon(GmIcons.mic, size: 18, color: gm.label2),
-                  ),
-                ),
-                const SizedBox(width: 3),
+                const SizedBox(width: 16),
               ],
             ),
           ),
