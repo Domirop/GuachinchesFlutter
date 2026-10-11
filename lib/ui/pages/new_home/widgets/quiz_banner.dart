@@ -2,6 +2,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:guachinches/core/analytics/analytics.dart';
+import 'package:guachinches/core/logging/app_logger.dart';
+import 'package:guachinches/data/quiz/quiz_repository.dart';
 import 'package:guachinches/services/app_storage.dart';
 import 'package:guachinches/ui/pages/login/login_screen.dart';
 import 'package:guachinches/ui/pages/quiz/quiz_game_screen.dart';
@@ -15,26 +17,68 @@ import 'package:guachinches/ui/theme/gm_widgets.dart';
 /// 22/28, subtítulo, cápsula «Jugar» y la rueda de 7 quesitos (pop
 /// escalonado + un temblor a 1,8 s).
 ///
-/// La home no conoce el progreso del jugador (vive dentro de la partida),
-/// así que la rueda se pinta completa y se omite «Llevas X de 7».
+/// Progreso: con sesión y partida activa, la rueda pinta los quesitos
+/// conseguidos y «Llevas N de 7» (`QuizRepository.getActiveSession`). Sin
+/// sesión o sin partida, rueda completa y sin pie.
 /// Gating: con sesión → juego; sin sesión → login existente.
-class QuizBanner extends StatelessWidget {
-  const QuizBanner({super.key});
+class QuizBanner extends StatefulWidget {
+  /// Inyectable para tests.
+  final QuizRepository? repository;
+
+  const QuizBanner({super.key, this.repository});
 
   static Future<void> open(BuildContext context) async {
     Analytics.I.logEvent('quiz_banner_tap');
     final uid = await AppStorage.instance.read(key: 'userId');
     if (!context.mounted) return;
     if (uid != null && uid.isNotEmpty) {
-      Navigator.of(context).push(
+      await Navigator.of(context).push(
         MaterialPageRoute(builder: (_) => const QuizGameScreen()),
       );
     } else {
       Analytics.I.logEvent('quiz_login_required');
-      Navigator.of(context).push(
+      await Navigator.of(context).push(
         MaterialPageRoute(builder: (_) => const LoginScreen()),
       );
     }
+  }
+
+  @override
+  State<QuizBanner> createState() => _QuizBannerState();
+}
+
+class _QuizBannerState extends State<QuizBanner> {
+  /// Quesitos de la partida activa; null = desconocido / sin partida.
+  int? _earned;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProgress();
+  }
+
+  Future<void> _loadProgress() async {
+    try {
+      final repo = widget.repository ?? QuizRepository();
+      final uid = await repo.currentUserId();
+      if (uid == null || uid.isEmpty) {
+        if (mounted && _earned != null) setState(() => _earned = null);
+        return;
+      }
+      final session = await repo.getActiveSession();
+      final earned = (session != null && session.isActive)
+          ? session.wedges.length.clamp(0, 7)
+          : null;
+      if (mounted && earned != _earned) setState(() => _earned = earned);
+    } catch (e) {
+      AppLogger.warn('quiz-banner', 'progreso no disponible: $e');
+    }
+  }
+
+  Future<void> _open() async {
+    await QuizBanner.open(context);
+    // Al volver de la partida (o del login) el progreso puede haber cambiado.
+    if (mounted) _loadProgress();
   }
 
   @override
@@ -43,7 +87,7 @@ class QuizBanner extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: GmSpace.gutter),
       child: GmPressable(
-        onTap: () => QuizBanner.open(context),
+        onTap: _open,
         pressedScale: 0.98,
         semanticsLabel: '¿Cuánto sabes de Canarias? Jugar',
         child: GmCard(
@@ -96,15 +140,28 @@ class QuizBanner extends StatelessWidget {
                             label: 'Jugar',
                             icon: GmIcons.play,
                             identifier: 'home-quiz-play',
-                            onTap: () => QuizBanner.open(context),
+                            onTap: _open,
                           ),
                         ],
                       ),
                     ),
                     const SizedBox(width: 12),
-                    const SizedBox(
+                    SizedBox(
                       width: 116,
-                      child: Center(child: QuesitosWheel(size: 112)),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          QuesitosWheel(size: 112, earned: _earned),
+                          if (_earned != null) ...[
+                            const SizedBox(height: 6),
+                            Text(
+                              'Llevas $_earned de 7',
+                              maxLines: 1,
+                              style: GmText.chip(color: gm.label2),
+                            ),
+                          ],
+                        ],
+                      ),
                     ),
                   ],
                 ),
@@ -269,6 +326,20 @@ class _WheelPainter extends CustomPainter {
           ..color = gm.sep
           ..style = PaintingStyle.stroke
           ..strokeWidth = 1);
+    if (earned != null) {
+      final tp = TextPainter(
+        text: TextSpan(
+          text: '$earned/7',
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w800,
+            color: gm.label,
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      tp.paint(canvas, c - Offset(tp.width / 2, tp.height / 2));
+    }
     canvas.restore();
   }
 
