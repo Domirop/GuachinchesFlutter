@@ -74,33 +74,51 @@ class GmFichaHeader extends StatelessWidget {
         ),
         Padding(
           padding: const EdgeInsets.only(top: photosHeight - sheetOverlap),
-          child: Container(
-            decoration: BoxDecoration(
-              color: gm.canvas,
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(32)),
-              boxShadow: const [
-                BoxShadow(
-                    color: Color(0x2E000000),
-                    offset: Offset(0, -10),
-                    blurRadius: 30),
-              ],
-            ),
-            padding: const EdgeInsets.only(top: 8),
-            child: _SheetTop(
-              restaurant: restaurant,
-              visits: visits,
-              isSaved: isSaved,
-              onDirections: onDirections,
-              onCall: onCall,
-              onToggleSave: onToggleSave,
-              onOpenVisit: onOpenVisit,
+          // La sombra de la hoja solo debe caer hacia arriba, sobre la foto:
+          // se recorta por abajo para que no oscurezca el lienzo siguiente.
+          child: ClipRect(
+            clipper: const _ShadowAboveOnly(),
+            child: Container(
+              decoration: BoxDecoration(
+                color: gm.canvas,
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(32)),
+                boxShadow: const [
+                  BoxShadow(
+                      color: Color(0x2E000000),
+                      offset: Offset(0, -10),
+                      blurRadius: 30),
+                ],
+              ),
+              padding: const EdgeInsets.only(top: 8),
+              child: _SheetTop(
+                restaurant: restaurant,
+                visits: visits,
+                isSaved: isSaved,
+                onDirections: onDirections,
+                onCall: onCall,
+                onToggleSave: onToggleSave,
+                onOpenVisit: onOpenVisit,
+              ),
             ),
           ),
         ),
       ],
     );
   }
+}
+
+/// Recorte que deja pasar lo que se pinta por encima y a los lados (la
+/// sombra de la hoja) pero nada por debajo del borde inferior.
+class _ShadowAboveOnly extends CustomClipper<Rect> {
+  const _ShadowAboveOnly();
+
+  @override
+  Rect getClip(Size size) =>
+      Rect.fromLTRB(-60, -80, size.width + 60, size.height);
+
+  @override
+  bool shouldReclip(covariant CustomClipper<Rect> oldClipper) => false;
 }
 
 // ── Foto a sangre ───────────────────────────────────────────────────────────
@@ -495,6 +513,7 @@ class _SheetTop extends StatelessWidget {
               index: 3,
               child: _VisitTeaser(
                 visit: latest,
+                fallbackThumb: fichaPhotoUrls(r).firstOrNull,
                 quote: fichaTeaserQuote(latest, r.shortQuotes),
                 onTap: () => onOpenVisit(latest),
               ),
@@ -700,12 +719,12 @@ class _SaveActionState extends State<_SaveAction>
       animation: _c,
       builder: (_, child) {
         final k = _c.value;
-        final sx = gmKeyframes(k, const [
-          (0, 0.8), (0.3, 1.18), (0.52, 0.94), (0.72, 1.03), (1, 1)
-        ], curve: GmMotion.spring);
-        final sy = gmKeyframes(k, const [
-          (0, 0.8), (0.3, 0.84), (0.52, 1.06), (0.72, 0.98), (1, 1)
-        ], curve: GmMotion.spring);
+        final sx = gmKeyframes(k,
+            const [(0, 0.8), (0.3, 1.18), (0.52, 0.94), (0.72, 1.03), (1, 1)],
+            curve: GmMotion.spring);
+        final sy = gmKeyframes(k,
+            const [(0, 0.8), (0.3, 0.84), (0.52, 1.06), (0.72, 0.98), (1, 1)],
+            curve: GmMotion.spring);
         return Transform(
           alignment: Alignment.center,
           transform: Matrix4.diagonal3Values(sx, sy, 1),
@@ -736,6 +755,23 @@ class FichaFeatureChips extends StatelessWidget {
   final List<FichaFeature> features;
   const FichaFeatureChips({super.key, required this.features});
 
+  /// Glifos de color fijo (oscuros o tierra) sobre un disco crema en modo
+  /// noche, como las losetas de especialidades de la home: si no, el cochino
+  /// negro desaparece sobre la tarjeta oscura.
+  static Widget _onDisc(Widget glyph, GmColors gm, {Color? bg}) {
+    if (!gm.isDark) return glyph;
+    return Container(
+      width: 22,
+      height: 22,
+      decoration: BoxDecoration(
+        color: bg ?? const Color(0xFFE9DCC2),
+        shape: BoxShape.circle,
+      ),
+      alignment: Alignment.center,
+      child: Transform.scale(scale: 0.82, child: glyph),
+    );
+  }
+
   static Widget? glyph(FichaFeatureGlyph g, GmColors gm) {
     switch (g) {
       case FichaFeatureGlyph.terraza:
@@ -746,9 +782,10 @@ class FichaFeatureChips extends StatelessWidget {
       case FichaFeatureGlyph.cabra:
         return GmIcon(GmIcons.cabraChip, size: 17, color: gm.label);
       case FichaFeatureGlyph.cochino:
-        return const GmGlyph(GmGlyphKind.cochino, size: 17);
+        return _onDisc(const GmGlyph(GmGlyphKind.cochino, size: 17), gm);
       case FichaFeatureGlyph.pescado:
-        return const GmGlyph(GmGlyphKind.vieja, size: 17);
+        return _onDisc(const GmGlyph(GmGlyphKind.vieja, size: 17), gm,
+            bg: const Color(0xFFE1E8D2));
       case FichaFeatureGlyph.vino:
         return GmIcon(GmIcons.wineGlass, size: 16, color: gm.label);
       case FichaFeatureGlyph.aparcamiento:
@@ -756,7 +793,7 @@ class FichaFeatureChips extends StatelessWidget {
       case FichaFeatureGlyph.accesible:
         return GmIcon(GmIcons.accessible, size: 16, color: gm.label);
       case FichaFeatureGlyph.mascotas:
-        return GmIcon(GmIcons.paw, size: 16, color: gm.label);
+        return _onDisc(GmIcon(GmIcons.paw, size: 16, color: gm.label), gm);
       case FichaFeatureGlyph.datafono:
         return GmIcon(GmIcons.card, size: 16, color: gm.label);
       case FichaFeatureGlyph.infantil:
@@ -825,8 +862,14 @@ class _VisitTeaser extends StatelessWidget {
   final Visit visit;
   final String? quote;
   final VoidCallback onTap;
+
+  /// Foto del local si la visita no trae miniatura.
+  final String? fallbackThumb;
   const _VisitTeaser(
-      {required this.visit, required this.quote, required this.onTap});
+      {required this.visit,
+      required this.quote,
+      required this.onTap,
+      this.fallbackThumb});
 
   @override
   Widget build(BuildContext context) {
@@ -869,7 +912,15 @@ class _VisitTeaser extends StatelessWidget {
                   child: Stack(
                     fit: StackFit.expand,
                     children: [
-                      GmPhoto(fichaVisitThumb(visit), decodeWidth: 240),
+                      Builder(builder: (_) {
+                        final thumbs = [
+                          ...fichaVisitThumbs(visit),
+                          if (fallbackThumb != null) fallbackThumb!,
+                        ];
+                        return GmPhoto(thumbs.firstOrNull,
+                            decodeWidth: 240,
+                            fallbacks: thumbs.skip(1).toList());
+                      }),
                       Center(
                         child: ClipOval(
                           child: BackdropFilter(

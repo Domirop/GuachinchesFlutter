@@ -135,13 +135,31 @@ class GmPhoto extends StatelessWidget {
   final int decodeWidth;
   final Alignment alignment;
 
+  /// Fotos alternativas si [url] falla (p. ej. maxres de YouTube → hq →
+  /// foto del local). Se prueban en orden.
+  final List<String?> fallbacks;
+
   const GmPhoto(this.url,
-      {super.key, this.decodeWidth = 480, this.alignment = Alignment.center});
+      {super.key,
+      this.decodeWidth = 480,
+      this.alignment = Alignment.center,
+      this.fallbacks = const []});
 
   @override
   Widget build(BuildContext context) {
     final u = url;
-    if (u == null || u.isEmpty) return const GmFill();
+    final rest = [
+      for (final f in fallbacks)
+        if (f != null && f.isNotEmpty && f != u) f
+    ];
+    if (u == null || u.isEmpty) {
+      return rest.isEmpty
+          ? const GmFill()
+          : GmPhoto(rest.first,
+              decodeWidth: decodeWidth,
+              alignment: alignment,
+              fallbacks: rest.skip(1).toList());
+    }
     return CachedNetworkImage(
       imageUrl: u,
       fit: BoxFit.cover,
@@ -149,7 +167,12 @@ class GmPhoto extends StatelessWidget {
       memCacheWidth: decodeWidth,
       fadeInDuration: const Duration(milliseconds: 180),
       placeholder: (_, __) => const GmFill(),
-      errorWidget: (_, __, ___) => const GmFill(),
+      errorWidget: (_, __, ___) => rest.isEmpty
+          ? const GmFill()
+          : GmPhoto(rest.first,
+              decodeWidth: decodeWidth,
+              alignment: alignment,
+              fallbacks: rest.skip(1).toList()),
     );
   }
 }
