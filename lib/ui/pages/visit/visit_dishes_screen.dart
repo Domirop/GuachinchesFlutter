@@ -149,13 +149,14 @@ class VisitDishesScreen extends StatelessWidget {
                     crossAxisCount: 2,
                     mainAxisSpacing: 12,
                     crossAxisSpacing: 12,
-                    // Foto 4:3 + nombre: (ancho − 12) · ¾ + 24 + nombre.
+                    // Foto 4:3 + nombre entero en dos líneas:
+                    // (ancho − 12) · ¾ + 24 + 2 líneas de 18.
                     mainAxisExtent:
                         ((MediaQuery.sizeOf(context).width - 44) / 2 - 12) *
                                 3 /
                                 4 +
                             24 +
-                            MediaQuery.textScalerOf(context).scale(18),
+                            MediaQuery.textScalerOf(context).scale(18) * 2,
                   ),
                   delegate: SliverChildBuilderDelegate(
                     (ctx, i) {
@@ -166,6 +167,7 @@ class VisitDishesScreen extends StatelessWidget {
                         index: 2 + i.clamp(0, 6),
                         child: GmDishCard(
                           dish: d,
+                          nameLines: 2,
                           heroTag: photoIndex >= 0
                               ? '${visit.id}-platos-$photoIndex'
                               : null,
@@ -242,7 +244,8 @@ class VisitDishesScreen extends StatelessWidget {
 }
 
 /// Tarjeta de plato: tarjeta blanca r24 con foto r18 (4:3), sello «Top» y
-/// nombre 13/18 · 600 en una línea.
+/// nombre 13/18 · 600 ([nameLines] líneas; dos en «Lo que probaron» para
+/// que se lea entero).
 class GmDishCard extends StatelessWidget {
   final vm.VisitDish dish;
   final String? heroTag;
