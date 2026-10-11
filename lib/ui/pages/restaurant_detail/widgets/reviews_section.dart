@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:guachinches/config/app_colors.dart';
-import 'package:guachinches/config/app_text_styles.dart';
-import 'package:guachinches/config/brand_colors.dart';
 import 'package:guachinches/data/model/Review.dart';
 import 'package:guachinches/data/model/restaurant.dart';
 import 'package:guachinches/ui/pages/login/login.dart';
@@ -84,13 +81,12 @@ class _ReviewsSectionState extends State<ReviewsSection> {
   }
 
   void _showAuthSheet(BuildContext context) {
-    final brand = context.brand;
     showModalBottomSheet(
       context: context,
-      backgroundColor: brand.elevated,
-      isScrollControlled: false,
+      backgroundColor: GmColors.of(context).canvas,
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
       ),
       builder: (sheetCtx) => _AuthPromptSheet(
         onLogin: () {
@@ -345,6 +341,9 @@ class _AlreadyReviewedCard extends StatelessWidget {
   }
 }
 
+/// Hoja «Inicia sesión para dejar tu reseña» con el estilo del sistema:
+/// asa, estrella en disco teñido, título 22/28, cápsula primaria y «Ahora
+/// no» en píldora gris.
 class _AuthPromptSheet extends StatelessWidget {
   final VoidCallback onLogin;
 
@@ -352,87 +351,76 @@ class _AuthPromptSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final brand = context.brand;
-    final bottom = MediaQuery.of(context).padding.bottom;
-    return Padding(
-      padding: EdgeInsets.fromLTRB(20, 12, 20, 16 + bottom),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Center(
-            child: Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: brand.textMuted,
-                borderRadius: BorderRadius.circular(2),
+    final gm = GmColors.of(context);
+    final bottom = MediaQuery.paddingOf(context).bottom;
+    return Semantics(
+      identifier: 'restaurant-reviews-auth-sheet',
+      container: true,
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(20, 8, 20, 16 + bottom),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(
+              child: Container(
+                width: 36,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: gm.sep,
+                  borderRadius: BorderRadius.circular(GmRadius.pill),
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: 20),
-          Container(
-            width: 56,
-            height: 56,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: AppColors.atlantico.withOpacity(0.15),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: const Icon(
-              Icons.lock_outline_rounded,
-              color: AppColors.atlanticoClaro,
-              size: 26,
-            ),
-          ),
-          const SizedBox(height: 14),
-          Text(
-            'Inicia sesión para dejar tu reseña',
-            textAlign: TextAlign.center,
-            style: GmText.title2(color: GmColors.of(context).label),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'Necesitas una cuenta para puntuar y comentar restaurantes.',
-            textAlign: TextAlign.center,
-            style: AppTextStyles.ui(
-              size: 13,
-              color: brand.textSecondary,
-            ),
-          ),
-          const SizedBox(height: 22),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.atlantico,
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
-              ),
-              elevation: 0,
-            ),
-            onPressed: onLogin,
-            child: const Text(
-              'Iniciar sesión',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: Colors.white,
+            const SizedBox(height: 22),
+            Center(
+              child: Container(
+                width: 64,
+                height: 64,
+                decoration: const BoxDecoration(
+                  color: Color(0x24C98200),
+                  shape: BoxShape.circle,
+                ),
+                alignment: Alignment.center,
+                child: GmIcon(GmIcons.star, size: 30, color: GmColors.star),
               ),
             ),
-          ),
-          const SizedBox(height: 8),
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              'Ahora no',
-              style: AppTextStyles.ui(
-                size: 13,
-                weight: FontWeight.w600,
-                color: brand.textSecondary,
+            const SizedBox(height: 16),
+            Text(
+              'Inicia sesión para dejar tu reseña',
+              textAlign: TextAlign.center,
+              style: GmText.title2(color: gm.label),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Necesitas una cuenta para puntuar y comentar restaurantes.',
+              textAlign: TextAlign.center,
+              style: GmText.body(color: gm.label2),
+            ),
+            const SizedBox(height: 22),
+            SizedBox(
+              width: double.infinity,
+              child: GmCapsuleButton(
+                label: 'Iniciar sesión',
+                height: 52,
+                fontSize: 17,
+                identifier: 'restaurant-reviews-auth-login',
+                onTap: onLogin,
               ),
             ),
-          ),
-        ],
+            const SizedBox(height: 10),
+            Center(
+              child: Semantics(
+                identifier: 'restaurant-reviews-auth-dismiss',
+                button: true,
+                child: GmPressable(
+                  onTap: () => Navigator.pop(context),
+                  child: const FichaPillButton(label: 'Ahora no'),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
