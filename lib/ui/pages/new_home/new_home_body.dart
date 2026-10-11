@@ -48,6 +48,7 @@ import 'package:guachinches/utils/distance_utils.dart';
 import 'package:guachinches/data/cubit/location/location_cubit.dart';
 import 'package:guachinches/data/cubit/location/location_state.dart';
 import 'package:guachinches/utils/time_of_day_engine.dart';
+import 'package:guachinches/utils/restaurant_type_label.dart';
 import 'package:guachinches/data/model/TopRestaurants.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/gm_home_extras.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/gm_place_card.dart';
@@ -236,14 +237,10 @@ class _NewHomeBodyState extends State<NewHomeBody> {
         : null);
 
     // Etiqueta por tipo de local para el subtítulo del top (p. ej.
-    // «Guachinche · La Laguna»). Solo presentación: id → Type del pool.
+    // «Tasca · La Laguna»). Solo presentación: id → Type vía el helper común.
     String? typeLabelFor(String id) {
       for (final r in widget.pool) {
-        if (r.id != id) continue;
-        for (final t in widget.types) {
-          if (t.id == r.type) return _singularType(t.nombre);
-        }
-        return null;
+        if (r.id == id) return restaurantTypeLabel(r.type);
       }
       return null;
     }
@@ -516,18 +513,6 @@ class _NewHomeBodyState extends State<NewHomeBody> {
       gmTabAccessory.value = null;
     });
     super.dispose();
-  }
-
-  /// «Guachinches Tradicionales» → «Guachinche» (subtítulos de lista).
-  static String _singularType(String nombre) {
-    final n = nombre.trim().toLowerCase();
-    if (n.startsWith('guachinches tradicionales')) return 'Guachinche';
-    if (n.startsWith('guachinches modernos')) return 'Guachinche moderno';
-    if (n.startsWith('guachinche')) return 'Guachinche';
-    if (n == 'restaurantes') return 'Restaurante';
-    if (n == 'tascas') return 'Tasca';
-    if (n == 'bodegones') return 'Bodegón';
-    return nombre.trim();
   }
 
   /// Antetítulo honesto de «Cerca de ti»: el radio real de lo que se ve.

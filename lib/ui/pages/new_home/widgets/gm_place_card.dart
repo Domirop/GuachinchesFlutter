@@ -28,21 +28,26 @@ String gmDisplayName(String raw) {
 }
 
 /// Topónimos en tipo título («La orotava» → «La Orotava», «LA MATANZA DE
-/// ACENTEJO» → «La Matanza de Acentejo»). Solo «de», «del» e «y» en minúscula.
+/// ACENTEJO» → «La Matanza de Acentejo»). Si el dato ya viene bien escrito
+/// («San Cristóbal de La Laguna») se respeta tal cual.
 String gmPlaceName(String raw) {
   final s = raw.trim();
   if (s.isEmpty) return s;
-  const small = {'de', 'del', 'y'};
+  const small = {'de', 'del', 'y', 'la', 'las', 'los', 'el'};
+  final words = s.split(RegExp(r'\s+'));
+  bool startsLower(String w) =>
+      w.isNotEmpty && w[0] != w[0].toUpperCase();
+  final needsFix = s == s.toUpperCase() ||
+      s == s.toLowerCase() ||
+      words.skip(1).any((w) => startsLower(w) && !small.contains(w)) ||
+      startsLower(words.first);
+  if (!needsFix) return s;
   var first = true;
-  return s.split(RegExp(r'\s+')).map((w) {
+  return words.map((w) {
     final lower = w.toLowerCase();
     final keep = !first && small.contains(lower);
     first = false;
-    if (keep) return lower;
-    // Respeta palabras ya mixtas (p. ej. «McDonald's»).
-    if (w != w.toLowerCase() && w != w.toUpperCase()) {
-      return w[0].toUpperCase() + w.substring(1);
-    }
+    if (keep || lower.isEmpty) return lower;
     return lower[0].toUpperCase() + lower.substring(1);
   }).join(' ');
 }

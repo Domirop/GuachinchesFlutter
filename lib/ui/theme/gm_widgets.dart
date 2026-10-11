@@ -261,6 +261,7 @@ class GmCapsuleButton extends StatelessWidget {
   final double fontSize;
   final EdgeInsetsGeometry padding;
   final String? identifier;
+  final double height;
 
   const GmCapsuleButton({
     super.key,
@@ -271,6 +272,7 @@ class GmCapsuleButton extends StatelessWidget {
     this.fontSize = 16,
     this.padding = const EdgeInsets.symmetric(horizontal: 20),
     this.identifier,
+    this.height = 44,
   });
 
   @override
@@ -282,7 +284,7 @@ class GmCapsuleButton extends StatelessWidget {
         onTap: onTap,
         pressedScale: 0.95,
         child: Container(
-          height: 44,
+          height: height,
           padding: padding,
           decoration: BoxDecoration(
             gradient: GmColors.accentFill,
@@ -307,6 +309,7 @@ class GmCapsuleButton extends StatelessWidget {
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               if (icon != null) ...[
                 GmIcon(icon!, size: iconSize, color: Colors.white),
