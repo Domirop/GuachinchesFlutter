@@ -93,6 +93,13 @@ class _RestaurantPhotosGalleryState extends State<RestaurantPhotosGallery> {
                   child: CachedNetworkImage(
                     imageUrl: widget.urls[i],
                     fit: BoxFit.contain,
+                    // Decodifica a ~2× el ancho de pantalla en píxeles: nítido
+                    // con zoom y sin cargar fotos de 4000 px en memoria.
+                    memCacheWidth: (MediaQuery.sizeOf(context).width *
+                            MediaQuery.devicePixelRatioOf(context) *
+                            2)
+                        .round()
+                        .clamp(800, 2600),
                     placeholder: (_, __) => const SizedBox.shrink(),
                     errorWidget: (_, __, ___) => const Center(
                       child: Icon(Icons.broken_image_outlined,
