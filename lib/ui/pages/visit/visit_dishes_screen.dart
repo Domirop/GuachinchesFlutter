@@ -271,14 +271,7 @@ class GmDishCard extends StatelessWidget {
     final gm = GmColors.of(context);
     Widget photo = dish.photoUrl != null
         ? GmPhoto(dish.photoUrl, decodeWidth: 520)
-        : GmFill(
-            child: Center(
-              child: Opacity(
-                opacity: 0.5,
-                child: GmGlyph(GmGlyphKind.copa, size: 28),
-              ),
-            ),
-          );
+        : const GmDishNoPhoto(glyphSize: 30);
     if (heroTag != null) photo = Hero(tag: heroTag!, child: photo);
     final img = ClipRRect(
       borderRadius: BorderRadius.circular(photoRadius),
@@ -328,6 +321,32 @@ class GmDishCard extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Hueco de un plato sin foto: banda crema con el glifo de plato (mismo
+/// aspecto en la ficha, la tira del reel y «Lo que probaron»), en lugar de
+/// una tarjeta gris vacía.
+class GmDishNoPhoto extends StatelessWidget {
+  final double glyphSize;
+
+  /// Colores fijos claros (tarjetas blancas sobre el vídeo del reel).
+  final bool alwaysLight;
+
+  const GmDishNoPhoto({super.key, this.glyphSize = 26, this.alwaysLight = false});
+
+  @override
+  Widget build(BuildContext context) {
+    final gm = GmColors.of(context);
+    final bg = alwaysLight ? const Color(0xFFF2E8D5) : gm.band;
+    final ink = alwaysLight ? const Color(0xFF8A6A3A) : gm.bandInk;
+    return ColoredBox(
+      color: bg,
+      child: Center(
+        child: GmIcon(GmIcons.dish,
+            size: glyphSize, color: ink.withValues(alpha: 0.7)),
       ),
     );
   }

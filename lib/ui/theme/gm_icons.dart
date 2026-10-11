@@ -136,6 +136,11 @@ class GmIcons {
       '<rect x="3.5" y="3.5" width="17" height="17" rx="5"/><path d="M3.5 8.5h17M8.5 3.5l3 5M14 3.5l3 5" stroke-linecap="round"/><path d="M10.3 11.6v5.2l4.4-2.6z" fill="currentColor" stroke="none"/>',
       attrs:
           'fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"');
+  /// Plato con cubiertos (platos sin foto).
+  static final dish = _wrap(
+      '<circle cx="12" cy="12.5" r="4.8"/><circle cx="12" cy="12.5" r="2.1"/><path d="M2.6 4v4.4M5 4v4.4M2.6 8.4a1.2 1.2 0 002.4 0M3.8 9.7V20M20.6 4c-1.3.8-2 2.5-2 4.6V12h2v8"/>',
+      attrs:
+          'fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"');
   static final pause = _wrap(
       '<rect x="6" y="4.5" width="4.2" height="15" rx="1.4"/><rect x="13.8" y="4.5" width="4.2" height="15" rx="1.4"/>',
       attrs: 'fill="currentColor"');
