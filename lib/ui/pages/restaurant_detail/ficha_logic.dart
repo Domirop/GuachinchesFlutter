@@ -116,8 +116,9 @@ FichaFeature? fichaServiceFeature(String raw) {
       return null;
   }
   if (k.isEmpty) return null;
-  final pretty = k[0].toUpperCase() + k.substring(1);
-  return FichaFeature(pretty, FichaFeatureGlyph.ninguno);
+  // Claves libres («permite mascotas», «zona infantil»…): misma
+  // normalización que las categorías para no duplicar chips.
+  return fichaCategoryFeature(k);
 }
 
 /// Categoría del local → característica con glifo y etiqueta corregida
@@ -208,7 +209,22 @@ String fichaQuote(String raw) {
       '');
   t = t.replaceAll(RegExp(r'^[«"“]+|[»"”]+$'), '').trim();
   if (t.isEmpty) return '';
+  // Las citas extraídas a veces empiezan en minúscula: mayúscula inicial
+  // (también tras «¡» o «¿»).
+  final m = RegExp(r'^([¡¿…\s]*)(\p{Ll})', unicode: true).firstMatch(t);
+  if (m != null) {
+    t = m.group(1)! + m.group(2)!.toUpperCase() + t.substring(m.end);
+  }
   return '«$t»';
+}
+
+/// ¿Parece una frase completa? (empieza en mayúscula —o ¡/¿— en el
+/// original). Las que empiezan en minúscula suelen ser fragmentos.
+bool fichaLooksComplete(String raw) {
+  final t = raw.trim().replaceAll(RegExp(r'^[«"“]+'), '');
+  if (t.isEmpty) return false;
+  final first = t[0];
+  return first == '¡' || first == '¿' || first != first.toLowerCase();
 }
 
 /// Cita del teaser de la visita: literal, positiva si la hay, distinta de
@@ -219,8 +235,11 @@ String? fichaTeaserQuote(Visit v, List<ShortQuote> shortQuotes) {
       .where((q) => q.text.trim().isNotEmpty && !used.contains(_norm(q.text)))
       .toList();
   if (candidates.isEmpty) return null;
-  // Preferimos las positivas y cortas (caben en dos líneas).
+  // Preferimos frases completas, positivas y cortas (caben en dos líneas).
   candidates.sort((a, b) {
+    final ca = fichaLooksComplete(a.text) ? 0 : 1;
+    final cb = fichaLooksComplete(b.text) ? 0 : 1;
+    if (ca != cb) return ca.compareTo(cb);
     final pa = (a.sentiment ?? '').startsWith('pos') ? 0 : 1;
     final pb = (b.sentiment ?? '').startsWith('pos') ? 0 : 1;
     if (pa != pb) return pa.compareTo(pb);
@@ -536,6 +555,24 @@ List<String> fichaPhotoUrls(Restaurant r) {
   return urls;
 }
 
+/// Miniaturas de una visita de mejor a peor: maxres de YouTube, la
+/// original (hq) y la foto del local. Para usar con `GmPhoto.fallbacks`.
+List<String> fichaVisitThumbs(Visit v) {
+  final out = <String>[];
+  final best = fichaVisitThumb(v);
+  if (best != null) out.add(best);
+  final t = v.thumbnail;
+  if (t != null && t.isNotEmpty && !out.contains(t)) out.add(t);
+  final id = v.youtubeVideoId;
+  if (id != null && id.isNotEmpty && !id.contains('-')) {
+    final hq = 'https://i.ytimg.com/vi/$id/hqdefault.jpg';
+    if (!out.contains(hq)) out.add(hq);
+  }
+  final m = v.restaurant?.mainFoto;
+  if (m != null && m.isNotEmpty && !out.contains(m)) out.add(m);
+  return out;
+}
+
 /// Miniatura de YouTube de una visita: maxres si es posible.
 String? fichaVisitThumb(Visit v) {
   final t = v.thumbnail;
@@ -548,7 +585,8 @@ String? fichaVisitThumb(Visit v) {
   if (id != null && id.isNotEmpty && !id.contains('-')) {
     return 'https://i.ytimg.com/vi/$id/maxresdefault.jpg';
   }
-  return v.restaurant?.mainFoto;
+  final m = v.restaurant?.mainFoto;
+  return (m != null && m.isNotEmpty) ? m : null;
 }
 
 /// «1:35» desde segundos o desde el texto del backend («PT1M35S», «1:35»).

@@ -89,6 +89,16 @@ void main() {
       ]);
       expect(fichaTakesReservations(v), isTrue);
     });
+
+    test('servicio «permite mascotas» no duplica la categoría', () {
+      final r = Restaurant(id: 'r', categoriaRestaurantes: [_cat('Permite mascotas')]);
+      final v = [
+        _visit('a', '2026-01-01T00:00:00Z',
+            services: ['permite_mascotas', 'comida para llevar']),
+      ];
+      expect(fichaFeatures(r, v).map((f) => f.label),
+          ['Admite mascotas', 'Comida para llevar']);
+    });
   });
 
   group('Citas', () {
@@ -97,6 +107,17 @@ void main() {
           '«Son caseritos, mi niña.»');
       expect(fichaQuote('"Pídanselo porque están superricos."'),
           '«Pídanselo porque están superricos.»');
+    });
+
+    test('mayúscula inicial y preferencia por frases completas', () {
+      expect(fichaQuote('famoso bocadillo de cochino'),
+          '«Famoso bocadillo de cochino»');
+      expect(fichaQuote('¡qué rico!'), '«¡Qué rico!»');
+      final v = _visit('a', '2026-01-01T00:00:00Z', quotes: const [
+        VisitQuote(text: 'famoso bocadillo de cochino', sentiment: 'positive'),
+        VisitQuote(text: 'Qué buenas están las arepas aquí.', sentiment: 'positive'),
+      ]);
+      expect(fichaTeaserQuote(v, const []), '«Qué buenas están las arepas aquí.»');
     });
 
     test('la del teaser no repite una del short y prefiere positivas', () {
