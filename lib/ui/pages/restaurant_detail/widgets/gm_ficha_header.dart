@@ -380,10 +380,9 @@ class _SheetTop extends StatelessWidget {
                 ),
                 if (meta.isNotEmpty) ...[
                   const SizedBox(height: 4),
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    physics: const NeverScrollableScrollPhysics(),
-                    child: Row(children: meta),
+                  Wrap(
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: meta,
                   ),
                 ],
               ],

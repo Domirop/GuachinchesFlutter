@@ -186,7 +186,6 @@ class _NewBadge extends StatelessWidget {
       child: Container(
         height: 22,
         padding: const EdgeInsets.symmetric(horizontal: 9),
-        alignment: Alignment.center,
         decoration: BoxDecoration(
           color: GmColors.badgeRed,
           borderRadius: BorderRadius.circular(GmRadius.pill),
@@ -199,13 +198,18 @@ class _NewBadge extends StatelessWidget {
             ),
           ],
         ),
-        child: const Text(
-          'Nuevo',
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w800,
-            letterSpacing: 0.2,
-            color: Colors.white,
+        // Inside a Wrap the badge gets the full line width; widthFactor keeps it
+        // hugging the label instead of stretching into a bar.
+        child: const Center(
+          widthFactor: 1,
+          child: Text(
+            'Nuevo',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.2,
+              color: Colors.white,
+            ),
           ),
         ),
       ),
