@@ -2,6 +2,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:guachinches/core/logging/app_logger.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:guachinches/data/cubit/location/location_cubit.dart';
 import 'package:guachinches/data/cubit/location/location_state.dart';
@@ -34,11 +35,15 @@ String _hex(Color c) =>
 Future<void> _openUrl(String url) async {
   final u = url.startsWith('http') ? url : 'https://$url';
   final uri = Uri.tryParse(u);
-  if (uri == null) return;
+  if (uri == null) {
+    AppLogger.warn('restaurant-detail', 'enlace no válido: $url');
+    return;
+  }
   try {
     await launchUrl(uri, mode: LaunchMode.externalApplication);
-  } catch (_) {
-    // Sin app/navegador disponible (simulador): no-op.
+  } catch (e) {
+    // Sin app/navegador disponible (p. ej. simulador).
+    AppLogger.warn('restaurant-detail', 'no se pudo abrir $u: $e');
   }
 }
 
@@ -494,6 +499,9 @@ class _LightMap extends StatelessWidget {
   {"elementType":"labels.text.fill","stylers":[{"color":"${_hex(gm.mapLabel)}"}]},
   {"elementType":"labels.text.stroke","stylers":[{"color":"${_hex(gm.mapLand)}"}]},
   {"featureType":"administrative","elementType":"geometry","stylers":[{"visibility":"off"}]},
+  {"featureType":"administrative.locality","elementType":"labels","stylers":[{"visibility":"off"}]},
+  {"featureType":"administrative.neighborhood","elementType":"labels","stylers":[{"visibility":"off"}]},
+  {"featureType":"administrative.land_parcel","stylers":[{"visibility":"off"}]},
   {"featureType":"poi","stylers":[{"visibility":"off"}]},
   {"featureType":"poi.park","elementType":"geometry","stylers":[{"visibility":"on"},{"color":"${_hex(gm.mapPark)}"}]},
   {"featureType":"road","elementType":"geometry.fill","stylers":[{"color":"${_hex(gm.mapRoad)}"}]},
@@ -553,7 +561,8 @@ class _LightMap extends StatelessWidget {
                   left: 10,
                   top: 10,
                   child: GmPhotoChip(
-                    leading: GmIcon(GmIcons.car, size: 13, color: gm.photoInk),
+                    leading: GmIcon(GmIcons.navArrow,
+                        size: 11, color: GmColors.atlantico),
                     label: dist,
                   ),
                 ),
@@ -1209,7 +1218,8 @@ class _VisitCard extends StatelessWidget {
                                   children: [
                                     const ColoredBox(color: Color(0xFF1C120C)),
                                     GmPhoto(fichaVisitThumb(v),
-                                        decodeWidth: 900),
+                                        decodeWidth: 900,
+                                        fallbacks: fichaVisitThumbs(v)),
                                     const DecoratedBox(
                                       decoration: BoxDecoration(
                                         gradient: LinearGradient(

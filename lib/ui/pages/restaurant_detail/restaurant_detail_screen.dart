@@ -262,8 +262,9 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen>
     final sanitized = phone.replaceAll(RegExp(r'[^\d+]'), '');
     try {
       await launchUrl(Uri(scheme: 'tel', path: sanitized));
-    } catch (_) {
-      // Sin dialer disponible (p.ej. simulador): no-op.
+    } catch (e) {
+      // Sin dialer disponible (p. ej. simulador).
+      AppLogger.warn('restaurant-detail', 'no se pudo llamar: $e');
     }
   }
 
