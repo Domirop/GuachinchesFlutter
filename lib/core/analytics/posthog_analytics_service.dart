@@ -26,7 +26,12 @@ class PostHogAnalyticsService implements AnalyticsService {
       // Session replay con masking total (maskAllTexts/maskAllImages = true por
       // defecto) → privacy-safe / GDPR. Se puede desenmascarar selectivamente
       // más adelante con PostHogMaskWidget si se quiere ver alguna pantalla.
-      ..sessionReplay = true;
+      ..sessionReplay = true
+      // Una captura cada 2 s (por defecto 1 s): cada captura lee la pantalla
+      // entera de la GPU, y con vídeo a pantalla completa (reel de la
+      // visita) cambia en todas. El vídeo además va con PostHogMaskWidget.
+      // La tasa de muestreo (sampleRate) es decisión de producto: sin tocar.
+      ..sessionReplayConfig.throttleDelay = const Duration(seconds: 2);
     await Posthog().setup(config);
   }
 
