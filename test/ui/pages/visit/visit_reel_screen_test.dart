@@ -6,7 +6,9 @@ import 'package:guachinches/config/app_theme.dart';
 import 'package:guachinches/data/cubit/location/location_cubit.dart';
 import 'package:guachinches/data/cubit/location/location_state.dart';
 import 'package:guachinches/data/model/Visit.dart';
+import 'package:guachinches/ui/pages/visit/visit_dishes_screen.dart';
 import 'package:guachinches/ui/pages/visit/visit_screen.dart';
+import 'package:video_player/video_player.dart';
 
 class _Loc extends LocationCubit {
   _Loc() {
@@ -98,9 +100,28 @@ void main() {
       expect(find.text('2 platos · 2 les encantaron'), findsOneWidget);
       expect(tester.takeException(), isNull);
 
-      // Atrás con la hoja abierta la pliega; Cerrar sale del reel.
-      await tester.tap(find.bySemanticsLabel('Plegar los platos y el sitio'));
+      // Platos sin foto: el hueco con el glifo (tira y rejilla de la hoja).
+      expect(find.byType(GmDishNoPhoto), findsNWidgets(4));
+
+      // Atrás (botón del sistema) con la hoja abierta: la pliega y sigue en
+      // el reel.
+      await tester.binding.handlePopRoute();
       await tester.pumpAndSettle(const Duration(milliseconds: 100));
+      expect(find.text('Desliza para ver los platos y el sitio'), findsOneWidget);
+      expect(find.text('abrir'), findsNothing);
+
+      // Gesto de volver desde el borde izquierdo con la hoja abierta: también
+      // la pliega.
+      await tester.drag(find.text('Desliza para ver los platos y el sitio'),
+          const Offset(0, -700));
+      await tester.pumpAndSettle(const Duration(milliseconds: 100));
+      expect(find.text('Desliza para volver al vídeo'), findsOneWidget);
+      await tester.dragFrom(const Offset(4, 300), const Offset(220, 0));
+      await tester.pumpAndSettle(const Duration(milliseconds: 100));
+      expect(find.text('Desliza para ver los platos y el sitio'), findsOneWidget);
+      expect(find.text('abrir'), findsNothing);
+
+      // Plegada, Cerrar sale del reel.
       await tester.tap(find.bySemanticsLabel('Cerrar'));
       await tester.pumpAndSettle(const Duration(milliseconds: 100));
       expect(find.text('abrir'), findsOneWidget);
@@ -117,5 +138,29 @@ void main() {
       VisitQuote(text: 'Son caseritos.', timestamp: '0:42'),
     ]);
     expect(visitReelQuote(v), (text: '«Son caseritos.»', caption: 'Minuto 0:42'));
+  });
+
+  testWidgets('barra de historia: un solo tramo con el avance del vídeo',
+      (tester) async {
+    final progress = ValueNotifier(const VideoPlayerValue(
+      duration: Duration(seconds: 100),
+      position: Duration(seconds: 25),
+    ));
+    addTearDown(progress.dispose);
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(body: VisitStoryProgress(progress: progress)),
+    ));
+    final bars = tester
+        .widgetList<FractionallySizedBox>(find.byType(FractionallySizedBox))
+        .toList();
+    expect(bars, hasLength(1));
+    expect(bars.single.widthFactor, closeTo(0.25, 0.001));
+
+    progress.value = progress.value.copyWith(position: const Duration(seconds: 100));
+    await tester.pump();
+    expect(
+        tester.widget<FractionallySizedBox>(find.byType(FractionallySizedBox))
+            .widthFactor,
+        1.0);
   });
 }

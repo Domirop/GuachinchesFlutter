@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/cupertino.dart' show CupertinoActivityIndicator;
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:guachinches/core/app_route_observer.dart';
@@ -32,6 +33,7 @@ import 'package:guachinches/ui/theme/gm_tokens.dart';
 import 'package:guachinches/ui/theme/gm_widgets.dart';
 import 'package:guachinches/utils/open_now_utils.dart';
 import 'package:guachinches/utils/restaurant_type_label.dart';
+import 'package:posthog_flutter/posthog_flutter.dart' show PostHogMaskWidget;
 import 'package:share_plus/share_plus.dart' show SharePlus, ShareParams;
 import 'package:url_launcher/url_launcher.dart';
 import 'package:video_player/video_player.dart';
@@ -74,8 +76,8 @@ class _VisitDetailPageState extends State<VisitDetailPage>
   late RemoteRepository _repo;
   late VisitDetailPresenter _presenter;
 
+  // Sin visita ni error = cargando.
   vm.Visit? _visit;
-  bool _loading = true;
   String? _error;
 
   // Vídeo en la propia pantalla.
@@ -91,7 +93,8 @@ class _VisitDetailPageState extends State<VisitDetailPage>
   final DraggableScrollableController _sheet = DraggableScrollableController();
   final ValueNotifier<double> _extent = ValueNotifier(0);
   bool _sheetOpen = false;
-  static const double _sheetMax = 0.9;
+  // Abierta deja a la vista la fila de Cerrar · Sonido · Compartir.
+  static const double _sheetMax = 0.85;
 
   @override
   void initState() {
@@ -102,7 +105,6 @@ class _VisitDetailPageState extends State<VisitDetailPage>
     final initial = widget.initialVisit;
     if (initial != null) {
       _visit = initial;
-      _loading = false;
       _initVideo(initial);
     }
     _presenter.loadVisit(widget.visitId);
@@ -132,10 +134,7 @@ class _VisitDetailPageState extends State<VisitDetailPage>
   void showLoading() {
     // Con la visita ya pintada, el refresco va en silencio.
     if (!mounted || _visit != null) return;
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+    setState(() => _error = null);
   }
 
   @override
@@ -143,7 +142,6 @@ class _VisitDetailPageState extends State<VisitDetailPage>
     if (!mounted) return;
     setState(() {
       _visit = visit;
-      _loading = false;
       _error = null;
     });
     _initVideo(visit);
@@ -157,10 +155,7 @@ class _VisitDetailPageState extends State<VisitDetailPage>
           'no se pudo refrescar la visita ${widget.visitId}: $message');
       return;
     }
-    setState(() {
-      _error = message;
-      _loading = false;
-    });
+    setState(() => _error = message);
   }
 
   // ===== Vídeo =====
@@ -309,6 +304,12 @@ class _VisitDetailPageState extends State<VisitDetailPage>
     return false;
   }
 
+  double _peekFraction(BuildContext context) =>
+      (_peekHeight(context) / MediaQuery.sizeOf(context).height)
+          .clamp(0.05, 0.3);
+
+  void _collapseSheet() => _animateSheet(_peekFraction(context));
+
   void _animateSheet(double to) {
     if (!_sheet.isAttached) return;
     if (GmMotion.reduced(context)) {
@@ -343,9 +344,7 @@ class _VisitDetailPageState extends State<VisitDetailPage>
         // Atrás con la hoja abierta: primero se pliega.
         canPop: !_sheetOpen,
         onPopInvokedWithResult: (didPop, _) {
-          if (!didPop)
-            _animateSheet(
-                _peekHeight(context) / MediaQuery.sizeOf(context).height);
+          if (!didPop) _collapseSheet();
         },
         child: Scaffold(
           backgroundColor: Colors.black,
@@ -360,7 +359,7 @@ class _VisitDetailPageState extends State<VisitDetailPage>
     final media = MediaQuery.of(context);
     final top = media.padding.top;
     final peek = _peekHeight(context);
-    final peekF = (peek / media.size.height).clamp(0.05, 0.3);
+    final peekF = _peekFraction(context);
     final dishes = fichaNamedDishes(v);
     final showPlay = !_inline || _userPaused;
 
@@ -380,9 +379,14 @@ class _VisitDetailPageState extends State<VisitDetailPage>
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onTap: _hasAnyVideo ? _onVideoTap : null,
-                child: _VideoLayer(
-                  visit: v,
-                  video: _inline && _videoReady ? _video : null,
+                // Fuera de las capturas del session replay: cada fotograma
+                // de vídeo cambiaría la captura (lectura de GPU por
+                // segundo) y se grabaría el vídeo sin máscara.
+                child: PostHogMaskWidget(
+                  child: _VideoLayer(
+                    visit: v,
+                    video: _inline && _videoReady ? _video : null,
+                  ),
                 ),
               ),
             ),
@@ -433,7 +437,7 @@ class _VisitDetailPageState extends State<VisitDetailPage>
                 ),
               ),
             ),
-          // ② Barras de historia.
+          // ② Barra de historia (una: el avance del vídeo).
           if (_inline && _videoReady)
             Positioned(
               left: 16,
@@ -442,14 +446,61 @@ class _VisitDetailPageState extends State<VisitDetailPage>
               child: IgnorePointer(
                 child: Semantics(
                   label: 'Avance del vídeo',
-                  child: _StoryBars(
-                    count: dishes.length.clamp(1, 8),
-                    video: _video!,
-                  ),
+                  child: VisitStoryProgress(progress: _video!),
                 ),
               ),
             ),
-          // ③ Cerrar · Sonido · Compartir.
+          // ④ Texto de la visita + tira de platos sobre el vídeo.
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: peek + 22,
+            child: MediaQuery.withClampedTextScaling(
+              maxScaleFactor: 1.3,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    // Los toques sobre el texto llegan al vídeo (pausa).
+                    child: IgnorePointer(
+                      child: GmRise(
+                        trigger: GmTrigger.mount,
+                        child: _ReelCaption(visit: v, title: widget.title),
+                      ),
+                    ),
+                  ),
+                  if (dishes.isNotEmpty) ...[
+                    const SizedBox(height: 30),
+                    GmRise(
+                      trigger: GmTrigger.mount,
+                      index: 2,
+                      child: _DishStrip(dishes: dishes, onTap: _openDishes),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          // Velo sobre el vídeo al subir la hoja (tocar → plegar).
+          Positioned.fill(
+            child: ValueListenableBuilder<double>(
+              valueListenable: _extent,
+              builder: (_, e, __) {
+                final t = ((e - peekF) / (_sheetMax - peekF)).clamp(0.0, 1.0);
+                if (t <= 0) return const SizedBox.shrink();
+                return GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => _animateSheet(peekF),
+                  child: ColoredBox(
+                      color: Colors.black.withValues(alpha: 0.55 * t)),
+                );
+              },
+            ),
+          ),
+          // ③ Cerrar · Sonido · Compartir (sobre el velo: Cerrar sigue a mano
+          // con la hoja abierta).
           Positioned(
             left: 16,
             right: 16,
@@ -480,52 +531,6 @@ class _VisitDetailPageState extends State<VisitDetailPage>
                   onTap: _share,
                 ),
               ],
-            ),
-          ),
-          // ④ Texto de la visita + tira de platos sobre el vídeo.
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: peek + 22,
-            child: MediaQuery.withClampedTextScaling(
-              maxScaleFactor: 1.3,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: GmRise(
-                      trigger: GmTrigger.mount,
-                      child: _ReelCaption(visit: v, title: widget.title),
-                    ),
-                  ),
-                  if (dishes.isNotEmpty) ...[
-                    const SizedBox(height: 30),
-                    GmRise(
-                      trigger: GmTrigger.mount,
-                      index: 2,
-                      child: _DishStrip(dishes: dishes, onTap: _openDishes),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-          // Velo sobre el vídeo al subir la hoja (tocar → plegar).
-          Positioned.fill(
-            child: ValueListenableBuilder<double>(
-              valueListenable: _extent,
-              builder: (_, e, __) {
-                final t = ((e - peekF) / (_sheetMax - peekF)).clamp(0.0, 1.0);
-                if (t <= 0) return const SizedBox.shrink();
-                return GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () => _animateSheet(peekF),
-                  child: ColoredBox(
-                      color: Colors.black.withValues(alpha: 0.55 * t)),
-                );
-              },
             ),
           ),
           // ⑤ La hoja que asoma.
@@ -574,6 +579,18 @@ class _VisitDetailPageState extends State<VisitDetailPage>
               ),
             ),
           ),
+          // Con la hoja abierta el gesto de volver de iOS no puede sacar de
+          // la pantalla (PopScope la retiene para plegarla): este borde
+          // izquierdo recoge ese mismo gesto y pliega la hoja. Plegada, el
+          // gesto del sistema vuelve atrás como siempre.
+          if (_sheetOpen)
+            Positioned(
+              left: 0,
+              top: 0,
+              bottom: 0,
+              width: 20,
+              child: _EdgeBackSwipe(onBack: _collapseSheet),
+            ),
         ],
       ),
     );
@@ -766,45 +783,62 @@ class _PlayDisc extends StatelessWidget {
   }
 }
 
-/// Barras de historia: el avance del vídeo repartido en [count] tramos.
-class _StoryBars extends StatelessWidget {
-  final int count;
-  final VideoPlayerController video;
-  const _StoryBars({required this.count, required this.video});
+/// Barra de historia: un solo tramo con el avance del vídeo (no hay una
+/// línea de tiempo por platos que repartir en tramos).
+class VisitStoryProgress extends StatelessWidget {
+  final ValueListenable<VideoPlayerValue> progress;
+  const VisitStoryProgress({super.key, required this.progress});
 
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder<VideoPlayerValue>(
-      valueListenable: video,
+      valueListenable: progress,
       builder: (_, val, __) {
         final d = val.duration.inMilliseconds;
         final p = d <= 0 ? 0.0 : val.position.inMilliseconds / d;
-        return Row(
-          children: [
-            for (var i = 0; i < count; i++) ...[
-              if (i > 0) const SizedBox(width: 4),
-              Expanded(
-                child: Container(
-                  height: 3,
-                  decoration: BoxDecoration(
-                    color: const Color(0x59FFFFFF),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                  alignment: Alignment.centerLeft,
-                  child: FractionallySizedBox(
-                    widthFactor: (p * count - i).clamp(0.0, 1.0),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                  ),
-                ),
+        return Container(
+          height: 3,
+          decoration: BoxDecoration(
+            color: const Color(0x59FFFFFF),
+            borderRadius: BorderRadius.circular(2),
+          ),
+          alignment: Alignment.centerLeft,
+          child: FractionallySizedBox(
+            widthFactor: p.clamp(0.0, 1.0),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(2),
               ),
-            ],
-          ],
+            ),
+          ),
         );
+      },
+    );
+  }
+}
+
+/// Borde izquierdo que reconoce el gesto de volver (arrastre hacia la
+/// derecha) y llama a [onBack].
+class _EdgeBackSwipe extends StatefulWidget {
+  final VoidCallback onBack;
+  const _EdgeBackSwipe({required this.onBack});
+
+  @override
+  State<_EdgeBackSwipe> createState() => _EdgeBackSwipeState();
+}
+
+class _EdgeBackSwipeState extends State<_EdgeBackSwipe> {
+  double _dx = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onHorizontalDragStart: (_) => _dx = 0,
+      onHorizontalDragUpdate: (d) => _dx += d.delta.dx,
+      onHorizontalDragEnd: (d) {
+        if (_dx > 50 || (d.primaryVelocity ?? 0) > 400) widget.onBack();
       },
     );
   }
@@ -1001,7 +1035,8 @@ class _DishStrip extends StatelessWidget {
                             children: [
                               d.photoUrl != null
                                   ? GmPhoto(d.photoUrl, decodeWidth: 260)
-                                  : const ColoredBox(color: Color(0xFFEDE6DA)),
+                                  : const GmDishNoPhoto(
+                                      glyphSize: 22, alwaysLight: true),
                               if (d.isTop)
                                 Positioned(
                                   left: 4,
