@@ -747,3 +747,50 @@ Visit? fichaSelectedVisit(List<Visit> sorted, String? selectedId) {
   }
   return sorted.first;
 }
+
+/// Segundos desde el texto de duración del backend («PT1M35S», «1:35»,
+/// «95»). `null` si no se entiende.
+int? fichaDurationSeconds(String? raw) {
+  final t = raw?.trim() ?? '';
+  if (t.isEmpty) return null;
+  final iso = RegExp(r'^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$').firstMatch(t);
+  if (iso != null) {
+    final h = int.tryParse(iso.group(1) ?? '0') ?? 0;
+    final m = int.tryParse(iso.group(2) ?? '0') ?? 0;
+    final sec = int.tryParse(iso.group(3) ?? '0') ?? 0;
+    final total = h * 3600 + m * 60 + sec;
+    return total > 0 ? total : null;
+  }
+  final parts = t.split(':').map((p) => int.tryParse(p.trim())).toList();
+  if (parts.any((p) => p == null)) return null;
+  var total = 0;
+  for (final p in parts) {
+    total = total * 60 + p!;
+  }
+  return total > 0 ? total : null;
+}
+
+/// El short del local como portada cuando no hay visitas analizadas: una
+/// visita sintética con el id de YouTube, la miniatura, la duración y las
+/// citas del short. `null` si el local no tiene short.
+Visit? fichaShortAsVisit(Restaurant r) {
+  final id = r.shortVideoId?.trim();
+  if (id == null || id.isEmpty) return null;
+  return Visit(
+    id: 'short-$id',
+    restaurantId: r.id,
+    youtubeVideoId: id,
+    thumbnail: (r.shortThumbnailUrl?.trim().isNotEmpty ?? false)
+        ? r.shortThumbnailUrl!.trim()
+        : null,
+    durationSeconds: fichaDurationSeconds(r.shortDuration),
+    quotes: [
+      for (final q in r.shortQuotes)
+        VisitQuote(
+          text: q.text,
+          sentiment: q.isWarning ? 'negative' : 'positive',
+          timestamp: q.timestamp,
+        ),
+    ],
+  );
+}

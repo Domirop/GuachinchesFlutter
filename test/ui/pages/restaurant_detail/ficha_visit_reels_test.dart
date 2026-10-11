@@ -3,8 +3,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:guachinches/config/app_theme.dart';
 import 'package:guachinches/data/model/Visit.dart';
 import 'package:guachinches/data/model/restaurant.dart';
+import 'package:guachinches/data/model/short_quote.dart';
 import 'package:guachinches/ui/pages/restaurant_detail/ficha_logic.dart';
 import 'package:guachinches/ui/pages/restaurant_detail/widgets/ficha_visit_reels.dart';
+import 'package:guachinches/ui/pages/visit/visit_dishes_screen.dart';
 
 Visit _visit(String id, String date, List<String> dishes,
         {List<VisitQuote> quotes = const []}) =>
@@ -20,7 +22,8 @@ Visit _visit(String id, String date, List<String> dishes,
       quotes: quotes,
     );
 
-Future<List<String>> _pump(WidgetTester tester, List<Visit> visits) async {
+Future<List<String>> _pump(WidgetTester tester, List<Visit> visits,
+    {Restaurant? restaurant}) async {
   final opened = <String>[];
   tester.view.physicalSize = const Size(1206, 2622);
   tester.view.devicePixelRatio = 3;
@@ -30,7 +33,7 @@ Future<List<String>> _pump(WidgetTester tester, List<Visit> visits) async {
     home: Scaffold(
       body: SingleChildScrollView(
         child: FichaVisitReels(
-          restaurant: Restaurant(id: 'r'),
+          restaurant: restaurant ?? Restaurant(id: 'r'),
           visits: fichaSortedVisits(visits),
           onOpenVisit: (v) => opened.add(v.id),
         ),
@@ -100,6 +103,46 @@ void main() {
     await tester.tap(find.bySemanticsLabel('Ver la visita del 8 oct 2026'));
     await tester.pumpAndSettle();
     expect(opened, ['a']);
+    expect(tester.takeException(), isNull);
+    semantics.dispose();
+  });
+
+  testWidgets('platos sin foto: hueco con el glifo de plato, no un gris vacío',
+      (tester) async {
+    await _pump(tester, [
+      _visit('a', '2026-03-10T12:58:49Z', ['Arepas de cochino', 'Bocadillos']),
+    ]);
+    // Los dos platos de la rejilla sin foto llevan el hueco con glifo.
+    expect(find.byType(GmDishNoPhoto), findsNWidgets(2));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('sin visitas pero con short: una portada del short y sus citas',
+      (tester) async {
+    final semantics = tester.ensureSemantics();
+    final r = Restaurant(id: 'r')
+      ..shortVideoId = 'aUTCrn_SmEo'
+      ..shortDuration = 'PT1M35S'
+      ..shortQuotes = const [
+        ShortQuote(text: 'Pídanselo porque están superricos.'),
+        ShortQuote(text: 'La pechada para subir.', isWarning: true),
+      ];
+    final opened = await _pump(tester, const [], restaurant: r);
+    expect(find.text('YouTube Shorts'), findsOneWidget);
+    expect(find.text('El short de Jonay y Joana'), findsOneWidget);
+    expect(find.text('Short de Jonay y Joana'), findsOneWidget);
+    expect(find.text('Short · 1:35'), findsOneWidget);
+    expect(find.bySemanticsLabel('Ver el short en YouTube'), findsOneWidget);
+    expect(find.bySemanticsLabel('Ver en YouTube'), findsOneWidget);
+    // Una cita en la columna y el resto en «Lo que dicen en el vídeo».
+    expect(find.text('«Pídanselo porque están superricos.»'), findsOneWidget);
+    expect(find.text('Lo que dicen en el vídeo'), findsOneWidget);
+    expect(find.text('«La pechada para subir.»'), findsOneWidget);
+    // Sin platos ni «Ver visita completa» (no hay visita que abrir).
+    expect(find.text('Ver visita completa'), findsNothing);
+    expect(opened, isEmpty);
+    expect(FichaVisitReels.shouldRender(r, const []), isTrue);
+    expect(FichaVisitReels.shouldRender(Restaurant(id: 'x'), const []), isFalse);
     expect(tester.takeException(), isNull);
     semantics.dispose();
   });

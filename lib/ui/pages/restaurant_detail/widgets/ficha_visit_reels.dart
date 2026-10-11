@@ -9,6 +9,9 @@ import 'package:guachinches/ui/pages/restaurant_detail/ficha_logic.dart';
 import 'package:guachinches/ui/pages/restaurant_detail/widgets/dishes_section.dart';
 import 'package:guachinches/ui/pages/restaurant_detail/widgets/ficha_sections.dart'
     show FichaSayingsCarousel;
+import 'package:guachinches/ui/components/video/youtube_embed_sheet.dart';
+import 'package:guachinches/ui/pages/visit/visit_dishes_screen.dart'
+    show GmDishNoPhoto;
 import 'package:guachinches/ui/theme/gm_icons.dart';
 import 'package:guachinches/ui/theme/gm_motion.dart';
 import 'package:guachinches/ui/theme/gm_tokens.dart';
@@ -110,6 +113,11 @@ class FichaVisitReels extends StatefulWidget {
     this.teaserQuote,
   });
 
+  /// Con visitas, o sin ellas si el local tiene short (una portada con el
+  /// short, «Ver en YouTube» y sus citas).
+  static bool shouldRender(Restaurant r, List<Visit> visits) =>
+      visits.isNotEmpty || fichaShortAsVisit(r) != null;
+
   @override
   State<FichaVisitReels> createState() => _FichaVisitReelsState();
 }
@@ -117,7 +125,13 @@ class FichaVisitReels extends StatefulWidget {
 class _FichaVisitReelsState extends State<FichaVisitReels> {
   String? _selectedId;
 
-  void _tapCover(Visit v, bool selected) {
+  void _tapCover(Visit v, bool selected, {bool short = false}) {
+    if (short) {
+      // Solo el short (sin visita analizada): el embed de YouTube de siempre.
+      final id = fichaYoutubeId(v);
+      if (id != null) YoutubeEmbedSheet.show(context, videoId: id);
+      return;
+    }
     if (selected) {
       widget.onOpenVisit(v);
       return;
@@ -130,7 +144,9 @@ class _FichaVisitReelsState extends State<FichaVisitReels> {
   Widget build(BuildContext context) {
     final gm = GmColors.of(context);
     final r = widget.restaurant;
-    final visits = widget.visits;
+    final shortOnly = widget.visits.isEmpty;
+    final shortVisit = shortOnly ? fichaShortAsVisit(r) : null;
+    final visits = shortVisit != null ? [shortVisit] : widget.visits;
     final selected = fichaSelectedVisit(visits, _selectedId);
     if (selected == null) return const SizedBox.shrink();
     final venuePhoto = fichaPhotoUrls(r).firstOrNull;
@@ -154,8 +170,9 @@ class _FichaVisitReelsState extends State<FichaVisitReels> {
         visit: v,
         index: i,
         selected: isSel,
+        short: shortOnly,
         venuePhoto: venuePhoto,
-        onTap: () => _tapCover(v, isSel),
+        onTap: () => _tapCover(v, isSel, short: shortOnly),
       );
     }
 
@@ -182,11 +199,15 @@ class _FichaVisitReelsState extends State<FichaVisitReels> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       GmEyebrow(
-                          text:
-                              '${fichaVisitCount(visits.length)} · YouTube Shorts'),
+                          text: shortOnly
+                              ? 'YouTube Shorts'
+                              : '${fichaVisitCount(visits.length)} · YouTube Shorts'),
                       Semantics(
                         header: true,
-                        child: Text('Visitas de Jonay y Joana',
+                        child: Text(
+                            shortOnly
+                                ? 'El short de Jonay y Joana'
+                                : 'Visitas de Jonay y Joana',
                             style: GmText.title2(color: gm.label)),
                       ),
                     ],
@@ -208,6 +229,7 @@ class _FichaVisitReelsState extends State<FichaVisitReels> {
                   Expanded(
                     child: _ReelInfo(
                       visit: selected,
+                      short: shortOnly,
                       quote: columnQuote,
                       height: leadH,
                     ),
@@ -245,30 +267,32 @@ class _FichaVisitReelsState extends State<FichaVisitReels> {
                       ),
               ),
             ),
-          const SizedBox(height: 10),
           // Platos de la visita elegida + «Ver visita completa».
-          AnimatedSize(
-            duration: Duration(milliseconds: reduced ? 0 : 320),
-            curve: GmMotion.settle,
-            alignment: Alignment.topCenter,
-            child: AnimatedSwitcher(
-              duration: fade,
-              switchInCurve: GmMotion.ease,
-              switchOutCurve: GmMotion.ease,
-              layoutBuilder: (current, previous) => Stack(
-                alignment: Alignment.topCenter,
-                children: [...previous, if (current != null) current],
-              ),
-              child: Padding(
-                key: ValueKey('dishes-${selected.id}'),
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: _OrderedCard(
-                  visit: selected,
-                  onOpenVisit: () => widget.onOpenVisit(selected),
+          if (!shortOnly) ...[
+            const SizedBox(height: 10),
+            AnimatedSize(
+              duration: Duration(milliseconds: reduced ? 0 : 320),
+              curve: GmMotion.settle,
+              alignment: Alignment.topCenter,
+              child: AnimatedSwitcher(
+                duration: fade,
+                switchInCurve: GmMotion.ease,
+                switchOutCurve: GmMotion.ease,
+                layoutBuilder: (current, previous) => Stack(
+                  alignment: Alignment.topCenter,
+                  children: [...previous, if (current != null) current],
+                ),
+                child: Padding(
+                  key: ValueKey('dishes-${selected.id}'),
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: _OrderedCard(
+                    visit: selected,
+                    onOpenVisit: () => widget.onOpenVisit(selected),
+                  ),
                 ),
               ),
             ),
-          ),
+          ],
           // «Lo que dicen en el vídeo».
           AnimatedSwitcher(
             duration: fade,
@@ -313,7 +337,11 @@ class _ReelCover extends StatelessWidget {
   final String? venuePhoto;
   final VoidCallback onTap;
 
+  /// Portada del short del local (sin visita analizada).
+  final bool short;
+
   const _ReelCover({
+    this.short = false,
     required this.visit,
     required this.index,
     required this.selected,
@@ -413,9 +441,11 @@ class _ReelCover extends StatelessWidget {
       identifier: 'restaurant-detail-visit-cover-$index',
       button: true,
       selected: selected,
-      label: selected
-          ? 'Ver la visita${longDate == null ? '' : ' del $longDate'}'
-          : 'Elegir la visita${longDate == null ? '' : ' del $longDate'}',
+      label: short
+          ? 'Ver el short en YouTube'
+          : selected
+              ? 'Ver la visita${longDate == null ? '' : ' del $longDate'}'
+              : 'Elegir la visita${longDate == null ? '' : ' del $longDate'}',
       excludeSemantics: true,
       child: GmPressable(
         onTap: onTap,
@@ -541,8 +571,14 @@ class _ReelInfo extends StatelessWidget {
   final Visit visit;
   final String? quote;
   final double height;
+
+  /// Solo el short del local (sin fecha de visita).
+  final bool short;
   const _ReelInfo(
-      {required this.visit, required this.quote, required this.height});
+      {required this.visit,
+      required this.quote,
+      required this.height,
+      this.short = false});
 
   Future<void> _openYoutube() async {
     final id = fichaYoutubeId(visit);
@@ -577,7 +613,7 @@ class _ReelInfo extends StatelessWidget {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Última visita',
+                  Text(short ? 'Short de Jonay y Joana' : 'Última visita',
                       style: GmText.eyebrow(color: gm.label2)),
                   if (date != null) ...[
                     const SizedBox(height: 3),
@@ -798,7 +834,7 @@ class FichaDishGrid extends StatelessWidget {
       final idx = photoDishes.indexOf(d);
       Widget photo = d.photoUrl != null
           ? GmPhoto(d.photoUrl, decodeWidth: 300)
-          : const GmFill();
+          : const GmDishNoPhoto(glyphSize: 24);
       if (idx >= 0) photo = Hero(tag: '$heroPrefix-dish-$idx', child: photo);
       return GmPressable(
         onTap: d.photoUrl == null ? null : () => onTap(d),

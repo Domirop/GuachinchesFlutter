@@ -397,4 +397,33 @@ void main() {
           ['l.jpg']);
     });
   });
+
+  group('Short sin visitas', () {
+    test('duración del short en segundos desde el texto del backend', () {
+      expect(fichaDurationSeconds('PT1M35S'), 95);
+      expect(fichaDurationSeconds('1:12'), 72);
+      expect(fichaDurationSeconds('58'), 58);
+      expect(fichaDurationSeconds(''), isNull);
+      expect(fichaDurationSeconds('raro'), isNull);
+    });
+
+    test('el short como portada: id de YouTube, miniatura, duración y citas', () {
+      final r = Restaurant(id: 'r')
+        ..shortVideoId = 'aUTCrn_SmEo'
+        ..shortDuration = 'PT1M35S'
+        ..shortQuotes = const [
+          ShortQuote(text: 'Pídanselo.'),
+          ShortQuote(text: 'La pechada para subir.', isWarning: true),
+        ];
+      final v = fichaShortAsVisit(r)!;
+      expect(fichaYoutubeId(v), 'aUTCrn_SmEo');
+      expect(fichaVisitDuration(v), '1:35');
+      expect(fichaReelThumbs(v).first,
+          'https://i.ytimg.com/vi/aUTCrn_SmEo/oardefault.jpg');
+      // «Lo que dicen en el vídeo» usa las citas curadas del short.
+      final s = fichaVisitSayings(r, v);
+      expect(s.map((e) => e.warning), [false, true]);
+      expect(fichaShortAsVisit(Restaurant(id: 'x')), isNull);
+    });
+  });
 }

@@ -337,13 +337,16 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen>
       ),
       if (hasVisits && FichaEditorial.shouldRender(r))
         FichaEditorial(restaurant: r),
-      // El short ES la visita: una sola sección con portadas tipo Reels.
-      if (hasVisits)
+      // El short ES la visita: una sola sección con portadas tipo Reels
+      // (sin visitas, la portada del short del local si lo tiene).
+      if (FichaVisitReels.shouldRender(r, visits))
         FichaVisitReels(
           restaurant: r,
           visits: visits,
           onOpenVisit: _openVisit,
-          teaserQuote: fichaTeaserQuote(visits.first, r.shortQuotes),
+          teaserQuote: hasVisits
+              ? fichaTeaserQuote(visits.first, r.shortQuotes)
+              : null,
         ),
       if (hasVisits && !ai.isEmpty) FichaAiSummaryCard(summary: ai),
       if (FichaPhotos.shouldRender(photos))
