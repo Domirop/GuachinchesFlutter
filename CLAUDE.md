@@ -22,6 +22,12 @@ App móvil de **"Dónde Comer Canarias"** (DCC). El sub-tag "Guachinches" es sol
 | Bundle id / applicationId | `com.jonay.guachinches` | `com.jonay.guachinches` |
 | Manifest | [ios/Runner/Info.plist](ios/Runner/Info.plist) | [android/app/build.gradle](android/app/build.gradle) |
 
+## Rediseño iOS 27 (home, visita, platos, ficha)
+
+- Capa de diseño en [lib/ui/theme/](lib/ui/theme/): `gm_tokens.dart` (GmColors día/noche, radios, rampa SF, movimiento), `gm_widgets.dart` (GmCard, GmGlass, GmSectionHeader, GmCapsuleButton, chips, corazón…), `gm_motion.dart` (GmOnce/GmRise/GmLoop, respetan «reducir movimiento»), `gm_icons.dart` (iconos SVG + glifos `assets/images/new-home/glyph_*.svg`).
+- GmColors reutiliza los acentos de AppColors (Atlántico, crema) y añade lo nuevo (lienzo arena, vino, oro). Pantallas del rediseño → GmColors/GmText; pantallas viejas → AppColors/BrandColors y `SectionHeader` de siempre.
+- Diseño fuente: `guachinches-coordination/design/rediseno-ios27/`.
+
 ## Routing & deeplinks
 
 - **Routing**: clásico — `Navigator.push` + `MaterialPageRoute`. **No** hay `go_router`, `auto_route`, ni similar.

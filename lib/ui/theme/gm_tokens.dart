@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:guachinches/config/app_colors.dart';
 
 /// Tokens del rediseño iOS 27 ("Cálido, vivo y muy iOS").
 ///
@@ -6,6 +7,13 @@ import 'package:flutter/material.dart';
 /// shared.css y el tablero Sistema). Día = claro (lienzo arena + tarjetas
 /// blanco puro), Noche = oscuro. Se eligen por `Theme.brightness`, así siguen
 /// el selector de tema de Ajustes sin tocar `BrandColors`.
+///
+/// Relación con [AppColors]: GmColors es la capa de superficies y texto del
+/// rediseño (lienzo, tarjeta, banda, tintas, cristales, sombras) y reutiliza
+/// los acentos de marca de [AppColors] donde coinciden (Atlántico, Atlántico
+/// oscuro como acento de texto, crema). Lo que no existía en AppColors (vino,
+/// oro, lienzo arena…) vive aquí. Las pantallas viejas siguen con AppColors /
+/// BrandColors; el código del rediseño usa GmColors.
 ///
 /// Uso: `final gm = GmColors.of(context);`
 @immutable
@@ -82,11 +90,11 @@ class GmColors {
   // ── Invariantes ───────────────────────────────────────────────────────────
   static const wine = Color(0xFF2A0E14);
   static const gold = Color(0xFFC9A96B);
-  static const cream = Color(0xFFF2E8D5);
+  static const cream = AppColors.crema;
   static const creamHi = Color(0xFFFFF6E6);
   static const star = Color(0xFFC98200);
   static const heart = Color(0xFFFF3B5C);
-  static const atlantico = Color(0xFF0085C4);
+  static const atlantico = AppColors.atlantico;
   static const badgeRed = Color(0xFFD6362A);
 
   /// Botón cápsula primario: degradado Atlántico con brillo superior.
@@ -106,7 +114,7 @@ class GmColors {
     label: Color(0xFF1F1A14),
     label2: Color(0xFF6E6253),
     sep: Color(0x1C5A4018), // rgba(90,64,24,0.11)
-    accent: Color(0xFF006FA3),
+    accent: AppColors.atlanticoOscuro, // #006FA3
     accentSoft: Color(0x1C0085C4), // rgba(0,133,196,0.11)
     green: Color(0xFF2FBF5B),
     greenText: Color(0xFF1E7A42),
