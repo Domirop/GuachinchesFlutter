@@ -80,6 +80,36 @@ class LocationCubit extends Cubit<LocationState> {
     }
   }
 
+  /// Refleja en el cubit el permiso ACTUAL sin mostrar nunca el modal del
+  /// sistema: Loaded (si hay permiso), Denied / PermanentlyDenied /
+  /// ServiceDisabled. La home nueva pide el permiso con Geolocator al
+  /// arrancar; esto solo sincroniza el estado para que el aviso «Ubicación
+  /// desactivada» y las distancias de las tarjetas sepan a qué atenerse.
+  Future<void> syncPermissionState() async {
+    try {
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        if (state is! LocationServiceDisabled) emit(LocationServiceDisabled());
+        return;
+      }
+      final permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.always ||
+          permission == LocationPermission.whileInUse) {
+        if (state is! LocationLoaded && state is! LocationLoading) {
+          await _fetchAndEmitLocation();
+        }
+        return;
+      }
+      if (permission == LocationPermission.deniedForever) {
+        if (state is! LocationPermanentlyDenied) {
+          emit(LocationPermanentlyDenied());
+        }
+        return;
+      }
+      if (state.runtimeType != LocationDenied) emit(LocationDenied());
+    } catch (_) {}
+  }
+
   /// Llamado al resume de la app. Nunca muestra modal del sistema. Si el
   /// usuario activó el permiso en Ajustes y volvió, recogemos el cambio.
   Future<void> checkLocationSilently() async {

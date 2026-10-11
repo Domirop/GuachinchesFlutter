@@ -1,39 +1,34 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:guachinches/config/app_colors.dart';
-import 'package:guachinches/config/app_shapes.dart';
-import 'package:guachinches/config/app_spacing.dart';
-import 'package:guachinches/config/app_text_styles.dart';
-import 'package:guachinches/config/brand_colors.dart';
 import 'package:guachinches/data/model/restaurant.dart';
 import 'package:guachinches/ui/components/shimmer_box.dart';
-import 'package:guachinches/utils/distance_utils.dart';
+import 'package:guachinches/ui/pages/new_home/widgets/gm_place_card.dart';
+import 'package:guachinches/ui/theme/gm_icons.dart';
+import 'package:guachinches/ui/theme/gm_motion.dart';
+import 'package:guachinches/ui/theme/gm_tokens.dart';
+import 'package:guachinches/ui/theme/gm_widgets.dart';
 import 'package:guachinches/utils/open_now_utils.dart';
+import 'package:guachinches/utils/opening_later_utils.dart';
 
-/// Alto reservado para el título de las cards del grid: 2 líneas de Oswald 13
-/// (fontSize 13 × line-height 1.2 × 2 ≈ 31.2, +slack). Constante compartida por
-/// la card y su esqueleto para que ambos tengan exactamente la misma altura.
-const double _kTitleTwoLineHeight = 32;
-
-/// Sección "HOY EN…" en formato **panel + grid** (inspirado en las tarjetas de
-/// ofertas tipo marketplace, adaptado a la voz del app).
+/// Bloque «Hoy» del rediseño iOS 27 (tablero InicioCompleto · sección 4).
 ///
-/// - Panel crema redondeado con sombra suave.
-/// - Cabecera: badge con el NÚMERO de sitios + título hora-aware + "Ver todos".
-/// - Grid 2×2 de hasta 4 cards (foto 4:3 + badge abierto + nombre + rating).
+/// - Antetítulo con punto vivo + momento del día + recuento.
+/// - Título pulsable con chevron (misma navegación que el antiguo «Ver
+///   todos»: búsqueda contextual con `openOnly`).
+/// - Rejilla 2×2 de tarjetas de sitio. Por la mañana, como en el tablero:
+///   2 tarjetas + la tarjeta «barraquito» que lleva a ver todos.
 ///
-/// Sustituye al combo `HourAwareBanner` + carrusel `CardHorizontal` para el
-/// estado "abiertos ahora". El fallback "abren pronto" y el modo madrugada
-/// siguen usando el carrusel clásico (otro contexto).
+/// Modos: abiertos ahora (por defecto), [openingSoon] (fallback «abren
+/// pronto» en islas donde la cocina arranca más tarde) y esqueleto
+/// (`count == null`). La copy por hora es la de siempre, en tipo frase.
 class TodayGridSection extends StatelessWidget {
   final int hour;
   final int minute;
 
-  /// Total de sitios que pasan el filtro contextual (el número del badge).
-  /// `null` durante la carga → muestra esqueleto.
+  /// Total de sitios del pool contextual (recuento del antetítulo).
+  /// `null` durante la carga → esqueleto.
   final int? count;
 
-  /// Top a pintar en el grid (máx 4). Vacío + count null = loading.
+  /// Sitios a pintar (se usan hasta 4).
   final List<Restaurant> restaurants;
 
   final double? userLat;
@@ -41,6 +36,10 @@ class TodayGridSection extends StatelessWidget {
 
   final ValueChanged<String> onRestaurantTap;
   final VoidCallback? onSeeAll;
+
+  /// Fallback «abren pronto»: no hay nada abierto ahora pero sí más tarde.
+  final bool openingSoon;
+  final String? zoneLabel;
 
   const TodayGridSection({
     super.key,
@@ -52,410 +51,313 @@ class TodayGridSection extends StatelessWidget {
     this.userLat,
     this.userLon,
     this.onSeeAll,
+    this.openingSoon = false,
+    this.zoneLabel,
   });
 
   bool get _loading => count == null;
 
-  @override
-  Widget build(BuildContext context) {
-    final copy = _copyForHour(hour, minute);
-    final cards = restaurants.take(4).toList();
-
-    return Padding(
-      // Sin banda de color: editorial y coherente con el resto del home.
-      // Cabecera + grid dentro del mismo panel crema (como estaba antes).
-      padding: const EdgeInsets.fromLTRB(
-          AppSpacing.gutter, 12, AppSpacing.gutter, 24),
-      child: Container(
-        width: double.infinity,
-        decoration: BoxDecoration(
-          color: AppColors.cremaSoft,
-          borderRadius: BorderRadius.circular(AppRadius.lg),
-          border: Border.all(color: context.brand.border, width: 1),
-          boxShadow: AppShadows.soft(),
-        ),
-        clipBehavior: Clip.hardEdge,
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _Header(
-                count: count,
-                eyebrow: copy.eyebrow,
-                title: copy.title,
-                onSeeAll: onSeeAll,
-              ),
-              const SizedBox(height: 14),
-              _loading
-                  ? const _GridSkeleton()
-                  : _Grid(
-                      restaurants: cards,
-                      userLat: userLat,
-                      userLon: userLon,
-                      onRestaurantTap: onRestaurantTap,
-                    ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  static _TodayCopy _copyForHour(int hour, int minute) {
-    final mins = hour * 60 + minute;
-    if (hour >= 7 && hour <= 11) {
-      return const _TodayCopy('HORA DEL DESAYUNO', 'Sitios para desayunar');
-    }
-    // Almuerzo: 12:00–15:29 en su hora punta…
-    if (mins >= 12 * 60 && mins < 15 * 60 + 30) {
-      return const _TodayCopy('HORA DEL ALMUERZO', 'Sitios para almorzar');
-    }
-    // …y de 15:30 a 16:59 los que TODAVÍA siguen abiertos para almorzar.
-    if (mins >= 15 * 60 + 30 && hour <= 16) {
-      return const _TodayCopy('TODAVÍA ABIERTOS', 'Sitios para almorzar');
-    }
-    if (hour >= 17 && hour <= 19) {
-      return const _TodayCopy('GOLDEN HOUR', 'Terrazas al atardecer');
-    }
-    if (hour >= 20) {
-      return const _TodayCopy('HORA DE LA CENA', 'Sitios para cenar');
-    }
-    return const _TodayCopy('DE MADRUGADA', 'Sitios abiertos ahora');
-  }
-}
-
-class _TodayCopy {
-  final String eyebrow;
-  final String title;
-  const _TodayCopy(this.eyebrow, this.title);
-}
-
-// ── Cabecera: badge número + eyebrow/título + "Ver todos" ──────────────────
-
-class _Header extends StatelessWidget {
-  final int? count;
-  final String eyebrow;
-  final String title;
-  final VoidCallback? onSeeAll;
-
-  const _Header({
-    required this.count,
-    required this.eyebrow,
-    required this.title,
-    this.onSeeAll,
-  });
+  static bool _isBreakfast(int hour) => hour >= 7 && hour <= 11;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        // Badge con el número (sustituye al icono de la referencia).
-        Container(
-          width: 46,
-          height: 46,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: AppColors.atlantico.withOpacity(0.12),
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: FittedBox(
-            child: Text(
-              count != null ? '$count' : '·',
-              style: AppTextStyles.displayHero(size: 20)
-                  .copyWith(color: AppColors.atlantico),
-            ),
-          ),
+    final gm = GmColors.of(context);
+    final copy = openingSoon
+        ? TodayCopy(
+            'En breve',
+            (zoneLabel != null && zoneLabel!.trim().isNotEmpty)
+                ? 'Abren pronto en $zoneLabel'
+                : 'Abren pronto',
+          )
+        : copyForHour(hour, minute);
+
+    final n = count;
+    final countText = n == null
+        ? null
+        : openingSoon
+            ? (n == 1 ? '1 abre hoy' : '$n abren hoy')
+            : (n == 1 ? '1 abierto' : '$n abiertos');
+
+    final eyebrow = GmEyebrow(
+      leading: openingSoon
+          ? const GmLiveDot(color: Color(0xFFE39B17))
+          : GmLiveDot(live: !_loading),
+      spans: [
+        TextSpan(
+          text: copy.eyebrow,
+          style: TextStyle(
+              color: openingSoon ? const Color(0xFFB07210) : gm.greenText),
         ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                children: [
-                  const _LiveDot(),
-                  const SizedBox(width: 6),
-                  Flexible(
-                    child: Text(
-                      eyebrow,
-                      style: AppTextStyles.eyebrow(size: 10),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 3),
-              Text(
-                title,
-                style: AppTextStyles.displaySection(
-                  size: 17,
-                  color: context.brand.textPrimary,
-                ).copyWith(letterSpacing: 0.3),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-          ),
-        ),
-        if (onSeeAll != null) ...[
-          const SizedBox(width: 8),
-          Semantics(
-            identifier: 'home-today-see-all',
-            child: GestureDetector(
-              onTap: onSeeAll,
-              behavior: HitTestBehavior.opaque,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Text(
-                  'Ver todos ›',
-                  style: AppTextStyles.ui(
-                    size: 11,
-                    color: AppColors.atlanticoClaro,
-                    weight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ),
-          ),
+        if (countText != null) ...[
+          const TextSpan(text: '  ·  '),
+          TextSpan(text: countText),
         ],
       ],
     );
-  }
-}
 
-class _LiveDot extends StatelessWidget {
-  const _LiveDot();
+    // Mañana: 2 tarjetas + tarjeta «barraquito» (tablero, momento mañana).
+    final breakfastTile = !openingSoon &&
+        !_loading &&
+        onSeeAll != null &&
+        _isBreakfast(hour) &&
+        (n ?? 0) > 2 &&
+        restaurants.length >= 2;
+    final cards = restaurants.take(breakfastTile ? 2 : 4).toList();
 
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 12,
-      height: 12,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: AppColors.laurisilva.withOpacity(0.22),
-      ),
-      child: Center(
-        child: Container(
-          width: 6,
-          height: 6,
-          decoration: const BoxDecoration(
-            shape: BoxShape.circle,
-            color: AppColors.laurisilva,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        GmRise(
+          trigger: GmTrigger.mount,
+          index: 1,
+          child: GmSectionHeader(
+            eyebrow: eyebrow,
+            title: copy.title,
+            onTap: openingSoon ? null : onSeeAll,
+            identifier: 'home-today-see-all',
           ),
         ),
-      ),
+        const SizedBox(height: 6),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: GmSpace.gutter),
+          child: _loading
+              ? const _GridSkeleton()
+              : _Grid(
+                  restaurants: cards,
+                  userLat: userLat,
+                  userLon: userLon,
+                  openingSoon: openingSoon,
+                  onRestaurantTap: onRestaurantTap,
+                  footer: breakfastTile
+                      ? _BreakfastTile(
+                          more: n! - cards.length,
+                          total: n,
+                          onTap: onSeeAll!,
+                        )
+                      : null,
+                ),
+        ),
+      ],
     );
+  }
+
+  /// Copy por hora (la de siempre, ahora en tipo frase).
+  static TodayCopy copyForHour(int hour, int minute) {
+    final mins = hour * 60 + minute;
+    if (hour >= 7 && hour <= 11) {
+      return const TodayCopy('Hora del desayuno', 'Sitios para desayunar');
+    }
+    // Almuerzo: 12:00–15:29 en su hora punta…
+    if (mins >= 12 * 60 && mins < 15 * 60 + 30) {
+      return const TodayCopy('Hora del almuerzo', 'Sitios para almorzar');
+    }
+    // …y de 15:30 a 16:59 los que TODAVÍA siguen abiertos para almorzar.
+    if (mins >= 15 * 60 + 30 && hour <= 16) {
+      return const TodayCopy('Todavía abiertos', 'Sitios para almorzar');
+    }
+    if (hour >= 17 && hour <= 19) {
+      return const TodayCopy('Golden hour', 'Terrazas al atardecer');
+    }
+    if (hour >= 20) {
+      return const TodayCopy('Hora de la cena', 'Sitios para cenar');
+    }
+    return const TodayCopy('De madrugada', 'Sitios abiertos ahora');
   }
 }
 
-// ── Grid 2×2 (filas de 2 con Expanded → sin overflow) ──────────────────────
+class TodayCopy {
+  final String eyebrow;
+  final String title;
+  const TodayCopy(this.eyebrow, this.title);
+}
+
+// ── Rejilla 2 columnas ─────────────────────────────────────────────────────
 
 class _Grid extends StatelessWidget {
   final List<Restaurant> restaurants;
   final double? userLat;
   final double? userLon;
+  final bool openingSoon;
   final ValueChanged<String> onRestaurantTap;
+  final Widget? footer;
 
   const _Grid({
     required this.restaurants,
     required this.userLat,
     required this.userLon,
+    required this.openingSoon,
     required this.onRestaurantTap,
+    this.footer,
   });
-
-  String? _distanceLabel(Restaurant r) {
-    if (userLat == null || userLon == null) return null;
-    if (r.lat == 0.0 && r.lon == 0.0) return null;
-    return formatDistance(
-        haversineDistanceMeters(userLat!, userLon!, r.lat, r.lon));
-  }
 
   @override
   Widget build(BuildContext context) {
     final now = DateTime.now();
+    Widget card(Restaurant r, int i) {
+      final Widget leading;
+      if (openingSoon) {
+        final at = nextOpenLabel(r.horariosJson, now);
+        leading = _OpensAt(label: at);
+      } else {
+        final open = r.horariosJson != null && isOpenNow(r.horariosJson, now);
+        leading = open ? const GmOpenLabel() : const SizedBox.shrink();
+      }
+      return GmRise(
+        trigger: GmTrigger.mount,
+        index: 2 + i,
+        child: GmPlaceCard(
+          restaurant: r,
+          onTap: () => onRestaurantTap(r.id),
+          chip: gmLocationChip(context, r,
+              distanceLabel: gmDistanceLabel(r, userLat, userLon)),
+          meta: GmMetaRow(leading: leading, rating: r.avgRating),
+        ),
+      );
+    }
+
     final rows = <Widget>[];
     for (var i = 0; i < restaurants.length; i += 2) {
-      final left = restaurants[i];
       final right = i + 1 < restaurants.length ? restaurants[i + 1] : null;
       rows.add(Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: _Card(
-              restaurant: left,
-              open: left.horariosJson != null &&
-                  isOpenNow(left.horariosJson, now),
-              distanceLabel: _distanceLabel(left),
-              onTap: () => onRestaurantTap(left.id),
-            ),
-          ),
+          Expanded(child: card(restaurants[i], i)),
           const SizedBox(width: 12),
           Expanded(
-            child: right == null
-                ? const SizedBox.shrink()
-                : _Card(
-                    restaurant: right,
-                    open: right.horariosJson != null &&
-                        isOpenNow(right.horariosJson, now),
-                    distanceLabel: _distanceLabel(right),
-                    onTap: () => onRestaurantTap(right.id),
-                  ),
+            child: right == null ? const SizedBox.shrink() : card(right, i + 1),
           ),
         ],
       ));
-      if (i + 2 < restaurants.length) {
-        rows.add(const SizedBox(height: 12));
-      }
+      rows.add(const SizedBox(height: 12));
     }
-    return Column(children: rows);
+    if (footer != null) {
+      rows.add(GmRise(trigger: GmTrigger.mount, index: 2, child: footer!));
+    } else if (rows.isNotEmpty) {
+      rows.removeLast();
+    }
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: rows);
   }
 }
 
-class _Card extends StatefulWidget {
-  final Restaurant restaurant;
-  final bool open;
-  final String? distanceLabel;
+class _OpensAt extends StatelessWidget {
+  final String? label;
+  const _OpensAt({this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    if (label == null) return const SizedBox.shrink();
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const GmLiveDot(color: Color(0xFFE39B17)),
+        const SizedBox(width: 5),
+        Text(
+          'Abre a las $label',
+          style: GmText.eyebrow(color: const Color(0xFFB07210)),
+        ),
+      ],
+    );
+  }
+}
+
+/// Tarjeta «barraquito» de la mañana (banda crema, glifo, «Ver los N sitios»).
+class _BreakfastTile extends StatelessWidget {
+  final int more;
+  final int total;
   final VoidCallback onTap;
 
-  const _Card({
-    required this.restaurant,
-    required this.open,
-    required this.distanceLabel,
+  const _BreakfastTile({
+    required this.more,
+    required this.total,
     required this.onTap,
   });
 
   @override
-  State<_Card> createState() => _CardState();
-}
-
-class _CardState extends State<_Card> {
-  bool _pressed = false;
-
-  @override
   Widget build(BuildContext context) {
-    final r = widget.restaurant;
-    return GestureDetector(
-      onTapDown: (_) => setState(() => _pressed = true),
-      onTapUp: (_) => setState(() => _pressed = false),
-      onTapCancel: () => setState(() => _pressed = false),
-      onTap: widget.onTap,
-      child: AnimatedScale(
-        scale: _pressed ? 0.97 : 1.0,
-        duration: const Duration(milliseconds: 130),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
+    final gm = GmColors.of(context);
+    return GmPressable(
+      onTap: onTap,
+      semanticsLabel: 'Ver los $total sitios con desayuno',
+      child: Container(
+        height: 213,
+        padding: const EdgeInsets.fromLTRB(20, 18, 18, 18),
+        decoration: BoxDecoration(
+          color: gm.band,
+          borderRadius: BorderRadius.circular(GmRadius.card),
+          border: Border.all(color: gm.sep),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Stack(
+          clipBehavior: Clip.none,
           children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(14),
-              child: AspectRatio(
-                aspectRatio: 4 / 3,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    _photo(context, r.mainFoto),
-                    // Vignette superior para contraste del badge.
-                    Positioned(
-                      top: 0,
-                      left: 0,
-                      right: 0,
-                      height: 44,
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [
-                              Colors.black.withOpacity(0.28),
-                              Colors.transparent,
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                    if (widget.open)
-                      const Positioned(
-                        top: 8,
-                        left: 8,
-                        child: _MiniBadge('ABIERTO', AppColors.laurisilva),
-                      ),
-                  ],
+            Positioned(
+              right: -36,
+              bottom: -44,
+              child: Container(
+                width: 150,
+                height: 150,
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(colors: [
+                    Color(0x59C9A96B),
+                    Color(0x00C9A96B),
+                  ], stops: [0, 0.7]),
                 ),
               ),
             ),
-            const SizedBox(height: 8),
-            // Alto reservado para 2 líneas (font 13 × height 1.2 × 2 ≈ 31.2)
-            // → todas las cards quedan idénticas tenga el título 1 ó 2 líneas,
-            //   y la fila de rating arranca siempre a la misma altura.
-            SizedBox(
-              height: _kTitleTwoLineHeight,
-              width: double.infinity,
-              child: Text(
-                r.nombre.toUpperCase(),
-                style: AppTextStyles.displaySection(size: 13)
-                    .copyWith(letterSpacing: 0.2, height: 1.2),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            const SizedBox(height: 5),
-            Row(
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  width: 56,
+                  height: 56,
                   decoration: BoxDecoration(
-                    color: AppColors.sol.withOpacity(0.14),
-                    borderRadius: BorderRadius.circular(8),
+                    color: GmColors.creamHi,
+                    shape: BoxShape.circle,
+                    boxShadow: gm.shadow1,
+                  ),
+                  alignment: Alignment.center,
+                  child: const GmGlyph(GmGlyphKind.barraquito, size: 34),
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      more == 1
+                          ? 'Y 1 sitio más con desayuno'
+                          : 'Y $more sitios más con desayuno',
+                      style: GmText.eyebrow(color: gm.bandInk),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      'Barraquito, bocadillo de pata y zumo natural',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: GmText.poster(color: gm.label)
+                          .copyWith(letterSpacing: -0.4),
+                    ),
+                  ],
+                ),
+                Container(
+                  height: 36,
+                  padding: const EdgeInsets.fromLTRB(16, 0, 12, 0),
+                  decoration: BoxDecoration(
+                    color: gm.card,
+                    borderRadius: BorderRadius.circular(GmRadius.pill),
+                    boxShadow: gm.shadow1,
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.star_rounded,
-                          color: AppColors.sol, size: 11),
+                      Text('Ver los $total sitios',
+                          style: GmText.body(
+                              color: gm.label, w: FontWeight.w600)),
                       const SizedBox(width: 2),
-                      Text(
-                        r.avgRating > 0 ? r.avgRating.toStringAsFixed(1) : '—',
-                        style: AppTextStyles.ui(
-                          size: 11,
-                          weight: FontWeight.w700,
-                          color: AppColors.sol,
-                        ),
-                      ),
+                      GmIcon(GmIcons.chevronRight, size: 14, color: gm.label2),
                     ],
                   ),
                 ),
-                const SizedBox(width: 6),
-                if (widget.distanceLabel != null) ...[
-                  const Icon(Icons.near_me_rounded,
-                      color: AppColors.atlanticoClaro, size: 11),
-                  const SizedBox(width: 2),
-                  Flexible(
-                    child: Text(
-                      widget.distanceLabel!,
-                      style: AppTextStyles.ui(
-                        size: 11,
-                        weight: FontWeight.w700,
-                        color: AppColors.atlanticoClaro,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ] else
-                  Flexible(
-                    child: Text(
-                      r.municipio,
-                      style: AppTextStyles.muted(size: 11),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
               ],
             ),
           ],
@@ -463,94 +365,54 @@ class _CardState extends State<_Card> {
       ),
     );
   }
-
-  Widget _photo(BuildContext context, String? url) {
-    if (url != null && url.isNotEmpty) {
-      return CachedNetworkImage(
-        imageUrl: url,
-        fit: BoxFit.cover,
-        memCacheWidth: 360,
-        placeholder: (_, __) => Container(color: context.brand.surface),
-        errorWidget: (_, __, ___) => Container(color: context.brand.surface),
-      );
-    }
-    return Container(color: context.brand.surface);
-  }
 }
 
-class _MiniBadge extends StatelessWidget {
-  final String label;
-  final Color color;
-  const _MiniBadge(this.label, this.color);
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(7, 3, 9, 3),
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 5,
-            height: 5,
-            decoration: const BoxDecoration(
-                color: Colors.white, shape: BoxShape.circle),
-          ),
-          const SizedBox(width: 4),
-          Text(
-            label,
-            style: AppTextStyles.ui(
-              size: 9,
-              weight: FontWeight.w700,
-              color: Colors.white,
-              letterSpacing: 0.5,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ── Esqueleto de carga (mismo layout 2×2) ──────────────────────────────────
+// ── Esqueleto de carga (misma rejilla 2×2) ─────────────────────────────────
 
 class _GridSkeleton extends StatelessWidget {
   const _GridSkeleton();
 
   @override
   Widget build(BuildContext context) {
-    Widget cell() => Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            AspectRatio(
-              aspectRatio: 4 / 3,
-              child: ShimmerBox(
-                width: double.infinity,
-                height: double.infinity,
-                radius: 14,
-              ),
+    Widget cell() => const GmCard(
+          child: Padding(
+            padding: EdgeInsets.all(6),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                AspectRatio(
+                  aspectRatio: 4 / 3,
+                  child: ShimmerBox(
+                    width: double.infinity,
+                    height: double.infinity,
+                    radius: GmRadius.photo,
+                  ),
+                ),
+                Padding(
+                  padding: EdgeInsets.fromLTRB(6, 11, 6, 5),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SizedBox(
+                        height: 40,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            ShimmerBox(width: double.infinity, height: 14, radius: 5),
+                            SizedBox(height: 7),
+                            ShimmerBox(width: 90, height: 14, radius: 5),
+                          ],
+                        ),
+                      ),
+                      SizedBox(height: 4),
+                      ShimmerBox(width: 70, height: 13, radius: 5),
+                    ],
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 8),
-            // Reserva el mismo alto de título (2 líneas) con dos barras.
-            const SizedBox(
-              height: _kTitleTwoLineHeight,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  ShimmerBox(width: double.infinity, height: 12, radius: 4),
-                  SizedBox(height: 6),
-                  ShimmerBox(width: 90, height: 12, radius: 4),
-                ],
-              ),
-            ),
-            const SizedBox(height: 5),
-            const ShimmerBox(width: 70, height: 12, radius: 4),
-          ],
+          ),
         );
 
     Widget row() => Row(
@@ -563,11 +425,7 @@ class _GridSkeleton extends StatelessWidget {
         );
 
     return Column(
-      children: [
-        row(),
-        const SizedBox(height: 12),
-        row(),
-      ],
+      children: [row(), const SizedBox(height: 12), row()],
     );
   }
 }

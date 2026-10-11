@@ -32,6 +32,9 @@ class _FakeLocationCubit extends Cubit<LocationState> implements LocationCubit {
   Future<void> checkLocationSilently() async {
     silentCalls++;
   }
+
+  @override
+  Future<void> syncPermissionState() async {}
 }
 
 Widget _wrap(Widget child, LocationState state, _FakeLocationCubit cubit) {
@@ -81,7 +84,7 @@ void main() {
       ));
       await tester.pump();
       expect(_bySemId('home-location-prompt'), findsOneWidget);
-      expect(find.text('ACTIVAR UBICACIÓN'), findsOneWidget);
+      expect(find.text('Ubicación desactivada'), findsOneWidget);
       expect(find.text('Activar'), findsOneWidget);
     });
 
@@ -112,11 +115,11 @@ void main() {
       await tester.pump();
       expect(find.text('Ajustes'), findsOneWidget);
       expect(find.text('Activar'), findsNothing);
-      expect(find.text('PERMISO BLOQUEADO'), findsOneWidget);
+      expect(find.text('Ubicación bloqueada'), findsOneWidget);
     });
 
     testWidgets(
-        '(f) LocationServiceDisabled → copy explícita "Servicios de Localización"',
+        '(f) LocationServiceDisabled → copy explícita "Localización apagada"',
         (tester) async {
       final cubit = _FakeLocationCubit(LocationServiceDisabled());
       await tester.pumpWidget(_wrap(
@@ -125,8 +128,7 @@ void main() {
         cubit,
       ));
       await tester.pump();
-      expect(find.text('UBICACIÓN APAGADA'), findsOneWidget);
-      expect(find.text('Activa Servicios de Localización'), findsOneWidget);
+      expect(find.text('Localización apagada'), findsOneWidget);
       expect(find.text('Ajustes'), findsOneWidget);
     });
 

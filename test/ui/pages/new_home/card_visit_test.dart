@@ -30,14 +30,15 @@ void main() {
     ));
     await tester.pump();
 
-    // Badge de fecha del vídeo (no la de publicación en app).
-    expect(find.text('2 MAR 26'), findsOneWidget);
-    // Eyebrow de zona en mayúsculas.
-    expect(find.text('GRAN CANARIA'), findsOneWidget);
-    // Título en mayúsculas.
-    expect(find.text('MERCADO DE SAN MATEO'), findsOneWidget);
+    // Chip de fecha del vídeo (no la de publicación en app): «2 mar»
+    // (+ año si no es el año en curso).
+    expect(find.text(CardVisit.formatVideoDate('2026-03-02T10:00:00.000Z')!),
+        findsOneWidget);
+    // Antetítulo de zona y título en tipo frase (rediseño iOS 27).
+    expect(find.text('Gran Canaria'), findsOneWidget);
+    expect(find.text('Mercado de San Mateo'), findsOneWidget);
     // Botón de play (hay vídeo de YouTube).
-    expect(find.byIcon(Icons.play_arrow_rounded), findsOneWidget);
+    expect(find.byKey(CardVisit.playKey), findsOneWidget);
 
     expect(tester.takeException(), isNull);
   });
@@ -52,7 +53,7 @@ void main() {
     await tester.pumpWidget(_host(CardVisit(visit: v, onTap: () {})));
     await tester.pump();
 
-    expect(find.byIcon(Icons.play_arrow_rounded), findsNothing);
+    expect(find.byKey(CardVisit.playKey), findsNothing);
     expect(tester.takeException(), isNull);
   });
 }

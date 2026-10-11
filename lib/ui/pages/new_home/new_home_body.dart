@@ -30,19 +30,14 @@ import 'package:guachinches/ui/pages/new_home/widgets/card_curated_list.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/card_nearby_minimap.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/top_rated_section.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/today_grid_section.dart';
-import 'package:guachinches/data/model/TopRestaurants.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/card_visit.dart';
-import 'package:guachinches/ui/pages/new_home/widgets/hour_aware_banner.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/parallax_hero.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/quiz_banner.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/parallax_hero_slot.dart';
 import 'package:guachinches/ui/components/canarismo_card.dart';
 import 'package:guachinches/ui/components/location_prompt_banner.dart';
-import 'package:guachinches/ui/pages/new_home/widgets/card_horizontal.dart';
-import 'package:guachinches/ui/pages/new_home/widgets/contextual_section_card.dart';
 import 'package:guachinches/utils/contextual_pool.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/search_field_dynamic.dart';
-import 'package:guachinches/ui/components/section_header.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/section_error_retry.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/skeletons.dart';
 import 'package:guachinches/core/remote_config/dcc_remote_config.dart';
@@ -52,8 +47,15 @@ import 'package:guachinches/ui/pages/visit/visit_screen.dart';
 import 'package:guachinches/utils/distance_utils.dart';
 import 'package:guachinches/data/cubit/location/location_cubit.dart';
 import 'package:guachinches/data/cubit/location/location_state.dart';
-import 'package:guachinches/utils/opening_later_utils.dart';
 import 'package:guachinches/utils/time_of_day_engine.dart';
+import 'package:guachinches/data/model/TopRestaurants.dart';
+import 'package:guachinches/ui/pages/new_home/widgets/gm_home_extras.dart';
+import 'package:guachinches/ui/pages/new_home/widgets/gm_place_card.dart';
+import 'package:guachinches/ui/pages/new_home/widgets/gm_tab_accessory.dart';
+import 'package:guachinches/ui/theme/gm_icons.dart';
+import 'package:guachinches/ui/theme/gm_motion.dart';
+import 'package:guachinches/ui/theme/gm_tokens.dart';
+import 'package:guachinches/ui/theme/gm_widgets.dart';
 
 class NewHomeBody extends StatefulWidget {
   final ScrollController scrollCtrl;
@@ -183,7 +185,6 @@ class _NewHomeBodyState extends State<NewHomeBody> {
     _refreshMemoIfNeeded();
 
     final filters = widget.filters;
-    final zoneLabel = filters.zoneLabel ?? filters.islandLabel;
 
     // Restaurantes para la sección "HOY EN..." — abiertos ahora y filtrados
     // por type/categoría según la hora (Bar/Cafetería para desayunos,
@@ -218,6 +219,41 @@ class _NewHomeBodyState extends State<NewHomeBody> {
     final showOpeningSoonSection = openingLater.length >= 2;
     final openingSoonPool = openingLater.take(5).toList();
 
+    final gm = GmColors.of(context);
+    final locDenied = locState is LocationDenied;
+
+    // Accesorio de la barra minimizada (InicioScroll): lo más útil ahora.
+    _publishAccessory(showTodaySection && !widget.bootstrapLoading
+        ? GmTabAccessoryData(
+            eyebrow: TodayGridSection.copyForHour(widget.hour, widget.minute)
+                .eyebrow,
+            title: contextualCount == 1
+                ? '1 sitio abierto ahora'
+                : '$contextualCount sitios abiertos ahora',
+            photoUrl: todayPool.first.mainFoto,
+            onTap: _openContextualSearch,
+          )
+        : null);
+
+    // Etiqueta por tipo de local para el subtítulo del top (p. ej.
+    // «Guachinche · La Laguna»). Solo presentación: id → Type del pool.
+    String? typeLabelFor(String id) {
+      for (final r in widget.pool) {
+        if (r.id != id) continue;
+        for (final t in widget.types) {
+          if (t.id == r.type) return _singularType(t.nombre);
+        }
+        return null;
+      }
+      return null;
+    }
+
+    // Espaciado entre secciones del sistema (40).
+    Widget section(Widget child, {double top = GmSpace.section}) =>
+        SliverToBoxAdapter(
+          child: Padding(padding: EdgeInsets.only(top: top), child: child),
+        );
+
     return Stack(
       children: [
         // ── Scroll principal ──────────────────────────
@@ -229,7 +265,7 @@ class _NewHomeBodyState extends State<NewHomeBody> {
           identifier: 'home-refresh-indicator',
           child: RefreshIndicator(
             onRefresh: widget.onRefresh ?? () async {},
-            color: Theme.of(context).colorScheme.primary,
+            color: gm.accent,
             child: CustomScrollView(
           controller: widget.scrollCtrl,
           physics: const AlwaysScrollableScrollPhysics(
@@ -241,19 +277,34 @@ class _NewHomeBodyState extends State<NewHomeBody> {
               child: SizedBox(height: kHeroHeight),
             ),
 
-            // Barra de búsqueda (lure → navega a AdvancedSearch)
+            // ── Buscar + aviso de ubicación (una línea) ─────────────────
+            // Aviso adaptativo: si LocationDenied → tap dispara modal nativo;
+            // si LocationPermanentlyDenied/ServiceDisabled → guía a Ajustes.
             SliverToBoxAdapter(
-              child: SearchFieldDynamic(
-                zone: filters.zoneLabel,
-                onTap: widget.onSearchTap,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    GmRise(
+                      trigger: GmTrigger.mount,
+                      child: SearchFieldDynamic(
+                        zone: filters.zoneLabel,
+                        onTap: widget.onSearchTap,
+                      ),
+                    ),
+                    if (locDenied) ...[
+                      const SizedBox(height: 12),
+                      const GmRise(
+                        trigger: GmTrigger.mount,
+                        index: 1,
+                        child: LocationPromptBanner(),
+                      ),
+                    ],
+                  ],
+                ),
               ),
             ),
-
-            // ── LOCATION PROMPT (si no hay permiso) ──────────────────────
-            // Banner adaptativo: si LocationDenied → tap dispara modal nativo;
-            // si LocationPermanentlyDenied/ServiceDisabled → push guía a
-            // Ajustes. Auto-oculto cuando hay permiso (LocationLoaded).
-            const SliverToBoxAdapter(child: LocationPromptBanner()),
 
             // ── DESCUBRE PLANES — DESACTIVADO ────────────────────────────
             // Banner de plan anticipado según día/franja/festivo (motor en
@@ -280,159 +331,111 @@ class _NewHomeBodyState extends State<NewHomeBody> {
             // duplicaba intención con la sección "HOY EN…". Para reactivarlo,
             // reinsertar aquí un OpenNowCalloutSlot con `openNow.length`.
 
-            // ── HOY EN ··· (banner contextual + cards integrados) ───────
+            // ── HOY (rejilla de sitios según la hora) ───────────────────
             // Sólo mostramos esta sección si hay restaurantes con horario
-            // confirmado abiertos ahora; si no, ocultamos banner + row para
-            // no anunciar "abiertos ahora" sobre listas dudosas.
-            //
-            // Banner + carrusel van envueltos en [ContextualSectionCard]
-            // (fondo crema + banda lateral) para que se lean como una unidad
-            // visual, en lugar de dos elementos sueltos. El scroll interno
-            // sigue siendo el `CardHorizontal` clásico (no se toca).
-            if (widget.bootstrapLoading) ...[
-              SliverToBoxAdapter(
-                child: Semantics(
-                  identifier: 'home-section-today',
-                  child: TodayGridSection(
-                    hour: widget.hour,
-                    minute: widget.minute,
-                    restaurants: const [],
-                    onRestaurantTap: widget.onRestaurantTap,
-                  ),
+            // confirmado abiertos ahora; si no, el fallback "abren pronto"
+            // (mismo bloque, otra copy) o nada.
+            if (widget.bootstrapLoading)
+              section(Semantics(
+                identifier: 'home-section-today',
+                child: TodayGridSection(
+                  hour: widget.hour,
+                  minute: widget.minute,
+                  restaurants: const [],
+                  onRestaurantTap: widget.onRestaurantTap,
                 ),
-              ),
-            ] else if (showTodaySection) ...[
-              SliverToBoxAdapter(
-                child: Semantics(
-                  identifier: 'home-section-today',
-                  child: TodayGridSection(
-                    hour: widget.hour,
-                    minute: widget.minute,
-                    count: contextualCount,
-                    restaurants: todayPool,
-                    userLat: userLat,
-                    userLon: userLon,
-                    onRestaurantTap: widget.onRestaurantTap,
-                    onSeeAll: _openContextualSearch,
-                  ),
+              ))
+            else if (showTodaySection)
+              section(Semantics(
+                identifier: 'home-section-today',
+                child: TodayGridSection(
+                  hour: widget.hour,
+                  minute: widget.minute,
+                  count: contextualCount,
+                  restaurants: todayPool,
+                  userLat: userLat,
+                  userLon: userLon,
+                  onRestaurantTap: widget.onRestaurantTap,
+                  onSeeAll: _openContextualSearch,
                 ),
-              ),
-            ] else if (showOpeningSoonSection) ...[
-              SliverToBoxAdapter(
-                child: Semantics(
-                  identifier: 'home-section-today',
-                  child: ContextualSectionCard(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        HourAwareBanner(
-                          hour: widget.hour,
-                          zoneLabel: zoneLabel,
-                          // Sin "VER TODO" en este modo: la lista ya es
-                          // pequeña y todo el contenido relevante está en
-                          // el carrusel.
-                          count: openingLater.length,
-                          mode: HourBannerMode.openingSoon,
-                        ),
-                        _buildHorizontalRowOpeningSoon(
-                            openingSoonPool, now, userLat, userLon),
-                      ],
-                    ),
-                  ),
+              ))
+            else if (showOpeningSoonSection)
+              section(Semantics(
+                identifier: 'home-section-today',
+                child: TodayGridSection(
+                  hour: widget.hour,
+                  minute: widget.minute,
+                  count: openingLater.length,
+                  restaurants: openingSoonPool,
+                  userLat: userLat,
+                  userLon: userLon,
+                  openingSoon: true,
+                  zoneLabel: filters.zoneLabel,
+                  onRestaurantTap: widget.onRestaurantTap,
                 ),
-              ),
-            ],
+              )),
 
             // ── JUEGO: ¿CUÁNTO SABES DE CANARIAS? ───────────────
-            SliverToBoxAdapter(
-              child: Semantics(
-                identifier: 'home-section-quiz-banner',
-                child: const QuizBanner(),
-              ),
-            ),
+            section(Semantics(
+              identifier: 'home-section-quiz-banner',
+              child: const GmRise(index: 2, child: QuizBanner()),
+            )),
 
             // ── CERCA DE TI ────────────────────────
+            // Con ubicación: carrusel. Sin permiso: tarjeta bloqueada del
+            // mismo alto que lleva al flujo de permiso.
             if (widget.nearbyList.isNotEmpty)
-              SliverToBoxAdapter(
-                child: Semantics(
-                  identifier: 'home-section-nearby',
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      SectionHeader(
-                        title: AppL10n.of(context).homeNearbySectionTitle.toUpperCase(),
-                        actionLabel: widget.onShowAllNearby != null
-                            ? AppL10n.of(context).homeSeeAll.toUpperCase()
-                            : null,
-                        onAction: widget.onShowAllNearby,
-                      ),
-                      SizedBox(
-                        // Altura = card estándar (200) + aire para su sombra.
-                        height: 210,
-                        child: ListView.separated(
-                          scrollDirection: Axis.horizontal,
-                          clipBehavior: Clip.none,
-                          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.gutter),
-                          itemCount: widget.nearbyList.take(8).length,
-                          separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.cardGap),
-                          itemBuilder: (_, i) {
-                            final nearby = widget.nearbyList[i];
-                            return RepaintBoundary(
-                              child: CardNearbyMinimap(
-                                nearby: nearby,
-                                onTap: () =>
-                                    widget.onRestaurantTap(nearby.restaurant.id),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+              section(_buildNearbySection(context))
+            else if (locDenied)
+              section(_buildNearbyLocked(context)),
 
-            // ── ÚLTIMAS VISITAS (encima de Mejor Valorados) ──
-            SliverToBoxAdapter(child: _buildVisitsSection(context)),
+            // ── ÚLTIMAS VISITAS ──
+            section(_buildVisitsSection(context)),
 
-            // ── CANARISMO DEL DÍA (teaser colapsable) ──────────────
-            const SliverToBoxAdapter(child: CanarismoCard()),
+            // ── CANARISMO DEL DÍA ──────────────
+            section(const GmRise(index: 1, child: CanarismoCard())),
 
             // ── MEJOR VALORADOS · {ISLA} ─────────────
             if (TopRatedSection.shouldRender(widget.topRated))
-              SliverToBoxAdapter(
-                child: TopRatedSection(
-                  restaurants: widget.topRated,
-                  islandLabel: filters.islandLabel,
-                  onRestaurantTap: widget.onRestaurantTap,
-                  onSeeRanking: widget.onShowRanking,
-                ),
-              ),
+              section(TopRatedSection(
+                restaurants: widget.topRated,
+                islandLabel: filters.islandLabel,
+                onRestaurantTap: widget.onRestaurantTap,
+                onSeeRanking: widget.onShowRanking,
+                typeLabelFor: typeLabelFor,
+              )),
 
-            // ── ESPECIALIDADES CANARIAS ──────────────
-            SliverToBoxAdapter(
-              child: Semantics(
-                identifier: 'home-section-specialties',
-                child: CanarianSpecialtiesSection(
-                  categories: widget.categories,
-                  types: widget.types,
-                  onSearchPreSelected: widget.onSearchPreSelected,
-                ),
+            // ── ESPECIALIDADES CANARIAS (banda crema) ──────────────
+            section(Semantics(
+              identifier: 'home-section-specialties',
+              child: CanarianSpecialtiesSection(
+                categories: widget.categories,
+                types: widget.types,
+                pool: widget.pool,
+                onSearchPreSelected: widget.onSearchPreSelected,
               ),
-            ),
+            )),
 
             // ── GUÍAS (lazy, on-demand via SliverChildBuilderDelegate) ─
             SliverList(
               delegate: SliverChildBuilderDelegate(
                 (c, i) {
-                  if (i == 0) return _buildCuratedListsSection(c);
+                  if (i == 0) {
+                    return Padding(
+                      padding: const EdgeInsets.only(top: 30),
+                      child: _buildCuratedListsSection(c),
+                    );
+                  }
                   return null;
                 },
                 childCount: 1,
               ),
             ),
 
-            // Clearance inferior: la navbar flotante (cápsula 64 + márgenes)
+            // ── Pie: volcán mascota ─────────────
+            section(const GmHomeFooter()),
+
+            // Clearance inferior: la barra flotante (cápsula 64 + márgenes)
             // va sobre el scroll (`extendBody`), así que el final debe
             // despejarla + el safe area para que la última sección respire.
             SliverToBoxAdapter(
@@ -469,6 +472,19 @@ class _NewHomeBodyState extends State<NewHomeBody> {
           ),
         ),
 
+        // ── Borde «mar de nubes» de la hoja: sigue al scroll justo en el
+        //    canto inferior del hero (encima de él, debajo de la barra fija).
+        ValueListenableBuilder<double>(
+          valueListenable: widget.scrollListenable,
+          child: const GmCloudEdge(),
+          builder: (_, offset, edge) => Positioned(
+            left: 0,
+            right: 0,
+            top: kHeroHeight - offset - GmCloudEdge.height + 4,
+            child: edge!,
+          ),
+        ),
+
         // ── TopFilterBar fija (flotante sobre el scroll) ──
         Positioned(
           top: 0, left: 0, right: 0,
@@ -487,58 +503,197 @@ class _NewHomeBodyState extends State<NewHomeBody> {
     );
   }
 
+  void _publishAccessory(GmTabAccessoryData? data) {
+    if (gmTabAccessory.value == data) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) gmTabAccessory.value = data;
+    });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      gmTabAccessory.value = null;
+    });
+    super.dispose();
+  }
+
+  /// «Guachinches Tradicionales» → «Guachinche» (subtítulos de lista).
+  static String _singularType(String nombre) {
+    final n = nombre.trim().toLowerCase();
+    if (n.startsWith('guachinches tradicionales')) return 'Guachinche';
+    if (n.startsWith('guachinches modernos')) return 'Guachinche moderno';
+    if (n.startsWith('guachinche')) return 'Guachinche';
+    if (n == 'restaurantes') return 'Restaurante';
+    if (n == 'tascas') return 'Tasca';
+    if (n == 'bodegones') return 'Bodegón';
+    return nombre.trim();
+  }
+
+  /// Antetítulo honesto de «Cerca de ti»: el radio real de lo que se ve.
+  String _nearbyEyebrow(List<NearbyRestaurant> shown) {
+    double? maxM;
+    for (final n in shown) {
+      final l = n.distanceLabel.trim();
+      double? m;
+      if (l.endsWith(' km')) {
+        m = double.tryParse(l.replaceAll(' km', '').replaceAll('.', '').replaceAll(',', '.'));
+        if (m != null) m *= 1000;
+      } else if (l.endsWith(' m')) {
+        m = double.tryParse(l.replaceAll(' m', ''));
+      }
+      if (m == null) continue;
+      if (maxM == null || m > maxM) maxM = m;
+    }
+    if (maxM == null || maxM > kGmMaxDistanceMeters) return 'Lo más cerca de ti';
+    if (maxM <= 2000) return 'A menos de 2 km';
+    return 'A menos de ${(maxM / 1000).ceil()} km';
+  }
+
+  Widget _buildNearbySection(BuildContext context) {
+    final gm = GmColors.of(context);
+    final shown = widget.nearbyList.take(8).toList();
+    return Semantics(
+      identifier: 'home-section-nearby',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          GmRise(
+            index: 1,
+            child: GmSectionHeader(
+              eyebrow: GmEyebrow(
+                leading: GmIcon(GmIcons.pin, size: 11, color: gm.accent),
+                text: _nearbyEyebrow(shown),
+              ),
+              title: AppL10n.of(context).homeNearbySectionTitle,
+              onTap: widget.onShowAllNearby,
+              identifier: 'home-nearby-see-all',
+            ),
+          ),
+          const SizedBox(height: 6),
+          SizedBox(
+            height: CardNearbyMinimap.height,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              clipBehavior: Clip.none,
+              padding: const EdgeInsets.symmetric(horizontal: GmSpace.gutter),
+              itemCount: shown.length,
+              separatorBuilder: (_, __) => const SizedBox(width: GmSpace.cardGap),
+              itemBuilder: (_, i) {
+                final nearby = shown[i];
+                return RepaintBoundary(
+                  child: GmRise(
+                    index: 2 + i.clamp(0, 2),
+                    child: CardNearbyMinimap(
+                      nearby: nearby,
+                      onTap: () => widget.onRestaurantTap(nearby.restaurant.id),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNearbyLocked(BuildContext context) {
+    final gm = GmColors.of(context);
+    return Semantics(
+      identifier: 'home-section-nearby',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          GmRise(
+            index: 1,
+            child: GmSectionHeader(
+              eyebrow: GmEyebrow(
+                leading: GmIcon(GmIcons.pin, size: 11, color: gm.accent),
+                text: 'A menos de 2 km',
+              ),
+              title: AppL10n.of(context).homeNearbySectionTitle,
+              onTap: widget.onShowAllNearby,
+              identifier: 'home-nearby-see-all',
+            ),
+          ),
+          const SizedBox(height: 6),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: GmSpace.gutter),
+            child: GmRise(index: 2, child: LocationLockedCard()),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildCuratedListsSection(BuildContext context) {
+    final gm = GmColors.of(context);
     return Semantics(
       identifier: 'home-section-curated-lists',
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          SectionHeader(
-            title: 'GUÍAS DE JONAY Y JOANA',
-            actionLabel: AppL10n.of(context).homeSeeAll.toUpperCase(),
-            onAction: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const ListasScreen()),
+          GmRise(
+            child: GmSectionHeader(
+              eyebrow: GmEyebrow(
+                leading: GmIcon(GmIcons.pin, size: 12, color: gm.accent),
+                text: 'Rutas elegidas a mano',
+              ),
+              title: 'Guías de Jonay y Joana',
+              identifier: 'home-curated-see-all',
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const ListasScreen()),
+              ),
             ),
           ),
-          SizedBox(
-            height: 320,
-            child: BlocBuilder<CuratedListsCubit, CuratedListsState>(
-              builder: (_, state) {
-                if (state is CuratedListsLoaded) {
-                  if (state.lists.isEmpty) return const SizedBox.shrink();
-                  return ListView.separated(
+          const SizedBox(height: 6),
+          BlocBuilder<CuratedListsCubit, CuratedListsState>(
+            builder: (_, state) {
+              if (state is CuratedListsLoaded) {
+                if (state.lists.isEmpty) return const SizedBox.shrink();
+                return SizedBox(
+                  height: CardCuratedList.height,
+                  child: ListView.separated(
                     scrollDirection: Axis.horizontal,
                     // Sin recorte vertical: deja respirar la sombra de las cards.
                     clipBehavior: Clip.none,
-                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.gutter),
+                    padding: const EdgeInsets.symmetric(horizontal: GmSpace.gutter),
                     itemCount: state.lists.length,
-                    separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.cardGap),
+                    separatorBuilder: (_, __) => const SizedBox(width: GmSpace.cardGap),
                     itemBuilder: (_, i) => RepaintBoundary(
-                      child: CardCuratedList(
-                        list: state.lists[i],
-                        onTap: () => Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => CuratedListDetailScreen(
-                              list: state.lists[i],
+                      child: GmRise(
+                        index: 1 + i.clamp(0, 2),
+                        child: CardCuratedList(
+                          list: state.lists[i],
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => CuratedListDetailScreen(
+                                list: state.lists[i],
+                              ),
                             ),
                           ),
                         ),
                       ),
                     ),
-                  );
-                }
-                if (state is CuratedListsFailure) {
-                  return SectionErrorRetry(
-                    message: 'No pudimos cargar esta sección',
-                    retryAnchor: 'home-curated-retry',
-                    onRetry: () => context
-                        .read<CuratedListsCubit>()
-                        .loadForIsland(widget.filters.islandId),
-                  );
-                }
-                return const CardRowSkeleton();
-              },
-            ),
+                  ),
+                );
+              }
+              if (state is CuratedListsFailure) {
+                return SectionErrorRetry(
+                  message: 'No pudimos cargar esta sección',
+                  retryAnchor: 'home-curated-retry',
+                  onRetry: () => context
+                      .read<CuratedListsCubit>()
+                      .loadForIsland(widget.filters.islandId),
+                );
+              }
+              return const CardRowSkeleton(
+                itemWidth: CardCuratedList.width,
+                itemHeight: CardCuratedList.height,
+                radius: GmRadius.guide,
+              );
+            },
           ),
         ],
       ),
@@ -549,57 +704,72 @@ class _NewHomeBodyState extends State<NewHomeBody> {
     return Semantics(
       identifier: 'home-section-visits',
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          SectionHeader(
-            // Corto para que quepa a 18pt sin ellipsis; la autoría ya la
-            // acredita la sección GUÍAS DE JONAY Y JOANA de arriba.
-            title: 'ÚLTIMAS VISITAS',
-            actionLabel: AppL10n.of(context).homeSeeAll.toUpperCase(),
-            onAction: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const DiscoverScreen()),
+          GmRise(
+            index: 1,
+            child: GmSectionHeader(
+              eyebrow: GmEyebrow(
+                leading: GmIcon(GmIcons.youtube,
+                    size: 13, color: GmColors.of(context).label2),
+                text: 'Jonay y Joana',
+              ),
+              title: 'Últimas visitas',
+              identifier: 'home-visits-see-all',
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const DiscoverScreen()),
+              ),
             ),
           ),
-          SizedBox(
-            height: CardVisit.cardHeight,
-            child: BlocBuilder<VisitsCubit, VisitsState>(
-              builder: (_, state) {
-                if (state is VisitsLoaded) {
-                  if (state.visits.isEmpty) return const SizedBox.shrink();
-                  return ListView.separated(
+          const SizedBox(height: 6),
+          BlocBuilder<VisitsCubit, VisitsState>(
+            builder: (_, state) {
+              if (state is VisitsLoaded) {
+                if (state.visits.isEmpty) return const SizedBox.shrink();
+                return SizedBox(
+                  height: CardVisit.cardHeight,
+                  child: ListView.separated(
                     scrollDirection: Axis.horizontal,
                     // Sin recorte vertical: el carrusel mide exactamente la
                     // card y sin esto la sombra inferior se corta en seco.
                     clipBehavior: Clip.none,
-                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.gutter),
+                    padding: const EdgeInsets.symmetric(horizontal: GmSpace.gutter),
                     itemCount: state.visits.length,
-                    separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.cardGap),
+                    separatorBuilder: (_, __) => const SizedBox(width: GmSpace.cardGap),
                     itemBuilder: (_, i) {
                       final v = state.visits[i];
                       return RepaintBoundary(
-                        child: CardVisit(
-                          visit: v,
-                          onTap: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => VisitDetailPage(visitId: v.id),
+                        child: GmRise(
+                          index: 2 + i.clamp(0, 2),
+                          child: CardVisit(
+                            visit: v,
+                            pulse: i == 0,
+                            onTap: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => VisitDetailPage(visitId: v.id),
+                              ),
                             ),
                           ),
                         ),
                       );
                     },
-                  );
-                }
-                if (state is VisitsFailure) {
-                  return SectionErrorRetry(
-                    message: 'No pudimos cargar esta sección',
-                    retryAnchor: 'home-visits-retry',
-                    onRetry: () => context.read<VisitsCubit>().loadVisits(),
-                  );
-                }
-                return const CardRowSkeleton();
-              },
-            ),
+                  ),
+                );
+              }
+              if (state is VisitsFailure) {
+                return SectionErrorRetry(
+                  message: 'No pudimos cargar esta sección',
+                  retryAnchor: 'home-visits-retry',
+                  onRetry: () => context.read<VisitsCubit>().loadVisits(),
+                );
+              }
+              return const CardRowSkeleton(
+                itemWidth: CardVisit.cardWidth,
+                itemHeight: CardVisit.cardHeight,
+                radius: GmRadius.poster,
+              );
+            },
           ),
         ],
       ),
@@ -651,40 +821,6 @@ class _NewHomeBodyState extends State<NewHomeBody> {
       return da.compareTo(db);
     });
     return sorted;
-  }
-
-  String? _distanceLabel(Restaurant r, double? userLat, double? userLon) {
-    if (userLat == null || userLon == null) return null;
-    if (r.lat == 0.0 && r.lon == 0.0) return null;
-    return formatDistance(
-        haversineDistanceMeters(userLat, userLon, r.lat, r.lon));
-  }
-
-  /// Carrusel para el fallback "abren pronto". Mismo widget que el normal
-  /// pero el badge cambia a `ABRE HH:MM` (color sol) — pista visual clara
-  /// de que no están abiertos *ahora* pero sí hoy.
-  Widget _buildHorizontalRowOpeningSoon(
-      List<Restaurant> items, DateTime now, double? userLat, double? userLon) {
-    return SizedBox(
-      height: 210,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        clipBehavior: Clip.none,
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.gutter),
-        itemCount: items.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 12),
-        itemBuilder: (_, i) {
-          final r = items[i];
-          final label = nextOpenLabel(r.horariosJson, now);
-          return CardHorizontal(
-            restaurant: r,
-            openingLabel: label,
-            distanceLabel: _distanceLabel(r, userLat, userLon),
-            onTap: () => widget.onRestaurantTap(r.id),
-          );
-        },
-      ),
-    );
   }
 
   // ── Sheet helpers ─────────────────────────────────

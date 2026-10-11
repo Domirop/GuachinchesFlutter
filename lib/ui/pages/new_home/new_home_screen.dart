@@ -2,8 +2,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:guachinches/config/brand_colors.dart';
+import 'package:guachinches/ui/theme/gm_tokens.dart';
 import 'package:guachinches/data/HttpRemoteRepository.dart';
+import 'package:guachinches/data/cubit/location/location_cubit.dart';
 import 'package:guachinches/data/cubit/new_home/curated_lists_cubit.dart';
 import 'package:guachinches/data/cubit/new_home/new_home_filters_cubit.dart';
 import 'package:guachinches/data/cubit/new_home/new_home_filters_state.dart';
@@ -114,6 +115,11 @@ class _NewHomeScreenState extends State<NewHomeScreen>
       if (perm == LocationPermission.denied) {
         await Geolocator.requestPermission();
       }
+    } catch (_) {}
+    // Sin modal: refleja el permiso en el LocationCubit (aviso «Ubicación
+    // desactivada», tarjeta bloqueada de «Cerca de ti» y distancias).
+    if (mounted) unawaited(context.read<LocationCubit>().syncPermissionState());
+    try {
       final pos = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.reduced,
       );
@@ -333,7 +339,8 @@ class _NewHomeScreenState extends State<NewHomeScreen>
                       ? zonesState.zones
                       : const <Zone>[];
                   return Scaffold(
-                    backgroundColor: context.brand.base,
+                    // Lienzo arena del rediseño (bajo la hoja de contenido).
+                    backgroundColor: GmColors.of(context).canvas,
                     extendBody: true,
                     body: NewHomeBody(
                       scrollCtrl: _scrollCtrl,

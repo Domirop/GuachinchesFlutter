@@ -2,20 +2,32 @@ import 'package:flutter/material.dart';
 import 'package:guachinches/config/brand_colors.dart';
 import 'package:guachinches/ui/components/shimmer_box.dart';
 
-/// Fila de cards skeleton (horizontal scroll).
+/// Fila de cards skeleton (horizontal scroll). Medidas configurables para
+/// que el esqueleto coincida con la tarjeta real de cada carrusel.
 class CardRowSkeleton extends StatelessWidget {
-  const CardRowSkeleton({super.key});
+  final double itemWidth;
+  final double itemHeight;
+  final double radius;
+
+  const CardRowSkeleton({
+    super.key,
+    this.itemWidth = 200,
+    this.itemHeight = 200,
+    this.radius = 14,
+  });
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 210,
+      height: itemHeight + 10,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 14),
+        physics: const NeverScrollableScrollPhysics(),
+        padding: const EdgeInsets.symmetric(horizontal: 16),
         itemCount: 3,
         separatorBuilder: (_, __) => const SizedBox(width: 12),
-        itemBuilder: (_, __) => const ShimmerBox(width: 200, height: 200, radius: 14),
+        itemBuilder: (_, __) =>
+            ShimmerBox(width: itemWidth, height: itemHeight, radius: radius),
       ),
     );
   }
