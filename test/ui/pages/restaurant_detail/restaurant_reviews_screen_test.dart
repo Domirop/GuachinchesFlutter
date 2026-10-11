@@ -48,7 +48,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(ReviewCard), findsNWidgets(6));
-      expect(find.text('(6)'), findsOneWidget);
+      expect(find.text('Reseñas (6)'), findsOneWidget);
     });
 
     testWidgets('(b) tap filter-chip-5 shows 2 ReviewCards', (tester) async {

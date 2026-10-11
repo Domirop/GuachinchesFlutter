@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:guachinches/config/app_colors.dart';
 import 'package:guachinches/config/app_text_styles.dart';
 import 'package:guachinches/config/brand_colors.dart';
 import 'package:guachinches/data/model/Review.dart';
 import 'package:guachinches/data/model/restaurant.dart';
 import 'package:guachinches/ui/pages/restaurant_detail/widgets/rating_summary.dart';
 import 'package:guachinches/ui/pages/restaurant_detail/widgets/review_card.dart';
+import 'package:guachinches/ui/theme/gm_icons.dart';
+import 'package:guachinches/ui/theme/gm_tokens.dart';
+import 'package:guachinches/ui/theme/gm_widgets.dart';
 
 enum _SortOrder { original, bestFirst, worstFirst }
 
@@ -61,35 +63,34 @@ class _RestaurantReviewsScreenState extends State<RestaurantReviewsScreen> {
     final total = widget.restaurant.valoraciones.length;
     final filtered = _filtered;
     final brand = context.brand;
+    final gm = GmColors.of(context);
 
     return Semantics(
       identifier: 'restaurant-reviews-screen',
       child: Scaffold(
-        backgroundColor: brand.base,
+        backgroundColor: gm.canvas,
         appBar: AppBar(
-          backgroundColor: brand.base,
+          backgroundColor: gm.canvas,
+          surfaceTintColor: Colors.transparent,
           elevation: 0,
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back_ios_new_rounded),
-            color: brand.textPrimary,
-            onPressed: () => Navigator.of(context).pop(),
-          ),
-          title: Row(
-            crossAxisAlignment: CrossAxisAlignment.baseline,
-            textBaseline: TextBaseline.alphabetic,
-            children: [
-              Text('Reseñas', style: AppTextStyles.displayHero(size: 20)),
-              const SizedBox(width: 8),
-              Text(
-                '($total)',
-                style: AppTextStyles.ui(
-                  size: 14,
-                  color: brand.textMuted,
-                  weight: FontWeight.w500,
-                ),
+          scrolledUnderElevation: 0,
+          leadingWidth: 64,
+          leading: Padding(
+            padding: const EdgeInsets.only(left: 16),
+            child: Center(
+              child: GmToolbarButton(
+                icon: GmIcons.chevronLeft,
+                iconSize: 20,
+                light: true,
+                semanticLabel: 'Volver',
+                identifier: 'restaurant-reviews-back-button',
+                onTap: () => Navigator.of(context).pop(),
               ),
-            ],
+            ),
           ),
+          centerTitle: true,
+          title: Text('Reseñas ($total)',
+              style: GmText.body17(color: gm.label, w: FontWeight.w700)),
         ),
         body: Column(
           children: [
@@ -97,8 +98,9 @@ class _RestaurantReviewsScreenState extends State<RestaurantReviewsScreen> {
               height: 48,
               child: ListView(
                 scrollDirection: Axis.horizontal,
+                clipBehavior: Clip.none,
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 children: [
                   _buildChip(
                     identifier: 'restaurant-reviews-filter-chip-all',
@@ -132,10 +134,7 @@ class _RestaurantReviewsScreenState extends State<RestaurantReviewsScreen> {
                         children: [
                           Text(
                             _sortLabel(_sortOrder),
-                            style: AppTextStyles.ui(
-                              size: 12,
-                              color: brand.textSecondary,
-                            ),
+                            style: GmText.sub(color: gm.label2),
                           ),
                           Icon(
                             Icons.unfold_more_rounded,
@@ -158,7 +157,7 @@ class _RestaurantReviewsScreenState extends State<RestaurantReviewsScreen> {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
               child: RatingSummary(restaurant: widget.restaurant),
             ),
             Expanded(
@@ -180,10 +179,7 @@ class _RestaurantReviewsScreenState extends State<RestaurantReviewsScreen> {
                               Text(
                                 'No hay reseñas que coincidan con este filtro',
                                 textAlign: TextAlign.center,
-                                style: AppTextStyles.ui(
-                                  size: 14,
-                                  color: brand.textSecondary,
-                                ),
+                                style: GmText.body(color: gm.label2),
                               ),
                               const SizedBox(height: 16),
                               TextButton(
@@ -191,11 +187,8 @@ class _RestaurantReviewsScreenState extends State<RestaurantReviewsScreen> {
                                     setState(() => _activeFilter = null),
                                 child: Text(
                                   'Quitar filtros',
-                                  style: AppTextStyles.ui(
-                                    size: 13,
-                                    color: AppColors.atlanticoClaro,
-                                    weight: FontWeight.w600,
-                                  ),
+                                  style: GmText.body(
+                                      color: gm.accent, w: FontWeight.w600),
                                 ),
                               ),
                             ],
@@ -206,11 +199,12 @@ class _RestaurantReviewsScreenState extends State<RestaurantReviewsScreen> {
                   : Semantics(
                       identifier: 'restaurant-reviews-list',
                       child: ListView.separated(
-                        padding: const EdgeInsets.fromLTRB(14, 0, 14, 24),
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
                         itemCount: filtered.length,
                         separatorBuilder: (_, __) =>
                             const SizedBox(height: 10),
-                        itemBuilder: (ctx, i) => ReviewCard(review: filtered[i]),
+                        itemBuilder: (ctx, i) =>
+                            ReviewCard(review: filtered[i], index: i),
                       ),
                     ),
             ),
@@ -226,7 +220,7 @@ class _RestaurantReviewsScreenState extends State<RestaurantReviewsScreen> {
     required bool isActive,
     required VoidCallback onTap,
   }) {
-    final brand = context.brand;
+    final gm = GmColors.of(context);
     return Padding(
       padding: const EdgeInsets.only(right: 8),
       child: Semantics(
@@ -235,22 +229,17 @@ class _RestaurantReviewsScreenState extends State<RestaurantReviewsScreen> {
           onTap: onTap,
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 180),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
             decoration: BoxDecoration(
-              color: isActive ? AppColors.atlantico : brand.surface,
-              border: Border.all(
-                color: isActive
-                    ? AppColors.atlanticoClaro.withOpacity(0.4)
-                    : brand.borderStrong,
-              ),
-              borderRadius: BorderRadius.circular(20),
+              color: isActive ? gm.accentSoft : gm.card,
+              borderRadius: BorderRadius.circular(GmRadius.pill),
+              boxShadow: isActive ? null : gm.shadow1,
             ),
             child: Text(
               label,
-              style: AppTextStyles.ui(
-                size: 12,
-                color: isActive ? Colors.white : brand.textSecondary,
-                weight: isActive ? FontWeight.w600 : FontWeight.w500,
+              style: GmText.sub(
+                color: isActive ? gm.accent : gm.label,
+                w: isActive ? FontWeight.w700 : FontWeight.w500,
               ),
             ),
           ),
