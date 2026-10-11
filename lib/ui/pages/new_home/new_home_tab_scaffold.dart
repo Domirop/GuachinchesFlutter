@@ -431,7 +431,8 @@ class _FloatingGlassNavBarState extends State<_FloatingGlassNavBar>
               )
             else
               AnimatedPositioned(
-                duration: const Duration(milliseconds: 420),
+                duration: Duration(
+                    milliseconds: GmMotion.reduced(context) ? 0 : 420),
                 curve: GmMotion.settle,
                 left: widget.index * slotW,
                 top: 0,
