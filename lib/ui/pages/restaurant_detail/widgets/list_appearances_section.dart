@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:guachinches/ui/theme/gm_widgets.dart';
 import 'package:guachinches/config/app_colors.dart';
 import 'package:guachinches/config/app_text_styles.dart';
 import 'package:guachinches/data/model/curated_list.dart';
@@ -34,13 +35,7 @@ class ListAppearancesSection extends StatelessWidget {
           child: Row(
             children: [
               Expanded(
-                child: Text(
-                  'APARECE EN LISTAS',
-                  style: AppTextStyles.displaySection(
-                    size: 11,
-                    color: AppColors.atlantico,
-                  ),
-                ),
+                child: GmDetailTitle('Aparece en listas'),
               ),
               if (onSeeAll != null && appearances.length > 1)
                 GestureDetector(

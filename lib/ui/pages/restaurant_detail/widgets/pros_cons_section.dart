@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:guachinches/ui/theme/gm_tokens.dart';
+import 'package:guachinches/ui/theme/gm_widgets.dart';
 import 'package:guachinches/config/app_colors.dart';
-import 'package:guachinches/config/brand_colors.dart';
-import 'package:guachinches/config/app_text_styles.dart';
 
 class ProsConsSection extends StatelessWidget {
   final List<String> pros;
@@ -20,31 +20,25 @@ class ProsConsSection extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Container(
-        decoration: BoxDecoration(
-          color: context.brand.surface,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: context.brand.border),
-        ),
+      child: GmCard(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (pros.isNotEmpty)
               _Block(
-                title: 'A FAVOR',
+                title: 'A favor',
                 items: pros,
                 accent: AppColors.laurisilva,
                 icon: Icons.check_rounded,
               ),
             if (pros.isNotEmpty && cons.isNotEmpty)
-              Divider(
-                height: 1,
-                thickness: 1,
-                color: context.brand.border,
+              Padding(
+                padding: const EdgeInsets.only(left: 16),
+                child: Container(height: 1, color: GmColors.of(context).sep),
               ),
             if (cons.isNotEmpty)
               _Block(
-                title: 'EN CONTRA',
+                title: 'En contra',
                 items: cons,
                 accent: AppColors.mojo,
                 icon: Icons.close_rounded,
@@ -71,27 +65,28 @@ class _Block extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final gm = GmColors.of(context);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
               Container(
-                width: 22,
-                height: 22,
+                width: 26,
+                height: 26,
                 decoration: BoxDecoration(
-                  color: accent.withOpacity(0.14),
-                  shape: BoxShape.circle,
+                  color: accent.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(8),
                 ),
                 alignment: Alignment.center,
-                child: Icon(icon, size: 14, color: accent),
+                child: Icon(icon, size: 16, color: accent),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 10),
               Text(
                 title,
-                style: AppTextStyles.displaySection(size: 11, color: accent),
+                style: GmText.cardTitle(color: gm.label),
               ),
             ],
           ),
@@ -103,12 +98,12 @@ class _Block extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Padding(
-                    padding: const EdgeInsets.only(top: 7),
+                    padding: const EdgeInsets.only(top: 8),
                     child: Container(
                       width: 5,
                       height: 5,
                       decoration: BoxDecoration(
-                        color: accent.withOpacity(0.6),
+                        color: accent.withValues(alpha: 0.7),
                         shape: BoxShape.circle,
                       ),
                     ),
@@ -117,10 +112,7 @@ class _Block extends StatelessWidget {
                   Expanded(
                     child: Text(
                       _capitalize(item),
-                      style: AppTextStyles.ui(
-                        size: 12,
-                        color: context.brand.textPrimary,
-                      ).copyWith(height: 1.35),
+                      style: GmText.body(color: gm.label),
                     ),
                   ),
                 ],

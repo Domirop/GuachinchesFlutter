@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:guachinches/ui/theme/gm_widgets.dart';
 import 'package:guachinches/config/app_colors.dart';
 import 'package:guachinches/config/brand_colors.dart';
 import 'package:guachinches/config/app_text_styles.dart';
@@ -27,10 +28,7 @@ class YoutubeShortSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'EL SHORT DE JONAY Y JOANA',
-            style: AppTextStyles.displaySection(size: 11),
-          ),
+          GmDetailTitle('El short de Jonay y Joana'),
           const SizedBox(height: 10),
           GestureDetector(
             onTap: () => _open(context),

@@ -194,9 +194,15 @@ class _VisitDetailPageState extends State<VisitDetailPage>
       );
     }
 
-    return Scaffold(
-      backgroundColor: bg,
-      body: _buildScrollContent(context),
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      // Barra de estado clara sobre el vídeo.
+      value: widget.asSheet
+          ? (gm.isDark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark)
+          : SystemUiOverlayStyle.light,
+      child: Scaffold(
+        backgroundColor: bg,
+        body: _buildScrollContent(context),
+      ),
     );
   }
 
@@ -350,7 +356,11 @@ class _VisitDetailPageState extends State<VisitDetailPage>
           // ⑦ Lo que necesitas saber.
           if (r != null) ...[
             const SizedBox(height: 20),
-            NTKBox(restaurant: r, visit: v, instagram: v.instagram),
+            NTKBox(
+                restaurant: r,
+                visit: v,
+                instagram: v.instagram,
+                title: 'Lo que necesitas saber'),
           ],
         ],
       ),

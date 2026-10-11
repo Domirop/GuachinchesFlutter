@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:guachinches/config/app_colors.dart';
 import 'package:guachinches/config/brand_colors.dart';
 import 'package:guachinches/config/app_text_styles.dart';
@@ -14,18 +14,18 @@ import 'package:guachinches/data/http_client.dart';
 import 'package:maps_launcher/maps_launcher.dart';
 import 'package:share_plus/share_plus.dart';
 
-import 'package:guachinches/ui/components/bottom_cta_bar.dart';
 import 'package:guachinches/ui/components/shimmer_box.dart';
+import 'package:guachinches/ui/pages/visit/visit_screen.dart';
+import 'package:guachinches/ui/theme/gm_favorites.dart';
+import 'package:guachinches/ui/theme/gm_tokens.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'widgets/ai_insights_section.dart';
-import 'widgets/categories_chips.dart';
-import 'widgets/detail_hero.dart';
 import 'widgets/editorial_section.dart';
-import 'widgets/floating_buttons.dart';
+import 'widgets/gm_ficha_header.dart';
 import 'widgets/list_appearances_section.dart';
 import 'widgets/map_section.dart';
 import 'widgets/ntk_box.dart';
 import 'widgets/reviews_section.dart';
-import 'widgets/section_navbar.dart';
 import 'widgets/visits_by_restaurant_section.dart';
 import 'widgets/youtube_short_section.dart';
 
@@ -55,16 +55,6 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen>
   bool _loading = true;
   bool _error = false;
   bool _isSaved = false;
-  int _activeSection = 0;
-
-  static const _labels = ['Vídeo', 'Info', 'Mapa', 'Reseñas'];
-  final _videoKey = GlobalKey();
-  final _infoKey = GlobalKey();
-  final _mapKey = GlobalKey();
-  final _reviewsKey = GlobalKey();
-
-  List<GlobalKey> get _sectionKeys =>
-      [_videoKey, _infoKey, _mapKey, _reviewsKey];
 
   @override
   void initState() {
@@ -75,7 +65,6 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen>
     _loadIsFav();
     _loadVisits();
     _loadListAppearances();
-    _scrollCtrl.addListener(_onScroll);
   }
 
   /// Favorito es secundario: si la capa local falla (DB no disponible) sólo se
@@ -167,45 +156,8 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen>
 
   @override
   void dispose() {
-    _scrollCtrl.removeListener(_onScroll);
     _scrollCtrl.dispose();
     super.dispose();
-  }
-
-  double _navbarFootprint(BuildContext context) =>
-      MediaQuery.of(context).padding.top + 44;
-
-  void _onScroll() {
-    if (!mounted) return;
-    final threshold = _navbarFootprint(context) + 12;
-    for (int i = _sectionKeys.length - 1; i >= 0; i--) {
-      final ctx = _sectionKeys[i].currentContext;
-      if (ctx == null) continue;
-      final box = ctx.findRenderObject() as RenderBox?;
-      if (box == null) continue;
-      final dy = box.localToGlobal(Offset.zero).dy;
-      if (dy <= threshold) {
-        if (_activeSection != i) setState(() => _activeSection = i);
-        return;
-      }
-    }
-    if (_activeSection != 0) setState(() => _activeSection = 0);
-  }
-
-  void _scrollToSection(int index) {
-    final ctx = _sectionKeys[index].currentContext;
-    if (ctx == null) return;
-    final box = ctx.findRenderObject() as RenderBox?;
-    if (box == null) return;
-    final viewport = RenderAbstractViewport.of(box);
-    final reveal = viewport.getOffsetToReveal(box, 0.0).offset;
-    final target = (reveal - _navbarFootprint(context))
-        .clamp(0.0, _scrollCtrl.position.maxScrollExtent);
-    _scrollCtrl.animateTo(
-      target,
-      duration: const Duration(milliseconds: 450),
-      curve: Curves.easeInOut,
-    );
   }
 
   // ── DetailView ────────────────────────────────────
@@ -228,6 +180,8 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen>
   @override
   void setFav(bool correct) {
     if (mounted) setState(() => _isSaved = correct);
+    // Los corazones de la home leen la misma tabla local: resincroniza.
+    GmFavorites.instance.ensureLoaded(force: true);
   }
 
   @override
@@ -254,6 +208,25 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen>
     Share.share('${r.nombre} en ¿Dónde Comer Canarias?');
   }
 
+  /// Llamar: mismo saneado que la fila de teléfono de «Detalles».
+  Future<void> _call() async {
+    final phone = _restaurant?.telefono ?? '';
+    if (phone.isEmpty) return;
+    final sanitized = phone.replaceAll(RegExp(r'[^\d+]'), '');
+    try {
+      await launchUrl(Uri(scheme: 'tel', path: sanitized));
+    } catch (_) {
+      // Sin dialer disponible (p.ej. simulador): no-op.
+    }
+  }
+
+  void _openVisit(Visit v) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => VisitDetailPage(visitId: v.id)),
+    );
+  }
+
   void _openMaps() {
     final r = _restaurant;
     if (r == null) return;
@@ -268,9 +241,10 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen>
 
   @override
   Widget build(BuildContext context) {
+    final gm = GmColors.of(context);
     if (_error) {
       return Scaffold(
-        backgroundColor: context.brand.base,
+        backgroundColor: gm.canvas,
         body: _DetailError(
           onBack: () => Navigator.pop(context),
           onRetry: _retryLoad,
@@ -278,37 +252,16 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen>
       );
     }
     final r = _restaurant;
-    return Scaffold(
-      backgroundColor: context.brand.base,
-      body: Stack(
-        children: [
-          if (_loading || r == null)
-            const _DetailSkeleton()
-          else
-            _buildScrollContent(),
-          DetailFloatingButtons(
-            isSaved: _isSaved,
-            onBack: () => Navigator.pop(context),
-            onToggleSave: _toggleSave,
-            backIdentifier: 'restaurant-detail-back-button',
-            saveIdentifier: 'restaurant-detail-save-button',
-          ),
-          // Barra flotante liquid-glass: sobre el scroll, anclada abajo.
-          if (r != null)
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: BottomCtaBar(
-                onPrimary: _openMaps,
-                onSecondary: _share,
-                floating: true,
-                phone: r.telefono.isNotEmpty ? r.telefono : null,
-                primaryIdentifier: 'restaurant-detail-maps-button',
-                secondaryIdentifier: 'restaurant-detail-share-button',
-              ),
-            ),
-        ],
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      // Barra de estado clara sobre las fotos (fondo oscuro desenfocado).
+      value: (_loading || r == null)
+          ? (gm.isDark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark)
+          : SystemUiOverlayStyle.light,
+      child: Scaffold(
+        backgroundColor: gm.canvas,
+        body: (_loading || r == null)
+            ? const _DetailSkeleton()
+            : _buildScrollContent(),
       ),
     );
   }
@@ -320,20 +273,22 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen>
       child: CustomScrollView(
         controller: _scrollCtrl,
         slivers: [
-          SliverToBoxAdapter(child: DetailHero(restaurant: r)),
-          SliverPersistentHeader(
-            pinned: true,
-            delegate: SectionNavbarDelegate(
-              labels: _labels,
-              activeIndex: _activeSection,
-              onTap: _scrollToSection,
+          SliverToBoxAdapter(
+            child: GmFichaHeader(
+              restaurant: r,
+              visits: _visits,
+              isSaved: _isSaved,
+              onClose: () => Navigator.pop(context),
+              onShare: _share,
+              onDirections: _openMaps,
+              onCall: r.telefono.isNotEmpty ? _call : null,
+              onToggleSave: _toggleSave,
+              onOpenVisit: _openVisit,
             ),
           ),
           SliverToBoxAdapter(child: _buildBody(r)),
-          // Clearance para la barra flotante (cristal) que va sobre el scroll.
           SliverToBoxAdapter(
-            child: SizedBox(
-                height: MediaQuery.of(context).padding.bottom + 80),
+            child: SizedBox(height: MediaQuery.of(context).padding.bottom + 24),
           ),
         ],
       ),
@@ -343,83 +298,44 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen>
   Widget _buildBody(Restaurant r) {
     final hasShort = YoutubeShortSection.shouldRender(r);
     final hasEditorial = EditorialSection.shouldRender(r);
-    final hasCategories = CategoriesChips.shouldRender(r);
     final hasVisits = VisitsByRestaurantSection.shouldRender(_visits);
     final hasAiInsights = AiInsightsSection.shouldRender(_visits);
     final hasListAppearances =
         ListAppearancesSection.shouldRender(_listAppearances);
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 24),
+      padding: const EdgeInsets.only(top: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: 8),
-          // Sección 1: Vídeo
-          KeyedSubtree(
-            key: _videoKey,
-            child: hasShort
-                ? Padding(
-                    padding: const EdgeInsets.only(top: 18),
-                    child: YoutubeShortSection(restaurant: r),
-                  )
-                : const SizedBox(height: 4),
-          ),
-          if (hasShort) const _SectionDivider(),
-          // Sección 2: Info
-          KeyedSubtree(
-            key: _infoKey,
-            child: Padding(
-              padding: const EdgeInsets.only(top: 18),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (hasEditorial) ...[
-                    EditorialSection(restaurant: r),
-                    const SizedBox(height: 18),
-                  ],
-                  NTKBox(restaurant: r),
-                  if (hasCategories) ...[
-                    const SizedBox(height: 14),
-                    CategoriesChips(restaurant: r),
-                  ],
-                  if (hasVisits) ...[
-                    const SizedBox(height: 22),
-                    VisitsByRestaurantSection(visits: _visits),
-                  ],
-                  if (hasAiInsights) ...[
-                    const SizedBox(height: 22),
-                    AiInsightsSection(visits: _visits),
-                  ],
-                  if (hasListAppearances) ...[
-                    const SizedBox(height: 22),
-                    ListAppearancesSection(appearances: _listAppearances),
-                  ],
-                ],
-              ),
-            ),
-          ),
+          // Detalles (horario, teléfono, dirección…).
+          NTKBox(restaurant: r),
+          if (hasShort) ...[
+            const SizedBox(height: 28),
+            YoutubeShortSection(restaurant: r),
+          ],
+          if (hasEditorial) ...[
+            const SizedBox(height: 28),
+            EditorialSection(restaurant: r),
+          ],
+          if (hasVisits) ...[
+            const SizedBox(height: 28),
+            VisitsByRestaurantSection(visits: _visits),
+          ],
+          if (hasAiInsights) ...[
+            const SizedBox(height: 28),
+            AiInsightsSection(visits: _visits),
+          ],
+          if (hasListAppearances) ...[
+            const SizedBox(height: 28),
+            ListAppearancesSection(appearances: _listAppearances),
+          ],
           const _SectionDivider(),
-          // Sección 3: Mapa
-          KeyedSubtree(
-            key: _mapKey,
-            child: Padding(
-              padding: const EdgeInsets.only(top: 18),
-              child: MapSection(restaurant: r),
-            ),
-          ),
+          MapSection(restaurant: r),
           const _SectionDivider(),
-          // Sección 4: Reseñas
-          KeyedSubtree(
-            key: _reviewsKey,
-            child: Padding(
-              padding: const EdgeInsets.only(top: 18),
-              child: ReviewsSection(
-                restaurant: r,
-                onReviewSubmitted: () =>
-                    _presenter.getRestaurantById(widget.id),
-              ),
-            ),
+          ReviewsSection(
+            restaurant: r,
+            onReviewSubmitted: () => _presenter.getRestaurantById(widget.id),
           ),
         ],
       ),

@@ -1,5 +1,8 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:guachinches/ui/theme/gm_icons.dart';
+import 'package:guachinches/ui/theme/gm_tokens.dart';
+import 'package:guachinches/ui/theme/gm_widgets.dart';
 import 'package:flutter/services.dart';
 import 'package:guachinches/config/app_colors.dart';
 import 'package:guachinches/config/brand_colors.dart';
@@ -49,13 +52,7 @@ class VisitsByRestaurantSection extends StatelessWidget {
       children: [
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Text(
-            'VISITAS DE JONAY Y JOANA',
-            style: AppTextStyles.displaySection(
-              size: 11,
-              color: AppColors.atlantico,
-            ),
-          ),
+          child: GmDetailTitle('Visitas de Jonay y Joana'),
         ),
         const SizedBox(height: 12),
         for (var i = 0; i < visits.length; i++) ...[
@@ -91,7 +88,7 @@ class _VisitExpandableState extends State<_VisitExpandable> {
     if (raw == null) return null;
     final d = DateTime.tryParse(raw);
     if (d == null) return null;
-    return '${d.day} ${_months[d.month - 1]} ${d.year.toString().substring(2)}';
+    return '${d.day} ${_months[d.month - 1].toLowerCase()} ${d.year}';
   }
 
   void _toggle() {
@@ -101,14 +98,13 @@ class _VisitExpandableState extends State<_VisitExpandable> {
 
   @override
   Widget build(BuildContext context) {
-    final brand = context.brand;
     final v = widget.visit;
     final date = _dateLabel(v.sortDate);
     final eyebrow = [
       if (v.creator != null && v.creator!.trim().isNotEmpty)
-        v.creator!.toUpperCase()
+        v.creator!.trim()
       else
-        'JONAY Y JOANA',
+        'Jonay y Joana',
       if (date != null) date,
     ].join(' · ');
 
@@ -130,18 +126,16 @@ class _VisitExpandableState extends State<_VisitExpandable> {
                     children: [
                       Text(
                         eyebrow,
-                        style: AppTextStyles.eyebrow(size: 10)
-                            .copyWith(letterSpacing: 1.2),
+                        style: GmText.eyebrow(
+                            color: GmColors.of(context).label2),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 3),
                       Text(
                         _open ? 'Ocultar visita' : '¿Quieres ver la visita?',
-                        style: AppTextStyles.displaySection(
-                          size: 15,
-                          color: brand.textPrimary,
-                        ).copyWith(letterSpacing: 0.2),
+                        style: GmText.cardTitle(
+                            color: GmColors.of(context).label),
                       ),
                     ],
                   ),
@@ -150,8 +144,8 @@ class _VisitExpandableState extends State<_VisitExpandable> {
                 AnimatedRotation(
                   turns: _open ? 0.5 : 0,
                   duration: const Duration(milliseconds: 220),
-                  child: Icon(Icons.keyboard_arrow_down_rounded,
-                      color: AppColors.atlanticoClaro, size: 26),
+                  child: GmIcon(GmIcons.chevronDown,
+                      size: 14, color: GmColors.of(context).label2),
                 ),
               ],
             ),

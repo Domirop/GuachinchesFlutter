@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:guachinches/ui/theme/gm_tokens.dart';
+import 'package:guachinches/ui/theme/gm_widgets.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:guachinches/config/app_colors.dart';
 import 'package:guachinches/config/brand_colors.dart';
@@ -38,9 +40,8 @@ class MapSection extends StatelessWidget {
     final hasCoords = restaurant.lat != 0 && restaurant.lon != 0;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 14),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(14),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: GmCard(
         child: Column(
           children: [
             SizedBox(
@@ -78,9 +79,9 @@ class MapSection extends StatelessWidget {
               ),
             ),
             Container(
-              color: context.brand.surface,
+              color: GmColors.of(context).card,
               padding: const EdgeInsets.symmetric(
-                  vertical: 10, horizontal: 12),
+                  vertical: 12, horizontal: 16),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [

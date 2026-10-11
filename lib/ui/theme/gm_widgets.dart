@@ -252,6 +252,21 @@ class GmSectionHeader extends StatelessWidget {
   }
 }
 
+/// Título de bloque en pantallas de detalle («Detalles», «Servicios»…):
+/// 20/25 · 700 en tipo frase, a 20 pt del borde (dentro de un margen de 16).
+class GmDetailTitle extends StatelessWidget {
+  final String text;
+  const GmDetailTitle(this.text, {super.key});
+
+  @override
+  Widget build(BuildContext context) => Container(
+        constraints: const BoxConstraints(minHeight: 32),
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        alignment: Alignment.centerLeft,
+        child: Text(text, style: GmText.poster(color: GmColors.of(context).label)),
+      );
+}
+
 /// Botón cápsula primario (degradado Atlántico, texto blanco, 44 de alto).
 class GmCapsuleButton extends StatelessWidget {
   final String label;

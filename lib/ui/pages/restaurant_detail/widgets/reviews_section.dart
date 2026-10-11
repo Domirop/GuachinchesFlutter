@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:guachinches/ui/theme/gm_widgets.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:guachinches/config/app_colors.dart';
@@ -121,10 +122,7 @@ class _ReviewsSectionState extends State<ReviewsSection> {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Expanded(
-                child: Text(
-                  'RESEÑAS',
-                  style: AppTextStyles.displaySection(size: 11),
-                ),
+                child: GmDetailTitle('Reseñas'),
               ),
               if (hasReviews)
                 Text(
