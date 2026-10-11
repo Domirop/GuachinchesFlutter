@@ -219,7 +219,12 @@ class _VisitDetailPageState extends State<VisitDetailPage>
           : SystemUiOverlayStyle.light,
       child: Scaffold(
         backgroundColor: bg,
-        body: _buildScrollContent(context),
+        body: Stack(
+          children: [
+            _buildScrollContent(context),
+            if (!widget.asSheet) GmTopScrim(visible: !_overVideo),
+          ],
+        ),
       ),
     );
   }

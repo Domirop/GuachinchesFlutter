@@ -273,7 +273,12 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen>
         backgroundColor: gm.canvas,
         body: (_loading || r == null)
             ? const _DetailSkeleton()
-            : _buildScrollContent(),
+            : Stack(
+                children: [
+                  _buildScrollContent(),
+                  GmTopScrim(visible: !_overPhoto),
+                ],
+              ),
       ),
     );
   }

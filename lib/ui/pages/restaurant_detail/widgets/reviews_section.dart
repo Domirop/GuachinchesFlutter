@@ -213,13 +213,13 @@ class _WriteReviewPrompt extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(GmRadius.card),
         child: Container(
-          padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
           decoration: BoxDecoration(
-            color: brand.surface,
-            border: Border.all(color: brand.borderStrong),
-            borderRadius: BorderRadius.circular(14),
+            color: GmColors.of(context).card,
+            borderRadius: BorderRadius.circular(GmRadius.card),
+            boxShadow: GmColors.of(context).shadow1,
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,

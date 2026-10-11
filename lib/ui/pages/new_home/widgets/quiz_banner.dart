@@ -119,11 +119,13 @@ class _QuizBannerState extends State<QuizBanner> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Row(
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 4,
+                            crossAxisAlignment: WrapCrossAlignment.center,
                             children: [
                               Text('Juego',
                                   style: GmText.eyebrow(color: gm.accent)),
-                              const SizedBox(width: 8),
                               const _NewBadge(),
                             ],
                           ),

@@ -9,6 +9,42 @@ import 'package:guachinches/ui/theme/gm_tokens.dart';
 
 /// Piezas reutilizables del rediseño iOS 27. Todas leen [GmColors.of].
 
+/// Velo del lienzo bajo la barra de estado (edgeTop): se muestra cuando el
+/// contenido de lienzo pasa por debajo del reloj. No intercepta toques.
+class GmTopScrim extends StatelessWidget {
+  final bool visible;
+  final double extra;
+  const GmTopScrim({super.key, required this.visible, this.extra = 16});
+
+  @override
+  Widget build(BuildContext context) {
+    final gm = GmColors.of(context);
+    final top = MediaQuery.paddingOf(context).top;
+    return Positioned(
+      left: 0,
+      right: 0,
+      top: 0,
+      height: top + extra,
+      child: IgnorePointer(
+        child: AnimatedOpacity(
+          opacity: visible ? 1 : 0,
+          duration: Duration(milliseconds: GmMotion.reduced(context) ? 0 : 180),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [gm.edgeTop0, gm.edgeTop1, gm.edgeFade0],
+                stops: const [0, 0.7, 1],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// Tarjeta e1: blanco puro, radio 24, filo 1 px + sombra cálida.
 class GmCard extends StatelessWidget {
   final Widget child;
@@ -381,36 +417,40 @@ class GmPhotoChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final gm = GmColors.of(context);
     final ink = dark ? Colors.white : gm.photoInk;
-    return Container(
-      height: 26,
-      padding: const EdgeInsets.symmetric(horizontal: 9),
-      decoration: BoxDecoration(
-        color: dark ? const Color(0x5714100C) : gm.photoGlass,
-        borderRadius: BorderRadius.circular(GmRadius.pill),
-        border: Border.all(
-            color: dark ? const Color(0x59FFFFFF) : gm.photoEdge, width: 0.5),
-        boxShadow: dark
-            ? null
-            : const [
-                BoxShadow(
-                    color: Color(0x1A000000),
-                    offset: Offset(0, 2),
-                    blurRadius: 8),
-              ],
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (leading != null) ...[leading!, const SizedBox(width: 4)],
-          Flexible(
-            child: Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: GmText.chip(color: ink),
+    // Chip de 26 sobre foto: el texto escala como mucho a 1,3×.
+    return MediaQuery.withClampedTextScaling(
+      maxScaleFactor: 1.3,
+      child: Container(
+        height: 26,
+        padding: const EdgeInsets.symmetric(horizontal: 9),
+        decoration: BoxDecoration(
+          color: dark ? const Color(0x5714100C) : gm.photoGlass,
+          borderRadius: BorderRadius.circular(GmRadius.pill),
+          border: Border.all(
+              color: dark ? const Color(0x59FFFFFF) : gm.photoEdge, width: 0.5),
+          boxShadow: dark
+              ? null
+              : const [
+                  BoxShadow(
+                      color: Color(0x1A000000),
+                      offset: Offset(0, 2),
+                      blurRadius: 8),
+                ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (leading != null) ...[leading!, const SizedBox(width: 4)],
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: GmText.chip(color: ink),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
