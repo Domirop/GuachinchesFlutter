@@ -49,6 +49,12 @@ class Restaurant {
   String? website;
   String? island;
 
+  /// Enlaces del local que manda el detalle (`instagram_link`, `menu_link`,
+  /// `link_reserva`). `null` si no hay.
+  String? instagramLink;
+  String? menuLink;
+  String? reservationLink;
+
   // YouTube Short
   String? shortVideoId;
   String? shortThumbnailUrl;
@@ -249,6 +255,9 @@ class Restaurant {
     minPrice = _asInt(json["minPrice"] ?? json["min_price"]);
     maxPrice = _asInt(json["maxPrice"] ?? json["max_price"]);
     website = json["website"]?.toString();
+    instagramLink = _link(json["instagram_link"]);
+    menuLink = _link(json["menu_link"]);
+    reservationLink = _link(json["link_reserva"]);
     island = json["island"]?.toString();
 
     final short = json["short"];
@@ -278,6 +287,15 @@ class Restaurant {
   /// `null` → '' para los campos String no-nullable del modelo. El backend
   /// manda null en muchos negocios y no puede costarnos el registro entero.
   static String _asString(dynamic v) => v?.toString() ?? '';
+
+  /// Enlace no vacío (el backend manda null, '' o 'None').
+  static String? _link(dynamic v) {
+    final t = v?.toString().trim() ?? '';
+    if (t.isEmpty || t.toLowerCase() == 'none' || t.toLowerCase() == 'null') {
+      return null;
+    }
+    return t;
+  }
 
   static int? _asInt(dynamic v) {
     if (v == null) return null;
