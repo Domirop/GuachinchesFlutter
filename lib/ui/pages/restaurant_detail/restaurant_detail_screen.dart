@@ -22,6 +22,7 @@ import 'package:share_plus/share_plus.dart' show SharePlus, ShareParams;
 import 'package:url_launcher/url_launcher.dart';
 
 import 'widgets/ficha_sections.dart';
+import 'widgets/ficha_visit_reels.dart';
 import 'widgets/gm_ficha_header.dart';
 import 'widgets/reviews_section.dart';
 
@@ -335,8 +336,14 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen>
       ),
       if (hasVisits && FichaEditorial.shouldRender(r))
         FichaEditorial(restaurant: r),
-      if (FichaShort.shouldRender(r)) FichaShort(restaurant: r, visits: visits),
-      if (hasVisits) FichaVisits(visits: visits),
+      // El short ES la visita: una sola sección con portadas tipo Reels.
+      if (hasVisits)
+        FichaVisitReels(
+          restaurant: r,
+          visits: visits,
+          onOpenVisit: _openVisit,
+          teaserQuote: fichaTeaserQuote(visits.first, r.shortQuotes),
+        ),
       if (hasVisits && !ai.isEmpty) FichaAiSummaryCard(summary: ai),
       if (FichaPhotos.shouldRender(photos))
         FichaPhotos(urls: photos, onOpen: _openGallery),

@@ -131,6 +131,14 @@ class GmIcons {
       '<rect x="3.5" y="5" width="17" height="14" rx="3.5"/><path d="M10.3 9.3v5.4l4.5-2.7z" fill="currentColor"/>',
       attrs:
           'fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"');
+  /// Glifo de reel (chip de duración de las portadas de visita).
+  static final reel = _wrap(
+      '<rect x="3.5" y="3.5" width="17" height="17" rx="5"/><path d="M3.5 8.5h17M8.5 3.5l3 5M14 3.5l3 5" stroke-linecap="round"/><path d="M10.3 11.6v5.2l4.4-2.6z" fill="currentColor" stroke="none"/>',
+      attrs:
+          'fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"');
+  static final pause = _wrap(
+      '<rect x="6" y="4.5" width="4.2" height="15" rx="1.4"/><rect x="13.8" y="4.5" width="4.2" height="15" rx="1.4"/>',
+      attrs: 'fill="currentColor"');
   static final clock = _wrap(
       '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
       attrs:

@@ -227,15 +227,16 @@ bool fichaLooksComplete(String raw) {
   return first == '¡' || first == '¿' || first != first.toLowerCase();
 }
 
-/// Cita del teaser de la visita: literal, positiva si la hay, distinta de
-/// las del short (para no repetir la misma frase dos veces).
-String? fichaTeaserQuote(Visit v, List<ShortQuote> shortQuotes) {
-  final used = shortQuotes.map((q) => _norm(q.text)).toSet();
+/// Citas literales de una visita, de mejor a peor para destacar: frases
+/// completas, positivas y cortas primero. Se saltan las de [exclude]
+/// (comparadas sin comillas, tildes ni mayúsculas) para no repetir la misma
+/// frase dos veces en la ficha.
+List<VisitQuote> _rankedQuotes(Visit v, Iterable<String> exclude) {
+  final used = exclude.map(_quoteKey).toSet();
   final candidates = v.quotes
-      .where((q) => q.text.trim().isNotEmpty && !used.contains(_norm(q.text)))
+      .where(
+          (q) => q.text.trim().isNotEmpty && !used.contains(_quoteKey(q.text)))
       .toList();
-  if (candidates.isEmpty) return null;
-  // Preferimos frases completas, positivas y cortas (caben en dos líneas).
   candidates.sort((a, b) {
     final ca = fichaLooksComplete(a.text) ? 0 : 1;
     final cb = fichaLooksComplete(b.text) ? 0 : 1;
@@ -245,32 +246,65 @@ String? fichaTeaserQuote(Visit v, List<ShortQuote> shortQuotes) {
     if (pa != pb) return pa.compareTo(pb);
     return a.text.length.compareTo(b.text.length);
   });
-  return fichaQuote(candidates.first.text);
+  return candidates;
+}
+
+String _quoteKey(String raw) => _dedupeKey(fichaQuote(raw));
+
+/// Cita del teaser de la visita: literal, positiva si la hay, distinta de
+/// las del short (para no repetir la misma frase dos veces).
+String? fichaTeaserQuote(Visit v, List<ShortQuote> shortQuotes) {
+  final ranked = _rankedQuotes(v, shortQuotes.map((q) => q.text));
+  return ranked.isEmpty ? null : fichaQuote(ranked.first.text);
+}
+
+/// Cita de la columna de la portada (1 visita): la mejor que no esté ya en
+/// [exclude] (p. ej. la del teaser de la cabecera).
+String? fichaReelQuote(Visit v, {Iterable<String> exclude = const []}) {
+  final ranked = _rankedQuotes(v, exclude);
+  return ranked.isEmpty ? null : fichaQuote(ranked.first.text);
 }
 
 /// Una frase de «Lo que dicen» (citas literales con marca Positivo/Ojo).
 class FichaSaying {
   final String text;
   final bool warning;
-  const FichaSaying(this.text, {this.warning = false});
+
+  /// Frase neutra (contexto, no opinión): sin marca Positivo/Ojo.
+  final bool neutral;
+  const FichaSaying(this.text, {this.warning = false, this.neutral = false});
 }
 
-/// «Lo que dicen»: las citas del short; si no hay, las de la visita más
-/// reciente (con su sentimiento). Siempre literales, sin hablante.
-List<FichaSaying> fichaSayings(Restaurant r, List<Visit> visits) {
+/// «Lo que dicen en el vídeo» de la visita elegida: si su vídeo es el short
+/// del local, las citas curadas del short (con su marca de aviso); si no,
+/// las de la propia visita con su sentimiento. Siempre literales, sin
+/// hablante y sin repetir las de [exclude] (teaser y columna de la portada).
+List<FichaSaying> fichaVisitSayings(Restaurant r, Visit? v,
+    {Iterable<String> exclude = const []}) {
+  final used = exclude.map(_quoteKey).toSet();
   final out = <FichaSaying>[];
-  for (final q in r.shortQuotes) {
-    final t = fichaQuote(q.text);
-    if (t.isNotEmpty) out.add(FichaSaying(t, warning: q.isWarning));
+  void add(String raw, bool warning, {bool neutral = false}) {
+    final t = fichaQuote(raw);
+    if (t.isEmpty) return;
+    final k = _dedupeKey(t);
+    if (!used.add(k)) return;
+    out.add(FichaSaying(t, warning: warning, neutral: neutral));
   }
-  if (out.isNotEmpty) return out;
-  final latest = fichaLatestVisit(visits);
-  if (latest == null) return out;
-  for (final q in latest.quotes) {
-    final t = fichaQuote(q.text);
-    if (t.isEmpty) continue;
+
+  final shortId = r.shortVideoId?.trim();
+  final isShort = v == null ||
+      (shortId != null && shortId.isNotEmpty && fichaYoutubeId(v) == shortId);
+  if (isShort && r.shortQuotes.isNotEmpty) {
+    for (final q in r.shortQuotes) {
+      add(q.text, q.isWarning);
+    }
+    return out;
+  }
+  if (v == null) return out;
+  for (final q in v.quotes) {
     final s = (q.sentiment ?? '').toLowerCase();
-    out.add(FichaSaying(t, warning: s.startsWith('neg') || s == 'warning'));
+    add(q.text, s.startsWith('neg') || s == 'warning',
+        neutral: s.startsWith('neu'));
   }
   return out;
 }
@@ -603,4 +637,113 @@ String? fichaDuration({int? seconds, String? raw}) {
     return '$m:${s.toString().padLeft(2, '0')}';
   }
   return t;
+}
+
+// ── Visitas tipo Reels (Sistema §07 «Portada de visita · tipo Reels») ──────
+
+/// Portada 9:16: la más reciente a 160 × 284 (con anillo), las anteriores a
+/// 132 × 234.
+({double width, double height}) fichaReelSize(int index) =>
+    index == 0 ? (width: 160, height: 284) : (width: 132, height: 234);
+
+final _ytId = RegExp(r'^[A-Za-z0-9_-]{11}$');
+final _ytInUrl = RegExp(
+    r'(?:/vi(?:_webp)?/|[?&]v=|youtu\.be/|/shorts/|/embed/)([A-Za-z0-9_-]{11})');
+
+/// Id de YouTube (11 caracteres) de la visita: el campo si ya lo es, si no
+/// sacado de la miniatura o de la URL del vídeo. `null` si no hay.
+String? fichaYoutubeId(Visit v) {
+  final id = v.youtubeVideoId?.trim();
+  if (id != null && _ytId.hasMatch(id)) return id;
+  for (final s in [v.thumbnail, v.videoUrl]) {
+    final m = _ytInUrl.firstMatch(s ?? '');
+    if (m != null) return m.group(1);
+  }
+  return null;
+}
+
+/// Miniaturas de la portada de mejor a peor: la vertical original del Short
+/// (`oardefault`, 9:16), la maxres y la hq de YouTube (16:9 con el cuadro
+/// vertical centrado → se recortan al centro), la miniatura guardada y la
+/// foto del local. Para `GmPhoto` con `fallbacks`.
+List<String> fichaReelThumbs(Visit v, {String? venuePhoto}) {
+  final out = <String>[];
+  void add(String? u) {
+    if (u != null && u.isNotEmpty && !out.contains(u)) out.add(u);
+  }
+
+  final id = fichaYoutubeId(v);
+  if (id != null) {
+    add('https://i.ytimg.com/vi/$id/oardefault.jpg');
+    add('https://i.ytimg.com/vi/$id/maxresdefault.jpg');
+    add('https://i.ytimg.com/vi/$id/hqdefault.jpg');
+  }
+  add(v.thumbnail);
+  add(v.restaurant?.mainFoto);
+  add(venuePhoto);
+  return out;
+}
+
+/// Platos con nombre (los vacíos no se pintan).
+List<VisitDish> fichaNamedDishes(Visit v) =>
+    v.dishes.where((d) => d.name.trim().isNotEmpty).toList();
+
+/// Pila de platos de la portada: hasta [max] fotos en círculo y el «+N» con
+/// los platos que no caben. Sin fotos no hay pila (ni «+N» suelto).
+({List<String> photos, int more}) fichaDishStack(Visit v, {int max = 3}) {
+  final named = fichaNamedDishes(v);
+  final photos = [
+    for (final d in named)
+      if (d.photoUrl != null && d.photoUrl!.isNotEmpty) d.photoUrl!
+  ].take(max).toList();
+  if (photos.isEmpty) return (photos: const <String>[], more: 0);
+  return (photos: photos, more: named.length - photos.length);
+}
+
+/// Platos que les encantaron.
+int fichaLovedDishCount(Visit v) =>
+    fichaNamedDishes(v).where((d) => d.sentiment == 'loved').length;
+
+/// «8 oct» (chip de fecha de la portada).
+String? fichaShortDateFromIso(String? iso) {
+  final d = DateTime.tryParse(iso ?? '');
+  if (d == null) return null;
+  final l = d.toLocal();
+  return '${l.day} ${_months[l.month - 1]}';
+}
+
+/// «1:35» de la visita (segundos del vídeo) o `null`.
+String? fichaVisitDuration(Visit v) =>
+    fichaDuration(seconds: v.durationSeconds);
+
+/// «Short · 1:35 · 6 platos» (columna de la portada con una sola visita).
+String fichaReelMeta(Visit v) {
+  final n = fichaNamedDishes(v).length;
+  return [
+    'Short',
+    if (fichaVisitDuration(v) != null) fichaVisitDuration(v)!,
+    if (n > 0) n == 1 ? '1 plato' : '$n platos',
+  ].join(' · ');
+}
+
+/// «Lo que pidieron el 8 oct · 5 les encantaron».
+String fichaOrderedEyebrow(Visit v) {
+  final date = fichaShortDateFromIso(v.sortDate);
+  final head = date == null ? 'Lo que pidieron' : 'Lo que pidieron el $date';
+  final loved = fichaLovedDishCount(v);
+  if (loved == 0) return head;
+  return '$head · ${loved == 1 ? '1 les encantó' : '$loved les encantaron'}';
+}
+
+/// «1 visita» / «3 visitas».
+String fichaVisitCount(int n) => n == 1 ? '1 visita' : '$n visitas';
+
+/// Visita elegida en el carrusel: la de [selectedId] si sigue en la lista;
+/// si no, la más reciente. `null` sin visitas.
+Visit? fichaSelectedVisit(List<Visit> sorted, String? selectedId) {
+  if (sorted.isEmpty) return null;
+  for (final v in sorted) {
+    if (v.id == selectedId) return v;
+  }
+  return sorted.first;
 }

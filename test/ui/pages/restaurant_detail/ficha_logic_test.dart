@@ -130,15 +130,57 @@ void main() {
       expect(fichaTeaserQuote(v, short), '«Esto es uno de los platos estrella.»');
     });
 
-    test('«Lo que dicen»: Ojo para avisos, sin hablante', () {
+    test('«Lo que dicen en el vídeo»: citas curadas del short si la visita es el short',
+        () {
       final r = Restaurant(id: 'r')
+        ..shortVideoId = 'aUTCrn_SmEo'
         ..shortQuotes = const [
           ShortQuote(text: 'Jonay: No nos parece caro.'),
           ShortQuote(text: 'La pechada para subir.', isWarning: true),
         ];
-      final s = fichaSayings(r, const []);
+      final v = Visit(
+          id: 'a',
+          restaurantId: 'r',
+          thumbnail: 'https://i.ytimg.com/vi/aUTCrn_SmEo/hqdefault.jpg',
+          quotes: const [VisitQuote(text: 'Otra frase.', sentiment: 'positive')]);
+      final s = fichaVisitSayings(r, v);
       expect(s.map((e) => e.text), ['«No nos parece caro.»', '«La pechada para subir.»']);
       expect(s.map((e) => e.warning), [false, true]);
+    });
+
+    test('«Lo que dicen en el vídeo»: si no, las de la visita, Ojo en negativas y sin repetir',
+        () {
+      final r = Restaurant(id: 'r')..shortVideoId = 'otroShort11';
+      final v = _visit('a', '2026-01-01T00:00:00Z', quotes: const [
+        VisitQuote(text: 'Pídanselo porque están superricos.', sentiment: 'positive'),
+        VisitQuote(text: 'La salsa está buenísima.', sentiment: 'positive'),
+        VisitQuote(text: 'La pechada que tienes que subir.', sentiment: 'negative'),
+        VisitQuote(text: 'la salsa está buenísima', sentiment: 'positive'),
+        VisitQuote(text: 'En total pagamos 22 €.', sentiment: 'neutral'),
+      ]);
+      final s = fichaVisitSayings(r, v,
+          exclude: ['«Pídanselo porque están superricos.»']);
+      expect(s.map((e) => e.text), [
+        '«La salsa está buenísima.»',
+        '«La pechada que tienes que subir.»',
+        '«En total pagamos 22 €.»',
+      ]);
+      expect(s.map((e) => e.warning), [false, true, false]);
+      // Las neutras van sin marca (ni Positivo ni Ojo).
+      expect(s.map((e) => e.neutral), [false, false, true]);
+    });
+
+    test('la cita de la portada reutiliza el criterio del teaser sin repetirla',
+        () {
+      final v = _visit('a', '2026-01-01T00:00:00Z', quotes: const [
+        VisitQuote(text: 'Pídanselo.', sentiment: 'positive'),
+        VisitQuote(text: 'La salsa está buenísima.', sentiment: 'positive'),
+        VisitQuote(text: 'Es caro.', sentiment: 'negative'),
+      ]);
+      final teaser = fichaTeaserQuote(v, const []);
+      expect(teaser, '«Pídanselo.»');
+      expect(fichaReelQuote(v, exclude: [teaser!]), '«La salsa está buenísima.»');
+      expect(fichaReelQuote(_visit('b', '2026-01-01T00:00:00Z')), isNull);
     });
   });
 
@@ -254,6 +296,105 @@ void main() {
     test('rutas con parada; tops con puesto (sin ceros)', () {
       expect(fichaListLabel('RUTA', 2, 12), 'Ruta · Parada 2 de 12');
       expect(fichaListLabel('TOP', 1, 7), 'Top · Puesto nº 1');
+    });
+  });
+
+  group('Visitas tipo Reels', () {
+    VisitDish dish(String name, {String? photo, String? sentiment}) =>
+        VisitDish(name: name, photoUrl: photo, sentiment: sentiment);
+
+    test('la más reciente primero (también para el carrusel)', () {
+      final v = [
+        _visit('6may2025', '2025-05-06T13:27:54Z'),
+        _visit('10mar2026', '2026-03-10T12:58:49Z'),
+      ];
+      expect(fichaSortedVisits(v).map((e) => e.id), ['10mar2026', '6may2025']);
+    });
+
+    test('tamaños: la más reciente 160 × 284, las anteriores 132 × 234', () {
+      expect(fichaReelSize(0), (width: 160.0, height: 284.0));
+      expect(fichaReelSize(1), (width: 132.0, height: 234.0));
+      expect(fichaReelSize(3), (width: 132.0, height: 234.0));
+    });
+
+    test('portada elegida: la del id si sigue; si no, la más reciente', () {
+      final v = fichaSortedVisits([
+        _visit('vieja', '2025-05-06T00:00:00Z'),
+        _visit('nueva', '2026-03-10T00:00:00Z'),
+      ]);
+      expect(fichaSelectedVisit(v, null)!.id, 'nueva');
+      expect(fichaSelectedVisit(v, 'vieja')!.id, 'vieja');
+      expect(fichaSelectedVisit(v, 'borrada')!.id, 'nueva');
+      expect(fichaSelectedVisit(const [], 'x'), isNull);
+    });
+
+    test('duración «m:ss» desde segundos o texto del backend', () {
+      expect(fichaDuration(seconds: 95), '1:35');
+      expect(fichaDuration(seconds: 58), '0:58');
+      expect(fichaDuration(seconds: 130), '2:10');
+      expect(fichaDuration(raw: 'PT1M12S'), '1:12');
+      expect(fichaDuration(seconds: 0), isNull);
+      expect(fichaVisitDuration(Visit(id: 'a', restaurantId: 'r', durationSeconds: 95)),
+          '1:35');
+      expect(fichaVisitDuration(Visit(id: 'a', restaurantId: 'r')), isNull);
+    });
+
+    test('pila de platos: 3 fotos y «+N» con el resto (los sin foto cuentan)', () {
+      final six = Visit(id: 'a', restaurantId: 'r', dishes: [
+        for (var i = 0; i < 5; i++) dish('Plato $i', photo: 'p$i.jpg'),
+        dish('Quesillo'),
+        dish('  '),
+      ]);
+      final s = fichaDishStack(six);
+      expect(s.photos, ['p0.jpg', 'p1.jpg', 'p2.jpg']);
+      expect(s.more, 3);
+
+      final two = Visit(id: 'b', restaurantId: 'r', dishes: [
+        dish('Bocadillo', photo: 'b.jpg'),
+        dish('Arepas', photo: 'a.jpg'),
+      ]);
+      expect(fichaDishStack(two).photos.length, 2);
+      expect(fichaDishStack(two).more, 0);
+
+      // Sin fotos no hay pila ni «+N» suelto.
+      final none = Visit(id: 'c', restaurantId: 'r', dishes: [dish('Arepas')]);
+      expect(fichaDishStack(none).photos, isEmpty);
+      expect(fichaDishStack(none).more, 0);
+    });
+
+    test('textos: chip de fecha, meta de la columna y antetítulo de platos', () {
+      final v = Visit(
+        id: 'a',
+        restaurantId: 'r',
+        videoPublishedAt: '2026-10-08T17:32:43Z',
+        durationSeconds: 95,
+        dishes: [
+          for (var i = 0; i < 5; i++) dish('Plato $i', sentiment: 'loved'),
+          dish('Quesillo', sentiment: 'liked'),
+        ],
+      );
+      expect(fichaShortDateFromIso(v.sortDate), '8 oct');
+      expect(fichaReelMeta(v), 'Short · 1:35 · 6 platos');
+      expect(fichaOrderedEyebrow(v), 'Lo que pidieron el 8 oct · 5 les encantaron');
+      expect(fichaVisitCount(1), '1 visita');
+      expect(fichaVisitCount(2), '2 visitas');
+    });
+
+    test('miniaturas: vertical del Short, maxres, hq y la foto del local', () {
+      final v = Visit(
+          id: 'a',
+          restaurantId: 'r',
+          youtubeVideoId: '1e7e8252-6368-423b-93ed-acc752ca4cba',
+          thumbnail: 'https://i.ytimg.com/vi/aUTCrn_SmEo/hqdefault.jpg');
+      expect(fichaYoutubeId(v), 'aUTCrn_SmEo');
+      expect(fichaReelThumbs(v, venuePhoto: 'local.jpg'), [
+        'https://i.ytimg.com/vi/aUTCrn_SmEo/oardefault.jpg',
+        'https://i.ytimg.com/vi/aUTCrn_SmEo/maxresdefault.jpg',
+        'https://i.ytimg.com/vi/aUTCrn_SmEo/hqdefault.jpg',
+        'local.jpg',
+      ]);
+      expect(fichaReelThumbs(Visit(id: 'b', restaurantId: 'r'), venuePhoto: 'l.jpg'),
+          ['l.jpg']);
     });
   });
 }
