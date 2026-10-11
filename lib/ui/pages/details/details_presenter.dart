@@ -41,12 +41,18 @@ class DetailPresenter {
     _view.setRestaurantVideos(videos);
   }
 
+  /// Ids ya registrados en analítica por esta pantalla: recargar (p. ej.
+  /// tras publicar una reseña) no debe contar una segunda visita.
+  final Set<String> _loggedDetailIds = {};
+
   getRestaurantById(String id) async {
     Restaurant restaurant = await _remoteRepository.getRestaurantById(id);
-    Analytics.I.logEvent('detalles_restaurantes', {
-      'id': '${restaurant.id}',
-      'name': '${restaurant.nombre}',
-    });
+    if (_loggedDetailIds.add(id)) {
+      Analytics.I.logEvent('detalles_restaurantes', {
+        'id': '${restaurant.id}',
+        'name': '${restaurant.nombre}',
+      });
+    }
     try {
       String userId = await isUserLogged();
 
