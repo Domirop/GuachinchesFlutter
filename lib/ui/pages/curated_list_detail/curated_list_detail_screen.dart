@@ -120,6 +120,14 @@ class _CuratedListDetailViewState extends State<_CuratedListDetailView> {
   Widget _buildLoaded(BuildContext context, CuratedListDetail detail) {
     final municipalities = _municipalitiesFrom(detail);
     final filtered = _applyFilters(detail);
+    // Puesto 1-based sobre la lista completa (el backend numera desde 0 en
+    // unas listas y desde 1 en otras), estable aunque se filtre.
+    final ranks = <String, int>{
+      for (final e in ([...detail.items]
+            ..sort((a, b) => a.position.compareTo(b.position)))
+          .indexed)
+        e.$2.restaurantId: e.$1 + 1,
+    };
 
     // Ubicación del usuario (si la concedió) para mostrar la distancia a cada
     // negocio. `watch` re-renderiza la lista cuando llega el primer fix GPS.
@@ -168,6 +176,7 @@ class _CuratedListDetailViewState extends State<_CuratedListDetailView> {
                   accent: detail.accent,
                   fallbackEyebrow: detail.eyebrow,
                   distanceLabel: _distanceLabelFor(item, userLat, userLon),
+                  rank: ranks[item.restaurantId],
                   onTap: () => _openRestaurant(item.restaurantId),
                 );
               },

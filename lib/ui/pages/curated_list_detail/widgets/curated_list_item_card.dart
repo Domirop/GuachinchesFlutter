@@ -13,6 +13,11 @@ class CuratedListItemCard extends StatelessWidget {
   /// `null` cuando no hay ubicación o el negocio no tiene coordenadas.
   final String? distanceLabel;
 
+  /// Puesto 1-based en la lista completa (lo calcula la pantalla, que ve
+  /// todos los elementos aunque haya filtros). Si es null se deriva de
+  /// `item.position` asumiendo numeración desde 0.
+  final int? rank;
+
   const CuratedListItemCard({
     super.key,
     required this.item,
@@ -20,9 +25,11 @@ class CuratedListItemCard extends StatelessWidget {
     required this.fallbackEyebrow,
     required this.onTap,
     this.distanceLabel,
+    this.rank,
   });
 
-  String get _rank => item.position.toString().padLeft(2, '0');
+  /// «1», «2»… sin ceros a la izquierda, igual que la ficha («Puesto nº 1»).
+  String get _rank => '${rank ?? item.position + 1}';
 
   @override
   Widget build(BuildContext context) {
@@ -200,7 +207,7 @@ class _Hero extends StatelessWidget {
                 borderRadius: BorderRadius.circular(999),
               ),
               child: Text(
-                'N° $rank',
+                'Nº $rank',
                 style: AppTextStyles.eyebrow(
                   size: 11,
                   color: AppColors.crema,
