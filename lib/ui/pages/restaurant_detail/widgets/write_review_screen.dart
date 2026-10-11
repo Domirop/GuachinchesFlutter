@@ -2,21 +2,49 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:guachinches/config/app_colors.dart';
-import 'package:guachinches/config/app_text_styles.dart';
-import 'package:guachinches/config/brand_colors.dart';
 import 'package:guachinches/data/HttpRemoteRepository.dart';
+import 'package:guachinches/data/model/Review.dart';
 import 'package:guachinches/data/model/restaurant.dart';
+import 'package:guachinches/ui/pages/new_home/widgets/gm_place_card.dart'
+    show GmPhoto, gmDisplayName, gmPlaceName;
+import 'package:guachinches/ui/theme/gm_icons.dart';
+import 'package:guachinches/ui/theme/gm_motion.dart';
+import 'package:guachinches/ui/theme/gm_tokens.dart';
+import 'package:guachinches/ui/theme/gm_widgets.dart';
+import 'package:guachinches/utils/restaurant_type_label.dart';
 import 'package:http/http.dart' as http;
 
+/// Escribir (o editar) una reseña — tablero FichaResena.
+///
+/// Validación de siempre: nota obligatoria; texto opcional pero, si se
+/// escribe, entre 8 y 600 caracteres; título opcional de hasta 60. Con
+/// [existingReview] se edita la reseña del usuario (`updateReview`).
 class WriteReviewScreen extends StatefulWidget {
   final Restaurant restaurant;
   final int initialRating;
+  final Review? existingReview;
 
   const WriteReviewScreen({
     super.key,
     required this.restaurant,
     this.initialRating = 0,
+    this.existingReview,
   });
+
+  static const minChars = 8;
+  static const maxChars = 600;
+  static const maxTitle = 60;
+
+  /// Nota obligatoria; texto vacío o ≥ 8 (bloqueamos solo 1–7).
+  static bool canSubmit(int rating, String text) {
+    if (rating <= 0) return false;
+    final len = text.trim().length;
+    return len == 0 || len >= minChars;
+  }
+
+  static const ratingLabels = [
+    'Mala', 'Regular', 'Aceptable', 'Muy buena', 'Excelente'
+  ];
 
   @override
   State<WriteReviewScreen> createState() => _WriteReviewScreenState();
@@ -25,7 +53,6 @@ class WriteReviewScreen extends StatefulWidget {
 class _WriteReviewScreenState extends State<WriteReviewScreen> {
   final _titleCtrl = TextEditingController();
   final _reviewCtrl = TextEditingController();
-  final _reviewFocus = FocusNode();
   final _storage = const FlutterSecureStorage();
   late final HttpRemoteRepository _repo =
       HttpRemoteRepository(http.Client());
@@ -33,30 +60,30 @@ class _WriteReviewScreenState extends State<WriteReviewScreen> {
   late int _rating;
   bool _submitting = false;
 
-  static const _minChars = 8;
-  static const _maxChars = 600;
+  bool get _editing => widget.existingReview != null;
 
   @override
   void initState() {
     super.initState();
     _rating = widget.initialRating.clamp(0, 5);
+    final e = widget.existingReview;
+    if (e != null) {
+      _titleCtrl.text = e.title;
+      _reviewCtrl.text = e.review;
+    }
     _reviewCtrl.addListener(() => setState(() {}));
+    _titleCtrl.addListener(() => setState(() {}));
   }
 
   @override
   void dispose() {
     _titleCtrl.dispose();
     _reviewCtrl.dispose();
-    _reviewFocus.dispose();
     super.dispose();
   }
 
-  bool get _canSubmit {
-    if (_rating <= 0) return false;
-    final len = _reviewCtrl.text.trim().length;
-    // Texto opcional: vacío o ≥ _minChars; bloqueamos solo el rango 1–7.
-    return len == 0 || len >= _minChars;
-  }
+  bool get _canSubmit =>
+      WriteReviewScreen.canSubmit(_rating, _reviewCtrl.text);
 
   Future<void> _submit() async {
     if (!_canSubmit || _submitting) return;
@@ -69,18 +96,23 @@ class _WriteReviewScreenState extends State<WriteReviewScreen> {
         Navigator.pop(context, false);
         return;
       }
-      final ok = await _repo.saveReview(
-        userId,
-        widget.restaurant,
-        _titleCtrl.text.trim(),
-        _reviewCtrl.text.trim(),
-        _rating.toString(),
-      );
+      final e = widget.existingReview;
+      final ok = e != null
+          ? await _repo.updateReview(userId, e.id, _titleCtrl.text.trim(),
+              _rating.toString(), _reviewCtrl.text.trim())
+          : await _repo.saveReview(
+              userId,
+              widget.restaurant,
+              _titleCtrl.text.trim(),
+              _reviewCtrl.text.trim(),
+              _rating.toString(),
+            );
       if (!mounted) return;
       if (ok) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('¡Reseña publicada!'),
+            content:
+                Text(_editing ? 'Reseña actualizada' : '¡Reseña publicada!'),
             backgroundColor: AppColors.laurisilva,
             behavior: SnackBarBehavior.floating,
           ),
@@ -107,112 +139,123 @@ class _WriteReviewScreenState extends State<WriteReviewScreen> {
     );
   }
 
-  String get _ratingLabel {
-    switch (_rating) {
-      case 1:
-        return 'Mala';
-      case 2:
-        return 'Regular';
-      case 3:
-        return 'Aceptable';
-      case 4:
-        return 'Muy buena';
-      case 5:
-        return 'Excelente';
-      default:
-        return 'Toca una estrella';
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    final brand = context.brand;
+    final gm = GmColors.of(context);
     final r = widget.restaurant;
+    final top = MediaQuery.paddingOf(context).top;
+    final textLen = _reviewCtrl.text.trim().length;
 
     return Scaffold(
-      backgroundColor: brand.base,
-      appBar: AppBar(
-        backgroundColor: brand.base,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        leading: IconButton(
-          icon: Icon(Icons.close_rounded, color: brand.textPrimary),
-          onPressed: () => Navigator.pop(context, false),
-        ),
-        title: Text(
-          'Escribir reseña',
-          style: AppTextStyles.displaySection(size: 13),
-        ),
-        centerTitle: true,
-      ),
+      backgroundColor: gm.canvas,
       body: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: () => FocusScope.of(context).unfocus(),
-        child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _RestaurantHeader(restaurant: r),
-              const SizedBox(height: 20),
-              _RatingPicker(
+        child: ListView(
+          padding: EdgeInsets.fromLTRB(
+              16, top + 2, 16, MediaQuery.paddingOf(context).bottom + 24),
+          children: [
+            SizedBox(
+              height: 52,
+              child: Row(
+                children: [
+                  GmToolbarButton(
+                    icon: GmIcons.close,
+                    iconSize: 16,
+                    light: true,
+                    semanticLabel: 'Cerrar sin publicar',
+                    identifier: 'write-review-close-button',
+                    onTap: () => Navigator.pop(context, false),
+                  ),
+                  Expanded(
+                    child: Text(
+                      _editing ? 'Editar reseña' : 'Escribir reseña',
+                      textAlign: TextAlign.center,
+                      style:
+                          GmText.body17(color: gm.label, w: FontWeight.w700),
+                    ),
+                  ),
+                  const SizedBox(width: 44),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            GmRise(
+              trigger: GmTrigger.mount,
+              child: _RestaurantHeader(restaurant: r),
+            ),
+            const SizedBox(height: 16),
+            GmRise(
+              trigger: GmTrigger.mount,
+              index: 1,
+              child: _RatingPicker(
                 value: _rating,
-                label: _ratingLabel,
                 onChanged: (v) {
                   HapticFeedback.selectionClick();
                   setState(() => _rating = v);
                 },
               ),
-              const SizedBox(height: 18),
-              _Field(
-                controller: _titleCtrl,
-                label: 'Título (opcional)',
-                hint: 'Ej. La mejor ropa vieja de Tenerife',
-                maxLength: 60,
-              ),
-              const SizedBox(height: 14),
-              _Field(
-                controller: _reviewCtrl,
-                focusNode: _reviewFocus,
-                label: 'Tu reseña (opcional)',
-                hint: 'Cuéntanos qué pediste, qué te gustó y qué no...',
-                maxLines: 7,
-                minLines: 5,
-                maxLength: _maxChars,
-              ),
-              const SizedBox(height: 6),
-              _CharCounter(
-                current: _reviewCtrl.text.trim().length,
-                min: _minChars,
-                max: _maxChars,
-                ratingSet: _rating > 0,
-              ),
-              const SizedBox(height: 24),
-              _SubmitButton(
-                enabled: _canSubmit && !_submitting,
-                loading: _submitting,
-                onTap: _submit,
-              ),
-              const SizedBox(height: 12),
-              Center(
-                child: Text(
-                  'Tu nombre se mostrará junto a tu reseña.',
-                  style: AppTextStyles.ui(
-                    size: 11,
-                    color: brand.textMuted,
+            ),
+            const SizedBox(height: 16),
+            const _FieldLabel('Título'),
+            const SizedBox(height: 6),
+            _Field(
+              controller: _titleCtrl,
+              hint: 'Ej. Los tomates rellenos, de diez',
+              maxLength: WriteReviewScreen.maxTitle,
+              identifier: 'write-review-title-field',
+            ),
+            const SizedBox(height: 6),
+            _Counter(
+                right:
+                    '${_titleCtrl.text.length}/${WriteReviewScreen.maxTitle}'),
+            const SizedBox(height: 12),
+            const _FieldLabel('Tu reseña'),
+            const SizedBox(height: 6),
+            _Field(
+              controller: _reviewCtrl,
+              hint: 'Cuéntanos qué pediste, qué te gustó y qué no...',
+              maxLength: WriteReviewScreen.maxChars,
+              minLines: 6,
+              maxLines: 9,
+              identifier: 'write-review-text-field',
+            ),
+            const SizedBox(height: 6),
+            _Counter(
+              left:
+                  'Si escribes, mínimo ${WriteReviewScreen.minChars} caracteres',
+              leftWarn: textLen > 0 && textLen < WriteReviewScreen.minChars,
+              right: '$textLen/${WriteReviewScreen.maxChars}',
+            ),
+            const SizedBox(height: 22),
+            _SubmitButton(
+              label: _editing ? 'Guardar cambios' : 'Publicar reseña',
+              enabled: _canSubmit && !_submitting,
+              loading: _submitting,
+              onTap: _submit,
+            ),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                GmIcon(GmIcons.person, size: 12, color: gm.label2),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Text(
+                    'Tu nombre se mostrará junto a tu reseña.',
+                    textAlign: TextAlign.center,
+                    style:
+                        GmText.eyebrow(color: gm.label2, w: FontWeight.w400),
                   ),
                 ),
-              ),
-            ],
-          ),
+              ],
+            ),
+          ],
         ),
       ),
     );
   }
 }
-
-// ─────────────────────────────────────────────────────────────────────
 
 class _RestaurantHeader extends StatelessWidget {
   final Restaurant restaurant;
@@ -220,35 +263,26 @@ class _RestaurantHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final brand = context.brand;
+    final gm = GmColors.of(context);
     final image = restaurant.mainFoto.isNotEmpty
         ? restaurant.mainFoto
         : (restaurant.fotos.isNotEmpty
             ? restaurant.fotos.first.photoUrl
             : null);
-
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: brand.surface,
-        border: Border.all(color: brand.borderStrong),
-        borderRadius: BorderRadius.circular(14),
-      ),
+    final type = restaurantTypeLabel(restaurant.type);
+    final muni = gmPlaceName(restaurant.municipio);
+    final sub =
+        [if (type.isNotEmpty) type, if (muni.isNotEmpty) muni].join(' · ');
+    return GmCard(
+      padding: const EdgeInsets.fromLTRB(8, 8, 14, 8),
       child: Row(
         children: [
           ClipRRect(
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(16),
             child: SizedBox(
-              width: 52,
-              height: 52,
-              child: image != null
-                  ? Image.network(
-                      image,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => _ImageFallback(brand: brand),
-                    )
-                  : _ImageFallback(brand: brand),
-            ),
+                width: 52,
+                height: 52,
+                child: GmPhoto(image, decodeWidth: 160)),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -256,19 +290,35 @@ class _RestaurantHeader extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'RESEÑANDO',
-                  style: AppTextStyles.eyebrow(
-                    size: 9,
-                    color: brand.textMuted,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  restaurant.nombre,
-                  maxLines: 2,
+                  gmDisplayName(restaurant.nombre),
+                  maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: AppTextStyles.displayHero(size: 18),
+                  style: GmText.body17(color: gm.label, w: FontWeight.w600),
                 ),
+                if (sub.isNotEmpty)
+                  Row(
+                    children: [
+                      const SizedBox(
+                        width: 12,
+                        height: 12,
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.all(Radius.circular(4)),
+                          child:
+                              CustomPaint(painter: GmGinghamPainter(cell: 3)),
+                        ),
+                      ),
+                      const SizedBox(width: 5),
+                      Expanded(
+                        child: Text(
+                          sub,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GmText.eyebrow(
+                              color: gm.label2, w: FontWeight.w400),
+                        ),
+                      ),
+                    ],
+                  ),
               ],
             ),
           ),
@@ -278,243 +328,229 @@ class _RestaurantHeader extends StatelessWidget {
   }
 }
 
-class _ImageFallback extends StatelessWidget {
-  final dynamic brand;
-  const _ImageFallback({required this.brand});
+class _RatingPicker extends StatelessWidget {
+  final int value;
+  final ValueChanged<int> onChanged;
+  const _RatingPicker({required this.value, required this.onChanged});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      color: brand.elevated,
-      alignment: Alignment.center,
-      child: Icon(
-        Icons.restaurant_rounded,
-        color: brand.textMuted,
-        size: 22,
+    final gm = GmColors.of(context);
+    return Semantics(
+      identifier: 'write-review-rating',
+      container: true,
+      child: GmCard(
+        padding: const EdgeInsets.fromLTRB(10, 16, 10, 14),
+        child: Column(
+          children: [
+            Text('¿Cómo fue tu experiencia?',
+                textAlign: TextAlign.center,
+                style: GmText.title2(color: gm.label)),
+            const SizedBox(height: 10),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (var i = 1; i <= 5; i++)
+                  Expanded(
+                    child: Semantics(
+                      button: true,
+                      selected: value == i,
+                      label:
+                          '$i de 5: ${WriteReviewScreen.ratingLabels[i - 1]}',
+                      excludeSemantics: true,
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () => onChanged(i),
+                        child: Column(
+                          children: [
+                            SizedBox(
+                              width: 52,
+                              height: 52,
+                              child: Center(
+                                child: GmOnce(
+                                  trigger: GmTrigger.mount,
+                                  duration: const Duration(milliseconds: 560),
+                                  delay: Duration(
+                                      milliseconds: 150 + (i - 1) * 70),
+                                  child: AnimatedScale(
+                                    scale: i == value ? 1.12 : 1,
+                                    duration:
+                                        const Duration(milliseconds: 260),
+                                    curve: GmMotion.spring,
+                                    child: GmIcon(
+                                      i <= value
+                                          ? GmIcons.star
+                                          : GmIcons.starOutline,
+                                      size: 36,
+                                      color: i <= value
+                                          ? GmColors.star
+                                          : gm.label2,
+                                    ),
+                                  ),
+                                  builder: (_, t, c) {
+                                    final p = GmMotion.spring.transform(t);
+                                    return Transform.scale(
+                                        scale: 0.6 + 0.4 * p, child: c);
+                                  },
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Container(
+                              constraints: const BoxConstraints(minHeight: 22),
+                              padding: EdgeInsets.symmetric(
+                                  horizontal: i == value ? 6 : 0),
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                color: i == value
+                                    ? const Color(0x24C98200)
+                                    : null,
+                                borderRadius:
+                                    BorderRadius.circular(GmRadius.pill),
+                              ),
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Text(
+                                  WriteReviewScreen.ratingLabels[i - 1],
+                                  maxLines: 1,
+                                  style: GmText.chip(
+                                    color: i == value ? gm.label : gm.label2,
+                                    w: i == value
+                                        ? FontWeight.w700
+                                        : FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-class _RatingPicker extends StatelessWidget {
-  final int value;
-  final String label;
-  final ValueChanged<int> onChanged;
-
-  const _RatingPicker({
-    required this.value,
-    required this.label,
-    required this.onChanged,
-  });
+class _FieldLabel extends StatelessWidget {
+  final String text;
+  const _FieldLabel(this.text);
 
   @override
   Widget build(BuildContext context) {
-    final brand = context.brand;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
-      decoration: BoxDecoration(
-        color: brand.surface,
-        border: Border.all(color: brand.borderStrong),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Column(
-        children: [
-          Text(
-            '¿CÓMO FUE TU EXPERIENCIA?',
-            style: AppTextStyles.displaySection(size: 11),
-          ),
-          const SizedBox(height: 14),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: List.generate(5, (i) {
-              final starN = i + 1;
-              final filled = starN <= value;
-              return GestureDetector(
-                onTap: () => onChanged(starN),
-                behavior: HitTestBehavior.opaque,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  child: AnimatedScale(
-                    scale: filled ? 1.0 : 0.92,
-                    duration: const Duration(milliseconds: 120),
-                    child: Icon(
-                      filled
-                          ? Icons.star_rounded
-                          : Icons.star_outline_rounded,
-                      size: 40,
-                      color: filled
-                          ? AppColors.sol
-                          : brand.textMuted,
-                    ),
-                  ),
-                ),
-              );
-            }),
-          ),
-          const SizedBox(height: 10),
-          AnimatedSwitcher(
-            duration: const Duration(milliseconds: 150),
-            child: Text(
-              label,
-              key: ValueKey(label),
-              style: AppTextStyles.ui(
-                size: 12,
-                weight: FontWeight.w600,
-                color: value > 0
-                    ? AppColors.sol
-                    : brand.textMuted,
-              ),
-            ),
-          ),
-        ],
-      ),
+    final gm = GmColors.of(context);
+    final s = TextStyle(
+        fontSize: 15,
+        height: 20 / 15,
+        fontWeight: FontWeight.w600,
+        color: gm.label);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: Text.rich(TextSpan(children: [
+        TextSpan(text: text, style: s),
+        TextSpan(
+            text: ' (opcional)',
+            style: s.copyWith(fontWeight: FontWeight.w500, color: gm.label2)),
+      ])),
     );
   }
 }
 
 class _Field extends StatelessWidget {
   final TextEditingController controller;
-  final FocusNode? focusNode;
-  final String label;
   final String hint;
+  final int maxLength;
+  final int minLines;
   final int maxLines;
-  final int? minLines;
-  final int? maxLength;
+  final String identifier;
 
   const _Field({
     required this.controller,
-    this.focusNode,
-    required this.label,
     required this.hint,
+    required this.maxLength,
+    required this.identifier,
+    this.minLines = 1,
     this.maxLines = 1,
-    this.minLines,
-    this.maxLength,
   });
 
   @override
   Widget build(BuildContext context) {
-    final brand = context.brand;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label.toUpperCase(),
-          style: AppTextStyles.eyebrow(
-            size: 10,
-            color: brand.textSecondary,
-          ),
+    final gm = GmColors.of(context);
+    return Semantics(
+      identifier: identifier,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: gm.card,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: gm.shadow1,
         ),
-        const SizedBox(height: 8),
-        TextField(
+        child: TextField(
           controller: controller,
-          focusNode: focusNode,
-          maxLines: maxLines,
           minLines: minLines,
+          maxLines: maxLines,
           maxLength: maxLength,
-          cursorColor: AppColors.atlantico,
-          style: AppTextStyles.ui(
-            size: 14,
-            color: brand.textPrimary,
-          ),
+          maxLengthEnforcement: MaxLengthEnforcement.enforced,
+          textCapitalization: TextCapitalization.sentences,
+          cursorColor: gm.accent,
+          style: GmText.body17(color: gm.label),
           decoration: InputDecoration(
             hintText: hint,
-            hintStyle: AppTextStyles.ui(
-              size: 14,
-              color: brand.textMuted,
-            ),
+            hintStyle: GmText.body17(color: gm.label2),
+            border: InputBorder.none,
             counterText: '',
-            filled: true,
-            fillColor: brand.surface,
+            isDense: true,
             contentPadding:
-                const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: brand.borderStrong),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: brand.borderStrong),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide:
-                  const BorderSide(color: AppColors.atlantico, width: 1.4),
-            ),
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           ),
         ),
-      ],
+      ),
     );
   }
 }
 
-class _CharCounter extends StatelessWidget {
-  final int current;
-  final int min;
-  final int max;
-  final bool ratingSet;
-
-  const _CharCounter({
-    required this.current,
-    required this.min,
-    required this.max,
-    required this.ratingSet,
-  });
+class _Counter extends StatelessWidget {
+  final String? left;
+  final bool leftWarn;
+  final String right;
+  const _Counter({this.left, this.leftWarn = false, required this.right});
 
   @override
   Widget build(BuildContext context) {
-    final brand = context.brand;
-    final empty = current == 0;
-    final tooShort = !empty && current < min;
-    final ok = ratingSet && (empty || current >= min);
-
-    String label;
-    Color color;
-    if (tooShort) {
-      label = 'Mínimo $min caracteres si escribes algo';
-      color = AppColors.mojo;
-    } else if (!ratingSet) {
-      label = 'Selecciona una valoración';
-      color = brand.textMuted;
-    } else if (ok && empty) {
-      label = 'Listo para publicar (texto opcional)';
-      color = AppColors.laurisilva;
-    } else {
-      label = 'Listo para publicar';
-      color = AppColors.laurisilva;
-    }
-
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Flexible(
-          child: Text(
-            label,
-            style: AppTextStyles.ui(
-              size: 11,
-              color: color,
-              weight: FontWeight.w600,
-            ),
+    final gm = GmColors.of(context);
+    final s = TextStyle(
+      fontSize: 12,
+      height: 16 / 12,
+      fontWeight: FontWeight.w400,
+      color: gm.label2,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 6),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(left ?? '',
+                style: leftWarn ? s.copyWith(color: gm.warnText) : s),
           ),
-        ),
-        const SizedBox(width: 8),
-        Text(
-          '$current / $max',
-          style: AppTextStyles.ui(
-            size: 11,
-            color: brand.textMuted,
-          ),
-        ),
-      ],
+          Text(right, style: s),
+        ],
+      ),
     );
   }
 }
 
 class _SubmitButton extends StatelessWidget {
+  final String label;
   final bool enabled;
   final bool loading;
   final VoidCallback onTap;
 
   const _SubmitButton({
+    required this.label,
     required this.enabled,
     required this.loading,
     required this.onTap,
@@ -522,33 +558,36 @@ class _SubmitButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: double.infinity,
-      child: ElevatedButton(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.atlantico,
-          disabledBackgroundColor: AppColors.atlantico.withOpacity(0.35),
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
+    final gm = GmColors.of(context);
+    if (!enabled && !loading) {
+      return Semantics(
+        identifier: 'write-review-submit-button',
+        button: true,
+        enabled: false,
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 52),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: gm.isDark
+                ? const Color(0x2E4DAEDB)
+                : const Color(0xFFDDE6E4),
+            borderRadius: BorderRadius.circular(GmRadius.pill),
           ),
-          elevation: 0,
+          child: Text(label,
+              style: GmText.body17(color: gm.label2, w: FontWeight.w600)),
         ),
-        onPressed: enabled ? onTap : null,
-        child: loading
-            ? const SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2.2,
-                  valueColor: AlwaysStoppedAnimation(Colors.white),
-                ),
-              )
-            : Text(
-                'PUBLICAR RESEÑA',
-                style: AppTextStyles.displaySection(size: 12)
-                    .copyWith(color: Colors.white, letterSpacing: 1.0),
-              ),
+      );
+    }
+    return Semantics(
+      identifier: 'write-review-submit-button',
+      child: SizedBox(
+        width: double.infinity,
+        child: GmCapsuleButton(
+          label: loading ? 'Publicando…' : label,
+          height: 52,
+          fontSize: 17,
+          onTap: loading ? null : onTap,
+        ),
       ),
     );
   }
