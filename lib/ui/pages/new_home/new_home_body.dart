@@ -407,14 +407,11 @@ class _NewHomeBodyState extends State<NewHomeBody> {
                 // ── ESPECIALIDADES CANARIAS (banda crema) ──────────────
                 section(Semantics(
                   identifier: 'home-section-specialties',
-                  child: BlocBuilder<VisitsCubit, VisitsState>(
-                    builder: (_, vs) => CanarianSpecialtiesSection(
-                      categories: widget.categories,
-                      types: widget.types,
-                      pool: widget.pool,
-                      visits: vs is VisitsLoaded ? vs.visits : const [],
-                      onSearchPreSelected: widget.onSearchPreSelected,
-                    ),
+                  child: CanarianSpecialtiesSection(
+                    categories: widget.categories,
+                    types: widget.types,
+                    pool: widget.pool,
+                    onSearchPreSelected: widget.onSearchPreSelected,
                   ),
                 )),
 
