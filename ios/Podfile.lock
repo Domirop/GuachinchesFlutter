@@ -7,6 +7,9 @@ PODS:
   - AppAuth/Core (1.7.6)
   - AppAuth/ExternalUserAgent (1.7.6):
     - AppAuth/Core
+  - audioplayers_darwin (0.0.1):
+    - Flutter
+    - FlutterMacOS
   - connectivity_plus (0.0.1):
     - Flutter
     - ReachabilitySwift
@@ -337,6 +340,7 @@ PODS:
 
 DEPENDENCIES:
   - app_links (from `.symlinks/plugins/app_links/ios`)
+  - audioplayers_darwin (from `.symlinks/plugins/audioplayers_darwin/darwin`)
   - connectivity_plus (from `.symlinks/plugins/connectivity_plus/ios`)
   - device_info_plus (from `.symlinks/plugins/device_info_plus/ios`)
   - file_picker (from `.symlinks/plugins/file_picker/ios`)
@@ -413,6 +417,8 @@ SPEC REPOS:
 EXTERNAL SOURCES:
   app_links:
     :path: ".symlinks/plugins/app_links/ios"
+  audioplayers_darwin:
+    :path: ".symlinks/plugins/audioplayers_darwin/darwin"
   connectivity_plus:
     :path: ".symlinks/plugins/connectivity_plus/ios"
   device_info_plus:
@@ -477,6 +483,7 @@ EXTERNAL SOURCES:
 SPEC CHECKSUMS:
   app_links: c5161ac5ab5383ad046884568b4b91cb52df5d91
   AppAuth: d4f13a8fe0baf391b2108511793e4b479691fb73
+  audioplayers_darwin: 835ced6edd4c9fc8ebb0a7cc9e294a91d99917d5
   connectivity_plus: 481668c94744c30c53b8895afb39159d1e619bdf
   device_info_plus: 335f3ce08d2e174b9fdc3db3db0f4e3b1f66bd89
   DKImagePickerController: 946cec48c7873164274ecc4624d19e3da4c1ef3c
@@ -500,7 +507,7 @@ SPEC CHECKSUMS:
   FirebaseRemoteConfigInterop: 6efda51fb5e2f15b16585197e26eaa09574e8a4d
   FirebaseSessions: dbd14adac65ce996228652c1fc3a3f576bdf3ecc
   FirebaseSharedSwift: 20530f495084b8d840f78a100d8c5ee613375f6e
-  Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
+  Flutter: 71a624a5bc0c04062bf19101d501e466baf2fb47
   flutter_inappwebview_ios: b89ba3482b96fb25e00c967aae065701b66e9b99
   flutter_secure_storage: 1ed9476fba7e7a782b22888f956cce43e2c62f13
   geolocator_apple: ab36aa0e8b7d7a2d7639b3b4e48308394e8cef5e
@@ -542,6 +549,6 @@ SPEC CHECKSUMS:
   wakelock_plus: e29112ab3ef0b318e58cfa5c32326458be66b556
   webview_flutter_wkwebview: 8ebf4fded22593026f7dbff1fbff31ea98573c8d
 
-PODFILE CHECKSUM: 458da8fbd54fdc5c1aa1363e9248f5294740a19a
+PODFILE CHECKSUM: 7490674b273f30e53177779cd1982df3b6a83778
 
 COCOAPODS: 1.16.2
