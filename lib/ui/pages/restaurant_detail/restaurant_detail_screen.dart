@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:guachinches/config/app_colors.dart';
 import 'package:guachinches/config/brand_colors.dart';
-import 'package:guachinches/config/app_text_styles.dart';
 import 'package:guachinches/core/logging/app_logger.dart';
 import 'package:guachinches/data/HttpRemoteRepository.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
@@ -17,7 +15,9 @@ import 'package:share_plus/share_plus.dart';
 import 'package:guachinches/ui/components/shimmer_box.dart';
 import 'package:guachinches/ui/pages/visit/visit_screen.dart';
 import 'package:guachinches/ui/theme/gm_favorites.dart';
+import 'package:guachinches/ui/theme/gm_icons.dart';
 import 'package:guachinches/ui/theme/gm_tokens.dart';
+import 'package:guachinches/ui/theme/gm_widgets.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'widgets/ai_insights_section.dart';
 import 'widgets/editorial_section.dart';
@@ -56,6 +56,17 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen>
   bool _error = false;
   bool _isSaved = false;
 
+  /// La barra de estado va clara mientras hay foto debajo y oscura (en día)
+  /// cuando la hoja de lienzo ya pasa bajo el reloj.
+  bool _overPhoto = true;
+
+  void _onScroll() {
+    final top = MediaQuery.paddingOf(context).top;
+    final over = _scrollCtrl.offset <
+        GmFichaHeader.photosHeight - GmFichaHeader.sheetOverlap - top;
+    if (over != _overPhoto) setState(() => _overPhoto = over);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -65,6 +76,7 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen>
     _loadIsFav();
     _loadVisits();
     _loadListAppearances();
+    _scrollCtrl.addListener(_onScroll);
   }
 
   /// Favorito es secundario: si la capa local falla (DB no disponible) sólo se
@@ -254,7 +266,7 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen>
     final r = _restaurant;
     return AnnotatedRegion<SystemUiOverlayStyle>(
       // Barra de estado clara sobre las fotos (fondo oscuro desenfocado).
-      value: (_loading || r == null)
+      value: (_loading || r == null || !_overPhoto)
           ? (gm.isDark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark)
           : SystemUiOverlayStyle.light,
       child: Scaffold(
@@ -351,86 +363,45 @@ class _DetailError extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final brand = context.brand;
+    final gm = GmColors.of(context);
     return Semantics(
       identifier: 'restaurant-detail-error',
       child: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Semantics(
+              GmToolbarButton(
+                icon: GmIcons.chevronLeft,
+                iconSize: 20,
+                light: true,
+                semanticLabel: 'Volver',
                 identifier: 'restaurant-detail-error-back',
-                child: GestureDetector(
-                  onTap: onBack,
-                  child: Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: brand.surface,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: brand.border),
-                    ),
-                    child: Icon(
-                      Icons.arrow_back_rounded,
-                      size: 18,
-                      color: brand.textPrimary,
-                    ),
-                  ),
-                ),
+                onTap: onBack,
               ),
               const Spacer(),
               Center(
                 child: Column(
                   children: [
-                    Icon(
-                      Icons.cloud_off_rounded,
-                      size: 64,
-                      color: brand.textMuted,
-                    ),
+                    Icon(Icons.cloud_off_rounded, size: 56, color: gm.label2),
                     const SizedBox(height: 18),
                     Text(
                       'No pudimos cargar el restaurante',
                       textAlign: TextAlign.center,
-                      style: AppTextStyles.displayHero(
-                        size: 22,
-                        color: brand.textPrimary,
-                      ),
+                      style: GmText.title2(color: gm.label),
                     ),
                     const SizedBox(height: 8),
                     Text(
                       'Revisa tu conexión e inténtalo de nuevo.',
                       textAlign: TextAlign.center,
-                      style: AppTextStyles.editorial(
-                        size: 14,
-                        color: brand.textSecondary,
-                      ),
+                      style: GmText.body(color: gm.label2),
                     ),
                     const SizedBox(height: 24),
-                    Semantics(
+                    GmCapsuleButton(
+                      label: 'Reintentar',
                       identifier: 'restaurant-detail-retry-button',
-                      child: GestureDetector(
-                        onTap: onRetry,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 28,
-                            vertical: 14,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppColors.atlantico,
-                            borderRadius: BorderRadius.circular(999),
-                          ),
-                          child: Text(
-                            'Reintentar',
-                            style: AppTextStyles.ui(
-                              size: 15,
-                              weight: FontWeight.w700,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
-                      ),
+                      onTap: onRetry,
                     ),
                   ],
                 ),

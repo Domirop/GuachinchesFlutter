@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:guachinches/ui/theme/gm_tokens.dart';
 import 'package:guachinches/ui/theme/gm_widgets.dart';
 import 'package:guachinches/config/app_colors.dart';
 import 'package:guachinches/config/brand_colors.dart';
@@ -100,9 +101,8 @@ class YoutubeShortSection extends StatelessWidget {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
-                            'GUACHINCHESMODERNOS',
-                            style: AppTextStyles.displaySection(size: 11)
-                                .copyWith(color: Colors.white),
+                            'Guachinches Modernos',
+                            style: GmText.eyebrow(color: Colors.white),
                           ),
                           if (restaurant.shortDescription != null) ...[
                             const SizedBox(height: 4),
@@ -299,11 +299,8 @@ class _QuotesBox extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'LO QUE DICEN',
-            style: AppTextStyles.eyebrow(
-              size: 8,
-              color: context.brand.textMuted,
-            ),
+            'Lo que dicen',
+            style: GmText.eyebrow(color: GmColors.of(context).label2),
           ),
           const SizedBox(height: 8),
           ...quotes.map((q) => Padding(

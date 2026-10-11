@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:guachinches/ui/theme/gm_tokens.dart';
 import 'package:guachinches/config/app_colors.dart';
 import 'package:guachinches/config/app_text_styles.dart';
 import 'package:guachinches/config/brand_colors.dart';
@@ -38,15 +39,14 @@ class ReviewCard extends StatelessWidget {
                 alignment: Alignment.center,
                 child: Text(
                   initial,
-                  style: AppTextStyles.displaySection(size: 11)
-                      .copyWith(color: Colors.white),
+                  style: GmText.chip(color: Colors.white, w: FontWeight.w700),
                 ),
               ),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  name.toUpperCase(),
-                  style: AppTextStyles.displaySection(size: 11),
+                  name,
+                  style: GmText.eyebrow(color: GmColors.of(context).label),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -56,7 +56,7 @@ class ReviewCard extends StatelessWidget {
                 children: List.generate(5, (i) {
                   return Icon(
                     i < ratingNum ? Icons.star : Icons.star_border,
-                    color: AppColors.sol,
+                    color: GmColors.star,
                     size: 11,
                   );
                 }),

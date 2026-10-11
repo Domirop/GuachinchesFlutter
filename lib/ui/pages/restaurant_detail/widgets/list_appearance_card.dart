@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:guachinches/config/app_colors.dart';
+import 'package:guachinches/ui/theme/gm_tokens.dart';
 import 'package:guachinches/config/app_text_styles.dart';
 import 'package:guachinches/config/brand_colors.dart';
 import 'package:guachinches/data/model/curated_list.dart';
@@ -28,7 +28,7 @@ class ListAppearanceCard extends StatelessWidget {
         width: 280,
         height: 180,
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(GmRadius.card),
           color: context.brand.surface,
           border: Border.all(color: context.brand.border),
           gradient: LinearGradient(
@@ -51,10 +51,13 @@ class ListAppearanceCard extends StatelessWidget {
               bottom: -28,
               child: Text(
                 _rank,
-                style: AppTextStyles.displayHero(
-                  size: 140,
-                  color: Colors.white.withOpacity(0.18),
-                ).copyWith(letterSpacing: -4),
+                style: TextStyle(
+                  fontSize: 140,
+                  height: 1,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -6,
+                  color: Colors.white.withValues(alpha: 0.18),
+                ),
               ),
             ),
             // Contenido
@@ -73,24 +76,17 @@ class ListAppearanceCard extends StatelessWidget {
                     ),
                     child: Text(
                       _topPill(),
-                      style: AppTextStyles.eyebrow(
-                        size: 9,
-                        color: AppColors.crema,
-                      ).copyWith(letterSpacing: 1.4),
+                      style: GmText.chip(color: Colors.white),
                     ),
                   ),
                   const SizedBox(height: 10),
                   // Título
                   Expanded(
                     child: Text(
-                      list.title.toUpperCase(),
+                      list.title,
                       maxLines: 3,
                       overflow: TextOverflow.ellipsis,
-                      style: AppTextStyles.displayHero(
-                        size: 18,
-                        color: Colors.white,
-                      ).copyWith(
-                        height: 1.05,
+                      style: GmText.guideTitle(color: Colors.white).copyWith(
                         shadows: const [
                           Shadow(blurRadius: 8, color: Colors.black54),
                         ],
@@ -126,8 +122,12 @@ class ListAppearanceCard extends StatelessWidget {
   }
 
   String _topPill() {
-    final puesto = 'PUESTO Nº $_rank';
+    final puesto = 'Puesto nº $_rank';
     if (list.eyebrow.isEmpty) return puesto;
-    return '$puesto · ${list.eyebrow.toUpperCase()}';
+    final e = list.eyebrow.trim();
+    final pretty = e == e.toUpperCase() && e.length > 1
+        ? e[0] + e.substring(1).toLowerCase()
+        : e;
+    return '$puesto · $pretty';
   }
 }

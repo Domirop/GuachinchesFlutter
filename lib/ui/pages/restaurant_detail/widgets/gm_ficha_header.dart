@@ -120,7 +120,11 @@ class GmFichaHeader extends StatelessWidget {
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [Color(0x6B000000), Color(0x0D000000), Color(0x2E000000)],
+                colors: [
+                  Color(0x6B000000),
+                  Color(0x0D000000),
+                  Color(0x2E000000)
+                ],
                 stops: [0, 0.4, 1],
               ),
             ),
@@ -150,7 +154,8 @@ class GmFichaHeader extends StatelessWidget {
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(GmRadius.tile),
                           boxShadow: const [
-                            BoxShadow(color: Color(0x2EFFFFFF), spreadRadius: 1),
+                            BoxShadow(
+                                color: Color(0x2EFFFFFF), spreadRadius: 1),
                             BoxShadow(
                               color: Color(0x8C000000),
                               offset: Offset(0, 14),
@@ -263,8 +268,10 @@ class _SheetTop extends StatelessWidget {
         if (o == null || c == null || o['day'] != day) continue;
         final ot = o['time'] as String;
         final ct = c['time'] as String;
-        final om = int.parse(ot.substring(0, 2)) * 60 + int.parse(ot.substring(2, 4));
-        var cm = int.parse(ct.substring(0, 2)) * 60 + int.parse(ct.substring(2, 4));
+        final om =
+            int.parse(ot.substring(0, 2)) * 60 + int.parse(ot.substring(2, 4));
+        var cm =
+            int.parse(ct.substring(0, 2)) * 60 + int.parse(ct.substring(2, 4));
         if (c['day'] != day) cm += 24 * 60;
         if (nowMin >= om && nowMin < cm) {
           return 'hasta las ${ct.substring(0, 2)}:${ct.substring(2, 4)}';
@@ -281,12 +288,13 @@ class _SheetTop extends StatelessWidget {
     final now = DateTime.now();
     final type = restaurantTypeLabel(r.type);
     final muni = gmPlaceName(r.municipio);
-    final eyebrow = [if (type.isNotEmpty) type, if (muni.isNotEmpty) muni]
-        .join(' · ');
+    final eyebrow =
+        [if (type.isNotEmpty) type, if (muni.isNotEmpty) muni].join(' · ');
     final hasSchedule = r.horariosJson != null;
     final open = hasSchedule && isOpenNow(r.horariosJson, now);
     final until = open ? _closesAt(r.horariosJson, now) : null;
-    final opensAt = !open && hasSchedule ? nextOpenLabel(r.horariosJson, now) : null;
+    final opensAt =
+        !open && hasSchedule ? nextOpenLabel(r.horariosJson, now) : null;
     final loc = context.watch<LocationCubit>().state;
     final dist = loc is LocationLoaded
         ? gmDistanceLabel(r, loc.latitude, loc.longitude)
@@ -305,7 +313,10 @@ class _SheetTop extends StatelessWidget {
             ? const GmOpenLabel(fontSize: 15)
             : Text('Cerrado',
                 style: metaStyle.copyWith(fontWeight: FontWeight.w600)),
-      if (until != null) ...[const SizedBox(width: 6), Text(until, style: metaStyle)],
+      if (until != null) ...[
+        const SizedBox(width: 6),
+        Text(until, style: metaStyle)
+      ],
       if (opensAt != null) ...[
         const SizedBox(width: 6),
         Text('abre a las $opensAt', style: metaStyle),
@@ -351,7 +362,8 @@ class _SheetTop extends StatelessWidget {
                       height: 14,
                       child: ClipRRect(
                         borderRadius: BorderRadius.all(Radius.circular(4)),
-                        child: CustomPaint(painter: GmGinghamPainter(cell: 3.5)),
+                        child:
+                            CustomPaint(painter: GmGinghamPainter(cell: 3.5)),
                       ),
                     ),
                     text: eyebrow,
@@ -382,50 +394,54 @@ class _SheetTop extends StatelessWidget {
           child: GmRise(
             trigger: GmTrigger.mount,
             index: 1,
-            child: Row(
-              children: [
-                Expanded(
-                  child: _Action(
-                    icon: GmIcons.car,
-                    label: 'Cómo llegar',
-                    primary: true,
-                    identifier: 'restaurant-detail-maps-button',
-                    onTap: onDirections,
+            // Botones de alto fijo (como Apple Mapas): texto hasta 1,2×.
+            child: MediaQuery.withClampedTextScaling(
+              maxScaleFactor: 1.2,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: _Action(
+                      icon: GmIcons.car,
+                      label: 'Cómo llegar',
+                      primary: true,
+                      identifier: 'restaurant-detail-maps-button',
+                      onTap: onDirections,
+                    ),
                   ),
-                ),
-                if (onCall != null) ...[
+                  if (onCall != null) ...[
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _Action(
+                        icon: GmIcons.phone,
+                        label: 'Llamar',
+                        identifier: 'restaurant-detail-call-button',
+                        onTap: onCall!,
+                      ),
+                    ),
+                  ],
+                  if (latest != null) ...[
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _Action(
+                        icon: GmIcons.video,
+                        label: 'Visita',
+                        identifier: 'restaurant-detail-visit-button',
+                        onTap: () => onOpenVisit(latest),
+                      ),
+                    ),
+                  ],
                   const SizedBox(width: 8),
                   Expanded(
                     child: _Action(
-                      icon: GmIcons.phone,
-                      label: 'Llamar',
-                      identifier: 'restaurant-detail-call-button',
-                      onTap: onCall!,
+                      icon: isSaved ? GmIcons.bookmarkFilled : GmIcons.bookmark,
+                      label: isSaved ? 'Guardado' : 'Guardar',
+                      identifier: 'restaurant-detail-save-button',
+                      selected: isSaved,
+                      onTap: onToggleSave,
                     ),
                   ),
                 ],
-                if (latest != null) ...[
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: _Action(
-                      icon: GmIcons.video,
-                      label: 'Visita',
-                      identifier: 'restaurant-detail-visit-button',
-                      onTap: () => onOpenVisit(latest),
-                    ),
-                  ),
-                ],
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _Action(
-                    icon: isSaved ? GmIcons.bookmarkFilled : GmIcons.bookmark,
-                    label: isSaved ? 'Guardado' : 'Guardar',
-                    identifier: 'restaurant-detail-save-button',
-                    selected: isSaved,
-                    onTap: onToggleSave,
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
         ),

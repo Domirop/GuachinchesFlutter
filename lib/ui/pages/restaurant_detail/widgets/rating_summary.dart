@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:guachinches/ui/theme/gm_tokens.dart';
 import 'package:guachinches/config/app_colors.dart';
 import 'package:guachinches/config/app_text_styles.dart';
 import 'package:guachinches/config/brand_colors.dart';
@@ -28,9 +29,9 @@ class RatingSummary extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: context.brand.surface,
-        border: Border.all(color: Colors.white.withOpacity(0.04)),
-        borderRadius: BorderRadius.circular(13),
+        color: GmColors.of(context).card,
+        borderRadius: BorderRadius.circular(GmRadius.card),
+        boxShadow: GmColors.of(context).shadow1,
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -39,10 +40,13 @@ class RatingSummary extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Text(
-                restaurant.avgRating.toStringAsFixed(1),
-                style: AppTextStyles.displayHero(
-                  size: 36,
-                  color: AppColors.sol,
+                restaurant.avgRating.toStringAsFixed(1).replaceAll('.', ','),
+                style: TextStyle(
+                  fontSize: 36,
+                  height: 1.1,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.8,
+                  color: GmColors.of(context).label,
                 ),
               ),
               const SizedBox(height: 4),
@@ -52,7 +56,7 @@ class RatingSummary extends StatelessWidget {
                   final filled = i < restaurant.avgRating.round();
                   return Icon(
                     filled ? Icons.star : Icons.star_border,
-                    color: AppColors.sol,
+                    color: GmColors.star,
                     size: 13,
                   );
                 }),
@@ -60,10 +64,8 @@ class RatingSummary extends StatelessWidget {
               const SizedBox(height: 4),
               Text(
                 '$total reseñas',
-                style: AppTextStyles.ui(
-                  size: 9,
-                  color: AppColors.crema.withOpacity(0.25),
-                ),
+                style: GmText.chip(
+                    color: GmColors.of(context).label2, w: FontWeight.w400),
               ),
             ],
           ),

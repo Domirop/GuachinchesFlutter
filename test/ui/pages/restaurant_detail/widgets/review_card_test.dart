@@ -23,7 +23,7 @@ void main() {
       await tester.pumpWidget(_wrap(ReviewCard(review: review)));
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('MARÍA'), findsOneWidget);
+      expect(find.textContaining(RegExp('MARÍA', caseSensitive: false)), findsOneWidget);
     });
 
     testWidgets('renders N filled + (5-N) outline stars for rating',
@@ -77,7 +77,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Only the username and stars should be present — no review text widget
-      expect(find.textContaining('PEDRO'), findsOneWidget);
+      expect(find.textContaining(RegExp('PEDRO', caseSensitive: false)), findsOneWidget);
     });
 
     testWidgets('shows "Anónimo" when usuario is null', (tester) async {
@@ -91,7 +91,7 @@ void main() {
       await tester.pumpWidget(_wrap(ReviewCard(review: review)));
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('ANÓNIMO'), findsOneWidget);
+      expect(find.textContaining(RegExp('ANÓNIMO', caseSensitive: false)), findsOneWidget);
     });
   });
 }

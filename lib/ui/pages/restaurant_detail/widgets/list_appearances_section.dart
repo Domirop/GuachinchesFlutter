@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:guachinches/ui/theme/gm_icons.dart';
+import 'package:guachinches/ui/theme/gm_tokens.dart';
 import 'package:guachinches/ui/theme/gm_widgets.dart';
-import 'package:guachinches/config/app_colors.dart';
-import 'package:guachinches/config/app_text_styles.dart';
 import 'package:guachinches/data/model/curated_list.dart';
 import 'package:guachinches/ui/pages/restaurant_detail/widgets/list_appearance_card.dart';
 
@@ -44,18 +44,13 @@ class ListAppearancesSection extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        '${appearances.length} LISTAS',
-                        style: AppTextStyles.eyebrow(
-                          size: 10,
-                          color: AppColors.atlanticoClaro,
-                        ),
+                        '${appearances.length} listas',
+                        style: GmText.eyebrow(
+                            color: GmColors.of(context).label2),
                       ),
-                      const SizedBox(width: 2),
-                      const Icon(
-                        Icons.chevron_right_rounded,
-                        size: 16,
-                        color: AppColors.atlanticoClaro,
-                      ),
+                      const SizedBox(width: 3),
+                      GmIcon(GmIcons.chevronRight,
+                          size: 13, color: GmColors.of(context).label2),
                     ],
                   ),
                 ),

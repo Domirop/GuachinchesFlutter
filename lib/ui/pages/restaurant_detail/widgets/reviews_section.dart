@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:guachinches/ui/theme/gm_tokens.dart';
 import 'package:guachinches/ui/theme/gm_widgets.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -177,9 +178,10 @@ class _ReviewsSectionState extends State<ReviewsSection> {
                       );
                     },
                     child: Text(
-                      'VER TODAS LAS RESEÑAS →',
-                      style: AppTextStyles.displaySection(size: 11)
-                          .copyWith(color: AppColors.atlanticoClaro),
+                      'Ver todas las reseñas',
+                      style: GmText.body(
+                          color: GmColors.of(context).accent,
+                          w: FontWeight.w600),
                     ),
                   ),
                 ),
@@ -410,7 +412,7 @@ class _AuthPromptSheet extends StatelessWidget {
           Text(
             'Inicia sesión para dejar tu reseña',
             textAlign: TextAlign.center,
-            style: AppTextStyles.displayHero(size: 20),
+            style: GmText.title2(color: GmColors.of(context).label),
           ),
           const SizedBox(height: 6),
           Text(
@@ -432,10 +434,13 @@ class _AuthPromptSheet extends StatelessWidget {
               elevation: 0,
             ),
             onPressed: onLogin,
-            child: Text(
-              'INICIAR SESIÓN',
-              style: AppTextStyles.displaySection(size: 12)
-                  .copyWith(color: Colors.white, letterSpacing: 1.0),
+            child: const Text(
+              'Iniciar sesión',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+              ),
             ),
           ),
           const SizedBox(height: 8),

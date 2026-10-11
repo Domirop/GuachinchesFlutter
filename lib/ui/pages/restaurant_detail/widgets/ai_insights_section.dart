@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:guachinches/config/app_colors.dart';
-import 'package:guachinches/config/brand_colors.dart';
-import 'package:guachinches/config/app_text_styles.dart';
+import 'package:guachinches/ui/theme/gm_tokens.dart';
 import 'package:guachinches/data/model/Visit.dart';
 import 'package:guachinches/ui/pages/restaurant_detail/widgets/pros_cons_section.dart';
 
@@ -54,45 +52,24 @@ class _AiBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final gm = GmColors.of(context);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      height: 28,
+      padding: const EdgeInsets.symmetric(horizontal: 11),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            AppColors.atlantico.withOpacity(0.18),
-            AppColors.atlanticoClaro.withOpacity(0.18),
-          ],
-          begin: Alignment.centerLeft,
-          end: Alignment.centerRight,
-        ),
-        borderRadius: BorderRadius.circular(100),
-        border: Border.all(color: AppColors.atlantico.withOpacity(0.45)),
+        color: gm.accentSoft,
+        borderRadius: BorderRadius.circular(GmRadius.pill),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(
-            Icons.auto_awesome,
-            size: 13,
-            color: AppColors.atlanticoClaro,
-          ),
+          Icon(Icons.auto_awesome, size: 13, color: gm.accent),
           const SizedBox(width: 6),
-          Text(
-            'GENERADO POR IA',
-            style: AppTextStyles.chipLabel(
-              size: 10,
-              color: AppColors.atlanticoClaro,
-            ),
-          ),
+          Text('Resumen con IA',
+              style: GmText.chip(color: gm.accent, w: FontWeight.w700)),
           const SizedBox(width: 6),
-          Text(
-            'a partir de las visitas',
-            style: AppTextStyles.ui(
-              size: 10,
-              weight: FontWeight.w400,
-              color: context.brand.textMuted,
-            ),
-          ),
+          Text('a partir de las visitas',
+              style: GmText.chip(color: gm.label2, w: FontWeight.w400)),
         ],
       ),
     );
