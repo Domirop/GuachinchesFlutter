@@ -1,13 +1,10 @@
-import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
-import 'package:guachinches/core/app_route_observer.dart';
 import 'package:guachinches/ui/theme/gm_motion.dart';
-import 'package:guachinches/ui/theme/gm_tokens.dart';
+import 'package:guachinches/ui/pages/advance_search/widgets/looping_scene.dart';
 
 /// «C · Mesa con brindis» (tablero MotionCuarta): la cabecera animada de
 /// «Guachinches tradicionales». Mantel de cuadros en perspectiva sobre la
@@ -27,15 +24,12 @@ import 'package:guachinches/ui/theme/gm_tokens.dart';
 ///   desactivado.
 /// - «Reducir movimiento»: fotograma final quieto (salvamanteles, vasos
 ///   juntos y «¡Salud!»).
-class MesaBrindisScene extends StatefulWidget {
-  /// Está a la vista (la pantalla lo apaga al hacer scroll).
-  final bool active;
-
+class MesaBrindisScene extends LoopingScene {
   /// Medidas del tablero (la escena escala con el ancho).
   static const double designWidth = 402;
   static const double designHeight = 168;
 
-  const MesaBrindisScene({super.key, this.active = true});
+  const MesaBrindisScene({super.key, super.active});
 
   /// Alto para un ancho dado.
   static double heightFor(double width) => designHeight * width / designWidth;
@@ -45,201 +39,41 @@ class MesaBrindisScene extends StatefulWidget {
 }
 
 @visibleForTesting
-class MesaBrindisSceneState extends State<MesaBrindisScene>
-    with SingleTickerProviderStateMixin, WidgetsBindingObserver, RouteAware {
-  late final Ticker _ticker = createTicker(_onTick);
-
-  /// Segundos de animación transcurridos (sin contar las pausas).
-  final ValueNotifier<double> _time = ValueNotifier(0);
-  double _base = 0;
-  Timer? _wake;
-  bool _reduced = false;
-  bool _appActive = true;
-  bool _covered = false;
-  bool _tickerMode = true;
-
-  /// La escena no arranca hasta que termina la transición de entrada de la
-  /// pantalla (si no, el salvamanteles entraría tapado por el deslizamiento).
-  bool _routeReady = true;
-  Animation<double>? _routeAnim;
-
-  /// Para los tests: ¿está corriendo el ticker?
-  @visibleForTesting
-  bool get isTicking => _ticker.isActive;
-
-  /// Para los tests: ¿pinta el fotograma final quieto?
-  @visibleForTesting
-  bool get isStatic => _reduced;
-
-  bool get _shouldRun =>
-      !_reduced &&
-      widget.active &&
-      _appActive &&
-      !_covered &&
-      _tickerMode &&
-      _routeReady;
+class MesaBrindisSceneState extends LoopingSceneState<MesaBrindisScene> {
+  @override
+  double get designHeight => MesaBrindisScene.designHeight;
 
   @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addObserver(this);
-  }
+  double quietRemaining(double t) => mesaQuietRemaining(t);
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _reduced = GmMotion.reduced(context);
-    _tickerMode = TickerMode.valuesOf(context).enabled;
-    final route = ModalRoute.of(context);
-    if (route is PageRoute) appRouteObserver.subscribe(this, route);
-    final anim = route?.animation;
-    if (anim != _routeAnim) {
-      _routeAnim?.removeStatusListener(_onRouteStatus);
-      _routeAnim = anim;
-      _routeReady = anim == null || anim.status == AnimationStatus.completed;
-      anim?.addStatusListener(_onRouteStatus);
-    }
-    _sync();
-  }
-
-  void _onRouteStatus(AnimationStatus status) {
-    final ready = status == AnimationStatus.completed;
-    if (ready != _routeReady) {
-      _routeReady = ready;
-      _sync();
-    }
-  }
-
-  @override
-  void didUpdateWidget(MesaBrindisScene old) {
-    super.didUpdateWidget(old);
-    if (old.active != widget.active) _sync();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    _appActive = state == AppLifecycleState.resumed;
-    _sync();
-  }
-
-  @override
-  void didPushNext() {
-    _covered = true;
-    _sync();
-  }
-
-  @override
-  void didPopNext() {
-    _covered = false;
-    _sync();
-  }
-
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    appRouteObserver.unsubscribe(this);
-    _routeAnim?.removeStatusListener(_onRouteStatus);
-    _wake?.cancel();
-    _ticker.dispose();
-    _time.dispose();
-    super.dispose();
-  }
-
-  /// Arranca o para el reloj según la visibilidad.
-  void _sync() {
-    if (_shouldRun) {
-      if (!_ticker.isActive && _wake == null) _resume();
-    } else {
-      _pause();
-    }
-  }
-
-  void _resume() {
-    final t = _time.value;
-    final quietFor = mesaQuietRemaining(t);
-    if (quietFor > 0) {
-      // En reposo: nada que pintar hasta el siguiente tiempo.
-      _wake = Timer(Duration(milliseconds: (quietFor * 1000).ceil()), () {
-        _wake = null;
-        _time.value = t + quietFor;
-        _base = _time.value;
-        if (_shouldRun) _ticker.start();
-      });
-      return;
-    }
-    _base = t;
-    _ticker.start();
-  }
-
-  void _pause() {
-    _wake?.cancel();
-    _wake = null;
-    if (_ticker.isActive) {
-      _ticker.stop();
-      _base = _time.value;
-    }
-  }
-
-  void _onTick(Duration elapsed) {
-    final t = _base + elapsed.inMicroseconds / 1e6;
-    final quietFor = mesaQuietRemaining(t);
-    _time.value = t;
-    if (quietFor > 0) {
-      // Fotograma de reposo pintado: se duerme hasta el siguiente tiempo.
-      _ticker.stop();
-      _base = t;
-      if (_shouldRun) {
-        _wake = Timer(Duration(milliseconds: (quietFor * 1000).ceil()), () {
-          _wake = null;
-          _time.value = t + quietFor;
-          _base = _time.value;
-          if (_shouldRun) _ticker.start();
-        });
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final dark = GmColors.of(context).isDark;
+  Widget buildLayers(
+      BuildContext context, double scale, double? time, bool dark) {
     final colors = MesaColors.of(dark);
-    return LayoutBuilder(builder: (context, c) {
-      final w = c.maxWidth;
-      final s = w / MesaBrindisScene.designWidth;
-      return SizedBox(
-        width: w,
-        height: MesaBrindisScene.heightFor(w),
-        child: ClipRect(
-          child: ValueListenableBuilder<double>(
-            valueListenable: _time,
-            builder: (context, t, _) {
-              final matDone = _reduced || t >= _kMatEnd;
-              return Stack(
-                fit: StackFit.expand,
-                children: [
-                  RepaintBoundary(
-                    child: CustomPaint(
-                      painter: MesaTablePainter(
-                          colors: colors, scale: s, matDone: matDone),
-                    ),
-                  ),
-                  RepaintBoundary(
-                    child: CustomPaint(
-                      painter: MesaActionPainter(
-                        colors: colors,
-                        scale: s,
-                        time: _reduced ? null : t,
-                        drawMat: !matDone,
-                      ),
-                    ),
-                  ),
-                ],
-              );
-            },
+    final matDone = time == null || time >= _kMatEnd;
+    return ClipRect(
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          RepaintBoundary(
+            child: CustomPaint(
+              painter: MesaTablePainter(
+                  colors: colors, scale: scale, matDone: matDone),
+            ),
           ),
-        ),
-      );
-    });
+          RepaintBoundary(
+            child: CustomPaint(
+              painter: MesaActionPainter(
+                colors: colors,
+                scale: scale,
+                time: time,
+                drawMat: !matDone,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -257,17 +91,8 @@ const _kActive = [(1.55, 3.65), (8.75, 9.8)];
 
 /// Segundos de reposo que quedan desde [t] (0 si hay movimiento).
 @visibleForTesting
-double mesaQuietRemaining(double t) {
-  if (t < _kMatEnd + 0.05) return 0; // entrada del salvamanteles
-  final lt = t % _kLoop;
-  for (final (a, b) in _kActive) {
-    if (lt >= a && lt < b) return 0;
-  }
-  for (final (a, _) in _kActive) {
-    if (lt < a) return a - lt;
-  }
-  return _kLoop - lt + _kActive.first.$1;
-}
+double mesaQuietRemaining(double t) => loopQuietRemaining(t,
+    loop: _kLoop, active: _kActive, entranceEnd: _kMatEnd);
 
 // ── Colores ────────────────────────────────────────────────────────────────
 
