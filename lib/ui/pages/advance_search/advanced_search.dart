@@ -1908,58 +1908,70 @@ class _SectionHead extends StatelessWidget {
               color: live ? gm.greenText : gm.label2,
             ),
           ),
-          // Título y orden en una fila; con texto grande el orden baja a la
-          // línea siguiente en vez de partir el título.
-          Wrap(
-            alignment: WrapAlignment.spaceBetween,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            spacing: 10,
-            runSpacing: 6,
-            children: [
-              Text(title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: GmText.title2(color: gm.label)),
-              if (showSort)
-                Semantics(
-                  identifier: 'advanced-search-sort',
-                  button: true,
-                  label: 'Ordenar: ${listSortLabel(sort)}',
-                  excludeSemantics: true,
-                  child: GmPressable(
-                    onTap: () => _pick(context),
-                    pressedScale: 0.95,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 4),
-                      child: Container(
-                        height: 36,
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        decoration: BoxDecoration(
-                          color: gm.card,
-                          borderRadius: BorderRadius.circular(GmRadius.pill),
-                          boxShadow: gm.shadow1,
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            GmIcon(GmIcons.sort, size: 14, color: gm.label),
-                            const SizedBox(width: 6),
-                            Text(listSortLabel(sort),
-                                style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
-                                    color: gm.label)),
-                            const SizedBox(width: 4),
-                            GmIcon(GmIcons.chevronDown,
-                                size: 12, color: gm.label),
-                          ],
+          // Título y orden en una fila (el título se recorta antes); solo
+          // con texto grande el orden baja a la línea siguiente.
+          Builder(builder: (context) {
+            final large = MediaQuery.textScalerOf(context).scale(10) > 11.5;
+            final title2 = Text(title,
+                maxLines: large ? 2 : 1,
+                overflow: TextOverflow.ellipsis,
+                style: GmText.title2(color: gm.label));
+            final sortPill = !showSort
+                ? null
+                : Semantics(
+                    identifier: 'advanced-search-sort',
+                    button: true,
+                    label: 'Ordenar: ${listSortLabel(sort)}',
+                    excludeSemantics: true,
+                    child: GmPressable(
+                      onTap: () => _pick(context),
+                      pressedScale: 0.95,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: Container(
+                          height: 36,
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          decoration: BoxDecoration(
+                            color: gm.card,
+                            borderRadius: BorderRadius.circular(GmRadius.pill),
+                            boxShadow: gm.shadow1,
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              GmIcon(GmIcons.sort, size: 14, color: gm.label),
+                              const SizedBox(width: 6),
+                              Text(listSortShortLabel(sort),
+                                  style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                      color: gm.label)),
+                              const SizedBox(width: 4),
+                              GmIcon(GmIcons.chevronDown,
+                                  size: 12, color: gm.label),
+                            ],
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                ),
-            ],
-          ),
+                  );
+            if (large || sortPill == null) {
+              return Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 10,
+                runSpacing: 6,
+                children: [title2, if (sortPill != null) sortPill],
+              );
+            }
+            return Row(
+              children: [
+                Expanded(child: title2),
+                const SizedBox(width: 10),
+                sortPill,
+              ],
+            );
+          }),
           if (caption != null)
             Padding(
               padding: const EdgeInsets.only(top: 2),

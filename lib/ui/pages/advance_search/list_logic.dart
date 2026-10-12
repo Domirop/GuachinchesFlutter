@@ -78,6 +78,10 @@ String listSortLabel(ListSort s) {
   }
 }
 
+/// Etiqueta corta del botón de orden (la larga va en la hoja de opciones).
+String listSortShortLabel(ListSort s) =>
+    s == ListSort.openFirst ? 'Abiertos' : listSortLabel(s);
+
 /// Opciones del botón de orden: sin ubicación, «Cerca de ti» deja su sitio
 /// a «Cierran antes».
 List<ListSort> listSortOptions({required bool hasLocation}) => hasLocation
