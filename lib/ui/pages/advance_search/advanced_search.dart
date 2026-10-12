@@ -371,6 +371,16 @@ class _AdvancedSearchState extends State<AdvancedSearch> {
       base: base,
       baseTypeIds: _usePresetPool ? _preset.typeIds : _requestedTypes,
       municipalityNames: _municipalityNames,
+      badgeFor: (v) => listPresetSummary(
+        hasContext: _context != null,
+        presetTypes: _preset.typeIds,
+        presetCategories: _preset.categoryIds,
+        presetOpenOnly: _preset.openOnly,
+        types: v.typeIds,
+        categories: v.categoryIds,
+        municipalities: v.municipalityIds,
+        openOnly: v.openOnly,
+      ).badge,
       // Con la base pedida sin categorías, cualquier combinación se cuenta
       // aquí; con una categoría en el servidor, solo si sigue siendo esa.
       countFor: (v) => _requestedCategories.isEmpty

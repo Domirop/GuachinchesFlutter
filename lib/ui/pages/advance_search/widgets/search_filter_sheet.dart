@@ -85,7 +85,12 @@ class SearchFilterSheet extends StatefulWidget {
   /// resultados por plato).
   final int Function(SearchFilterValues values)? countFor;
 
+  /// Cuántos filtros se cuentan en la cabecera (el preset de franja cuenta
+  /// 1, igual que en el botón de la lista). Por defecto, todos.
+  final int Function(SearchFilterValues values)? badgeFor;
+
   const SearchFilterSheet({
+    this.badgeFor,
     super.key,
     required this.initial,
     required this.categories,
@@ -107,6 +112,7 @@ class SearchFilterSheet extends StatefulWidget {
     List<String> baseTypeIds = const [],
     Map<String, String> municipalityNames = const {},
     int Function(SearchFilterValues values)? countFor,
+    int Function(SearchFilterValues values)? badgeFor,
   }) {
     return showModalBottomSheet<SearchFilterValues>(
       context: context,
@@ -123,6 +129,7 @@ class SearchFilterSheet extends StatefulWidget {
         baseTypeIds: baseTypeIds,
         municipalityNames: municipalityNames,
         countFor: countFor,
+        badgeFor: badgeFor,
       ),
     );
   }
@@ -179,8 +186,18 @@ class _SearchFilterSheetState extends State<SearchFilterSheet> {
   /// mismo que se filtra). Los ya elegidos se quedan aunque no tengan
   /// resultados ahora. Nombres en tipo título.
   List<(String id, String name, int count)> _municipalityRows() {
+    // El recuento de cada municipio respeta los demás filtros elegidos
+    // («Abierto ahora», «Qué buscas»): es lo que saldría al elegirlo.
+    final now = DateTime.now();
+    final others = LocalFilters(
+      categoryIds: _values.categoryIds.toSet(),
+      openOnly: _values.openOnly,
+    );
     final rows = listMunicipalityRows(
-      widget.base,
+      [
+        for (final r in widget.base)
+          if (listMatches(r, others, now)) r
+      ],
       selected: _values.municipalityIds,
       names: widget.municipalityNames,
     );
@@ -197,7 +214,7 @@ class _SearchFilterSheetState extends State<SearchFilterSheet> {
     final bottom = MediaQuery.paddingOf(context).bottom;
     final n = _resultCount;
     final today = _weekDays[DateTime.now().weekday - 1];
-    final count = _values.count;
+    final count = widget.badgeFor?.call(_values) ?? _values.count;
 
     return Semantics(
       identifier: 'advanced-search-filter-sheet',
