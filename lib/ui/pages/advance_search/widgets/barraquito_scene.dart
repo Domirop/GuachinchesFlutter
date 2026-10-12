@@ -57,34 +57,49 @@ class BarraquitoSceneState extends LoopingSceneState<BarraquitoScene> {
   Widget buildLayers(
       BuildContext context, double scale, double? time, bool dark) {
     final plateDone = time == null || time >= _kPlateEnd;
-    return Stack(
-      fit: StackFit.expand,
-      clipBehavior: Clip.none,
-      children: [
-        RepaintBoundary(
-          child: CustomPaint(
-            painter: BarraquitoBarPainter(
-              band: widget.band,
-              dark: widget.dark,
-              scale: scale,
-              plateDone: plateDone,
+    // Recorte abierto por arriba (el vapor sube por encima de la escena) y
+    // cerrado abajo y a los lados (la barra no asoma bajo la cabecera).
+    return ClipRect(
+      clipper: const _OpenTopClipper(),
+      child: Stack(
+        fit: StackFit.expand,
+        clipBehavior: Clip.none,
+        children: [
+          RepaintBoundary(
+            child: CustomPaint(
+              painter: BarraquitoBarPainter(
+                band: widget.band,
+                dark: widget.dark,
+                scale: scale,
+                plateDone: plateDone,
+              ),
             ),
           ),
-        ),
-        RepaintBoundary(
-          child: CustomPaint(
-            painter: BarraquitoActionPainter(
-              band: widget.band,
-              ink: widget.ink,
-              scale: scale,
-              time: time,
-              drawPlate: !plateDone,
+          RepaintBoundary(
+            child: CustomPaint(
+              painter: BarraquitoActionPainter(
+                band: widget.band,
+                ink: widget.ink,
+                scale: scale,
+                time: time,
+                drawPlate: !plateDone,
+              ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
+}
+
+class _OpenTopClipper extends CustomClipper<Rect> {
+  const _OpenTopClipper();
+
+  @override
+  Rect getClip(Size size) => Rect.fromLTRB(0, -40, size.width, size.height);
+
+  @override
+  bool shouldReclip(covariant CustomClipper<Rect> old) => false;
 }
 
 // ── Tiempos (nota del tablero, en segundos) ───────────────────────────────

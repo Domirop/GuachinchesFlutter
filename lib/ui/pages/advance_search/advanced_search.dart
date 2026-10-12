@@ -1259,6 +1259,15 @@ class _ListHeaderBand extends StatelessWidget {
         ? SizedBox(width: size, height: size, child: FittedBox(child: catGlyph))
         : ListThemeGlyph(t.glyph, size: size, color: t.ink(dark));
 
+    // Con escena: columna x 20…282 del tablero para antetítulo y subtítulo
+    // (el vapor y los vasos viven a la derecha, a la altura del final del
+    // texto); el título puede usar todo el ancho porque encima de él no se
+    // anima nada. Con texto grande, todo a lo ancho.
+    final sceneOn = themed && animatedScene != null;
+    final bigText = MediaQuery.textScalerOf(context).scale(10) > 11;
+    final sideInset = sceneOn && !bigText
+        ? 120 * width / MesaBrindisScene.designWidth - 20
+        : 0.0;
     final text = MediaQuery.withClampedTextScaling(
       maxScaleFactor: 1.25,
       child: Column(
@@ -1267,7 +1276,7 @@ class _ListHeaderBand extends StatelessWidget {
         children: [
           if (header.eyebrow.isNotEmpty)
             Padding(
-              padding: const EdgeInsets.only(bottom: 4),
+              padding: EdgeInsets.only(bottom: 4, right: sideInset),
               child: GmEyebrow(
                 leading: themed ? glyph(14) : null,
                 text: header.eyebrow,
@@ -1287,7 +1296,7 @@ class _ListHeaderBand extends StatelessWidget {
           ),
           if (header.subtitle.isNotEmpty)
             Padding(
-              padding: const EdgeInsets.only(top: 4),
+              padding: EdgeInsets.only(top: 4, right: sideInset),
               child: Text(
                 header.subtitle,
                 style: GmText.body(color: gm.label2),
@@ -1317,10 +1326,6 @@ class _ListHeaderBand extends StatelessWidget {
       _ => MesaBrindisScene.heightFor(width),
     };
     final overlap = (kind == HeaderSceneKind.barraquito ? 24 : 30) * s;
-    // Columna de texto x 20…282 del tablero; con texto grande se usa todo
-    // el ancho para no partir palabras (la mesa queda siempre debajo).
-    final bigText = MediaQuery.textScalerOf(context).scale(10) > 11;
-    final textRight = bigText ? 20.0 : 120 * s;
     return Stack(
       clipBehavior: Clip.none,
       children: [
@@ -1350,7 +1355,7 @@ class _ListHeaderBand extends StatelessWidget {
           children: [
             Padding(
               padding: EdgeInsets.fromLTRB(20, top + (scene ? 52 : 58),
-                  scene ? textRight : 120, scene ? 0 : 40),
+                  scene ? 20 : 120, scene ? 0 : 40),
               child: text,
             ),
             if (scene) SizedBox(height: sceneH - overlap),
