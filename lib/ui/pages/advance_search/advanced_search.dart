@@ -22,6 +22,7 @@ import 'package:guachinches/ui/pages/advance_search/list_theme.dart';
 import 'package:guachinches/ui/pages/advance_search/widgets/list_cards.dart';
 import 'package:guachinches/ui/pages/advance_search/widgets/list_glyph.dart';
 import 'package:guachinches/ui/pages/advance_search/widgets/list_map_view.dart';
+import 'package:guachinches/ui/pages/advance_search/widgets/barraquito_scene.dart';
 import 'package:guachinches/ui/pages/advance_search/widgets/mesa_brindis_scene.dart';
 import 'package:guachinches/ui/pages/advance_search/widgets/search_filter_sheet.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/gm_home_extras.dart'
@@ -162,7 +163,7 @@ class _AdvancedSearchState extends State<AdvancedSearch> {
     final top = o < 40;
     if (top != _atTop) setState(() => _atTop = top);
     // La escena se apaga en cuanto sale de la pantalla.
-    final scene = MesaBrindisScene.heightFor(MediaQuery.sizeOf(context).width);
+    final scene = BarraquitoScene.heightFor(MediaQuery.sizeOf(context).width);
     _sceneVisible.value = o < 180 + scene;
   }
 
@@ -694,8 +695,7 @@ class _AdvancedSearchState extends State<AdvancedSearch> {
                   header: header,
                   themed: themed,
                   sceneVisible: _sceneVisible,
-                  animatedScene:
-                      themed && theme.kind == ListThemeKind.tradicional,
+                  animatedScene: themed ? headerSceneFor(theme.kind) : null,
                 ),
               ),
               SliverToBoxAdapter(
@@ -1231,7 +1231,9 @@ class _AdvancedSearchState extends State<AdvancedSearch> {
 class _ListHeaderBand extends StatelessWidget {
   final ListHeader header;
   final bool themed;
-  final bool animatedScene;
+
+  /// Escena animada de la cabecera (o `null`: banda quieta con glifo).
+  final HeaderSceneKind? animatedScene;
   final ValueNotifier<bool> sceneVisible;
 
   const _ListHeaderBand({
@@ -1302,14 +1304,19 @@ class _ListHeaderBand extends StatelessWidget {
       );
     }
 
-    final scene = animatedScene;
-    // Cabecera compacta (tablero MotionCuarta): la mesa sube y empieza 30
-    // (a escala) por encima del final del texto, bajo él; su difuminado es
-    // opaco en esa franja, así que el texto siempre queda sobre la banda
-    // lisa. La mesa llega hasta el borde de nubes.
+    final kind = animatedScene;
+    final scene = kind != null;
+    // Cabecera compacta (tableros MotionCuarta / MotionDesayuno): la escena
+    // sube y empieza por encima del final del texto, bajo él (30 la mesa,
+    // 24 la barra del barraquito, a escala); su difuminado es opaco en esa
+    // franja, así que el texto siempre queda sobre la banda lisa. La escena
+    // llega hasta el borde de nubes.
     final s = width / MesaBrindisScene.designWidth;
-    final sceneH = MesaBrindisScene.heightFor(width);
-    final overlap = 30 * s;
+    final sceneH = switch (kind) {
+      HeaderSceneKind.barraquito => BarraquitoScene.heightFor(width),
+      _ => MesaBrindisScene.heightFor(width),
+    };
+    final overlap = (kind == HeaderSceneKind.barraquito ? 24 : 30) * s;
     // Columna de texto x 20…282 del tablero; con texto grande se usa todo
     // el ancho para no partir palabras (la mesa queda siempre debajo).
     final bigText = MediaQuery.textScalerOf(context).scale(10) > 11;
@@ -1326,16 +1333,24 @@ class _ListHeaderBand extends StatelessWidget {
             height: sceneH,
             child: ValueListenableBuilder<bool>(
               valueListenable: sceneVisible,
-              builder: (_, visible, __) => MesaBrindisScene(active: visible),
+              builder: (_, visible, __) => switch (kind) {
+                HeaderSceneKind.mesaBrindis =>
+                  MesaBrindisScene(active: visible),
+                HeaderSceneKind.barraquito => BarraquitoScene(
+                    active: visible,
+                    band: t.band(dark),
+                    ink: t.ink(dark),
+                    dark: dark,
+                  ),
+              },
             ),
           ),
         Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Padding(
-              padding: EdgeInsets.fromLTRB(
-                  20, top + (scene ? 52 : 58), scene ? textRight : 120,
-                  scene ? 0 : 40),
+              padding: EdgeInsets.fromLTRB(20, top + (scene ? 52 : 58),
+                  scene ? textRight : 120, scene ? 0 : 40),
               child: text,
             ),
             if (scene) SizedBox(height: sceneH - overlap),

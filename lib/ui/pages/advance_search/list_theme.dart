@@ -494,3 +494,20 @@ String breakfastSubtitle(DateTime now) {
 Color listTint(ListThemeKind k, bool dark) =>
     (kListThemes[k] ?? kListThemes[ListThemeKind.buscar]!).tint(dark);
 
+/// Cabeceras animadas (tableros MotionCuarta y MotionDesayuno).
+enum HeaderSceneKind { mesaBrindis, barraquito }
+
+/// Qué escena lleva la cabecera de cada tema: la mesa con brindis en
+/// «Guachinches tradicionales» y el barraquito en «Para desayunar» (franja
+/// 7–11 desde «Hoy») y en «Bar/Cafetería». El resto, banda quieta.
+HeaderSceneKind? headerSceneFor(ListThemeKind kind) {
+  switch (kind) {
+    case ListThemeKind.tradicional:
+      return HeaderSceneKind.mesaBrindis;
+    case ListThemeKind.desayuno:
+    case ListThemeKind.bar:
+      return HeaderSceneKind.barraquito;
+    default:
+      return null;
+  }
+}
