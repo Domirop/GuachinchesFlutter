@@ -22,11 +22,14 @@ App móvil de **"Dónde Comer Canarias"** (DCC). El sub-tag "Guachinches" es sol
 | Bundle id / applicationId | `com.jonay.guachinches` | `com.jonay.guachinches` |
 | Manifest | [ios/Runner/Info.plist](ios/Runner/Info.plist) | [android/app/build.gradle](android/app/build.gradle) |
 
-## Rediseño iOS 27 (home, visita, platos, ficha)
+## Rediseño iOS 27 (inicio, ficha, visita, platos, listas, buscar, filtros, mapa)
 
-- Capa de diseño en [lib/ui/theme/](lib/ui/theme/): `gm_tokens.dart` (GmColors día/noche, radios, rampa SF, movimiento), `gm_widgets.dart` (GmCard, GmGlass, GmSectionHeader, GmCapsuleButton, chips, corazón…), `gm_motion.dart` (GmOnce/GmRise/GmLoop, respetan «reducir movimiento»), `gm_icons.dart` (iconos SVG + glifos `assets/images/new-home/glyph_*.svg`).
-- GmColors reutiliza los acentos de AppColors (Atlántico, crema) y añade lo nuevo (lienzo arena, vino, oro). Pantallas del rediseño → GmColors/GmText; pantallas viejas → AppColors/BrandColors y `SectionHeader` de siempre.
-- Diseño fuente: `guachinches-coordination/design/rediseno-ios27/`.
+- **Diseño final:** `~/WebstormProjects/guachinches-coordination/design/rediseno-ios27/DISENO-FINAL.md` (sistema completo + índice de tableros + discrepancias con el código). Manda el lienzo (`boards/*.dc.html`, tablero Sistema); tokens en `themes.js` / `shared.css` de esa carpeta. Resumen para agentes: [guachinches-agents/.shared/DESIGN_SYSTEM.md](guachinches-agents/.shared/DESIGN_SYSTEM.md).
+- **Estilo:** «cálido, vivo y muy iOS» — iOS 26/27 con Liquid Glass, lienzo arena `#F8F4EC` + tarjetas blancas con sombra cálida, banda crema de sección, vino y oro. Noche: lienzo `#0A141B`, tarjeta `#13212B`.
+- **Capa de diseño** en [lib/ui/theme/](lib/ui/theme/): `gm_tokens.dart` (`GmColors.of(context)` día/noche, `GmRadius`, `GmSpace`, `GmText` rampa SF, `GmMotion`), `gm_widgets.dart` (GmCard, GmGlass, GmToolbarButton, GmSectionHeader, GmCapsuleButton, GmPhotoChip, GmFavButton, GmLiveDot, GmRating, GmOpenLabel…), `gm_motion.dart` (GmOnce/GmRise/GmLoop/GmPressable; «reducir movimiento» = fotograma final), `gm_icons.dart` (iconos + glifos `assets/images/new-home/glyph_*.svg`).
+- **Listas temáticas:** `lib/ui/pages/advance_search/list_theme.dart` (banda/tinta por tipo y franja horaria), cabeceras animadas `widgets/looping_scene.dart` + `mesa_brindis_scene.dart` (tradicionales) + `barraquito_scene.dart` (desayuno/bar): CustomPainter, capa estática en caché, un solo Ticker que duerme en las pausas y se para fuera de pantalla. Nada de vídeo.
+- **Reglas que el código debe cumplir:** datos reales (sin «★ —»; medalla/ranking solo con ≥ 10 reseñas y orden ponderado `(10·4,3+Σ)/(10+n)`, ver `list_logic.dart`); distancias solo < 200 km; «abierto» de una sola fuente (`lib/utils/open_state.dart`); pros/contras solo en el Resumen con IA de la ficha; citas literales sin atribuir; solo nombre de pila en reseñas; sin emoji (glifos); texto en caja normal y Oswald solo en el hero del Inicio; azul solo para acciones; 44 pt de toque; AA en día y noche; en noche ningún color claro fijo.
+- Pantallas del rediseño → GmColors/GmText; pantallas viejas → AppColors/BrandColors y `SectionHeader` de siempre (no mezclar).
 
 ## Routing & deeplinks
 
