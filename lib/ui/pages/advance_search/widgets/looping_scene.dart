@@ -186,13 +186,16 @@ abstract class LoopingSceneState<T extends LoopingScene> extends State<T>
     return LayoutBuilder(builder: (context, c) {
       final w = c.maxWidth;
       final s = w / designWidth;
-      return SizedBox(
-        width: w,
-        height: designHeight * s,
-        child: ValueListenableBuilder<double>(
-          valueListenable: _time,
-          builder: (context, t, _) =>
-              buildLayers(context, s, _reduced ? null : t, dark),
+      // Ilustración decorativa: VoiceOver/TalkBack la saltan.
+      return ExcludeSemantics(
+        child: SizedBox(
+          width: w,
+          height: designHeight * s,
+          child: ValueListenableBuilder<double>(
+            valueListenable: _time,
+            builder: (context, t, _) =>
+                buildLayers(context, s, _reduced ? null : t, dark),
+          ),
         ),
       );
     });

@@ -114,6 +114,10 @@ class _AdvancedSearchState extends State<AdvancedSearch> {
   bool _atTop = true;
   final ValueNotifier<bool> _sceneVisible = ValueNotifier(true);
 
+  /// Escena animada de la cabecera actual; su alto fija cuándo sale de la
+  /// pantalla al hacer scroll.
+  HeaderSceneKind? _sceneKind;
+
   /// Parámetros de la última petición al servidor (para saber si los
   /// recuentos del panel de filtros se pueden adelantar).
   List<String> _requestedTypes = const [];
@@ -163,7 +167,12 @@ class _AdvancedSearchState extends State<AdvancedSearch> {
     final top = o < 40;
     if (top != _atTop) setState(() => _atTop = top);
     // La escena se apaga en cuanto sale de la pantalla.
-    final scene = BarraquitoScene.heightFor(MediaQuery.sizeOf(context).width);
+    final width = MediaQuery.sizeOf(context).width;
+    final scene = switch (_sceneKind) {
+      HeaderSceneKind.barraquito => BarraquitoScene.heightFor(width),
+      HeaderSceneKind.mesaBrindis => MesaBrindisScene.heightFor(width),
+      null => 0.0,
+    };
     _sceneVisible.value = o < 180 + scene;
   }
 
@@ -695,7 +704,8 @@ class _AdvancedSearchState extends State<AdvancedSearch> {
                   header: header,
                   themed: themed,
                   sceneVisible: _sceneVisible,
-                  animatedScene: themed ? headerSceneFor(theme.kind) : null,
+                  animatedScene: _sceneKind =
+                      themed ? headerSceneFor(theme.kind) : null,
                 ),
               ),
               SliverToBoxAdapter(

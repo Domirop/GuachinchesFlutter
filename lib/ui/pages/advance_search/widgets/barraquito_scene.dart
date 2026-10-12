@@ -718,6 +718,7 @@ class BarraquitoActionPainter extends CustomPainter {
     canvas.drawRRect(
         r, Paint()..color = const Color(0xFF2A0E14).withValues(alpha: op));
     tp.paint(canvas, Offset(-tp.width / 2, -h / 2 - tp.height / 2));
+    tp.dispose();
     canvas.restore();
   }
 
