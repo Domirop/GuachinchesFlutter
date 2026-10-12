@@ -1303,27 +1303,42 @@ class _ListHeaderBand extends StatelessWidget {
     }
 
     final scene = animatedScene;
+    // Cabecera compacta (tablero MotionCuarta): la mesa sube y empieza 30
+    // (a escala) por encima del final del texto, bajo él; su difuminado es
+    // opaco en esa franja, así que el texto siempre queda sobre la banda
+    // lisa. La mesa llega hasta el borde de nubes.
+    final s = width / MesaBrindisScene.designWidth;
+    final sceneH = MesaBrindisScene.heightFor(width);
+    final overlap = 30 * s;
+    // Columna de texto x 20…282 del tablero; con texto grande se usa todo
+    // el ancho para no partir palabras (la mesa queda siempre debajo).
+    final bigText = MediaQuery.textScalerOf(context).scale(10) > 11;
+    final textRight = bigText ? 20.0 : 120 * s;
     return Stack(
       clipBehavior: Clip.none,
       children: [
         Positioned.fill(child: ColoredBox(color: t.band(dark))),
+        if (scene)
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            height: sceneH,
+            child: ValueListenableBuilder<bool>(
+              valueListenable: sceneVisible,
+              builder: (_, visible, __) => MesaBrindisScene(active: visible),
+            ),
+          ),
         Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Padding(
               padding: EdgeInsets.fromLTRB(
-                  20, top + 58, scene ? 20 : 120, scene ? 18 : 40),
+                  20, top + (scene ? 52 : 58), scene ? textRight : 120,
+                  scene ? 0 : 40),
               child: text,
             ),
-            if (scene)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: ValueListenableBuilder<bool>(
-                  valueListenable: sceneVisible,
-                  builder: (_, visible, __) =>
-                      MesaBrindisScene(active: visible),
-                ),
-              ),
+            if (scene) SizedBox(height: sceneH - overlap),
           ],
         ),
         if (!scene)

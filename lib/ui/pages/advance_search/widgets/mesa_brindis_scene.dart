@@ -724,6 +724,9 @@ class MesaTablePainter extends CustomPainter {
       paintMatShadow(canvas, 1);
       canvas.drawPicture(_MatPicture.of(colors));
     }
+    // El difuminado va en esta capa quieta (encima de mesa y salvamanteles,
+    // debajo de los vasos): se rasteriza una vez y no cuesta por fotograma.
+    canvas.drawRect(_kSceneRect, mesaFadePaint(colors.band));
     canvas.restore();
   }
 
@@ -731,6 +734,26 @@ class MesaTablePainter extends CustomPainter {
   bool shouldRepaint(covariant MesaTablePainter old) =>
       old.colors != colors || old.scale != scale || old.matDone != matDone;
 }
+
+/// Difuminado de la cabecera compacta (tablero MotionCuarta, «cabecera
+/// compacta con difuminado»): el color de la banda tapa el fondo de la mesa
+/// y se desvanece hacia delante (opaco hasta y 236, 0,55 en 266 y nada en
+/// 290 sobre los 370 de la cabecera). La escena empieza en y 202 de la
+/// cabecera, así que en coordenadas de la escena va de −202 a 168.
+Paint mesaFadePaint(Color band) => Paint()
+  ..shader = ui.Gradient.linear(
+    const Offset(0, -202),
+    const Offset(0, 168),
+    [
+      band,
+      band,
+      band.withValues(alpha: 0.55),
+      band.withValues(alpha: 0),
+    ],
+    const [0, 0.6378, 0.7189, 0.7838],
+  );
+
+const Rect _kSceneRect = Rect.fromLTWH(-30, -2, 470, 175);
 
 void paintMatShadow(Canvas canvas, double opacity) {
   canvas.drawPath(
@@ -883,12 +906,20 @@ class MesaActionPainter extends CustomPainter {
       canvas.translate(0, shTy);
       paintMatShadow(canvas, shOp);
       canvas.restore();
+      final m = Matrix4.identity()
+        ..translateByDouble(_matOrigin.dx, _matOrigin.dy + ty, 0, 1)
+        ..rotateZ(rot * math.pi / 180)
+        ..scaleByDouble(sx, sy, 1, 1)
+        ..translateByDouble(-_matOrigin.dx, -_matOrigin.dy, 0, 1);
       canvas.save();
-      canvas.translate(_matOrigin.dx, _matOrigin.dy + ty);
-      canvas.rotate(rot * math.pi / 180);
-      canvas.scale(sx, sy);
-      canvas.translate(-_matOrigin.dx, -_matOrigin.dy);
+      canvas.transform(m.storage);
       canvas.drawPicture(_MatPicture.of(colors));
+      canvas.restore();
+      // Mientras entra, el salvamanteles va en esta capa: el difuminado
+      // solo sobre él (la mesa ya lo lleva en la capa quieta).
+      canvas.save();
+      canvas.clipPath(_poly(_matPoly).transform(m.storage));
+      canvas.drawRect(_kSceneRect, mesaFadePaint(colors.band));
       canvas.restore();
     }
 
@@ -1090,8 +1121,10 @@ class MesaActionPainter extends CustomPainter {
     )..layout();
     final w = tp.width + 26;
     const h = 30.0;
-    // left 224, top 6 (y 268 − 262); origen abajo al centro.
-    final origin = Offset(224 + w / 2, 6 + h);
+    // Cabecera compacta: a la derecha de los vasos (x 306, y 242 de la
+    // cabecera → 40 en la escena, que empieza en 202); origen abajo al
+    // centro.
+    final origin = Offset(306 + w / 2, 40 + h);
     canvas.save();
     canvas.translate(origin.dx, origin.dy + ty);
     canvas.rotate(rotDeg * math.pi / 180);
