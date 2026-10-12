@@ -7,6 +7,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:guachinches/core/logging/app_logger.dart';
 import 'package:guachinches/ui/pages/advance_search/list_theme.dart';
+import 'package:guachinches/ui/pages/advance_search/map_clusters.dart';
 import 'package:guachinches/ui/pages/advance_search/widgets/list_cards.dart';
 import 'package:guachinches/ui/pages/advance_search/widgets/list_glyph.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/gm_place_card.dart'
@@ -52,6 +53,13 @@ class _ListMapViewState extends State<ListMapView> {
   BitmapDescriptor? _pin;
   BitmapDescriptor? _pinOn;
   bool? _pinsDark;
+
+  /// Zoom actual (para agrupar las chinchetas que se pisan).
+  double _zoom = 10;
+  double? _pendingZoom;
+
+  /// Burbujas «N» ya pintadas, por número.
+  final Map<int, BitmapDescriptor> _bubbles = {};
 
   List<ListCardData> get _located => [
         for (final d in widget.items)
@@ -133,24 +141,132 @@ class _ListMapViewState extends State<ListMapView> {
   Set<Marker> _markers() {
     final out = <Marker>{};
     final items = _located;
-    for (var i = 0; i < items.length; i++) {
-      final r = items[i].restaurant;
-      final on = i == _selected;
+    final clusters = mapClusters(
+      [for (final d in items) (d.restaurant.lat, d.restaurant.lon)],
+      _zoom,
+      // Las chinchetas miden 38: con 28 aún se pisaban en el norte.
+      radius: 40,
+    );
+    for (final cl in clusters) {
+      // El elegido nunca se esconde dentro de una burbuja.
+      final members = cl.members.contains(_selected) && !cl.single
+          ? [
+              for (final m in cl.members)
+                if (m != _selected) m
+            ]
+          : cl.members;
+      if (cl.members.contains(_selected) && !cl.single) {
+        out.add(_single(items, _selected));
+      }
+      if (members.length == 1) {
+        out.add(_single(items, members.first));
+        continue;
+      }
+      final n = members.length;
+      final icon = _bubbles[n];
+      if (icon == null) _buildBubble(n);
+      final lat =
+          members.map((m) => items[m].restaurant.lat).reduce((a, b) => a + b) /
+              n;
+      final lon =
+          members.map((m) => items[m].restaurant.lon).reduce((a, b) => a + b) /
+              n;
       out.add(Marker(
-        markerId: MarkerId(r.id),
-        position: LatLng(r.lat, r.lon),
-        icon: (on ? _pinOn : _pin) ?? BitmapDescriptor.defaultMarker,
+        markerId: MarkerId('cluster-${items[members.first].restaurant.id}-$n'),
+        position: LatLng(lat, lon),
+        icon: icon ??
+            BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRose),
         anchor: const Offset(0.5, 0.5),
-        zIndexInt: on ? 2 : 1,
-        onTap: () {
-          setState(() => _selected = i);
-          _pages.animateToPage(i,
-              duration: const Duration(milliseconds: 320),
-              curve: GmMotion.settle);
-        },
+        zIndexInt: 1,
+        onTap: () => _zoomInto([for (final m in members) items[m]]),
       ));
     }
     return out;
+  }
+
+  Marker _single(List<ListCardData> items, int i) {
+    final r = items[i].restaurant;
+    final on = i == _selected;
+    return Marker(
+      markerId: MarkerId(r.id),
+      position: LatLng(r.lat, r.lon),
+      icon: (on ? _pinOn : _pin) ?? BitmapDescriptor.defaultMarker,
+      anchor: const Offset(0.5, 0.5),
+      zIndexInt: on ? 3 : 2,
+      onTap: () {
+        setState(() => _selected = i);
+        _pages.animateToPage(i,
+            duration: const Duration(milliseconds: 320),
+            curve: GmMotion.settle);
+      },
+    );
+  }
+
+  /// Tocar una burbuja acerca el mapa hasta separar sus sitios.
+  Future<void> _zoomInto(List<ListCardData> group) async {
+    final c = await _map.future;
+    var minLat = 90.0, maxLat = -90.0, minLon = 180.0, maxLon = -180.0;
+    for (final d in group) {
+      minLat = math.min(minLat, d.restaurant.lat);
+      maxLat = math.max(maxLat, d.restaurant.lat);
+      minLon = math.min(minLon, d.restaurant.lon);
+      maxLon = math.max(maxLon, d.restaurant.lon);
+    }
+    if ((maxLat - minLat).abs() < 1e-5 && (maxLon - minLon).abs() < 1e-5) {
+      await c.animateCamera(CameraUpdate.newLatLngZoom(
+          LatLng(minLat, minLon), math.min(_zoom + 3, 19)));
+      return;
+    }
+    await c.animateCamera(CameraUpdate.newLatLngBounds(
+        LatLngBounds(
+            southwest: LatLng(minLat, minLon),
+            northeast: LatLng(maxLat, maxLon)),
+        72));
+  }
+
+  Future<void> _buildBubble(int n) async {
+    if (_bubbles.containsKey(n)) return;
+    final dpr =
+        WidgetsBinding.instance.platformDispatcher.views.first.devicePixelRatio;
+    try {
+      final icon = await _renderBubble(widget.theme, n, 40, dpr);
+      if (!mounted) return;
+      setState(() => _bubbles[n] = icon);
+    } catch (e) {
+      AppLogger.warn('list-map', 'no se pudo pintar la burbuja: $e');
+    }
+  }
+
+  /// Burbuja: disco con la tinta del tema, borde blanco y el número.
+  static Future<BitmapDescriptor> _renderBubble(
+      ListTheme theme, int n, double size, double dpr) async {
+    final px = (size * dpr).round();
+    final rec = ui.PictureRecorder();
+    final c = Canvas(rec);
+    final r = px / 2;
+    c.drawCircle(
+        Offset(r, r + px * 0.04),
+        r * 0.92,
+        Paint()
+          ..color = const Color(0x40000000)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4));
+    c.drawCircle(Offset(r, r), r * 0.9, Paint()..color = Colors.white);
+    c.drawCircle(Offset(r, r), r * 0.76, Paint()..color = theme.inkDay);
+    final tp = TextPainter(
+      text: TextSpan(
+        text: '$n',
+        style: TextStyle(
+            fontSize: px * 0.4,
+            fontWeight: FontWeight.w700,
+            color: Colors.white),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    tp.paint(c, Offset(r - tp.width / 2, r - tp.height / 2));
+    final img = await rec.endRecording().toImage(px, px);
+    final bytes = await img.toByteData(format: ui.ImageByteFormat.png);
+    return BitmapDescriptor.bytes(bytes!.buffer.asUint8List(),
+        imagePixelRatio: dpr);
   }
 
   Future<void> _fit() async {
@@ -215,6 +331,14 @@ class _ListMapViewState extends State<ListMapView> {
                 onMapCreated: (c) {
                   if (!_map.isCompleted) _map.complete(c);
                   _fit();
+                },
+                onCameraMove: (p) => _pendingZoom = p.zoom,
+                onCameraIdle: () {
+                  final z = _pendingZoom;
+                  // Reagrupar solo si el zoom cambia de verdad.
+                  if (z != null && (z - _zoom).abs() > 0.05) {
+                    setState(() => _zoom = z);
+                  }
                 },
               ),
             ),
