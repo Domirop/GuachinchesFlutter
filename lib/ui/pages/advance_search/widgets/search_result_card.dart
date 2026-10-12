@@ -4,7 +4,7 @@ import 'package:guachinches/config/app_colors.dart';
 import 'package:guachinches/config/app_text_styles.dart';
 import 'package:guachinches/config/brand_colors.dart';
 import 'package:guachinches/data/model/restaurant.dart';
-import 'package:guachinches/utils/horarios_utils.dart';
+import 'package:guachinches/utils/open_state.dart';
 
 class SearchResultCard extends StatelessWidget {
   final Restaurant restaurant;
@@ -153,9 +153,8 @@ class _MetaLine extends StatelessWidget {
     final hasRating = r.avgRating > 0;
     final hasMunicipio = r.municipio.isNotEmpty;
     final hasPrice = r.minPrice != null && r.maxPrice != null;
-    final isOpen = r.horariosJson != null
-        ? getOpenStatus(r.horariosJson, DateTime.now()) == 'Abierto'
-        : r.open;
+    // Misma regla que «Abierto ahora»: «Cierra en N min» sigue abierto.
+    final isOpen = restaurantOpenState(r, DateTime.now()).isOpen;
 
     final children = <Widget>[];
 
