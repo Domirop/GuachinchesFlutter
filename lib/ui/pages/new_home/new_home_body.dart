@@ -86,6 +86,7 @@ class NewHomeBody extends StatefulWidget {
     List<ModelCategory>? categories,
     List<Types>? types,
     bool openOnly,
+    bool fromToday,
   }) onSearchPreSelected;
   final Future<void> Function()? onRefresh;
   final VoidCallback? onShowAllNearby;
@@ -820,6 +821,8 @@ class _NewHomeBodyState extends State<NewHomeBody> {
       types: types.isEmpty ? null : types,
       categories: categories.isEmpty ? null : categories,
       openOnly: true,
+      // La lista abre con el tema de la franja horaria (Sistema §08).
+      fromToday: true,
     );
   }
 

@@ -482,6 +482,10 @@ class _ScheduleRow extends StatelessWidget {
 
 /// Mapa real en estilo claro (o noche) del sistema, sin gestos: tocar abre
 /// Mapas. Chincheta vino con el volcán que cae una vez y chip de distancia.
+/// Estilo claro de Google Maps del rediseño (el del mapa de la ficha), con
+/// los colores del tema. Lo reutiliza el mapa de la lista de resultados.
+String gmLightMapStyle(GmColors gm) => _LightMap.styleFor(gm);
+
 class _LightMap extends StatelessWidget {
   final Restaurant restaurant;
   final VoidCallback onTap;

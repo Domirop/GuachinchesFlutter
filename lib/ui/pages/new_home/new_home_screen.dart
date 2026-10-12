@@ -455,10 +455,13 @@ class _NewHomeScreenState extends State<NewHomeScreen>
                             municipalities: _municipalitiesOld,
                             types: _types,
                             islandId: filters.islandId,
+                            islandLabel: filters.islandLabel,
+                            pool: _pool,
                           ),
                         );
                       },
-                      onSearchPreSelected: ({categories, types, openOnly = false}) {
+                      onSearchPreSelected: (
+                          {categories, types, openOnly = false, fromToday = false}) {
                         GlobalMethods().pushPage(
                           context,
                           AdvancedSearch(
@@ -466,9 +469,12 @@ class _NewHomeScreenState extends State<NewHomeScreen>
                             municipalities: _municipalitiesOld,
                             types: _types,
                             islandId: filters.islandId,
+                            islandLabel: filters.islandLabel,
+                            pool: _pool,
                             preSelectedCategories: categories ?? const [],
                             preSelectedTypes: types ?? const [],
                             preSelectedOpenOnly: openOnly,
+                            fromToday: fromToday,
                           ),
                         );
                       },
