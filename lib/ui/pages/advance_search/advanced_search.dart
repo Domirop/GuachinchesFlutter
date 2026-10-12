@@ -27,7 +27,7 @@ import 'package:guachinches/ui/pages/advance_search/widgets/search_filter_sheet.
 import 'package:guachinches/ui/pages/new_home/widgets/gm_home_extras.dart'
     show GmCloudEdge;
 import 'package:guachinches/ui/pages/new_home/widgets/gm_place_card.dart'
-    show gmDisplayName, gmDistanceLabel, gmDistanceMeters;
+    show gmDistanceLabel, gmDistanceMeters;
 import 'package:guachinches/ui/pages/restaurant_detail/ficha_logic.dart'
     show fichaCategoryFeature;
 import 'package:guachinches/ui/pages/restaurant_detail/restaurant_detail_screen.dart';
@@ -370,6 +370,7 @@ class _AdvancedSearchState extends State<AdvancedSearch> {
       municipalities: widget.municipalities,
       base: base,
       baseTypeIds: _usePresetPool ? _preset.typeIds : _requestedTypes,
+      municipalityNames: _municipalityNames,
       // Con la base pedida sin categorías, cualquier combinación se cuenta
       // aquí; con una categoría en el servidor, solo si sigue siendo esa.
       countFor: (v) => _requestedCategories.isEmpty
@@ -431,23 +432,29 @@ class _AdvancedSearchState extends State<AdvancedSearch> {
 
   // ── Datos derivados ────────────────────────────────────────────────────
 
-  /// Municipios por id, con el nombre en tipo título («ARICO» → «Arico»).
-  Map<String, String> get _municipalityNames => {
-        for (final z in widget.municipalities)
-          for (final m in z.municipalities) m.id: gmDisplayName(m.nombre)
-      };
+  /// Nombres de los municipios vistos en los resultados, por clave (id del
+  /// municipio del sitio). Se van acumulando para que los chips de los
+  /// elegidos sigan teniendo nombre aunque cambien los resultados.
+  final Map<String, String> _muniNames = {};
+
+  Map<String, String> get _municipalityNames => _muniNames;
+
+  void _rememberMunicipalities(List<Restaurant> list) {
+    for (final r in list) {
+      final k = listMunicipalityKey(r);
+      if (k.isNotEmpty) {
+        _muniNames.putIfAbsent(k, () => listMunicipalityName(r.municipio));
+      }
+    }
+  }
 
   LocalFilters _local(SearchFilterValues f,
       {bool openOnly = true, bool allCategories = false}) {
-    final names = _municipalityNames;
     return LocalFilters(
       categoryIds: (allCategories || f.categoryIds.length > 1)
           ? f.categoryIds.toSet()
           : const {},
-      municipalityNames: {
-        for (final id in f.municipalityIds)
-          if (names[id] != null) listNormMunicipality(names[id]!)
-      },
+      municipalityKeys: f.municipalityIds.toSet(),
       openOnly: openOnly && f.openOnly,
     );
   }
@@ -489,7 +496,7 @@ class _AdvancedSearchState extends State<AdvancedSearch> {
     final local = _local(f, openOnly: openOnly);
     final ids = server.map((r) => r.id).toSet();
     final dishLocal = LocalFilters(
-        municipalityNames: local.municipalityNames, openOnly: local.openOnly);
+        municipalityKeys: local.municipalityKeys, openOnly: local.openOnly);
     final types = f.typeIds.toSet();
     final seen = <String>{};
     final out = <Restaurant>[];
@@ -598,6 +605,7 @@ class _AdvancedSearchState extends State<AdvancedSearch> {
         final error =
             showResults && !pooled && state is RestaurantFilterAdvancedError;
 
+        if (server != null) _rememberMunicipalities(server);
         // Principal (cuenta en el antetítulo) y «También por plato» aparte.
         final results =
             server == null ? null : _mainResults(server, _filters, now);

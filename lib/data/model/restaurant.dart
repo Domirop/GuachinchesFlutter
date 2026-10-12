@@ -173,6 +173,12 @@ class Restaurant {
     }
     if (json["NegocioMunicipioId"] != null) {
       negocioMunicipioId = json["NegocioMunicipioId"];
+    } else {
+      // findByFilter no manda la clave plana, pero sí el municipio anidado.
+      final muni = json["municipios"];
+      if (muni is Map && muni["Id"] != null) {
+        negocioMunicipioId = muni["Id"].toString();
+      }
     }
     if (json["google_horarios"] != null) {
       googleHorarios = json["google_horarios"];

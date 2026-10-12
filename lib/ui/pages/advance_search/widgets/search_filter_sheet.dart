@@ -8,8 +8,6 @@ import 'package:guachinches/data/model/restaurant.dart';
 import 'package:guachinches/ui/pages/advance_search/list_logic.dart';
 import 'package:guachinches/ui/pages/advance_search/list_theme.dart';
 import 'package:guachinches/ui/pages/advance_search/widgets/list_glyph.dart';
-import 'package:guachinches/ui/pages/new_home/widgets/gm_place_card.dart'
-    show gmDisplayName;
 import 'package:guachinches/ui/pages/restaurant_detail/ficha_logic.dart'
     show fichaCategoryFeature;
 import 'package:guachinches/ui/pages/restaurant_detail/widgets/gm_ficha_header.dart'
@@ -80,6 +78,9 @@ class SearchFilterSheet extends StatefulWidget {
   final List<Restaurant> base;
   final List<String> baseTypeIds;
 
+  /// Nombres ya conocidos de los municipios elegidos (clave → nombre).
+  final Map<String, String> municipalityNames;
+
   /// Cuenta de los que pasan los filtros (la pone la pantalla: suma los
   /// resultados por plato).
   final int Function(SearchFilterValues values)? countFor;
@@ -92,6 +93,7 @@ class SearchFilterSheet extends StatefulWidget {
     required this.municipalities,
     this.base = const [],
     this.baseTypeIds = const [],
+    this.municipalityNames = const {},
     this.countFor,
   });
 
@@ -103,6 +105,7 @@ class SearchFilterSheet extends StatefulWidget {
     required List<Municipality> municipalities,
     List<Restaurant> base = const [],
     List<String> baseTypeIds = const [],
+    Map<String, String> municipalityNames = const {},
     int Function(SearchFilterValues values)? countFor,
   }) {
     return showModalBottomSheet<SearchFilterValues>(
@@ -118,6 +121,7 @@ class SearchFilterSheet extends StatefulWidget {
         municipalities: municipalities,
         base: base,
         baseTypeIds: baseTypeIds,
+        municipalityNames: municipalityNames,
         countFor: countFor,
       ),
     );
@@ -171,29 +175,20 @@ class _SearchFilterSheetState extends State<SearchFilterSheet> {
     return (n == null || n < 0) ? null : n;
   }
 
-  /// Municipios con recuento en los resultados actuales.
+  /// Municipios de los resultados actuales con su recuento, por id (el
+  /// mismo que se filtra). Los ya elegidos se quedan aunque no tengan
+  /// resultados ahora. Nombres en tipo título.
   List<(String id, String name, int count)> _municipalityRows() {
-    final counts = <String, int>{};
-    for (final r in widget.base) {
-      final k = listNormMunicipality(r.municipio);
-      if (k.isEmpty) continue;
-      counts[k] = (counts[k] ?? 0) + 1;
-    }
+    final rows = listMunicipalityRows(
+      widget.base,
+      selected: _values.municipalityIds,
+      names: widget.municipalityNames,
+    );
     final q = listNormMunicipality(_muniSearch.text);
-    final rows = <(String, String, int)>[];
-    final seen = <String>{};
-    for (final z in widget.municipalities) {
-      for (final m in z.municipalities) {
-        final k = listNormMunicipality(m.nombre);
-        if (!seen.add(k)) continue;
-        final n = counts[k] ?? 0;
-        final selected = _values.municipalityIds.contains(m.id);
-        final matches = q.isEmpty ? (n > 0 || selected) : k.contains(q);
-        if (matches) rows.add((m.id, gmDisplayName(m.nombre), n));
-      }
-    }
-    rows.sort((a, b) => a.$2.compareTo(b.$2));
-    return rows;
+    return [
+      for (final r in rows)
+        if (q.isEmpty || listNormMunicipality(r.$2).contains(q)) r
+    ];
   }
 
   @override
@@ -332,7 +327,8 @@ class _SearchFilterSheetState extends State<SearchFilterSheet> {
                               ],
                             ),
                           ],
-                          if (widget.municipalities.isNotEmpty) ...[
+                          if (widget.base.isNotEmpty ||
+                              _values.municipalityIds.isNotEmpty) ...[
                             const SizedBox(height: 22),
                             const _Head('Dónde'),
                             const SizedBox(height: 10),

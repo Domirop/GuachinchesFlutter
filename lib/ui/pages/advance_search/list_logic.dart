@@ -274,30 +274,78 @@ String _joinEs(List<String> parts) {
 class LocalFilters {
   final Set<String> categoryIds;
 
-  /// Nombres de municipio normalizados.
-  final Set<String> municipalityNames;
+  /// Municipios elegidos: claves de [listMunicipalityKey].
+  final Set<String> municipalityKeys;
   final bool openOnly;
 
   const LocalFilters({
     this.categoryIds = const {},
-    this.municipalityNames = const {},
+    this.municipalityKeys = const {},
     this.openOnly = false,
   });
 }
 
 String listNormMunicipality(String name) => _norm(name);
 
+/// Clave del municipio de un sitio: su id (NegocioMunicipioId o
+/// `municipios.Id`) y, solo si no lo trae, el nombre normalizado. Con el id
+/// no importa que se llame «La Laguna» o «San Cristóbal de La Laguna».
+String listMunicipalityKey(Restaurant r) {
+  final id = r.negocioMunicipioId.trim();
+  if (id.isNotEmpty) return id;
+  final n = _norm(r.municipio);
+  return n.isEmpty ? '' : 'name:$n';
+}
+
 bool listMatches(Restaurant r, LocalFilters f, DateTime now) {
   if (f.categoryIds.isNotEmpty &&
       !r.categoriaRestaurantes.any((c) => f.categoryIds.contains(c.categoriaId))) {
     return false;
   }
-  if (f.municipalityNames.isNotEmpty &&
-      !f.municipalityNames.contains(_norm(r.municipio))) {
+  if (f.municipalityKeys.isNotEmpty &&
+      !f.municipalityKeys.contains(listMunicipalityKey(r))) {
     return false;
   }
   if (f.openOnly && !restaurantOpenState(r, now).isOpen) return false;
   return true;
+}
+
+/// Filas de «Dónde»: (clave, nombre, recuento) de los municipios de
+/// [base], más los ya elegidos aunque no tengan resultados. Ordenadas por
+/// nombre.
+List<(String, String, int)> listMunicipalityRows(
+  List<Restaurant> base, {
+  List<String> selected = const [],
+  Map<String, String> names = const {},
+}) {
+  final counts = <String, int>{};
+  final nameOf = <String, String>{};
+  for (final r in base) {
+    final k = listMunicipalityKey(r);
+    if (k.isEmpty) continue;
+    counts[k] = (counts[k] ?? 0) + 1;
+    nameOf.putIfAbsent(k, () => listMunicipalityName(r.municipio));
+  }
+  for (final k in selected) {
+    nameOf.putIfAbsent(k, () => names[k] ?? 'Municipio');
+  }
+  final rows = [
+    for (final e in nameOf.entries) (e.key, e.value, counts[e.key] ?? 0)
+  ]..sort((a, b) => _norm(a.$2).compareTo(_norm(b.$2)));
+  return rows;
+}
+
+/// «SANTA CRUZ» → «Santa Cruz»; los nombres bien escritos se respetan.
+String listMunicipalityName(String raw) {
+  final t = raw.trim();
+  if (t.isEmpty || t != t.toUpperCase()) return t;
+  const small = {'de', 'del', 'la', 'las', 'los', 'el', 'y'};
+  var first = true;
+  return t.toLowerCase().split(RegExp(r'\s+')).map((w) {
+    final keep = !first && small.contains(w);
+    first = false;
+    return keep || w.isEmpty ? w : w[0].toUpperCase() + w.substring(1);
+  }).join(' ');
 }
 
 /// Filtros activos (botón «Filtros · N»): tipos + categorías + municipios +

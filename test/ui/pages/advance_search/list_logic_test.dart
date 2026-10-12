@@ -132,7 +132,7 @@ void main() {
       expect(listMatches(terraza, f, _sat915), isTrue);
       expect(listMatches(vistas, f, _sat915), isTrue);
       final muni = LocalFilters(
-          municipalityNames: {listNormMunicipality('santa cruz de tenerife')});
+          municipalityKeys: {listMunicipalityKey(terraza)});
       expect(listMatches(terraza, muni, _sat915), isTrue);
       expect(listMatches(vistas, muni, _sat915), isFalse);
       expect(listMatches(vistas, const LocalFilters(openOnly: true), _sat915),
@@ -248,6 +248,55 @@ void main() {
       expect(contextThemeForHour(18), ListThemeKind.golden);
       expect(contextThemeForHour(21), ListThemeKind.cena);
       expect(contextThemeForHour(3), ListThemeKind.madrugada);
+    });
+  });
+
+  group('Municipios por id', () {
+    test('el id del municipio manda, aunque los nombres no coincidan', () {
+      // findByFilter: municipio anidado con su id oficial.
+      final r = Restaurant.fromJson({
+        'id': 'a',
+        'nombre': 'Guachinche El Chupete',
+        'municipios': {
+          'Id': '0b2a-laguna',
+          'Nombre': 'San Cristóbal de La Laguna',
+          'islandId': 'tf',
+        },
+        'categoriasRestaurantes': [],
+        'fotos': [],
+        'valoraciones': [],
+      });
+      expect(r.negocioMunicipioId, '0b2a-laguna');
+      expect(listMunicipalityKey(r), '0b2a-laguna');
+      // Elegido en «Dónde» por su clave: pasa aunque otra fuente lo llame
+      // «La Laguna».
+      final f = LocalFilters(municipalityKeys: {'0b2a-laguna'});
+      expect(listMatches(r, f, _sat915), isTrue);
+      expect(listMatches(r, const LocalFilters(municipalityKeys: {'otro'}),
+              _sat915),
+          isFalse);
+    });
+
+    test('sin id, cae al nombre normalizado', () {
+      final r = _r('b', municipio: 'Güímar');
+      expect(listMunicipalityKey(r), 'name:guimar');
+    });
+
+    test('filas de «Dónde»: recuento por id, nombres bonitos y elegidos', () {
+      Restaurant at(String id, String mid, String name) =>
+          _r(id, municipio: name)..negocioMunicipioId = mid;
+      final rows = listMunicipalityRows([
+        at('1', 'sc', 'Santa Cruz de Tenerife'),
+        at('2', 'sc', 'Santa Cruz de Tenerife'),
+        at('3', 'll', 'San Cristóbal de La Laguna'),
+        at('4', 'ar', 'ARICO'),
+      ], selected: ['gu'], names: {'gu': 'Güímar'});
+      expect(rows, [
+        ('ar', 'Arico', 1),
+        ('gu', 'Güímar', 0),
+        ('ll', 'San Cristóbal de La Laguna', 1),
+        ('sc', 'Santa Cruz de Tenerife', 2),
+      ]);
     });
   });
 }
