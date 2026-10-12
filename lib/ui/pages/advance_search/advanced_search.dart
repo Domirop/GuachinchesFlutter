@@ -694,7 +694,7 @@ class _AdvancedSearchState extends State<AdvancedSearch> {
                   child: _SearchRow(
                     controller: _searchController,
                     focusNode: _searchFocus,
-                    filterCount: _filters.count,
+                    filterCount: _presetSummary.badge,
                     onChanged: _onQueryChanged,
                     onSubmitted: _onSubmitted,
                     onClear: () {
@@ -969,12 +969,74 @@ class _AdvancedSearchState extends State<AdvancedSearch> {
 
   // ── Chips ──────────────────────────────────────────────────────────────
 
+  /// El preset de la franja sigue entero en los filtros.
+  PresetSummary get _presetSummary => listPresetSummary(
+        hasContext: _context != null,
+        presetTypes: _preset.typeIds,
+        presetCategories: _preset.categoryIds,
+        presetOpenOnly: _preset.openOnly,
+        types: _filters.typeIds,
+        categories: _filters.categoryIds,
+        municipalities: _filters.municipalityIds,
+        openOnly: _filters.openOnly,
+      );
+
+  /// Quita el preset de la franja (tipos, sus categorías y «Abierto
+  /// ahora») y deja lo que el usuario añadió encima.
+  void _clearPreset() {
+    final extras = _presetSummary.extraCategoryIds;
+    final next = SearchFilterValues(
+      categoryIds: extras,
+      municipalityIds: _filters.municipalityIds,
+    );
+    setState(() => _context = null);
+    if (next.count == 0 && !_hasQuery) {
+      setState(() {
+        _filters = next;
+        _hasSearched = false;
+      });
+      return;
+    }
+    _applyFilters(next);
+  }
+
   List<_ChipData> _activeChips() {
     final gm = GmColors.of(context);
     final typesById = {for (final t in widget.types) t.id: t};
     final catsById = {for (final c in widget.categories) c.id: c};
     final names = _municipalityNames;
     final out = <_ChipData>[];
+    final preset = _presetSummary;
+    if (preset.active) {
+      // Un solo chip para el preset («Para almorzar ×»); dentro del panel
+      // de filtros se ve desplegado en sus tipos.
+      final th = kListThemes[_context]!;
+      out.add(_ChipData(
+        label: th.title,
+        leading: ListThemeGlyph(th.glyph, size: 16, color: gm.accent),
+        onTap: _clearPreset,
+      ));
+      for (final id in preset.extraCategoryIds) {
+        final c = catsById[id];
+        if (c == null) continue;
+        out.add(_ChipData(
+          label: listCategoryLabel(c.nombre),
+          leading:
+              FichaFeatureChips.glyph(fichaCategoryFeature(c.nombre).glyph, gm),
+          onTap: () => _applyFilters(_filters.copyWith(
+              categoryIds: [..._filters.categoryIds]..remove(id))),
+        ));
+      }
+      for (final id in _filters.municipalityIds) {
+        out.add(_ChipData(
+          label: names[id] ?? 'Municipio',
+          leading: GmIcon(GmIcons.pin, size: 13, color: gm.accent),
+          onTap: () => _applyFilters(_filters.copyWith(
+              municipalityIds: [..._filters.municipalityIds]..remove(id))),
+        ));
+      }
+      return out;
+    }
     for (final id in _filters.typeIds) {
       final t = typesById[id];
       if (t == null) continue;

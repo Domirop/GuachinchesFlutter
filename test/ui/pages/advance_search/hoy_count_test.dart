@@ -68,6 +68,7 @@ void main() {
   testWidgets(
       'el mismo pool da el mismo número de abiertos en «Hoy» y en la lista',
       (tester) async {
+    final semantics = tester.ensureSemantics();
     tester.view.physicalSize = const Size(1206, 2622);
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);
@@ -122,7 +123,10 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
 
     expect(home, cfg.isEmpty ? 4 : 3);
+    // El preset de la franja es UN chip y cuenta 1 en «Filtros».
+    expect(find.bySemanticsLabel('Filtros, 1 activos'), findsOneWidget);
     expect(find.textContaining('$home abiertos ahora'), findsWidgets);
     expect(tester.takeException(), isNull);
+    semantics.dispose();
   });
 }

@@ -299,4 +299,45 @@ void main() {
       ]);
     });
   });
+
+  group('Preset de franja', () {
+    const lunch = ['rest', 'tasca', 'bodegon', 'trad', 'mod'];
+    PresetSummary sum(
+            {List<String> types = lunch,
+            List<String> cats = const [],
+            List<String> munis = const [],
+            bool open = true,
+            bool ctx = true}) =>
+        listPresetSummary(
+          hasContext: ctx,
+          presetTypes: lunch,
+          presetCategories: const [],
+          presetOpenOnly: true,
+          types: types,
+          categories: cats,
+          municipalities: munis,
+          openOnly: open,
+        );
+
+    test('entero: un chip y cuenta como 1', () {
+      final s = sum();
+      expect(s.active, isTrue);
+      expect(s.badge, 1);
+    });
+
+    test('con extras encima: 1 + extras', () {
+      final s = sum(cats: ['terraza'], munis: ['sc']);
+      expect(s.active, isTrue);
+      expect(s.extraCategoryIds, ['terraza']);
+      expect(s.badge, 3);
+    });
+
+    test('si se toca el preset deja de serlo (cuenta normal)', () {
+      final s = sum(types: lunch.take(4).toList());
+      expect(s.active, isFalse);
+      expect(s.badge, 5);
+      expect(sum(open: false).active, isFalse);
+      expect(sum(ctx: false).active, isFalse);
+    });
+  });
 }

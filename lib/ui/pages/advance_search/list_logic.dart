@@ -348,6 +348,48 @@ String listMunicipalityName(String raw) {
   }).join(' ');
 }
 
+/// Resumen del preset de franja («Para almorzar»): si sigue entero en los
+/// filtros se pinta como UN chip y cuenta como 1 en «Filtros · N»; lo que el
+/// usuario añada encima (categorías, municipios) va aparte.
+class PresetSummary {
+  final bool active;
+  final List<String> extraCategoryIds;
+  final int badge;
+  const PresetSummary(this.active, this.extraCategoryIds, this.badge);
+}
+
+PresetSummary listPresetSummary({
+  required bool hasContext,
+  required List<String> presetTypes,
+  required List<String> presetCategories,
+  required bool presetOpenOnly,
+  required List<String> types,
+  required List<String> categories,
+  required List<String> municipalities,
+  required bool openOnly,
+}) {
+  final plain = listActiveFilterCount(
+    types: types.length,
+    categories: categories.length,
+    municipalities: municipalities.length,
+    openOnly: openOnly,
+  );
+  final sameTypes = types.length == presetTypes.length &&
+      types.toSet().containsAll(presetTypes);
+  final hasCats = categories.toSet().containsAll(presetCategories);
+  final active = hasContext &&
+      sameTypes &&
+      hasCats &&
+      openOnly == presetOpenOnly &&
+      (presetTypes.isNotEmpty || presetCategories.isNotEmpty || presetOpenOnly);
+  if (!active) return PresetSummary(false, categories, plain);
+  final extras = [
+    for (final c in categories)
+      if (!presetCategories.contains(c)) c
+  ];
+  return PresetSummary(true, extras, 1 + extras.length + municipalities.length);
+}
+
 /// Filtros activos (botón «Filtros · N»): tipos + categorías + municipios +
 /// «Abierto ahora».
 int listActiveFilterCount({
