@@ -52,6 +52,10 @@ abstract class RemoteRepository{
   Future<String> saveCupon(String cuponId, String userId);
   Future<Restaurant> getRestaurantById(String id);
   Future<List<Restaurant>> getFilterRestaurants(String categorias, String municipalities, String types, String nombre,String islandId);
+  /// Igual que [getFilterRestaurants] pero LANZA si la petición falla (red,
+  /// HTTP ≠ 200 o JSON inválido) en vez de devolver una lista vacía, para que
+  /// la lista de resultados pueda pintar un estado de error real.
+  Future<List<Restaurant>> getFilterRestaurantsChecked(String categorias, String municipalities, String types, String nombre,String islandId);
   Future<List<Cupones>> getCuponesUsuario(String id);
   Future<List<Types>> getAllTypes();
   Future<CuponesUser> getOneCupon(String userId,String id);

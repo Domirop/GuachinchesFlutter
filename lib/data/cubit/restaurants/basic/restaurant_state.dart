@@ -43,6 +43,12 @@ class RestaurantFilterAdvanced extends RestaurantState {
   @override
   int get hashCode => restaurantFilterAdvanced.hashCode;
 }
+/// La búsqueda avanzada falló (red/servidor): la lista pinta su estado de
+/// error con «Reintentar».
+class RestaurantFilterAdvancedError extends RestaurantState {
+  final String message;
+  const RestaurantFilterAdvancedError(this.message);
+}
 class RestaurantLoaded extends RestaurantState {
   final RestaurantResponse restaurantResponse;
   const RestaurantLoaded(this.restaurantResponse);

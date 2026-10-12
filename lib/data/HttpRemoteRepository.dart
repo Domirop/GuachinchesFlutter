@@ -189,32 +189,45 @@ class HttpRemoteRepository implements RemoteRepository {
       String nombre,
       String islandId) async {
     try {
-
-      List<Restaurant> restaurants = [];
-      String url =
-          dotenv.env['ENDPOINT_V2']! + "restaurant/findByFilter/filter?name=";
-      if (nombre != null || nombre.isNotEmpty) url += nombre;
-      url += "&businessType=";
-      if (types != null && types.isNotEmpty) url += types;
-      if (categorias != null && categorias.isNotEmpty)
-        url += "&categories=" + categorias;
-      if (municipalities != null && municipalities.isNotEmpty)
-        url += "&municipalities=" + municipalities;
-      if (islandId != null) url += "&island=" + islandId;
-
-      var uri = Uri.parse(url);
-      var response = await _client.get(uri);
-
-      List<dynamic> data = json.decode(response.body);
-      for (var i = 0; i < data.length; i++) {
-        Restaurant restaurant = Restaurant.fromJson(data[i]);
-        restaurants.add(restaurant);
-      }
-      return restaurants;
-    } on Exception catch (e) {
-
+      return await getFilterRestaurantsChecked(
+          categorias, municipalities, types, nombre, islandId);
+    } catch (e) {
+      // Contrato histórico de los demás llamadores: lista vacía si falla.
+      AppLogger.warn('http-repo', '[getFilterRestaurants] failed: $e');
       return [];
     }
+  }
+
+  @override
+  Future<List<Restaurant>> getFilterRestaurantsChecked(
+      String categorias,
+      String municipalities,
+      String types,
+      String nombre,
+      String islandId) async {
+    final params = <String, String>{
+      'name': nombre,
+      'businessType': types,
+      if (categorias.isNotEmpty) 'categories': categorias,
+      if (municipalities.isNotEmpty) 'municipalities': municipalities,
+      if (islandId.isNotEmpty) 'island': islandId,
+    };
+    final query = params.entries
+        .map((e) => '${e.key}=${Uri.encodeQueryComponent(e.value)}')
+        .join('&');
+    final uri = Uri.parse(
+        '${dotenv.env['ENDPOINT_V2']!}restaurant/findByFilter/filter?$query');
+    final response =
+        await _client.get(uri).timeout(const Duration(seconds: 15));
+    if (response.statusCode != 200) {
+      throw HttpException(
+          'findByFilter ${response.statusCode}', uri: uri);
+    }
+    final data = json.decode(response.body);
+    if (data is! List) {
+      throw const FormatException('findByFilter: se esperaba una lista');
+    }
+    return [for (final row in data) Restaurant.fromJson(row)];
   }
 
   @override
