@@ -36,6 +36,7 @@ import 'package:http/http.dart' as http;
 import 'package:guachinches/ui/pages/map/map_search.dart';
 import 'new_home_presenter.dart';
 import 'package:guachinches/utils/open_state.dart';
+import 'package:guachinches/data/filter_session_cache.dart';
 import 'new_home_body.dart';
 
 /// Pantalla principal nueva. Implementa [NewHomeView].
@@ -496,6 +497,8 @@ class _NewHomeScreenState extends State<NewHomeScreen>
   /// auto-cambio por cámara) — los datos y la etiqueta nunca se desincronizan.
   void _reloadForIsland(String islandId) {
     if (!mounted) return;
+    // La isla anterior ya no sirve: fuera la caché de sesión de búsquedas.
+    FilterSessionCache.instance.clear();
     setState(() {
       _filterMunicipalityId = null;
       _filterZoneMuniIds = const {};

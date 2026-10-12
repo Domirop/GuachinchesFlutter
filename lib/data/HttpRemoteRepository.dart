@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart' show compute;
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:guachinches/core/logging/app_logger.dart';
 import 'package:guachinches/data/HttpCachePolicy.dart';
+import 'package:guachinches/data/filter_session_cache.dart';
 import 'package:guachinches/data/local/http_cache_store.dart';
 import 'package:guachinches/ui/pages/survey_in_app/survey_in_app_presenter.dart'
     show AlreadyVotedThisBusinessException;
@@ -120,7 +121,14 @@ class HttpRemoteRepository implements RemoteRepository {
   }
 
   @override
-  Future<void> invalidateCache(String prefix) => _cache.invalidate(prefix);
+  Future<void> invalidateCache(String prefix) {
+    // «Tira para recargar» de la home (prefijo 'restaurants:'): también la
+    // caché de sesión de findByFilter.
+    if ('restaurants:'.startsWith(prefix) || prefix.startsWith('restaurants:')) {
+      FilterSessionCache.instance.clear();
+    }
+    return _cache.invalidate(prefix);
+  }
 
   @override
   Future<UserInfo> getUserInfo(String userId) async {
@@ -205,6 +213,18 @@ class HttpRemoteRepository implements RemoteRepository {
       String types,
       String nombre,
       String islandId) async {
+    final cacheKey = FilterSessionCache.cacheable(nombre)
+        ? FilterSessionCache.key(
+            island: islandId,
+            types: types,
+            categories: categorias,
+            municipalities: municipalities)
+        : null;
+    if (cacheKey != null) {
+      final hit = FilterSessionCache.instance.get(cacheKey);
+      // Copia: la pantalla ordena y filtra sobre la lista.
+      if (hit != null) return List.of(hit);
+    }
     final params = <String, String>{
       'name': nombre,
       'businessType': types,
@@ -227,7 +247,9 @@ class HttpRemoteRepository implements RemoteRepository {
     if (data is! List) {
       throw const FormatException('findByFilter: se esperaba una lista');
     }
-    return [for (final row in data) Restaurant.fromJson(row)];
+    final out = [for (final row in data) Restaurant.fromJson(row)];
+    if (cacheKey != null) FilterSessionCache.instance.put(cacheKey, out);
+    return out;
   }
 
   @override
