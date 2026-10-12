@@ -30,12 +30,12 @@ import 'package:guachinches/ui/pages/new_home/top_rated_ranking_screen.dart';
 import 'package:guachinches/core/logging/app_logger.dart';
 import 'package:guachinches/utils/distance_utils.dart';
 import 'package:guachinches/utils/island_key_utils.dart';
-import 'package:guachinches/utils/open_now_utils.dart';
 import 'package:guachinches/utils/opening_later_utils.dart';
 import 'package:guachinches/utils/time_of_day_engine.dart';
 import 'package:http/http.dart' as http;
 import 'package:guachinches/ui/pages/map/map_search.dart';
 import 'new_home_presenter.dart';
+import 'package:guachinches/utils/open_state.dart';
 import 'new_home_body.dart';
 
 /// Pantalla principal nueva. Implementa [NewHomeView].
@@ -202,7 +202,7 @@ class _NewHomeScreenState extends State<NewHomeScreen>
     final now = DateTime.now();
     final withSchedule = restaurants.where((r) => r.horariosJson != null).length;
     final openNowCount = restaurants
-        .where((r) => r.horariosJson != null && isOpenNow(r.horariosJson, now))
+        .where((r) => isRestaurantOpenNow(r, now))
         .length;
     final opensLaterCount = restaurants
         .where((r) => opensLaterToday(r.horariosJson, now))

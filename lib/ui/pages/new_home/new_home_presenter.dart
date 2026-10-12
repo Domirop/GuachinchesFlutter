@@ -12,8 +12,8 @@ import 'package:guachinches/data/model/Types.dart';
 import 'package:guachinches/data/model/restaurant.dart';
 import 'package:guachinches/utils/contextual_pool.dart';
 import 'package:guachinches/utils/distance_utils.dart';
-import 'package:guachinches/utils/open_now_utils.dart';
 import 'package:guachinches/utils/opening_later_utils.dart';
+import 'package:guachinches/utils/open_state.dart';
 import 'package:guachinches/utils/time_of_day_engine.dart';
 
 class NewHomePresenter {
@@ -223,10 +223,9 @@ class NewHomePresenter {
 
   List<Restaurant> filterOpenNow(List<Restaurant> pool) {
     final now = DateTime.now();
-    return pool.where((r) {
-      if (r.horariosJson == null) return false;
-      return isOpenNow(r.horariosJson, now);
-    }).toList();
+    // Misma regla que la lista de resultados (horarios_json; si no hay, el
+    // `open` del backend): los recuentos coinciden de la home a la lista.
+    return pool.where((r) => isRestaurantOpenNow(r, now)).toList();
   }
 
   /// Pool para la sección "HOY EN..." alineada con el copy contextual
@@ -268,10 +267,9 @@ class NewHomePresenter {
 
   List<Restaurant> filterClosingSoon(List<Restaurant> pool) {
     final now = DateTime.now();
-    return pool.where((r) {
-      if (r.horariosJson != null) return closingSoon(r.horariosJson, now);
-      return false;
-    }).toList();
+    return pool
+        .where((r) => restaurantOpenState(r, now).kind == OpenKind.closingSoon)
+        .toList();
   }
 
   List<NearbyRestaurant> filterNearby(

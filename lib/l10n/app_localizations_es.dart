@@ -121,6 +121,9 @@ class AppL10nEs extends AppL10n {
   String get openStatusClosed => 'Cerrado';
 
   @override
+  String get openStatusUnknown => 'Horario sin confirmar';
+
+  @override
   String get mapEmptyTitle => 'Sin restaurantes';
 
   @override

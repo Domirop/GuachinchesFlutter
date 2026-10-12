@@ -8,6 +8,7 @@ import 'package:guachinches/core/app_route_observer.dart';
 import 'package:guachinches/data/model/Visit.dart' as vm;
 import 'package:maps_launcher/maps_launcher.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:guachinches/utils/open_state.dart';
 import 'package:video_player/video_player.dart';
 
 /// Reproductor vertical a pantalla completa estilo reel (TikTok/Reels) adaptado
@@ -594,7 +595,14 @@ class _LocalCard extends StatelessWidget {
         ? r!.mainFoto
         : (visit.thumbnail ?? '');
     final rating = r?.avgRating ?? 0;
-    final open = r?.open ?? false;
+    final openState =
+        r == null ? null : restaurantOpenState(r, DateTime.now());
+    final open = openState?.isOpen ?? false;
+    final openText = open
+        ? 'Abierto'
+        : (openState == null || openState.kind == OpenKind.unknown)
+            ? 'Horario sin confirmar'
+            : 'Cerrado';
     final location = [
       if (visit.zone?.isNotEmpty == true)
         visit.zone!
@@ -671,7 +679,7 @@ class _LocalCard extends StatelessWidget {
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        open ? 'Abierto' : 'Cerrado',
+                        openText,
                         style: AppTextStyles.ui(
                             size: 12,
                             color: open ? AppColors.laurisilva : Colors.white60,

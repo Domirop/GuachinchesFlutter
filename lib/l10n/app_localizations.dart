@@ -283,6 +283,12 @@ abstract class AppL10n {
   /// **'Cerrado'**
   String get openStatusClosed;
 
+  /// No description provided for @openStatusUnknown.
+  ///
+  /// In es, this message translates to:
+  /// **'Horario sin confirmar'**
+  String get openStatusUnknown;
+
   /// No description provided for @mapEmptyTitle.
   ///
   /// In es, this message translates to:

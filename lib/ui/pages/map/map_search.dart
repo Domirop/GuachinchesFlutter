@@ -34,6 +34,7 @@ import 'package:guachinches/core/logging/app_logger.dart';
 import 'package:guachinches/data/cubit/new_home/islands_cubit.dart';
 import 'package:guachinches/data/model/Island.dart';
 import 'package:guachinches/utils/island_bounds.dart';
+import 'package:guachinches/utils/open_state.dart';
 import 'package:guachinches/utils/island_key_utils.dart';
 
 const double _markerHueOpen = BitmapDescriptor.hueGreen;
@@ -525,9 +526,9 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
       Offset anchor;
 
       if (mode == MarkerRenderMode.dot) {
-        icon = (r.open ? _dotIconOpen : _dotIconClosed) ??
+        icon = (_openNow(r) ? _dotIconOpen : _dotIconClosed) ??
             BitmapDescriptor.defaultMarkerWithHue(
-              r.open ? _markerHueOpen : _markerHueClosed,
+              _openNow(r) ? _markerHueOpen : _markerHueClosed,
             );
         anchor = const Offset(0.5, 0.5);
       } else {
@@ -537,9 +538,9 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
           _scheduleMarkerBuild(r, mode);
         }
         icon = cached?.bitmap ??
-            (r.open ? _dotIconOpen : _dotIconClosed) ??
+            (_openNow(r) ? _dotIconOpen : _dotIconClosed) ??
             BitmapDescriptor.defaultMarkerWithHue(
-              r.open ? _markerHueOpen : _markerHueClosed,
+              _openNow(r) ? _markerHueOpen : _markerHueClosed,
             );
         anchor = cached?.anchor ??
             (mode == MarkerRenderMode.teardrop
@@ -596,7 +597,7 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
       MarkerRenderMode.label => 'l',
       MarkerRenderMode.teardrop => 't',
     };
-    return '${r.id}_${r.open ? 1 : 0}_$modeSuffix';
+    return '${r.id}_${_openNow(r) ? 1 : 0}_$modeSuffix';
   }
 
   void _scheduleMarkerBuild(Restaurant r, MarkerRenderMode mode) {
@@ -631,7 +632,7 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
       // El seleccionado MANTIENE el color de estado (verde abierto / rojo
       // cerrado) y el nombre, igual que el marker no seleccionado; el dot se
       // convierte en un teardrop con la nota dentro para marcar la seleccion.
-      final statusColor = r.open
+      final statusColor = _openNow(r)
           ? const Color.fromRGBO(149, 220, 0, 1)
           : const Color.fromRGBO(226, 120, 120, 1);
 
@@ -768,7 +769,7 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
     const double maxTextW = 130.0;
     const double outline = 2.5; // grosor del borde blanco del texto
 
-    final dotColor = r.open
+    final dotColor = _openNow(r)
         ? const Color.fromRGBO(149, 220, 0, 1)
         : const Color.fromRGBO(226, 120, 120, 1);
 
@@ -1351,7 +1352,7 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
     }
     final q = _searchText.trim().toLowerCase();
     return source.where((r) {
-      if (_quickOpen && !r.open) return false;
+      if (_quickOpen && !_openNow(r)) return false;
       if (_quickCategoryId != null &&
           !r.categoriaRestaurantes.any((c) => c.categoriaId == _quickCategoryId)) {
         return false;
@@ -2837,6 +2838,11 @@ class _RestaurantStatus {
 
 const Color _kStatusOpen = Color.fromRGBO(149, 220, 0, 1);
 const Color _kStatusClosed = Color.fromRGBO(226, 120, 120, 1);
+const Color _kStatusUnknown = Color(0xFF9A8F80);
+
+/// Abierto ahora con la regla única de la app (horarios_json; si no hay,
+/// el `open` del backend).
+bool _openNow(Restaurant r) => isRestaurantOpenNow(r, DateTime.now());
 const Color _kStatusWarning = Color.fromRGBO(245, 183, 0, 1); // sol
 const Color _kStatusUrgent = Color.fromRGBO(232, 82, 26, 1); // mojo
 
@@ -2844,7 +2850,11 @@ const Color _kStatusUrgent = Color.fromRGBO(232, 82, 26, 1); // mojo
 /// "Cierra pronto" if the slot ends in <45 min. "Estará cerrado al llegar"
 /// when ETA at ~60 km/h doesn't fit before close (or <10 min remaining).
 _RestaurantStatus _statusFor(Restaurant r, double distanceMeters) {
-  if (!r.open) {
+  if (!_openNow(r)) {
+    // Sin horario fiable: neutro, nunca «Cerrado».
+    if (restaurantOpenState(r, DateTime.now()).kind == OpenKind.unknown) {
+      return const _RestaurantStatus('Horario sin confirmar', _kStatusUnknown);
+    }
     return const _RestaurantStatus('Cerrado', _kStatusClosed);
   }
   final close = _closingTimeNow(r);

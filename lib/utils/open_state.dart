@@ -148,3 +148,8 @@ OpenState computeOpenState(
 OpenState restaurantOpenState(Restaurant r, DateTime now) =>
     computeOpenState(r.horariosJson, now,
         fallbackOpen: r.horariosJson == null ? r.open : null);
+
+/// ¿Abierto ahora? La regla única de toda la app (home, «Hoy», listas,
+/// badges y mapa).
+bool isRestaurantOpenNow(Restaurant r, DateTime now) =>
+    restaurantOpenState(r, now).isOpen;

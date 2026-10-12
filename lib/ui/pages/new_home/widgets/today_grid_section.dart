@@ -6,7 +6,7 @@ import 'package:guachinches/ui/theme/gm_icons.dart';
 import 'package:guachinches/ui/theme/gm_motion.dart';
 import 'package:guachinches/ui/theme/gm_tokens.dart';
 import 'package:guachinches/ui/theme/gm_widgets.dart';
-import 'package:guachinches/utils/open_now_utils.dart';
+import 'package:guachinches/utils/open_state.dart';
 import 'package:guachinches/utils/opening_later_utils.dart';
 
 /// Bloque «Hoy» del rediseño iOS 27 (tablero InicioCompleto · sección 4).
@@ -203,7 +203,7 @@ class _Grid extends StatelessWidget {
         final at = nextOpenLabel(r.horariosJson, now);
         leading = _OpensAt(label: at);
       } else {
-        final open = r.horariosJson != null && isOpenNow(r.horariosJson, now);
+        final open = isRestaurantOpenNow(r, now);
         leading = open ? const GmOpenLabel() : const SizedBox.shrink();
       }
       return GmRise(

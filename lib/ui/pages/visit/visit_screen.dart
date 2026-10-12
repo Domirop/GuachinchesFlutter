@@ -31,11 +31,11 @@ import 'package:guachinches/ui/theme/gm_icons.dart';
 import 'package:guachinches/ui/theme/gm_motion.dart';
 import 'package:guachinches/ui/theme/gm_tokens.dart';
 import 'package:guachinches/ui/theme/gm_widgets.dart';
-import 'package:guachinches/utils/open_now_utils.dart';
 import 'package:guachinches/utils/restaurant_type_label.dart';
 import 'package:posthog_flutter/posthog_flutter.dart' show PostHogMaskWidget;
 import 'package:share_plus/share_plus.dart' show SharePlus, ShareParams;
 import 'package:url_launcher/url_launcher.dart';
+import 'package:guachinches/utils/open_state.dart';
 import 'package:video_player/video_player.dart';
 
 /// Visita de Jonay y Joana como Reel (rediseño iOS 27 · tablero Visita):
@@ -1278,8 +1278,10 @@ class _RestaurantCard extends StatelessWidget {
         ? gmDistanceLabel(r, loc.latitude, loc.longitude)
         : null;
     final now = DateTime.now();
-    final hasSchedule = r.horariosJson != null;
-    final open = hasSchedule && isOpenNow(r.horariosJson, now);
+    final state = restaurantOpenState(r, now);
+    // Sin horario fiable no se dice nada (nunca «Cerrado»).
+    final hasSchedule = state.kind != OpenKind.unknown;
+    final open = state.isOpen;
     final type = restaurantTypeLabel(r.type);
     final metaParts = <String>[
       if (r.municipio.trim().isNotEmpty) gmPlaceName(r.municipio),

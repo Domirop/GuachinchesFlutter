@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:guachinches/l10n/app_localizations.dart';
-import 'package:guachinches/utils/horarios_utils.dart';
+import 'package:guachinches/utils/open_state.dart';
 
+/// Etiqueta «Abierto / Cierra en N min / Cerrado / Horario sin confirmar».
+///
+/// Misma regla que el resto de la app ([computeOpenState]): sin horario
+/// fiable se pinta neutra, nunca como cerrado.
 class OpenStatusBadge extends StatelessWidget {
   final Map<String, dynamic>? horariosJson;
   final bool fallbackOpen;
@@ -14,36 +18,27 @@ class OpenStatusBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final String status = horariosJson != null
-        ? getOpenStatus(horariosJson, DateTime.now())
-        : (fallbackOpen ? "Abierto" : "Cerrado");
-
-    final Color color = _colorFor(status);
-
+    final s = computeOpenState(horariosJson, DateTime.now(),
+        fallbackOpen: horariosJson == null ? fallbackOpen : null);
     final l10n = AppL10n.of(context);
-    final String displayText = status == "Abierto"
-        ? l10n.openStatusOpen
-        : status == "Cerrado"
-            ? l10n.openStatusClosed
-            : status;
+    final (String text, Color color) = switch (s.kind) {
+      OpenKind.open => (l10n.openStatusOpen, const Color.fromRGBO(149, 220, 0, 1)),
+      OpenKind.closingSoon => ('Cierra en ${s.minutesToClose} min', Colors.orange),
+      OpenKind.closed => (l10n.openStatusClosed, const Color.fromRGBO(226, 120, 120, 1)),
+      OpenKind.unknown => (l10n.openStatusUnknown, const Color(0xFF9A8F80)),
+    };
 
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.15),
+        color: color.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(4),
         border: Border.all(color: color, width: 1),
       ),
       child: Text(
-        displayText,
+        text,
         style: TextStyle(fontSize: 12, color: color, fontWeight: FontWeight.w600),
       ),
     );
-  }
-
-  Color _colorFor(String status) {
-    if (status == "Abierto") return Color.fromRGBO(149, 220, 0, 1);
-    if (status == "Cerrado") return Color.fromRGBO(226, 120, 120, 1);
-    return Colors.orange;
   }
 }
