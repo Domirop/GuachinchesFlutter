@@ -91,7 +91,7 @@ void main() {
           'Abierto hasta 13:00');
       expect(label(_r('b', hours: _daily('0700', '0935'))), 'Cierra en 20 min');
       expect(label(_r('c', hours: _daily('1200', '1600'))),
-          'Cerrado · abre hoy a las 12:00');
+          'Cerrado · abre hoy 12:00');
       expect(label(_r('d')), 'Horario sin confirmar');
       expect(label(_r('e', open: true)), 'Abierto');
     });
@@ -209,6 +209,8 @@ void main() {
               .title,
           'Guachinches tradicionales');
       expect(listCategoryLabel('CARNE CABRA'), 'Carne de cabra');
+      expect(listCategoryLabel('Animales'), 'Con animales');
+      expect(listCategoryLabel('Permite mascotas'), 'Admite mascotas');
       final cat = resolveListHeader(
           filtersArePreset: false,
           types: const [],

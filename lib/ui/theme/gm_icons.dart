@@ -144,6 +144,29 @@ class GmIcons {
   static final pause = _wrap(
       '<rect x="6" y="4.5" width="4.2" height="15" rx="1.4"/><rect x="13.8" y="4.5" width="4.2" height="15" rx="1.4"/>',
       attrs: 'fill="currentColor"');
+  /// Lista (segmento Lista/Mapa).
+  static final list = _wrap(
+      '<path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1.3" fill="currentColor" stroke="none"/><circle cx="4.5" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="4.5" cy="18" r="1.3" fill="currentColor" stroke="none"/>',
+      attrs:
+          'fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"');
+
+  /// Orden (botón «Mejor valorados ⌄»).
+  static final sort = _wrap(
+      '<path d="M7 4v16M3.5 7.5L7 4l3.5 3.5M17 20V4M13.5 16.5L17 20l3.5-3.5"/>',
+      attrs:
+          'fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"');
+
+  /// Filtros (deslizadores).
+  static final filters = _wrap(
+      '<path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2.2"/><circle cx="10" cy="17" r="2.2"/>',
+      attrs:
+          'fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"');
+
+  /// Aspa pequeña de los chips de filtro.
+  static final xSmall = _wrap('<path d="M6 6l12 12M18 6L6 18"/>',
+      attrs:
+          'fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round"');
+
   static final clock = _wrap(
       '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
       attrs:

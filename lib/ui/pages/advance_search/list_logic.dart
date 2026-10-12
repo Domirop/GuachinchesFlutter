@@ -22,7 +22,12 @@ String _norm(String s) => s
 
 /// Etiqueta limpia de una categoría («carne cabra» → «Carne de cabra»,
 /// «TERRAZA» → «Terraza»), la misma que usa la ficha.
-String listCategoryLabel(String raw) => fichaCategoryFeature(raw).label;
+String listCategoryLabel(String raw) {
+  // «Animales» (granja, cabras…) no es «Admite mascotas»: en el panel
+  // saldrían dos etiquetas iguales.
+  if (_norm(raw) == 'animales') return 'Con animales';
+  return fichaCategoryFeature(raw).label;
+}
 
 // ── Valoración ─────────────────────────────────────────────────────────────
 
@@ -168,9 +173,8 @@ List<Restaurant> listSorted(
 
 // ── Etiqueta de apertura ───────────────────────────────────────────────────
 
-const _days = [
-  'domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'
-];
+/// Días abreviados (la etiqueta cabe en una línea de la rejilla).
+const _days = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
 
 String _clock(int minuteOfDay) =>
     '${minuteOfDay ~/ 60}:${(minuteOfDay % 60).toString().padLeft(2, '0')}';
@@ -207,9 +211,9 @@ OpenLabel listOpenLabel(OpenState s) {
           ? 'hoy'
           : days == 1
               ? 'mañana'
-              : 'el ${_days[s.opensGoogleDay ?? 0]}';
+              : _days[s.opensGoogleDay ?? 0];
       return OpenLabel(
-          OpenKind.closed, 'Cerrado', ' · abre $when a las ${_clock(at)}');
+          OpenKind.closed, 'Cerrado', ' · abre $when ${_clock(at)}');
     case OpenKind.unknown:
       return const OpenLabel(OpenKind.unknown, 'Horario sin confirmar');
   }
@@ -358,10 +362,12 @@ ListHeader resolveListHeader({
   }
 
   final q = query.trim();
-  if (types.length == 1 && categoryLabels.isEmpty && q.isEmpty) {
+  // Un tipo (con o sin «Qué buscas»): manda el tipo; los extras van en los
+  // chips.
+  if (types.length == 1 && q.isEmpty) {
     final kind = listThemeForType(types.first.$1, types.first.$2);
     final t = kListThemes[kind ?? ListThemeKind.buscar]!;
-    final n = typeTotal ?? resultCount;
+    final n = categoryLabels.isEmpty ? (typeTotal ?? resultCount) : resultCount;
     final eyebrow = n == null ? 'Tipo' : 'Tipo · $n$where';
     return ListHeader(t, eyebrow, kind == null ? _cap(types.first.$2) : t.title,
         kind == null ? 'Nombre, zona o plato.' : t.subtitle);
