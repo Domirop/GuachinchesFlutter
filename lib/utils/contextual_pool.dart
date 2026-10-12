@@ -1,3 +1,6 @@
+import 'package:guachinches/data/model/restaurant.dart';
+import 'package:guachinches/utils/open_state.dart';
+
 /// Filtros contextuales que alinean la lista de "HOY EN..." con el copy
 /// del HourAwareBanner. Si el banner dice "Terrazas con atardecer", el
 /// pool solo debe traer locales con la categoría Terraza / Con vistas.
@@ -98,3 +101,27 @@ ContextualFilter contextualFilterFor(int hour) {
   }
   return const ContextualFilter();
 }
+
+
+/// Sitios del pool que encajan en el filtro de la franja: cualquiera de los
+/// tipos (si hay) y cualquiera de las categorías (si hay). No mira el
+/// horario.
+List<Restaurant> contextualMatches(
+    List<Restaurant> pool, ContextualFilter cfg) {
+  return pool.where((r) {
+    final typeOk = cfg.typeIds.isEmpty || cfg.typeIds.contains(r.type);
+    final catOk = cfg.categoryIds.isEmpty ||
+        r.categoriaRestaurantes
+            .any((c) => cfg.categoryIds.contains(c.categoriaId));
+    return typeOk && catOk;
+  }).toList();
+}
+
+/// Los de [contextualMatches] abiertos ahora con la regla única de la app.
+/// Es EL recuento de «Hoy»: lo usan la home, la tarjeta «Para ahora» de
+/// Buscar y la lista que se abre desde ellas, así que el número coincide.
+List<Restaurant> contextualOpenNow(
+        List<Restaurant> pool, ContextualFilter cfg, DateTime now) =>
+    contextualMatches(pool, cfg)
+        .where((r) => isRestaurantOpenNow(r, now))
+        .toList();

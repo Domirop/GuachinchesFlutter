@@ -274,6 +274,14 @@ class _AdvancedSearchState extends State<AdvancedSearch> {
       _allVisits = newAllVisits;
     });
 
+    if (_usePresetPool) {
+      // Desde «Hoy» con el preset intacto: los mismos sitios que la home
+      // (el número de abiertos coincide). Cualquier cambio de tipos pide
+      // al servidor.
+      _requestedTypes = const ['__home-pool__'];
+      _requestedCategories = const [];
+      return;
+    }
     _requestedTypes = List.of(_filters.typeIds);
     _requestedCategories = _serverCategories(_filters);
     // Municipios, «Abierto ahora» y las categorías múltiples se filtran en
@@ -349,9 +357,11 @@ class _AdvancedSearchState extends State<AdvancedSearch> {
 
   Future<void> _openFilterSheet() async {
     final state = _restaurantsCubit.state;
-    final base = state is RestaurantFilterAdvanced
-        ? state.restaurantFilterAdvanced
-        : const <Restaurant>[];
+    final base = _usePresetPool
+        ? _presetPool
+        : state is RestaurantFilterAdvanced
+            ? state.restaurantFilterAdvanced
+            : const <Restaurant>[];
     final result = await SearchFilterSheet.show(
       context: context,
       initial: _filters,
@@ -359,7 +369,7 @@ class _AdvancedSearchState extends State<AdvancedSearch> {
       types: widget.types,
       municipalities: widget.municipalities,
       base: base,
-      baseTypeIds: _requestedTypes,
+      baseTypeIds: _usePresetPool ? _preset.typeIds : _requestedTypes,
       // Con la base pedida sin categorías, cualquier combinación se cuenta
       // aquí; con una categoría en el servidor, solo si sigue siendo esa.
       countFor: (v) => _requestedCategories.isEmpty
@@ -442,21 +452,47 @@ class _AdvancedSearchState extends State<AdvancedSearch> {
     );
   }
 
-  /// Resultados: los del servidor que pasan los filtros locales y, después,
-  /// los que solo coinciden por plato (de las visitas).
-  List<Restaurant> _results(
+  /// Lista abierta desde «Hoy» con el preset sin tocar y con los sitios de
+  /// la home a mano: se usan esos mismos sitios.
+  bool get _usePresetPool =>
+      widget.pool.isNotEmpty &&
+      _context != null &&
+      _filters.sameAs(_preset) &&
+      !_hasQuery;
+
+  /// Base del preset desde el pool de la home (misma función que «Hoy»).
+  List<Restaurant> get _presetPool => contextualMatches(
+        widget.pool,
+        ContextualFilter(
+          typeIds: _preset.typeIds.toSet(),
+          categoryIds: _preset.categoryIds.toSet(),
+        ),
+      );
+
+  /// Resultados del servidor (o del pool) que pasan los filtros locales.
+  /// Los que solo coinciden por plato van aparte ([_dishResults]).
+  List<Restaurant> _mainResults(
       List<Restaurant> server, SearchFilterValues f, DateTime now,
       {bool openOnly = true, bool allCategories = false}) {
     final local = _local(f, openOnly: openOnly, allCategories: allCategories);
-    final out = [
+    return [
       for (final r in server)
         if (listMatches(r, local, now)) r
     ];
+  }
+
+  /// Sitios que solo coinciden por plato (de las visitas), sin los que ya
+  /// están en [server].
+  List<Restaurant> _dishResults(
+      List<Restaurant> server, SearchFilterValues f, DateTime now,
+      {bool openOnly = true}) {
+    final local = _local(f, openOnly: openOnly);
     final ids = server.map((r) => r.id).toSet();
     final dishLocal = LocalFilters(
         municipalityNames: local.municipalityNames, openOnly: local.openOnly);
     final types = f.typeIds.toSet();
     final seen = <String>{};
+    final out = <Restaurant>[];
     for (final v in _allVisits) {
       final r = v.restaurant;
       if (r == null || !_dishMatchIds.contains(v.restaurantId)) continue;
@@ -467,6 +503,16 @@ class _AdvancedSearchState extends State<AdvancedSearch> {
     }
     return out;
   }
+
+  /// Todos (principal + por plato), para los recuentos del panel.
+  List<Restaurant> _results(
+          List<Restaurant> server, SearchFilterValues f, DateTime now,
+          {bool openOnly = true, bool allCategories = false}) =>
+      [
+        ..._mainResults(server, f, now,
+            openOnly: openOnly, allCategories: allCategories),
+        ..._dishResults(server, f, now, openOnly: openOnly),
+      ];
 
   /// Tipo del sitio: el de la fila o, si no lo trae, el de la home.
   String? _typeIdOf(Restaurant r) {
@@ -539,15 +585,25 @@ class _AdvancedSearchState extends State<AdvancedSearch> {
         final now = DateTime.now();
         final showResults = _isActive || _hasSearched;
 
-        final server = state is RestaurantFilterAdvanced
-            ? state.restaurantFilterAdvanced
-            : null;
+        final pooled = _usePresetPool;
+        final server = pooled
+            ? _presetPool
+            : state is RestaurantFilterAdvanced
+                ? state.restaurantFilterAdvanced
+                : null;
         final loading = showResults &&
+            !pooled &&
             state is! RestaurantFilterAdvanced &&
             state is! RestaurantFilterAdvancedError;
-        final error = showResults && state is RestaurantFilterAdvancedError;
+        final error =
+            showResults && !pooled && state is RestaurantFilterAdvancedError;
 
-        final results = server == null ? null : _results(server, _filters, now);
+        // Principal (cuenta en el antetítulo) y «También por plato» aparte.
+        final results =
+            server == null ? null : _mainResults(server, _filters, now);
+        final dishOnly = server == null
+            ? const <Restaurant>[]
+            : _dishResults(server, _filters, now);
         final typeTotal = server != null &&
                 _filters.typeIds.length == 1 &&
                 _requestedCategories.isEmpty &&
@@ -582,6 +638,11 @@ class _AdvancedSearchState extends State<AdvancedSearch> {
                 for (final r in sorted)
                   _card(r, restaurantOpenState(r, now), lat, lon, mixed: mixed)
               ];
+        final dishCards = [
+          for (final r in listSorted(dishOnly, sort, now,
+              distance: (r) => gmDistanceMeters(r, lat, lon)))
+            _card(r, restaurantOpenState(r, now), lat, lon, mixed: true)
+        ];
         final openCount = cards.where((c) => c.open.isOpen).length;
 
         final overBand = themed && _atTop && _view == _View.list;
@@ -599,7 +660,7 @@ class _AdvancedSearchState extends State<AdvancedSearch> {
         Widget body;
         if (_view == _View.map && showResults) {
           body = ListMapView(
-            items: cards,
+            items: [...cards, ...dishCards],
             theme: theme,
             eyebrow: sectionEyebrow,
             live: openCount > 0 && !_hasQuery,
@@ -678,21 +739,26 @@ class _AdvancedSearchState extends State<AdvancedSearch> {
                     live: !loading && openCount > 0 && !_hasQuery,
                     title: _sectionTitle(theme),
                     sort: sort,
-                    showSort: loading || cards.isNotEmpty,
+                    showSort:
+                        loading || cards.isNotEmpty || dishCards.isNotEmpty,
                     options: listSortOptions(hasLocation: lat != null),
                     onSort: (s) => setState(() => _sort = s),
                   ),
                 ),
                 if (loading)
                   const SliverToBoxAdapter(child: _SkeletonGrid())
-                else if (cards.isEmpty)
+                else if (cards.isEmpty && dishCards.isEmpty)
                   SliverToBoxAdapter(
                     child:
                         _emptyState(theme, server ?? const [], now, lat, lon),
                   )
-                else
-                  ..._resultSlivers(
-                      cards, theme, sort, server ?? const [], now),
+                else ...[
+                  if (cards.isNotEmpty)
+                    ..._resultSlivers(
+                        cards, theme, sort, server ?? const [], now),
+                  if (dishCards.isNotEmpty)
+                    ..._dishSlivers(dishCards, theme, alone: cards.isEmpty),
+                ],
               ],
               SliverToBoxAdapter(
                 child:
@@ -785,7 +851,8 @@ class _AdvancedSearchState extends State<AdvancedSearch> {
     final later = _filters.openOnly && !rows
         ? listLaterBreakdown(
             [
-              for (final r in _results(server, _filters, now, openOnly: false))
+              for (final r
+                  in _mainResults(server, _filters, now, openOnly: false))
                 if (!restaurantOpenState(r, now).isOpen) r
             ],
             now,
@@ -850,6 +917,45 @@ class _AdvancedSearchState extends State<AdvancedSearch> {
             onSeeAll: () => _applyFilters(_filters.copyWith(openOnly: false)),
           ),
         ),
+    ];
+  }
+
+  /// «También por plato»: sitios que no son del filtro pero tienen el
+  /// plato en una visita. Van aparte para que el recuento de arriba sea el
+  /// del filtro (el mismo que en la home).
+  List<Widget> _dishSlivers(List<ListCardData> cards, ListTheme theme,
+      {required bool alone}) {
+    final gm = GmColors.of(context);
+    return [
+      SliverToBoxAdapter(
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(20, alone ? 0 : 14, 20, 10),
+          child: Semantics(
+            identifier: 'advanced-search-dish-group',
+            header: true,
+            child: GmEyebrow(
+              leading: GmIcon(GmIcons.video, size: 13, color: gm.label2),
+              text: alone
+                  ? 'Por plato · ${cards.length == 1 ? '1 sitio' : '${cards.length} sitios'}'
+                  : 'También por plato · ${cards.length == 1 ? '1 sitio' : '${cards.length} sitios'}',
+            ),
+          ),
+        ),
+      ),
+      SliverPadding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        sliver: SliverList.builder(
+          itemCount: cards.length,
+          itemBuilder: (_, i) => Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: ListRowCard(
+              data: cards[i],
+              theme: theme,
+              onTap: () => _openRestaurant(cards[i].restaurant),
+            ),
+          ),
+        ),
+      ),
     ];
   }
 
@@ -2072,15 +2178,8 @@ class _BrowseView extends StatelessWidget {
     final k = contextThemeForHour(now.hour);
     final t = kListThemes[k]!;
     final cfg = contextualFilterFor(now.hour);
-    final openForContext = pool.where((r) {
-      if (cfg.typeIds.isNotEmpty && !cfg.typeIds.contains(r.type)) return false;
-      if (cfg.categoryIds.isNotEmpty &&
-          !r.categoriaRestaurantes
-              .any((c) => cfg.categoryIds.contains(c.categoriaId))) {
-        return false;
-      }
-      return restaurantOpenState(r, now).isOpen;
-    }).length;
+    // Mismo recuento que «Hoy» en la home.
+    final openForContext = contextualOpenNow(pool, cfg, now).length;
     final time = '${now.hour}:${now.minute.toString().padLeft(2, '0')}';
 
     return Padding(

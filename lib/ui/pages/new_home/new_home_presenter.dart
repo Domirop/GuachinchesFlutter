@@ -233,17 +233,11 @@ class NewHomePresenter {
   /// según la hora. Si la intersección queda escasa (< 2) cae al pool
   /// abierto sin filtrar para no enseñar una sección casi vacía.
   List<Restaurant> filterContextual(List<Restaurant> pool, int hour) {
-    final openNow = filterOpenNow(pool);
+    final now = DateTime.now();
     final cfg = contextualFilterFor(hour);
-    if (cfg.isEmpty) return openNow;
-    final filtered = openNow.where((r) {
-      final typeOk = cfg.typeIds.isEmpty || cfg.typeIds.contains(r.type);
-      final catOk = cfg.categoryIds.isEmpty ||
-          r.categoriaRestaurantes
-              .any((c) => cfg.categoryIds.contains(c.categoriaId));
-      return typeOk && catOk;
-    }).toList();
-    return filtered.length >= 2 ? filtered : openNow;
+    if (cfg.isEmpty) return filterOpenNow(pool);
+    final filtered = contextualOpenNow(pool, cfg, now);
+    return filtered.length >= 2 ? filtered : filterOpenNow(pool);
   }
 
   /// Pool de fallback para "HOY EN …" cuando no hay nada abierto AHORA.
