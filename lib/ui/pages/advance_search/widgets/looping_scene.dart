@@ -208,12 +208,17 @@ double loopQuietRemaining(
   double entranceEnd = 0,
 }) {
   if (t < entranceEnd + 0.05) return 0;
+  // Al despertar justo en el inicio de un tramo, el resto de la división
+  // puede quedar una millonésima por debajo: eso ya cuenta como tramo
+  // activo (si no, el reloj se volvería a dormir 1 ms una y otra vez).
+  const eps = 0.002;
   final lt = t % loop;
   for (final (a, b) in active) {
-    if (lt >= a && lt < b) return 0;
+    if (lt >= a - eps && lt < b) return 0;
   }
   for (final (a, _) in active) {
     if (lt < a) return a - lt;
   }
-  return loop - lt + active.first.$1;
+  final rest = loop - lt + active.first.$1;
+  return rest < eps ? 0 : rest;
 }

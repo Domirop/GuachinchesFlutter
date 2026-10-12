@@ -77,6 +77,29 @@ void main() {
     expect(barraquitoQuietRemaining(9.6), closeTo(0.83, 1e-9));
   });
 
+  test('al despertar en el borde de un tramo no se vuelve a dormir', () {
+    // 9,6 + 0,83 = 10,43 da 0,4299999… al dividir entre 10.
+    final wake = 9.6 + barraquitoQuietRemaining(9.6);
+    expect(barraquitoQuietRemaining(wake), 0);
+    final mesaWake = 9.9 + mesaQuietRemaining(9.9);
+    expect(mesaQuietRemaining(mesaWake), 0);
+  });
+
+  testWidgets('después del reposo vuelve a montar el vaso', (tester) async {
+    await tester.pumpWidget(_scene());
+    await tester.pump(const Duration(milliseconds: 16));
+    final s = tester.state<BarraquitoSceneState>(find.byType(BarraquitoScene));
+    // Hasta el reposo de después de la despedida (9,45 s)…
+    for (var i = 0; i < 100; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    // …y pasado el inicio del siguiente bucle (10,43 s) vuelve a correr.
+    await tester.pump(const Duration(milliseconds: 600));
+    await tester.pump(const Duration(milliseconds: 16));
+    expect(s.isTicking, isTrue);
+    await tester.pumpWidget(const SizedBox());
+  });
+
   testWidgets('se pinta y anima; duerme en el reposo', (tester) async {
     await tester.pumpWidget(_scene());
     await tester.pump(const Duration(milliseconds: 16));
