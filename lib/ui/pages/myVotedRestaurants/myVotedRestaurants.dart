@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:guachinches/data/model/restaurant.dart';
-import 'package:guachinches/ui/components/cards/rankingCard.dart';
 import 'package:guachinches/ui/components/SurveyResults/SurveyResults.dart';
+import 'package:guachinches/ui/pages/premios/premios_controllers.dart';
+import 'package:guachinches/ui/pages/premios/premios_my_votes_page.dart';
 
-class MyVotedRestaurants extends StatelessWidget {
+/// «Mis votos» desde las pantallas de siempre. Pinta el rediseño (tablero
+/// EncuestaMisVotos) con el puesto real de cada sitio en el ranking (antes
+/// se numeraba con la posición en la lista, `index + 1`).
+class MyVotedRestaurants extends StatefulWidget {
   final List<SurveyResult> tradicionales;
   final List<SurveyResult> modernos;
 
@@ -14,86 +17,21 @@ class MyVotedRestaurants extends StatelessWidget {
   }) : super(key: key);
 
   @override
-  Widget build(BuildContext context) {
-    final votedTradicionales =
-    tradicionales.where((r) => r.isVotedByUser).toList();
-    final votedModernos =
-    modernos.where((r) => r.isVotedByUser).toList();
+  State<MyVotedRestaurants> createState() => _MyVotedRestaurantsState();
+}
 
-    final bool hasVoted = votedTradicionales.isNotEmpty || votedModernos.isNotEmpty;
+class _MyVotedRestaurantsState extends State<MyVotedRestaurants> {
+  late final LegacyPremiosRankingController _c = LegacyPremiosRankingController(
+    tradicionales: widget.tradicionales,
+    modernos: widget.modernos,
+  );
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text("Mis Votaciones", style: TextStyle(fontFamily: "SF Pro Display")),
-      ),
-      body: hasVoted
-          ? ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          if (votedTradicionales.isNotEmpty) ...[
-            const Text(
-              "Guachinches Tradicionales",
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                fontFamily: "SF Pro Display",
-              ),
-            ),
-            const SizedBox(height: 8),
-            ...votedTradicionales.asMap().entries.map((entry) {
-              final index = entry.key;
-              final item = entry.value;
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: RankingCard(
-                  position: index + 1,
-                  name: item.restaurant?.nombre ?? "Nombre no disponible",
-                  votes: item.votes.toString(),
-                  height: 60,
-                  isWinner: false,
-                  votedByUser: true,
-                  logoUrl: item.restaurant!.mainFoto,
-                ),
-              );
-            }).toList(),
-            const SizedBox(height: 24),
-          ],
-          if (votedModernos.isNotEmpty) ...[
-            const Text(
-              "Guachinches Modernos",
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                fontFamily: "SF Pro Display",
-              ),
-            ),
-            const SizedBox(height: 8),
-            ...votedModernos.asMap().entries.map((entry) {
-              final index = entry.key;
-              final item = entry.value;
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: RankingCard(
-                  position: index + 1,
-                  name: item.restaurant?.nombre ?? "Nombre no disponible",
-                  votes: item.votes.toString(),
-                  height: 60,
-                  isWinner: false,
-                  votedByUser: true,
-                  logoUrl: item.restaurant!.mainFoto,
-
-                ),
-              );
-            }).toList(),
-          ]
-        ],
-      )
-          : const Center(
-        child: Text(
-          "Aún no has votado por ningún guachinche.",
-          style: TextStyle(fontSize: 16),
-        ),
-      ),
-    );
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
   }
+
+  @override
+  Widget build(BuildContext context) => PremiosMyVotesPage(controller: _c);
 }

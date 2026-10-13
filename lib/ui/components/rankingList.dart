@@ -1,3 +1,4 @@
+import 'package:guachinches/ui/pages/premios/premios_models.dart' show kPremiosMissingName;
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:guachinches/data/model/restaurant.dart';
@@ -196,12 +197,12 @@ class _RankingListState extends State<RankingList> {
                       padding: const EdgeInsets.symmetric(horizontal: 16.0),
                       child: RankingCard(
                         position: index + 1,
-                        name: item.restaurant!.nombre,
+                        name: item.restaurant?.nombre ?? kPremiosMissingName,
                         votes: item.votes.toString(),
                         height: index == 0 ? 80 : 60,
                         isWinner: index == 0,
                         votedByUser: item.isVotedByUser,
-                        logoUrl: item.restaurant!.mainFoto,
+                        logoUrl: item.restaurant?.mainFoto ?? '',
                       ),
                     );
                   }),
