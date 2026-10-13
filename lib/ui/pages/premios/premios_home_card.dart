@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:guachinches/core/logging/app_logger.dart';
@@ -49,7 +51,8 @@ class PremiosWinner {
   }
 
   String get meta {
-    final cat = category == PremiosCategory.tradicional ? 'Tradicional' : 'Moderno';
+    final cat =
+        category == PremiosCategory.tradicional ? 'Tradicional' : 'Moderno';
     return names.length > 1
         ? '$cat · empate a ${premiosVotes(votes)}'
         : '$cat · ${premiosVotes(votes)}';
@@ -68,7 +71,9 @@ class PremiosWinner {
 class PremiosHomeCard extends StatelessWidget {
   final PremiosCardVariant variant;
   final String remaining;
-  final String untilLabel;
+
+  /// «hasta el 20 de marzo».
+  final String untilShort;
   final List<PremiosWinner> winners;
   final VoidCallback onVote;
   final VoidCallback onNotNow;
@@ -78,7 +83,7 @@ class PremiosHomeCard extends StatelessWidget {
     super.key,
     required this.variant,
     required this.remaining,
-    required this.untilLabel,
+    required this.untilShort,
     this.winners = const [],
     required this.onVote,
     required this.onNotNow,
@@ -97,8 +102,8 @@ class PremiosHomeCard extends StatelessWidget {
       PremiosCardVariant.voted => (
           'Premios 2026 · ya votaste',
           '¡Gracias por votar!',
-          'Tu voto ya está en la barrica. Puedes votar a otros guachinches '
-              '${untilLabel.replaceFirst('Se vota ', '')}.'
+          'Tu voto ya está en la barrica. Puedes votar a otros guachinches'
+              '${untilShort.isEmpty ? '' : ' $untilShort'}.'
         ),
       PremiosCardVariant.closed => (
           'Premios 2026 · ganadores',
@@ -118,7 +123,7 @@ class PremiosHomeCard extends StatelessWidget {
           border: gm.isDark ? Border.all(color: gm.wineEdge) : null,
           boxShadow: const [
             BoxShadow(
-                color: Color(0xB32A0E14),
+                color: PremiosColors.wineShadow,
                 offset: Offset(0, 14),
                 blurRadius: 34,
                 spreadRadius: -14),
@@ -151,14 +156,15 @@ class PremiosHomeCard extends StatelessWidget {
                             Padding(
                               padding: const EdgeInsets.only(right: 84),
                               child: Text(title,
-                                  style: GmText.title2(color: GmColors.creamHi)),
+                                  style:
+                                      GmText.title2(color: GmColors.creamHi)),
                             ),
                             const SizedBox(height: 6),
                             Padding(
                               padding: const EdgeInsets.only(right: 84),
                               child: Text(body,
                                   style: GmText.body(
-                                      color: const Color(0xD1F2E8D5))),
+                                      color: PremiosColors.cream82)),
                             ),
                             if (variant == PremiosCardVariant.notVoted) ...[
                               const SizedBox(height: 10),
@@ -208,7 +214,7 @@ class PremiosHomeCard extends StatelessWidget {
                         padding: const EdgeInsets.fromLTRB(22, 0, 20, 0),
                         decoration: const BoxDecoration(
                           border: Border(
-                              top: BorderSide(color: Color(0x24F2E8D5))),
+                              top: BorderSide(color: PremiosColors.creamLine)),
                         ),
                         child: Row(
                           children: [
@@ -217,7 +223,9 @@ class PremiosHomeCard extends StatelessWidget {
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
-                                closed ? 'Ver el ranking completo' : 'Ver el ranking',
+                                closed
+                                    ? 'Ver el ranking completo'
+                                    : 'Ver el ranking',
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: GmText.body(
@@ -259,7 +267,7 @@ class _CardGlow extends StatelessWidget {
               gradient: RadialGradient(
                 center: Alignment.topRight,
                 radius: 1.3,
-                colors: [Color(0x38C9A96B), Color(0x00C9A96B)],
+                colors: [PremiosColors.goldGlow, Color(0x00C9A96B)],
                 stops: [0, 0.55],
               ),
             ),
@@ -269,7 +277,7 @@ class _CardGlow extends StatelessWidget {
               gradient: RadialGradient(
                 center: Alignment.bottomLeft,
                 radius: 0.9,
-                colors: [Color(0x8C781E2D), Color(0x00781E2D)],
+                colors: [PremiosColors.wineGlow, Color(0x00781E2D)],
                 stops: [0, 0.7],
               ),
             ),
@@ -284,14 +292,14 @@ class _CategoriesMeta extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final st = GmText.eyebrow(color: const Color(0xD1F2E8D5));
+    final st = GmText.eyebrow(color: PremiosColors.cream82);
     return Row(
       children: [
-        const PremiosCopa(size: 14, ink: Color(0xFFF2E8D5)),
+        const PremiosCopa(size: 14, ink: PremiosColors.creamInk),
         const SizedBox(width: 6),
         Text('Tradicional', style: st),
         const SizedBox(width: 8),
-        Text('·', style: st.copyWith(color: const Color(0x80F2E8D5))),
+        Text('·', style: st.copyWith(color: PremiosColors.creamDim)),
         const SizedBox(width: 8),
         const PremiosMantel(size: 12),
         const SizedBox(width: 6),
@@ -309,11 +317,11 @@ class _WinnerRow extends StatelessWidget {
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: const BoxDecoration(
-            border: Border(top: BorderSide(color: Color(0x24F2E8D5)))),
+            border: Border(top: BorderSide(color: PremiosColors.creamLine))),
         child: Row(
           children: [
             w.category == PremiosCategory.tradicional
-                ? const PremiosCopa(size: 18, ink: Color(0xFFF2E8D5))
+                ? const PremiosCopa(size: 18, ink: PremiosColors.creamInk)
                 : const PremiosMantel(size: 16),
             const SizedBox(width: 10),
             Expanded(
@@ -379,9 +387,9 @@ class _WineSoftButton extends StatelessWidget {
             constraints: const BoxConstraints(minHeight: 44),
             padding: const EdgeInsets.symmetric(horizontal: 18),
             decoration: BoxDecoration(
-              color: const Color(0x1FF2E8D5),
+              color: PremiosColors.creamFill,
               borderRadius: BorderRadius.circular(GmRadius.pill),
-              border: Border.all(color: const Color(0x38F2E8D5)),
+              border: Border.all(color: PremiosColors.creamEdge),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -407,7 +415,7 @@ Future<bool?> showPremiosSheet(BuildContext context) =>
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      barrierColor: const Color(0x6B0A0604),
+      barrierColor: PremiosColors.sheetBarrier,
       builder: (_) => const PremiosSheet(),
     );
 
@@ -466,11 +474,14 @@ class PremiosSheet extends StatelessWidget {
           borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
           boxShadow: const [
             BoxShadow(
-                color: Color(0x2E000000), offset: Offset(0, -10), blurRadius: 30)
+                color: PremiosColors.sheetShadow,
+                offset: Offset(0, -10),
+                blurRadius: 30)
           ],
         ),
+        // Como el tablero: 40 hasta el borde (por encima del indicador).
         padding: EdgeInsets.fromLTRB(
-            16, 8, 16, 24 + MediaQuery.paddingOf(context).bottom),
+            16, 8, 16, math.max(40, MediaQuery.paddingOf(context).bottom + 6)),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -552,8 +563,8 @@ class _SheetTablePainter extends CustomPainter {
       ..lineTo(380, 150)
       ..lineTo(-10, 150)
       ..close();
-    paintPremiosGingham(canvas, cloth, const Rect.fromLTRB(-10, 100, 380, 150),
-        cell: 14, shift: 0);
+    GmGinghamPainter.paintCells(canvas, const Rect.fromLTRB(-10, 100, 380, 150),
+        cell: 7, stripe: kPremiosClothRed, clip: cloth);
     canvas.drawRect(
       const Rect.fromLTWH(0, 100, 370, 22),
       Paint()
@@ -606,36 +617,58 @@ class _PremiosHomeSlotState extends State<PremiosHomeSlot> {
   void initState() {
     super.initState();
     _enabled = widget.enabled ?? premiosHomeEnabled();
-    if (_enabled) _init();
+    if (_enabled) {
+      PremiosEditionStore.instance.ensureLoaded();
+      PremiosEditionStore.instance.addListener(_onEdition);
+      _init();
+    }
   }
 
   @override
   void dispose() {
+    PremiosEditionStore.instance.removeListener(_onEdition);
     _ranking?.dispose();
     super.dispose();
+  }
+
+  void _onEdition() {
+    if (!mounted) return;
+    setState(() {});
+    _ensureRanking();
   }
 
   Future<void> _init() async {
     final voted = await PremiosHomeStore.hasVoted();
     final dismissed = await PremiosHomeStore.dismissedAt();
+    final cardDismissed = await PremiosHomeStore.cardDismissedAt();
     if (!mounted) return;
-    final phase = PremiosEdition.current.phase(_now);
+    final now = _now;
+    final phase = PremiosEditionStore.instance.current.phase(now);
     final sheet = !PremiosHomeStore.sheetShownThisSession &&
         premiosShouldShowSheet(
-            phase: phase, voted: voted, dismissedAt: dismissed, now: _now);
+            phase: phase, voted: voted, dismissedAt: dismissed, now: now);
     setState(() {
       _voted = voted;
       _ready = true;
       _sheetOpen = sheet;
+      _hidden = premiosRecentlyDismissed(cardDismissed, now);
     });
-    if (phase == PremiosPhase.closed) {
-      _ranking = LegacyPremiosRankingController()..addListener(_onRanking);
-      _ranking!.refresh();
-    }
+    _ensureRanking();
     if (sheet) {
       PremiosHomeStore.sheetShownThisSession = true;
       WidgetsBinding.instance.addPostFrameCallback((_) => _showSheet());
     }
+  }
+
+  /// Con la votación cerrada la tarjeta enseña a los ganadores.
+  void _ensureRanking() {
+    if (_ranking != null) return;
+    if (PremiosEditionStore.instance.current.phase(_now) !=
+        PremiosPhase.closed) {
+      return;
+    }
+    _ranking = LegacyPremiosRankingController()..addListener(_onRanking);
+    _ranking!.refresh();
   }
 
   void _onRanking() {
@@ -681,9 +714,13 @@ class _PremiosHomeSlotState extends State<PremiosHomeSlot> {
     if (!_enabled || !_ready || _sheetOpen || _hidden) {
       return const SizedBox.shrink();
     }
-    final edition = PremiosEdition.current;
+    final edition = PremiosEditionStore.instance.current;
     final now = _now;
     final phase = edition.phase(now);
+    // Sin fecha de cierre (o antes de abrir) la campaña no se anuncia.
+    if (phase == PremiosPhase.unknown || phase == PremiosPhase.upcoming) {
+      return const SizedBox.shrink();
+    }
     final variant = phase == PremiosPhase.closed
         ? PremiosCardVariant.closed
         : (_voted ? PremiosCardVariant.voted : PremiosCardVariant.notVoted);
@@ -703,12 +740,12 @@ class _PremiosHomeSlotState extends State<PremiosHomeSlot> {
         child: PremiosHomeCard(
           variant: variant,
           remaining: edition.remainingLabel(now),
-          untilLabel: edition.untilLabel,
+          untilShort: edition.untilShort,
           winners: winners,
           onVote: variant == PremiosCardVariant.voted ? _voteAgain : _openEntry,
           onNotNow: () {
             setState(() => _hidden = true);
-            PremiosHomeStore.dismiss(now);
+            PremiosHomeStore.dismissCard(now);
           },
           onRanking: () => Navigator.of(context).push(MaterialPageRoute(
             builder: (_) => PremiosRankingPage(controller: _ranking),

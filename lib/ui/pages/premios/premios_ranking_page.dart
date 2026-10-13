@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -43,8 +44,11 @@ class _PremiosRankingPageState extends State<PremiosRankingPage> {
   late PremiosCategory _tab = widget.initialCategory;
   final _scroll = ScrollController();
   final _segKey = GlobalKey();
-  double _offset = 0;
-  bool _pinned = false;
+
+  /// Scroll y segmentado fijado: van en notifiers para no reconstruir la
+  /// pantalla en cada fotograma de scroll.
+  final _offset = ValueNotifier<double>(0);
+  final _pinned = ValueNotifier<bool>(false);
 
   @override
   void initState() {
@@ -52,12 +56,15 @@ class _PremiosRankingPageState extends State<PremiosRankingPage> {
     _owned = widget.controller == null;
     _c = widget.controller ?? LegacyPremiosRankingController();
     if (_c.state.load != PremiosLoad.ready) _c.refresh();
+    PremiosEditionStore.instance.ensureLoaded();
     _scroll.addListener(_onScroll);
   }
 
   @override
   void dispose() {
     _scroll.dispose();
+    _offset.dispose();
+    _pinned.dispose();
     if (_owned) _c.dispose();
     super.dispose();
   }
@@ -66,14 +73,8 @@ class _PremiosRankingPageState extends State<PremiosRankingPage> {
     final m = PremiosHeaderMetrics.of(context);
     final box = _segKey.currentContext?.findRenderObject() as RenderBox?;
     final segTop = box?.localToGlobal(Offset.zero).dy ?? double.infinity;
-    final pinned = segTop <= m.buttonsTop + 48;
-    final o = _scroll.offset;
-    if (pinned != _pinned || (o - _offset).abs() > 2 || (o <= 0) != (_offset <= 0)) {
-      setState(() {
-        _pinned = pinned;
-        _offset = o;
-      });
-    }
+    _pinned.value = segTop <= m.buttonsTop + 48;
+    _offset.value = _scroll.offset;
   }
 
   Future<void> _refresh() async {
@@ -82,27 +83,34 @@ class _PremiosRankingPageState extends State<PremiosRankingPage> {
   }
 
   Future<void> _vote() async {
-    await Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => const PremiosVotePage()));
+    await Navigator.of(context)
+        .push(MaterialPageRoute(builder: (_) => const PremiosVotePage()));
     if (mounted) _refresh();
   }
 
-  void _myVotes() {
+  void _myVotes(bool canVote) {
     Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => PremiosMyVotesPage(controller: _c, onVote: _vote),
+      builder: (_) => PremiosMyVotesPage(
+          controller: _c, onVote: canVote ? _vote : null, clock: widget.clock),
     ));
   }
 
   @override
   Widget build(BuildContext context) {
+    return ValueListenableBuilder<PremiosEdition>(
+      valueListenable: PremiosEditionStore.instance,
+      builder: (context, edition, _) => _build(context, edition),
+    );
+  }
+
+  Widget _build(BuildContext context, PremiosEdition edition) {
     final gm = GmColors.of(context);
     final m = PremiosHeaderMetrics.of(context);
     final now = (widget.clock ?? DateTime.now)();
-    final edition = PremiosEdition.current;
     final phase = edition.phase(now);
-    final open = phase != PremiosPhase.closed;
-    final title = open ? 'Así va la votación' : 'Ganadores 2026';
-    final inlineT = ((_offset - 30) / 50).clamp(0.0, 1.0);
+    final canVote = phase.canVote;
+    final title =
+        phase == PremiosPhase.closed ? 'Ganadores 2026' : 'Así va la votación';
     final seg = _Segmented(
       value: _tab,
       onChanged: (c) => setState(() => _tab = c),
@@ -118,22 +126,22 @@ class _PremiosRankingPageState extends State<PremiosRankingPage> {
               onRefresh: _refresh,
               color: gm.accent,
               edgeOffset: m.textTop,
-              child: CustomScrollView(
-                controller: _scroll,
-                physics: const AlwaysScrollableScrollPhysics(
-                    parent: BouncingScrollPhysics()),
-                slivers: [
-                  SliverPadding(
-                    padding: EdgeInsets.fromLTRB(16, m.textTop, 16,
-                        PremiosBottomBar.scrollPadding(context)),
-                    sliver: SliverToBoxAdapter(
-                      child: ListenableBuilder(
-                        listenable: _c,
-                        builder: (context, _) => Column(
+              child: ListenableBuilder(
+                listenable: _c,
+                builder: (context, _) => CustomScrollView(
+                  controller: _scroll,
+                  physics: const AlwaysScrollableScrollPhysics(
+                      parent: BouncingScrollPhysics()),
+                  slivers: [
+                    SliverPadding(
+                      padding: EdgeInsets.fromLTRB(16, m.textTop, 16, 0),
+                      sliver: SliverToBoxAdapter(
+                        child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 4),
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 4),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
@@ -150,25 +158,40 @@ class _PremiosRankingPageState extends State<PremiosRankingPage> {
                               ),
                             ),
                             const SizedBox(height: 16),
-                            Opacity(
-                              key: _segKey,
-                              opacity: _pinned ? 0 : 1,
-                              child: seg,
+                            ValueListenableBuilder<bool>(
+                              valueListenable: _pinned,
+                              builder: (_, pinned, child) => Opacity(
+                                  opacity: pinned ? 0 : 1, child: child),
+                              child: KeyedSubtree(key: _segKey, child: seg),
                             ),
-                            const SizedBox(height: 16),
-                            _CountdownCard(
-                                edition: edition, now: now, phase: phase),
+                            if (phase.counting ||
+                                phase == PremiosPhase.closed) ...[
+                              const SizedBox(height: 16),
+                              _CountdownCard(
+                                  edition: edition, now: now, phase: phase),
+                            ],
                             const SizedBox(height: 10),
-                            ..._content(context),
                           ],
                         ),
                       ),
                     ),
-                  ),
-                ],
+                    ..._content(context),
+                    SliverToBoxAdapter(
+                      child: SizedBox(
+                          height: PremiosBottomBar.scrollPadding(context)),
+                    ),
+                  ],
+                ),
               ),
             ),
-            GmTopScrim(visible: _offset > 30, extra: m.buttonsTop + 136 - MediaQuery.paddingOf(context).top),
+            // Velo superior con desenfoque (opaco hasta el 86 %).
+            ValueListenableBuilder<double>(
+              valueListenable: _offset,
+              builder: (_, o, __) => _TopScrim(
+                height: m.buttonsTop + 136,
+                visible: o > 30,
+              ),
+            ),
             Positioned(
               left: 16,
               right: 16,
@@ -194,8 +217,12 @@ class _PremiosRankingPageState extends State<PremiosRankingPage> {
                     bottom: 0,
                     child: IgnorePointer(
                       child: ExcludeSemantics(
-                        child: Opacity(
-                          opacity: inlineT,
+                        child: ValueListenableBuilder<double>(
+                          valueListenable: _offset,
+                          builder: (_, o, child) => Opacity(
+                            opacity: ((o - 30) / 50).clamp(0.0, 1.0),
+                            child: child,
+                          ),
                           child: Center(
                             child: Text(title,
                                 maxLines: 1,
@@ -209,25 +236,30 @@ class _PremiosRankingPageState extends State<PremiosRankingPage> {
                 ],
               ),
             ),
-            if (_pinned)
-              Positioned(
-                left: 16,
-                right: 16,
-                top: m.buttonsTop + 48,
-                child: seg,
-              ),
+            ValueListenableBuilder<bool>(
+              valueListenable: _pinned,
+              builder: (_, pinned, child) => pinned
+                  ? Positioned(
+                      left: 16,
+                      right: 16,
+                      top: m.buttonsTop + 48,
+                      child: child!,
+                    )
+                  : const SizedBox.shrink(),
+              child: seg,
+            ),
             PremiosBottomBar(
               padding: const EdgeInsets.all(6),
               child: Row(
                 children: [
-                  if (open)
+                  if (canVote)
                     GmSoftCapsuleButton(
                       label: 'Mis votos',
                       identifier: 'premios-ranking-my-votes',
                       height: 52,
                       fontSize: 17,
                       padding: const EdgeInsets.symmetric(horizontal: 20),
-                      onTap: _myVotes,
+                      onTap: () => _myVotes(canVote),
                     )
                   else
                     Expanded(
@@ -236,10 +268,10 @@ class _PremiosRankingPageState extends State<PremiosRankingPage> {
                         identifier: 'premios-ranking-my-votes',
                         height: 52,
                         fontSize: 17,
-                        onTap: _myVotes,
+                        onTap: () => _myVotes(canVote),
                       ),
                     ),
-                  if (open) ...[
+                  if (canVote) ...[
                     const SizedBox(width: 8),
                     Expanded(
                       child: GmCapsuleButton(
@@ -260,83 +292,174 @@ class _PremiosRankingPageState extends State<PremiosRankingPage> {
     );
   }
 
+  /// El cuerpo en slivers: la lista «El resto» se construye a demanda.
   List<Widget> _content(BuildContext context) {
     final gm = GmColors.of(context);
     final s = _c.state;
+    Widget box(Widget child) => SliverPadding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          sliver: SliverToBoxAdapter(child: child),
+        );
     if (s.load == PremiosLoad.error) {
       return [
-        PremiosStateCard(
+        box(PremiosStateCard(
           identifier: 'premios-ranking-error',
           sad: true,
           title: 'No pudimos cargar el ranking',
           text: 'Revisa tu conexión e inténtalo de nuevo.',
           action: 'Reintentar',
           onAction: _refresh,
-        ),
+        )),
       ];
     }
     if (s.load == PremiosLoad.loading) {
-      return const [
-        SizedBox(
+      return [
+        box(const SizedBox(
           height: 240,
           child: Center(child: CircularProgressIndicator.adaptive()),
-        ),
+        )),
       ];
     }
     final list = s.of(_tab);
     if (list.isEmpty) {
       return [
-        const PremiosStateCard(
+        box(const PremiosStateCard(
           identifier: 'premios-ranking-empty',
           title: 'Aún no hay votos',
           text: 'Sé el primero: elige tu favorito y aparecerá aquí.',
-        ),
+        )),
       ];
     }
     final total = list.fold<int>(0, (a, e) => a + e.votes);
-    final noun = _tab == PremiosCategory.tradicional ? 'guachinches' : 'sitios';
+    final noun = _tab.candidatesNoun(list.length);
+    final rest = list.skip(3).toList();
+    final ink = PremiosColors.catInk(_tab, gm);
     return [
-      Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8),
-        child: Text(
-          '${premiosVotes(total)} · ${list.length} ${list.length == 1 ? noun.substring(0, noun.length - 1) : noun} con algún voto',
-          style: GmText.meta(color: gm.label2),
-        ),
-      ),
-      const SizedBox(height: 16),
-      PodioPremios(
-        key: ValueKey(_tab),
-        category: _tab,
-        entries: list.take(3).toList(),
-      ),
-      if (list.length > 3) ...[
-        const SizedBox(height: 20),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4),
-          child: Semantics(
-            header: true,
-            child: Text('Del 4.º en adelante',
-                style: GmText.eyebrow(color: gm.label2)),
+      box(Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Text(
+              '${premiosVotes(total)} · ${list.length} $noun con algún voto',
+              style: GmText.meta(color: gm.label2),
+            ),
+          ),
+          const SizedBox(height: 16),
+          PodioPremios(
+            key: ValueKey(_tab),
+            category: _tab,
+            entries: list.take(3).toList(),
+          ),
+          if (rest.isNotEmpty) ...[
+            const SizedBox(height: 20),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: Semantics(
+                header: true,
+                child:
+                    Text('El resto', style: GmText.eyebrow(color: gm.label2)),
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ],
+      )),
+      if (rest.isNotEmpty)
+        SliverPadding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          sliver: DecoratedSliver(
+            decoration: BoxDecoration(
+              color: gm.card,
+              borderRadius: BorderRadius.circular(GmRadius.card),
+              boxShadow: gm.shadow1,
+            ),
+            sliver: SliverPadding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              sliver: SliverList.builder(
+                key: ValueKey('list-$_tab'),
+                itemCount: rest.length,
+                itemBuilder: (_, i) => Column(
+                  children: [
+                    if (i > 0)
+                      Container(
+                          height: 1,
+                          margin: const EdgeInsets.only(left: 96),
+                          color: gm.sep),
+                    PremiosRankRow(
+                      entry: rest[i],
+                      category: _tab,
+                      max: list.first.votes,
+                      ink: ink,
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
         ),
-        const SizedBox(height: 8),
-        _RankList(
-          key: ValueKey('list-$_tab'),
-          category: _tab,
-          entries: list.skip(3).toList(),
-          max: list.first.votes,
-        ),
-      ],
-      const SizedBox(height: 10),
-      Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8),
+      box(Padding(
+        padding: const EdgeInsets.fromLTRB(8, 10, 8, 0),
         child: Text(
           'Con los mismos votos se comparte puesto. Se actualiza al deslizar '
           'hacia abajo.',
           style: GmText.meta(color: gm.label2),
         ),
-      ),
+      )),
     ];
+  }
+}
+
+/// Velo superior del ranking: desenfoque 12 en el tramo opaco y degradado
+/// del lienzo hasta transparente.
+class _TopScrim extends StatelessWidget {
+  final double height;
+  final bool visible;
+  const _TopScrim({required this.height, required this.visible});
+
+  @override
+  Widget build(BuildContext context) {
+    final gm = GmColors.of(context);
+    return Positioned(
+      left: 0,
+      right: 0,
+      top: 0,
+      height: height,
+      child: IgnorePointer(
+        child: AnimatedOpacity(
+          opacity: visible ? 1 : 0,
+          duration: Duration(milliseconds: GmMotion.reduced(context) ? 0 : 180),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              if (visible)
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  top: 0,
+                  height: height * 0.86,
+                  child: ClipRect(
+                    child: BackdropFilter(
+                      filter: ui.ImageFilter.blur(sigmaX: 6, sigmaY: 6),
+                      child: const SizedBox.expand(),
+                    ),
+                  ),
+                ),
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [gm.edgeTop0, gm.edgeTop1, gm.edgeFade0],
+                    stops: const [0, 0.7, 1],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -358,6 +481,7 @@ class _Segmented extends StatelessWidget {
           button: true,
           selected: on,
           label: c.plural,
+          onTap: () => onChanged(c),
           excludeSemantics: true,
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
@@ -382,10 +506,7 @@ class _Segmented extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   PremiosCategoryGlyph(c,
-                      size: c == PremiosCategory.tradicional ? 16 : 16,
-                      ink: on
-                          ? PremiosColors.catInk(c, gm)
-                          : PremiosColors.catInk(c, gm)),
+                      size: 16, ink: PremiosColors.catInk(c, gm)),
                   const SizedBox(width: 6),
                   Flexible(
                     child: Text(c.plural,
@@ -436,7 +557,7 @@ class _CountdownCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final gm = GmColors.of(context);
-    final open = phase != PremiosPhase.closed;
+    final open = phase.counting;
     final (n, unit) = edition.countdown(now);
     final eyebrow = !open
         ? 'Votación cerrada'
@@ -447,7 +568,8 @@ class _CountdownCard extends StatelessWidget {
     return Semantics(
       identifier: 'premios-ranking-countdown',
       container: true,
-      label: open ? '${edition.remainingLabel(now)}. $title' : '$eyebrow. $title',
+      label:
+          open ? '${edition.remainingLabel(now)}. $title' : '$eyebrow. $title',
       excludeSemantics: true,
       child: Container(
         decoration: BoxDecoration(
@@ -456,7 +578,7 @@ class _CountdownCard extends StatelessWidget {
           border: gm.isDark ? Border.all(color: gm.wineEdge) : null,
           boxShadow: const [
             BoxShadow(
-                color: Color(0xB32A0E14),
+                color: PremiosColors.wineShadow,
                 offset: Offset(0, 14),
                 blurRadius: 30,
                 spreadRadius: -16),
@@ -483,12 +605,14 @@ class _CountdownCard extends StatelessWidget {
               MediaQuery.withClampedTextScaling(
                 maxScaleFactor: 1.2,
                 child: Container(
-                  constraints: const BoxConstraints(minWidth: 64, minHeight: 56),
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  constraints:
+                      const BoxConstraints(minWidth: 64, minHeight: 56),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
-                    color: const Color(0x1AFFF6E6),
+                    color: PremiosColors.digitFill,
                     borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: const Color(0x4DC9A96B)),
+                    border: Border.all(color: PremiosColors.digitEdge),
                   ),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -557,7 +681,8 @@ class _Metal {
 class PodioPremios extends StatelessWidget {
   final PremiosCategory category;
   final List<PremiosRankEntry> entries;
-  const PodioPremios({super.key, required this.category, required this.entries});
+  const PodioPremios(
+      {super.key, required this.category, required this.entries});
 
   static const _blockH = {1: 104.0, 2: 78.0, 3: 56.0};
 
@@ -568,27 +693,32 @@ class PodioPremios extends StatelessWidget {
       if (entries.isNotEmpty) (entries[0], 0.45),
       if (entries.length > 2) (entries[2], 0.15),
     ];
+    // Con texto grande las cajas de nombre crecen con el TextScaler (hasta
+    // 1,2×) en vez de desbordar.
     return Semantics(
       identifier: 'premios-ranking-podium',
       container: true,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(2, 4, 2, 0),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            for (var i = 0; i < 3; i++) ...[
-              if (i > 0) const SizedBox(width: 10),
-              Expanded(
-                child: i < order.length
-                    ? _PodiumColumn(
-                        entry: order[i].$1,
-                        category: category,
-                        delay: order[i].$2,
-                      )
-                    : const SizedBox.shrink(),
-              ),
+      child: MediaQuery.withClampedTextScaling(
+        maxScaleFactor: 1.2,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(2, 4, 2, 0),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (var i = 0; i < 3; i++) ...[
+                if (i > 0) const SizedBox(width: 10),
+                Expanded(
+                  child: i < order.length
+                      ? _PodiumColumn(
+                          entry: order[i].$1,
+                          category: category,
+                          delay: order[i].$2,
+                        )
+                      : const SizedBox.shrink(),
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
@@ -610,6 +740,7 @@ class _PodiumColumn extends StatelessWidget {
     final h = PodioPremios._blockH[p]!;
     final av = p == 1 ? 72.0 : 60.0;
     final (name, paren) = premiosSplitName(entry.name);
+    final ts = MediaQuery.textScalerOf(context);
     final vt = premiosVotes(entry.votes) + (entry.tied ? ' · empate' : '');
     final ring = Container(
       padding: const EdgeInsets.all(3),
@@ -618,14 +749,14 @@ class _PodiumColumn extends StatelessWidget {
         gradient: metal.gradient,
         boxShadow: const [
           BoxShadow(
-              color: Color(0x732A0E14),
+              color: PremiosColors.wineShadowSoft,
               offset: Offset(0, 6),
               blurRadius: 14,
               spreadRadius: -6),
         ],
       ),
-      child: PremiosAvatar(
-          photoUrl: entry.photoUrl, category: category, size: av),
+      child:
+          PremiosAvatar(photoUrl: entry.photoUrl, category: category, size: av),
     );
     final block = Container(
       height: h,
@@ -640,7 +771,7 @@ class _PodiumColumn extends StatelessWidget {
         border: gm.isDark ? Border.all(color: gm.wineEdge) : null,
         boxShadow: const [
           BoxShadow(
-              color: Color(0xB32A0E14),
+              color: PremiosColors.wineShadow,
               offset: Offset(0, 14),
               blurRadius: 30,
               spreadRadius: -16),
@@ -691,14 +822,21 @@ class _PodiumColumn extends StatelessWidget {
               children: [
                 GmOnce(
                   duration: const Duration(milliseconds: 820),
-                  delay: Duration(milliseconds: ((delay + 0.35) * 1000).round()),
+                  delay:
+                      Duration(milliseconds: ((delay + 0.35) * 1000).round()),
                   trigger: GmTrigger.mount,
                   child: p == 1 ? _Sheen(child: ring) : ring,
                   builder: (_, t, c) {
                     const cv = Cubic(0.3, 0.7, 0.3, 1);
-                    final dy = gmKeyframes(t, const [(0, -14), (0.55, 2), (0.78, -2), (1, 0)], curve: cv);
-                    final sx = gmKeyframes(t, const [(0, 0.92), (0.55, 1.12), (0.78, 0.97), (1, 1)], curve: cv);
-                    final sy = gmKeyframes(t, const [(0, 1.1), (0.55, 0.88), (0.78, 1.03), (1, 1)], curve: cv);
+                    final dy = gmKeyframes(
+                        t, const [(0, -14), (0.55, 2), (0.78, -2), (1, 0)],
+                        curve: cv);
+                    final sx = gmKeyframes(t,
+                        const [(0, 0.92), (0.55, 1.12), (0.78, 0.97), (1, 1)],
+                        curve: cv);
+                    final sy = gmKeyframes(
+                        t, const [(0, 1.1), (0.55, 0.88), (0.78, 1.03), (1, 1)],
+                        curve: cv);
                     return Transform(
                       alignment: Alignment.bottomCenter,
                       transform: Matrix4.translationValues(0, dy, 0)
@@ -727,7 +865,7 @@ class _PodiumColumn extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           SizedBox(
-            height: 36,
+            height: ts.scale(18) * 2,
             child: Text(name,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
@@ -736,7 +874,7 @@ class _PodiumColumn extends StatelessWidget {
                     .copyWith(height: 18 / 14, letterSpacing: -0.2)),
           ),
           SizedBox(
-            height: 16,
+            height: ts.scale(16),
             child: Text(paren,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -744,7 +882,7 @@ class _PodiumColumn extends StatelessWidget {
                 style: GmText.chip(color: gm.label2, w: FontWeight.w400)),
           ),
           SizedBox(
-            height: 18,
+            height: ts.scale(18),
             child: Text(vt,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -815,46 +953,7 @@ class _Sheen extends StatelessWidget {
       );
 }
 
-// ── Del 4.º en adelante ────────────────────────────────────────────────────
-
-class _RankList extends StatelessWidget {
-  final PremiosCategory category;
-  final List<PremiosRankEntry> entries;
-  final int max;
-  const _RankList(
-      {super.key,
-      required this.category,
-      required this.entries,
-      required this.max});
-
-  @override
-  Widget build(BuildContext context) {
-    final gm = GmColors.of(context);
-    final ink = PremiosColors.catInk(category, gm);
-    return GmCard(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        child: Column(
-          children: [
-            for (var i = 0; i < entries.length; i++) ...[
-              if (i > 0)
-                Container(
-                    height: 1,
-                    margin: const EdgeInsets.only(left: 96),
-                    color: gm.sep),
-              PremiosRankRow(
-                entry: entries[i],
-                category: category,
-                max: max,
-                ink: ink,
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
+// ── El resto ───────────────────────────────────────────────────────────────
 
 /// Fila del ranking: puesto, avatar, nombre, «Tu voto», barra proporcional,
 /// municipio y votos.
@@ -870,6 +969,33 @@ class PremiosRankRow extends StatelessWidget {
     required this.max,
     required this.ink,
   });
+
+  Widget _bar(GmColors gm, double frac) => Container(
+        height: 4,
+        decoration: BoxDecoration(
+          color: gm.fill,
+          borderRadius: BorderRadius.circular(GmRadius.pill),
+        ),
+        alignment: Alignment.centerLeft,
+        child: GmOnce(
+          duration: const Duration(milliseconds: 900),
+          delay: const Duration(milliseconds: 500),
+          child: FractionallySizedBox(
+            widthFactor: frac.clamp(0.0, 1.0),
+            child: Container(
+              decoration: BoxDecoration(
+                color: ink.withValues(alpha: 0.75),
+                borderRadius: BorderRadius.circular(GmRadius.pill),
+              ),
+            ),
+          ),
+          builder: (_, t, c) => Transform.scale(
+            scaleX: 0.15 + 0.85 * GmMotion.settle.transform(t),
+            alignment: Alignment.centerLeft,
+            child: c,
+          ),
+        ),
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -922,56 +1048,47 @@ class PremiosRankRow extends StatelessWidget {
                             ),
                             child: Text('Tu voto',
                                 style: GmText.chip(
-                                        color: gm.greenText,
-                                        w: FontWeight.w700)
+                                        color: gm.greenText, w: FontWeight.w700)
                                     .copyWith(height: 1)),
                           ),
                           const SizedBox(width: 8),
                         ],
                         Expanded(
-                          child: Container(
-                            constraints: const BoxConstraints(minWidth: 36),
-                            height: 4,
-                            decoration: BoxDecoration(
-                              color: gm.fill,
-                              borderRadius:
-                                  BorderRadius.circular(GmRadius.pill),
-                            ),
-                            alignment: Alignment.centerLeft,
-                            child: GmOnce(
-                              duration: const Duration(milliseconds: 900),
-                              delay: const Duration(milliseconds: 500),
-                              child: FractionallySizedBox(
-                                widthFactor: frac.clamp(0.0, 1.0),
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    color: ink.withValues(alpha: 0.75),
-                                    borderRadius:
-                                        BorderRadius.circular(GmRadius.pill),
+                          child: LayoutBuilder(builder: (context, c) {
+                            // El municipio va entero: la barra cede su
+                            // sitio (mínimo 24) y, si aun así no cabe, el
+                            // municipio pasa a dos líneas.
+                            final muniStyle = GmText.meta(color: gm.label2);
+                            double mw = 0;
+                            if (entry.municipio.isNotEmpty) {
+                              final tp = TextPainter(
+                                text: TextSpan(
+                                    text: entry.municipio, style: muniStyle),
+                                textDirection: TextDirection.ltr,
+                                textScaler: MediaQuery.textScalerOf(context),
+                                maxLines: 1,
+                              )..layout();
+                              mw = tp.width + 1;
+                              tp.dispose();
+                            }
+                            final gap = mw > 0 ? 8.0 : 0.0;
+                            final muniW = math.min(
+                                mw, math.max(0.0, c.maxWidth - gap - 24));
+                            return Row(
+                              children: [
+                                Expanded(child: _bar(gm, frac)),
+                                if (mw > 0) ...[
+                                  SizedBox(width: gap),
+                                  SizedBox(
+                                    width: muniW,
+                                    child:
+                                        Text(entry.municipio, style: muniStyle),
                                   ),
-                                ),
-                              ),
-                              builder: (_, t, c) => Transform.scale(
-                                scaleX: 0.15 + 0.85 * GmMotion.settle.transform(t),
-                                alignment: Alignment.centerLeft,
-                                child: c,
-                              ),
-                            ),
-                          ),
+                                ],
+                              ],
+                            );
+                          }),
                         ),
-                        if (entry.municipio.isNotEmpty) ...[
-                          const SizedBox(width: 8),
-                          Flexible(
-                            flex: 2,
-                            child: ConstrainedBox(
-                              constraints: const BoxConstraints(maxWidth: 112),
-                              child: Text(entry.municipio,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: GmText.meta(color: gm.label2)),
-                            ),
-                          ),
-                        ],
                       ],
                     ),
                   ],

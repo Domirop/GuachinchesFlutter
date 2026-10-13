@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/gm_home_extras.dart';
 import 'package:guachinches/ui/pages/premios/widgets/papeleta_barrica_scene.dart';
 import 'package:guachinches/ui/pages/premios/widgets/premios_widgets.dart';
@@ -97,6 +98,57 @@ class PremiosWineHeader extends StatelessWidget {
           const Positioned(left: 0, right: 0, bottom: -1, child: GmCloudEdge()),
         ],
       ),
+    );
+  }
+}
+
+/// Barra de estado de las pantallas con cabecera vino: clara sobre el vino
+/// y, al subir la hoja de lienzo por debajo del reloj, la del tema (oscura
+/// de día). Solo reconstruye cuando cambia.
+class PremiosWineStatusBar extends StatefulWidget {
+  final ScrollController scroll;
+  final Widget child;
+  const PremiosWineStatusBar(
+      {super.key, required this.scroll, required this.child});
+
+  @override
+  State<PremiosWineStatusBar> createState() => _PremiosWineStatusBarState();
+}
+
+class _PremiosWineStatusBarState extends State<PremiosWineStatusBar> {
+  bool _overCanvas = false;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.scroll.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    widget.scroll.removeListener(_onScroll);
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (!widget.scroll.hasClients) return;
+    final w = MediaQuery.sizeOf(context).width;
+    final top = MediaQuery.paddingOf(context).top;
+    // La hoja de lienzo empieza en (370 − 30) a escala; las nubes la
+    // adelantan unos 20.
+    final edge = PapeletaBarricaScene.heightFor(w) - 30 - 20 - top;
+    final over = widget.scroll.offset > edge;
+    if (over != _overCanvas) setState(() => _overCanvas = over);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final dark = GmColors.of(context).isDark;
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: _overCanvas && !dark
+          ? SystemUiOverlayStyle.dark
+          : SystemUiOverlayStyle.light,
+      child: widget.child,
     );
   }
 }

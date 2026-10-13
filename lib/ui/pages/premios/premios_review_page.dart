@@ -41,7 +41,9 @@ class _PremiosReviewPageState extends State<PremiosReviewPage> {
     if (_left || !mounted || _c.state.sent == null) return;
     _left = true;
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => PremiosThanksPage(controller: _c)),
+      MaterialPageRoute(
+        builder: (_) => PremiosThanksPage(controller: _c, sent: _c.state.sent!),
+      ),
     );
   }
 
@@ -78,70 +80,71 @@ class _PremiosReviewPageState extends State<PremiosReviewPage> {
                 Positioned.fill(
                   top: m.textTop,
                   child: ListView(
-                  padding: EdgeInsets.fromLTRB(
-                      16, 0, 16, PremiosBottomBar.scrollPadding(context)),
-                  children: [
-                    GmRise(
-                      trigger: GmTrigger.mount,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const PremiosEyebrow(),
-                            const SizedBox(height: 4),
-                            Semantics(
-                              header: true,
-                              identifier: 'premios-review-title',
-                              child: Text('Tus votos',
-                                  style: GmText.largeTitle(color: gm.label)),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                                'Revísalos antes de enviar. Puedes cambiar '
-                                'cualquiera.',
-                                style: GmText.body(color: gm.label2)),
+                    padding: EdgeInsets.fromLTRB(
+                        16, 0, 16, PremiosBottomBar.scrollPadding(context)),
+                    children: [
+                      GmRise(
+                        trigger: GmTrigger.mount,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const PremiosEyebrow(),
+                              const SizedBox(height: 4),
+                              Semantics(
+                                header: true,
+                                identifier: 'premios-review-title',
+                                child: Text('Tus votos',
+                                    style: GmText.largeTitle(color: gm.label)),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                  'Revísalos antes de enviar. Puedes cambiar '
+                                  'cualquiera.',
+                                  style: GmText.body(color: gm.label2)),
+                            ],
+                          ),
+                        ),
+                      ),
+                      if (copy != null) ...[
+                        const SizedBox(height: 18),
+                        PremiosAlertCard(
+                          copy: copy,
+                          onAction: () => _change(PremiosCategory.tradicional),
+                        ),
+                      ],
+                      const SizedBox(height: 18),
+                      GmRise(
+                        index: 2,
+                        trigger: GmTrigger.mount,
+                        child: PapeletaCard(
+                          trailing: '2 categorías',
+                          rows: [
+                            for (final c in PremiosCategory.values)
+                              PapeletaVoteRow(
+                                category: c,
+                                name: picks[c]?.name,
+                                flagged: picks[c] != null &&
+                                    s.flagged.contains(picks[c]!.value),
+                                action: picks[c] == null ? 'Elegir' : 'Cambiar',
+                                onAction:
+                                    s.submitting ? null : () => _change(c),
+                              ),
                           ],
                         ),
                       ),
-                    ),
-                    if (copy != null) ...[
-                      const SizedBox(height: 18),
-                      PremiosAlertCard(
-                        copy: copy,
-                        onAction: () => _change(PremiosCategory.tradicional),
+                      const SizedBox(height: 12),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        child: Text(
+                          'Los votos se envían juntos. Después puedes votar a '
+                          'otros sitios, pero a cada uno solo una vez.',
+                          style: GmText.meta(color: gm.label2),
+                        ),
                       ),
                     ],
-                    const SizedBox(height: 18),
-                    GmRise(
-                      index: 2,
-                      trigger: GmTrigger.mount,
-                      child: PapeletaCard(
-                        trailing: '2 categorías',
-                        rows: [
-                          for (final c in PremiosCategory.values)
-                            PapeletaVoteRow(
-                              category: c,
-                              name: picks[c]?.name,
-                              flagged: picks[c] != null &&
-                                  s.flagged.contains(picks[c]!.value),
-                              action: picks[c] == null ? 'Elegir' : 'Cambiar',
-                              onAction: s.submitting ? null : () => _change(c),
-                            ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      child: Text(
-                        'Los votos se envían juntos. Después puedes votar a '
-                        'otros sitios, pero a cada uno solo una vez.',
-                        style: GmText.meta(color: gm.label2),
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
                 ),
                 Positioned(
                   left: 16,
@@ -178,7 +181,9 @@ class _PremiosReviewPageState extends State<PremiosReviewPage> {
                         ),
                       ),
                       const SizedBox(width: 8),
-                      _SendButton(state: s, retry: copy?.retry ?? false,
+                      _SendButton(
+                          state: s,
+                          retry: copy?.retry ?? false,
                           onSend: _c.submit),
                     ],
                   ),

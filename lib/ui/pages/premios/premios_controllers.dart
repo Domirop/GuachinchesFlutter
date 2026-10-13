@@ -148,6 +148,9 @@ class LegacyPremiosFlowController extends PremiosFlowController
     if (loading) {
       _set(_state.copyWith(load: PremiosLoad.loading));
     } else if (_state.load == PremiosLoad.loading) {
+      if (!_gotChoices) {
+        AppLogger.warn('premios', 'carga de candidatos sin opciones');
+      }
       _set(_state.copyWith(
           load: _gotChoices ? PremiosLoad.ready : PremiosLoad.error));
     }
@@ -178,8 +181,11 @@ class LegacyPremiosFlowController extends PremiosFlowController
 
   @override
   void showError(String message) {
-    if (_state.load == PremiosLoad.loading) {
-      // Fallo al cargar los candidatos (nunca se enseña la excepción).
+    if (_state.load != PremiosLoad.ready) {
+      // Fallo al cargar los candidatos (nunca se enseña la excepción). El
+      // presenter puede avisar dos veces (setLoading + showError): un solo
+      // estado de error y ningún aviso de envío.
+      if (_state.load == PremiosLoad.error) return;
       AppLogger.warn('premios', 'carga de candidatos: $message');
       _set(_state.copyWith(load: PremiosLoad.error));
       return;
@@ -248,10 +254,10 @@ class LegacyPremiosRankingController extends PremiosRankingController
     List<SurveyResult>? modernos,
   }) : _repository = repository ?? HttpRemoteRepository(Client()) {
     _presenter = SurveyRankingPresenter(this, _repository);
-    _restaurants = restaurants == null || restaurants.isEmpty
-        ? null
-        : restaurants;
-    if (tradicionales != null && modernos != null &&
+    _restaurants =
+        restaurants == null || restaurants.isEmpty ? null : restaurants;
+    if (tradicionales != null &&
+        modernos != null &&
         (tradicionales.isNotEmpty || modernos.isNotEmpty)) {
       _state = PremiosRankingState(
         load: PremiosLoad.ready,
@@ -317,6 +323,7 @@ class PremiosHomeStore {
 
   static const _kVoted = 'premios2026Voted';
   static const _kDismissed = 'premios2026SheetDismissedAt';
+  static const _kCardDismissed = 'premios2026CardDismissedAt';
 
   /// La hoja no vuelve hasta pasados 7 días de «Ahora no».
   static const sheetCooldown = Duration(days: 7);
@@ -351,15 +358,40 @@ class PremiosHomeStore {
     }
   }
 
+  /// «Ahora no» de la tarjeta: la oculta 7 días (aparte de la hoja).
+  static Future<DateTime?> cardDismissedAt() async {
+    try {
+      final raw = await AppStorage.instance.read(key: _kCardDismissed);
+      return raw == null ? null : DateTime.tryParse(raw);
+    } catch (e) {
+      AppLogger.warn('premios', 'leer «Ahora no» de la tarjeta: $e');
+      return null;
+    }
+  }
+
+  static Future<void> dismissCard(DateTime now) async {
+    try {
+      await AppStorage.instance
+          .write(key: _kCardDismissed, value: now.toUtc().toIso8601String());
+    } catch (e) {
+      AppLogger.warn('premios', 'guardar «Ahora no» de la tarjeta: $e');
+    }
+  }
+
   static Future<void> dismiss(DateTime now) async {
     try {
       await AppStorage.instance
-          .write(key: _kDismissed, value: now.toIso8601String());
+          .write(key: _kDismissed, value: now.toUtc().toIso8601String());
     } catch (e) {
       AppLogger.warn('premios', 'guardar «Ahora no»: $e');
     }
   }
 }
+
+/// ¿Se descartó hace menos de 7 días?
+bool premiosRecentlyDismissed(DateTime? at, DateTime now) =>
+    at != null &&
+    now.toUtc().difference(at.toUtc()) < PremiosHomeStore.sheetCooldown;
 
 /// La hoja al abrir: solo si la votación está abierta, este móvil no ha
 /// votado y no se descartó en los últimos 7 días.
@@ -369,7 +401,6 @@ bool premiosShouldShowSheet({
   required DateTime? dismissedAt,
   required DateTime now,
 }) {
-  if (phase == PremiosPhase.closed || voted) return false;
-  if (dismissedAt == null) return true;
-  return now.difference(dismissedAt) >= PremiosHomeStore.sheetCooldown;
+  if (!phase.counting || voted) return false;
+  return !premiosRecentlyDismissed(dismissedAt, now);
 }

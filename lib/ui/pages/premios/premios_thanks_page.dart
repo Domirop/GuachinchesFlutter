@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:guachinches/ui/pages/premios/premios_controllers.dart';
 import 'package:guachinches/ui/pages/premios/premios_models.dart';
 import 'package:guachinches/ui/pages/premios/premios_ranking_page.dart';
@@ -13,17 +12,37 @@ import 'package:guachinches/ui/theme/gm_widgets.dart';
 /// Gracias (tablero EncuestaGracias): la escena en modo celebración (una
 /// vez, confeti), la papeleta enviada con el sello «Votado 2026» y los
 /// caminos «Ver el ranking» y «Votar a otros sitios». La X vuelve al Inicio.
-class PremiosThanksPage extends StatelessWidget {
+class PremiosThanksPage extends StatefulWidget {
   final PremiosFlowController controller;
-  const PremiosThanksPage({super.key, required this.controller});
+
+  /// Los votos enviados (no se leen del controlador: «Votar a otros
+  /// sitios» lo vacía mientras esta pantalla sigue en la pila).
+  final Map<PremiosCategory, PremiosCandidate> sent;
+
+  const PremiosThanksPage(
+      {super.key, required this.controller, required this.sent});
+
+  @override
+  State<PremiosThanksPage> createState() => _PremiosThanksPageState();
+}
+
+class _PremiosThanksPageState extends State<PremiosThanksPage> {
+  final _scroll = ScrollController();
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final gm = GmColors.of(context);
-    final sent = controller.state.sent ?? const {};
+    final sent = widget.sent;
+    final controller = widget.controller;
     final both = sent.length == 2;
-    return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle.light,
+    return PremiosWineStatusBar(
+      scroll: _scroll,
       child: Scaffold(
         backgroundColor: gm.canvas,
         body: Stack(
@@ -36,13 +55,15 @@ class PremiosThanksPage extends StatelessWidget {
               child: ColoredBox(color: PremiosColors.band(gm)),
             ),
             CustomScrollView(
+              controller: _scroll,
               physics: const BouncingScrollPhysics(
                   parent: AlwaysScrollableScrollPhysics()),
               slivers: [
                 SliverToBoxAdapter(
                   child: PremiosWineHeader(
                     scene: const PapeletaBarricaCelebration(),
-                    title: both ? 'Gracias por tus votos' : 'Gracias por tu voto',
+                    title:
+                        both ? 'Gracias por tus votos' : 'Gracias por tu voto',
                     subtitle: both
                         ? 'Tus votos ya están en la barrica.'
                         : 'Tu voto ya está en la barrica.',
@@ -50,8 +71,8 @@ class PremiosThanksPage extends StatelessWidget {
                     leading: PremiosWineGlassButton(
                       semanticLabel: 'Cerrar y volver al inicio',
                       identifier: 'premios-thanks-close',
-                      onTap: () => Navigator.of(context)
-                          .popUntil((r) => r.isFirst),
+                      onTap: () =>
+                          Navigator.of(context).popUntil((r) => r.isFirst),
                     ),
                   ),
                 ),
@@ -59,8 +80,8 @@ class PremiosThanksPage extends StatelessWidget {
                   child: ColoredBox(
                     color: gm.canvas,
                     child: Padding(
-                      padding: EdgeInsets.fromLTRB(
-                          16, 14, 16, 40 + MediaQuery.paddingOf(context).bottom),
+                      padding: EdgeInsets.fromLTRB(16, 14, 16,
+                          40 + MediaQuery.paddingOf(context).bottom),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
@@ -74,7 +95,8 @@ class PremiosThanksPage extends StatelessWidget {
                             index: 2,
                             trigger: GmTrigger.mount,
                             child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 8),
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 8),
                               child: Text(
                                 '¿Te quedó alguno? Puedes votar a más '
                                 'guachinches: a cada uno, una vez.',

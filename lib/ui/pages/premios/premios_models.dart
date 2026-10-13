@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:guachinches/core/logging/app_logger.dart';
+import 'package:guachinches/core/remote_config/dcc_remote_config.dart';
 import 'package:guachinches/ui/components/SurveyResults/SurveyResults.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/gm_place_card.dart'
     show gmPlaceName;
@@ -76,10 +78,8 @@ final _kVowel = RegExp(r'[AEIOUÁÉÍÓÚÜaeiouáéíóúü]');
 /// palabras ya mixtas y las siglas sin vocales se respetan; no se inventan
 /// tildes. Comillas rectas → «».
 String premiosDisplayName(String raw) {
-  final words = raw
-      .replaceAll(RegExp('[“”]'), '"')
-      .trim()
-      .split(RegExp(r'\s+'));
+  final words =
+      raw.replaceAll(RegExp('[“”]'), '"').trim().split(RegExp(r'\s+'));
   final out = <String>[];
   var prev = '';
   for (var i = 0; i < words.length; i++) {
@@ -89,17 +89,21 @@ String premiosDisplayName(String raw) {
     final opens = w.startsWith('(') || w.startsWith('"');
     final small = i > 0 &&
         !opens &&
-        (_kSmall.contains(low) || (_kArticles.contains(low) && _kSmall.contains(prev)));
+        (_kSmall.contains(low) ||
+            (_kArticles.contains(low) && _kSmall.contains(prev)));
     final caps = core.length > 1 && core == core.toUpperCase();
     if (small && (caps || core == low)) {
       w = w.toLowerCase();
     } else if (caps && _kVowel.hasMatch(core)) {
       final lw = w.toLowerCase();
       final k = lw.indexOf(_kLetter);
-      w = k < 0 ? lw : lw.substring(0, k) + lw[k].toUpperCase() + lw.substring(k + 1);
+      w = k < 0
+          ? lw
+          : lw.substring(0, k) + lw[k].toUpperCase() + lw.substring(k + 1);
     } else if (core.isNotEmpty && core[0] == core[0].toLowerCase() && !small) {
       final k = w.indexOf(_kLetter);
-      if (k >= 0) w = w.substring(0, k) + w[k].toUpperCase() + w.substring(k + 1);
+      if (k >= 0)
+        w = w.substring(0, k) + w[k].toUpperCase() + w.substring(k + 1);
     }
     out.add(w);
     prev = low;
@@ -112,12 +116,30 @@ String premiosDisplayName(String raw) {
 // ── Buscador ───────────────────────────────────────────────────────────────
 
 const _kFold = {
-  'á': 'a', 'à': 'a', 'ä': 'a', 'â': 'a', 'ã': 'a',
-  'é': 'e', 'è': 'e', 'ë': 'e', 'ê': 'e',
-  'í': 'i', 'ì': 'i', 'ï': 'i', 'î': 'i',
-  'ó': 'o', 'ò': 'o', 'ö': 'o', 'ô': 'o', 'õ': 'o',
-  'ú': 'u', 'ù': 'u', 'ü': 'u', 'û': 'u',
-  'ñ': 'n', 'ç': 'c',
+  'á': 'a',
+  'à': 'a',
+  'ä': 'a',
+  'â': 'a',
+  'ã': 'a',
+  'é': 'e',
+  'è': 'e',
+  'ë': 'e',
+  'ê': 'e',
+  'í': 'i',
+  'ì': 'i',
+  'ï': 'i',
+  'î': 'i',
+  'ó': 'o',
+  'ò': 'o',
+  'ö': 'o',
+  'ô': 'o',
+  'õ': 'o',
+  'ú': 'u',
+  'ù': 'u',
+  'ü': 'u',
+  'û': 'u',
+  'ñ': 'n',
+  'ç': 'c',
 };
 
 /// Sin tildes ni mayúsculas, con los espacios colapsados: «JOSÉ» y «jose»
@@ -125,7 +147,10 @@ const _kFold = {
 String premiosNormalize(String s) {
   final lower = s.toLowerCase();
   final b = StringBuffer();
-  for (final ch in lower.split('')) {
+  for (final r in lower.runes) {
+    // Diacríticos combinados (NFD, U+0300–U+036F): fuera.
+    if (r >= 0x300 && r <= 0x36F) continue;
+    final ch = String.fromCharCode(r);
     b.write(_kFold[ch] ?? ch);
   }
   return b.toString().trim().replaceAll(RegExp(r'\s+'), ' ');
@@ -251,7 +276,7 @@ PremiosErrorCopy premiosErrorCopy(PremiosErrorKind kind,
     // identidad del dispositivo.
     case PremiosErrorKind.deviceUnverified:
       return const PremiosErrorCopy(
-        title: 'No hemos podido comprobar este móvil',
+        title: 'No hemos podido comprobar este\u00A0móvil',
         message: 'Así evitamos votos repetidos. Actualiza la app o '
             'inténtalo más tarde.',
         help: 'Tus votos siguen aquí.',
@@ -402,7 +427,16 @@ const kPremiosMissingName = 'Sitio sin ficha';
 
 /// Resultados del backend → filas con puesto real (empates incluidos).
 List<PremiosRankEntry> premiosRank(List<SurveyResult> results) {
-  final sorted = [...results]..sort((a, b) => b.votes.compareTo(a.votes));
+  String name(SurveyResult r) => r.restaurant == null
+      ? kPremiosMissingName
+      : premiosDisplayName(r.restaurant!.nombre);
+  // Más votos primero; con los mismos votos, por nombre (orden estable).
+  final sorted = [...results]..sort((a, b) {
+      final v = b.votes.compareTo(a.votes);
+      return v != 0
+          ? v
+          : premiosNormalize(name(a)).compareTo(premiosNormalize(name(b)));
+    });
   final ranks = premiosCompetitionRanks([for (final r in sorted) r.votes]);
   final count = <int, int>{};
   for (final r in ranks) {
@@ -412,9 +446,7 @@ List<PremiosRankEntry> premiosRank(List<SurveyResult> results) {
     for (var i = 0; i < sorted.length; i++)
       PremiosRankEntry(
         id: sorted[i].restaurantId,
-        name: sorted[i].restaurant == null
-            ? kPremiosMissingName
-            : premiosDisplayName(sorted[i].restaurant!.nombre),
+        name: name(sorted[i]),
         municipio: gmPlaceName(sorted[i].restaurant?.municipio ?? ''),
         photoUrl: (sorted[i].restaurant?.mainFoto.isNotEmpty ?? false)
             ? sorted[i].restaurant!.mainFoto
@@ -456,53 +488,98 @@ class PremiosRankingState {
 
 // ── Edición y cuenta atrás ─────────────────────────────────────────────────
 
-enum PremiosPhase { open, lastDay, closed }
+/// Estado de la votación. [unknown]: no hay fecha de cierre configurada →
+/// estado neutro (ni cuenta atrás ni «cerrada»; la campaña no se anuncia).
+enum PremiosPhase {
+  unknown,
+  upcoming,
+  open,
+  lastDay,
+  closed;
+
+  /// Se puede votar (sin fecha manda el servidor: no se bloquea).
+  bool get canVote => this != closed && this != upcoming;
+
+  /// Hay cuenta atrás que enseñar.
+  bool get counting => this == open || this == lastDay;
+}
 
 const _kMonths = [
-  'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio',
-  'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
+  'enero',
+  'febrero',
+  'marzo',
+  'abril',
+  'mayo',
+  'junio',
+  'julio',
+  'agosto',
+  'septiembre',
+  'octubre',
+  'noviembre',
+  'diciembre',
 ];
 
-/// Fecha de cierre de la votación. La API aún no la manda (petición al
-/// backend: `endsAt`/`status`); hasta entonces vive aquí. El código viejo
-/// tenía `20/04/2026` mientras el texto decía «20 de marzo»: manda el texto
-/// (y el tablero). En debug se puede probar otra fecha con
-/// `PREMIOS_CLOSES_AT=2026-10-25T23:59` en `env_files/debug.env`.
+/// Una edición de los premios: apertura y cierre de la votación en UTC.
+/// Hoy llega de Remote Config (`premios_closes_at`); el repositorio del
+/// contrato v3 la rellenará con `GET /surveys/v3/editions/current`
+/// ([PremiosEdition.fromApi]) y la publicará en [PremiosEditionStore].
+/// Todos los cálculos van en UTC (hora del servidor), nunca en la local.
 @immutable
 class PremiosEdition {
-  final DateTime closesAt;
+  final DateTime? votingStartsAt;
+  final DateTime? votingEndsAt;
 
-  const PremiosEdition(this.closesAt);
+  PremiosEdition({DateTime? votingStartsAt, DateTime? votingEndsAt})
+      : votingStartsAt = votingStartsAt?.toUtc(),
+        votingEndsAt = votingEndsAt?.toUtc();
 
-  static final PremiosEdition fallback =
-      PremiosEdition(DateTime(2026, 3, 20, 23, 59));
+  /// Sin fechas: estado neutro.
+  static final PremiosEdition none = PremiosEdition();
 
-  static PremiosEdition get current {
-    // dotenv sin cargar (tests): fecha por defecto.
-    final raw =
-        dotenv.isInitialized ? dotenv.env['PREMIOS_CLOSES_AT'] : null;
-    final parsed = raw == null ? null : DateTime.tryParse(raw.trim());
-    return parsed == null ? fallback : PremiosEdition(parsed);
+  /// `{"votingStartsAt": "…Z", "votingEndsAt": "…Z"}` de
+  /// `GET /surveys/v3/editions/current`.
+  factory PremiosEdition.fromApi(Map<String, dynamic> json) {
+    DateTime? d(Object? v) =>
+        v is String ? DateTime.tryParse(v)?.toUtc() : null;
+    return PremiosEdition(
+      votingStartsAt: d(json['votingStartsAt']),
+      votingEndsAt: d(json['votingEndsAt']),
+    );
   }
+
+  bool get known => votingEndsAt != null;
 
   PremiosPhase phase(DateTime now) {
-    if (!now.isBefore(closesAt)) return PremiosPhase.closed;
-    return _daysLeft(now) == 0 ? PremiosPhase.lastDay : PremiosPhase.open;
+    final end = votingEndsAt;
+    if (end == null) return PremiosPhase.unknown;
+    final n = now.toUtc();
+    final start = votingStartsAt;
+    if (start != null && n.isBefore(start)) return PremiosPhase.upcoming;
+    if (!n.isBefore(end)) return PremiosPhase.closed;
+    return daysLeft(n) == 0 ? PremiosPhase.lastDay : PremiosPhase.open;
   }
 
-  int _daysLeft(DateTime now) {
-    final a = DateTime(now.year, now.month, now.day);
-    final b = DateTime(closesAt.year, closesAt.month, closesAt.day);
+  /// Días de calendario hasta el día del cierre, comparando fechas UTC (el
+  /// cambio de hora no resta un día).
+  int daysLeft(DateTime now) {
+    final end = votingEndsAt;
+    if (end == null) return 0;
+    final n = now.toUtc();
+    final a = DateTime.utc(n.year, n.month, n.day);
+    final b = DateTime.utc(end.year, end.month, end.day);
     return b.difference(a).inDays;
   }
 
   /// Casilla de la cuenta atrás: días; el último día, horas. Sin minutos.
   (int, String) countdown(DateTime now) {
+    final end = votingEndsAt;
+    if (end == null) return (0, 'días');
     if (phase(now) == PremiosPhase.lastDay) {
-      final h = (closesAt.difference(now).inMinutes / 60).ceil().clamp(1, 24);
+      final h =
+          (end.difference(now.toUtc()).inMinutes / 60).ceil().clamp(1, 24);
       return (h, h == 1 ? 'hora' : 'horas');
     }
-    final d = _daysLeft(now).clamp(0, 9999);
+    final d = daysLeft(now).clamp(0, 9999);
     return (d, d == 1 ? 'día' : 'días');
   }
 
@@ -512,7 +589,64 @@ class PremiosEdition {
     return n == 1 ? 'Queda 1 $unit' : 'Quedan $n $unit';
   }
 
+  /// «hasta el 20 de marzo» (fecha UTC del cierre). Vacío sin fecha.
+  String get untilShort {
+    final end = votingEndsAt;
+    if (end == null) return '';
+    return 'hasta el ${end.day} de ${_kMonths[end.month - 1]}';
+  }
+
   /// «Se vota hasta el 20 de marzo».
-  String get untilLabel =>
-      'Se vota hasta el ${closesAt.day} de ${_kMonths[closesAt.month - 1]}';
+  String get untilLabel => known ? 'Se vota $untilShort' : '';
+
+  @override
+  bool operator ==(Object other) =>
+      other is PremiosEdition &&
+      other.votingStartsAt == votingStartsAt &&
+      other.votingEndsAt == votingEndsAt;
+
+  @override
+  int get hashCode => Object.hash(votingStartsAt, votingEndsAt);
+}
+
+/// La edición en curso, compartida por las pantallas. Arranca vacía (estado
+/// neutro); [PremiosEditionStore.loadFromRemoteConfig] la rellena y el
+/// repositorio v3 la sustituirá por la de la API.
+class PremiosEditionStore extends ValueNotifier<PremiosEdition> {
+  PremiosEditionStore._() : super(PremiosEdition.none);
+
+  static final PremiosEditionStore instance = PremiosEditionStore._();
+
+  PremiosEdition get current => value;
+
+  bool _loaded = false;
+
+  /// Lee Remote Config una vez (las pantallas lo llaman al abrirse).
+  void ensureLoaded() {
+    if (_loaded) return;
+    _loaded = true;
+    DateTime? closes;
+    try {
+      closes = DccRemoteConfig.instance.premiosClosesAt;
+    } catch (e) {
+      // Sin Firebase (tests): sin fecha → estado neutro.
+      AppLogger.warn('premios', 'remote config no disponible: $e');
+    }
+    loadFromRemoteConfig(closes);
+  }
+
+  @visibleForTesting
+  void reset() {
+    _loaded = false;
+    value = PremiosEdition.none;
+  }
+
+  /// [closesAt] viene de Remote Config `premios_closes_at` (ISO UTC). En
+  /// debug, `PREMIOS_CLOSES_AT` en `env_files/debug.env` manda.
+  void loadFromRemoteConfig(DateTime? closesAt) {
+    final raw = dotenv.isInitialized ? dotenv.env['PREMIOS_CLOSES_AT'] : null;
+    final debug = raw == null ? null : DateTime.tryParse(raw.trim());
+    _loaded = true;
+    value = PremiosEdition(votingEndsAt: debug ?? closesAt);
+  }
 }

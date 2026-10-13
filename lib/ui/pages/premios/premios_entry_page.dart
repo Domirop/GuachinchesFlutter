@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:guachinches/ui/pages/premios/premios_controllers.dart';
 import 'package:guachinches/ui/pages/premios/premios_models.dart';
 import 'package:guachinches/ui/pages/premios/premios_ranking_page.dart';
@@ -24,7 +23,8 @@ class PremiosEntryPage extends StatefulWidget {
   /// Para tests: «ahora».
   final DateTime Function()? clock;
 
-  const PremiosEntryPage({super.key, this.controller, this.onVoted, this.clock});
+  const PremiosEntryPage(
+      {super.key, this.controller, this.onVoted, this.clock});
 
   @override
   State<PremiosEntryPage> createState() => _PremiosEntryPageState();
@@ -40,8 +40,10 @@ class _PremiosEntryPageState extends State<PremiosEntryPage> {
   void initState() {
     super.initState();
     _owned = widget.controller == null;
-    _c = widget.controller ?? LegacyPremiosFlowController(onVoted: widget.onVoted);
+    _c = widget.controller ??
+        LegacyPremiosFlowController(onVoted: widget.onVoted);
     if (_owned) _c.load();
+    PremiosEditionStore.instance.ensureLoaded();
     _scroll.addListener(() {
       final w = MediaQuery.sizeOf(context).width;
       _sceneOn.value = _scroll.offset < PapeletaBarricaScene.heightFor(w) - 30;
@@ -56,26 +58,29 @@ class _PremiosEntryPageState extends State<PremiosEntryPage> {
     super.dispose();
   }
 
-  void _vote(PremiosCategory start) {
-    Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => PremiosVotePage(controller: _c, initialCategory: start),
-    ));
-  }
+  void _vote(PremiosCategory start) => premiosOpenVote(context, _c, start);
 
   void _ranking() {
-    Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => const PremiosRankingPage()));
+    Navigator.of(context)
+        .push(MaterialPageRoute(builder: (_) => const PremiosRankingPage()));
   }
 
   @override
   Widget build(BuildContext context) {
     final gm = GmColors.of(context);
     final now = (widget.clock ?? DateTime.now)();
-    final edition = PremiosEdition.current;
-    final phase = edition.phase(now);
-    final open = phase != PremiosPhase.closed;
-    return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle.light,
+    return ValueListenableBuilder<PremiosEdition>(
+      valueListenable: PremiosEditionStore.instance,
+      builder: (context, edition, _) =>
+          _build(context, gm, now, edition, edition.phase(now)),
+    );
+  }
+
+  Widget _build(BuildContext context, GmColors gm, DateTime now,
+      PremiosEdition edition, PremiosPhase phase) {
+    final open = phase.canVote;
+    return PremiosWineStatusBar(
+      scroll: _scroll,
       child: Scaffold(
         backgroundColor: gm.canvas,
         body: Stack(
@@ -158,15 +163,26 @@ class _PremiosEntryPageState extends State<PremiosEntryPage> {
               child: Row(
                 children: [
                   Expanded(
-                    child: open
-                        ? _CountdownText(edition: edition, now: now)
-                        : const PremiosBarText(
-                            label: 'Votación cerrada',
-                            value: 'Enhorabuena a los ganadores'),
+                    child: switch (phase) {
+                      PremiosPhase.closed => const PremiosBarText(
+                          label: 'Votación cerrada',
+                          value: 'Enhorabuena a los ganadores'),
+                      PremiosPhase.open ||
+                      PremiosPhase.lastDay =>
+                        _CountdownText(edition: edition, now: now),
+                      // Sin fecha (o aún sin abrir): estado neutro.
+                      _ => const PremiosBarText(
+                          label: 'Premios 2026',
+                          value: 'Dos categorías, un voto en cada una'),
+                    },
                   ),
                   const SizedBox(width: 8),
                   GmCapsuleButton(
-                    label: open ? 'Votar ahora' : 'Ver ganadores',
+                    label: open
+                        ? 'Votar ahora'
+                        : phase == PremiosPhase.closed
+                            ? 'Ver ganadores'
+                            : 'Ver el ranking',
                     identifier: 'premios-entry-vote',
                     height: 52,
                     fontSize: 17,

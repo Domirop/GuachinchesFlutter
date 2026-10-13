@@ -13,7 +13,7 @@ import 'package:guachinches/ui/theme/gm_widgets.dart';
 /// Mis votos (tablero EncuestaMisVotos): por categoría, cada sitio votado
 /// desde este móvil con su puesto REAL en el ranking (no la posición en la
 /// lista) y sus votos de hoy.
-class PremiosMyVotesPage extends StatelessWidget {
+class PremiosMyVotesPage extends StatefulWidget {
   final PremiosRankingController controller;
 
   /// «Votar a otros sitios» / «Votar ahora». Si no llega, abre Votar.
@@ -24,17 +24,34 @@ class PremiosMyVotesPage extends StatelessWidget {
       {super.key, required this.controller, this.onVote, this.clock});
 
   @override
+  State<PremiosMyVotesPage> createState() => _PremiosMyVotesPageState();
+}
+
+class _PremiosMyVotesPageState extends State<PremiosMyVotesPage> {
+  @override
+  void initState() {
+    super.initState();
+    PremiosEditionStore.instance.ensureLoaded();
+    // Sin datos todavía (p. ej. desde el envoltorio viejo): se cargan.
+    if (widget.controller.state.load != PremiosLoad.ready) {
+      widget.controller.refresh();
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final controller = widget.controller;
+    final onVote = widget.onVote;
     final gm = GmColors.of(context);
     final m = PremiosHeaderMetrics.of(context);
-    final now = (clock ?? DateTime.now)();
-    final open = PremiosEdition.current.phase(now) != PremiosPhase.closed;
+    final now = (widget.clock ?? DateTime.now)();
+    final open = PremiosEditionStore.instance.current.phase(now).canVote;
     void vote() {
       if (onVote != null) {
-        onVote!();
+        onVote();
       } else {
-        Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const PremiosVotePage()));
+        Navigator.of(context)
+            .push(MaterialPageRoute(builder: (_) => const PremiosVotePage()));
       }
     }
 
@@ -75,7 +92,8 @@ class PremiosMyVotesPage extends StatelessWidget {
                                     style: GmText.largeTitle(color: gm.label)),
                               ),
                               const SizedBox(height: 2),
-                              Text('Los sitios que has votado desde este móvil.',
+                              Text(
+                                  'Los sitios que has votado desde este móvil.',
                                   style: GmText.body(color: gm.label2)),
                             ],
                           ),
@@ -85,8 +103,8 @@ class PremiosMyVotesPage extends StatelessWidget {
                       if (s.load == PremiosLoad.loading)
                         const SizedBox(
                           height: 200,
-                          child:
-                              Center(child: CircularProgressIndicator.adaptive()),
+                          child: Center(
+                              child: CircularProgressIndicator.adaptive()),
                         )
                       else if (s.load == PremiosLoad.error)
                         PremiosStateCard(

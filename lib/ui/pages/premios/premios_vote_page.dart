@@ -13,19 +13,35 @@ import 'package:guachinches/ui/theme/gm_motion.dart';
 import 'package:guachinches/ui/theme/gm_tokens.dart';
 import 'package:guachinches/ui/theme/gm_widgets.dart';
 
-/// Votar en dos pasos (tablero EncuestaVotar): cabecera temática de 306 que
-/// se va con la lista y deja una barra compacta del color de la banda, el
-/// buscador fijo justo debajo, filas de 52 con radio y la barra de cristal
-/// «Tu voto · …» con «Saltar» o «Siguiente».
+/// Abre Votar. Cada paso es su propia ruta (el gesto atrás de iOS vuelve
+/// del paso 2 al 1); si se empieza por moderno se apilan los dos.
+void premiosOpenVote(BuildContext context, PremiosFlowController? controller,
+    PremiosCategory start) {
+  final nav = Navigator.of(context);
+  nav.push(MaterialPageRoute(
+      builder: (_) => PremiosVotePage(controller: controller)));
+  if (start == PremiosCategory.moderno && controller != null) {
+    nav.push(MaterialPageRoute(
+      builder: (_) => PremiosVotePage(
+          controller: controller, category: PremiosCategory.moderno),
+    ));
+  }
+}
+
+/// Votar, un paso por categoría (tablero EncuestaVotar): cabecera temática
+/// de 306 que se va con la lista y deja una barra compacta del color de la
+/// banda, el buscador fijo justo debajo, filas de 52 con radio y la barra
+/// de cristal «Tu voto · …» con «Saltar» o «Siguiente».
 class PremiosVotePage extends StatefulWidget {
+  /// Obligatorio en el paso 2; el paso 1 crea el suyo si no llega.
   final PremiosFlowController? controller;
-  final PremiosCategory initialCategory;
+  final PremiosCategory category;
 
   const PremiosVotePage({
     super.key,
     this.controller,
-    this.initialCategory = PremiosCategory.tradicional,
-  });
+    this.category = PremiosCategory.tradicional,
+  }) : assert(controller != null || category == PremiosCategory.tradicional);
 
   @override
   State<PremiosVotePage> createState() => _PremiosVotePageState();
@@ -34,12 +50,14 @@ class PremiosVotePage extends StatefulWidget {
 class _PremiosVotePageState extends State<PremiosVotePage> {
   late final PremiosFlowController _c;
   late final bool _owned;
-  late PremiosCategory _step = widget.initialCategory;
   final _scroll = ScrollController();
   final _search = TextEditingController();
   final _searchFocus = FocusNode();
   int _bump = 0;
   bool _hadSent = false;
+
+  PremiosCategory get _cat => widget.category;
+  bool get _first => _cat == PremiosCategory.tradicional;
 
   @override
   void initState() {
@@ -47,14 +65,34 @@ class _PremiosVotePageState extends State<PremiosVotePage> {
     _owned = widget.controller == null;
     _c = widget.controller ?? LegacyPremiosFlowController();
     if (_owned) _c.load();
+    _hadSent = _c.state.sent != null;
     _c.addListener(_onState);
-    _search.addListener(() => setState(() {}));
+    _search.addListener(_onSearch);
   }
 
-  /// «Votar a otros sitios» vacía la papeleta: se vuelve al primer paso.
+  String _lastQuery = '';
+  void _onSearch() {
+    if (_search.text != _lastQuery) {
+      _lastQuery = _search.text;
+      setState(() {});
+    }
+  }
+
+  /// «Votar a otros sitios» vacía la papeleta: el paso 2 se retira y el 1
+  /// vuelve arriba y sin búsqueda.
   void _onState() {
     final sent = _c.state.sent != null;
-    if (_hadSent && !sent && mounted) _goTo(PremiosCategory.tradicional);
+    if (_hadSent && !sent && mounted) {
+      if (_first) {
+        _search.clear();
+        if (_scroll.hasClients) _scroll.jumpTo(0);
+      } else {
+        final route = ModalRoute.of(context);
+        if (route != null && route.isActive) {
+          Navigator.of(context).removeRoute(route);
+        }
+      }
+    }
     _hadSent = sent;
   }
 
@@ -68,228 +106,217 @@ class _PremiosVotePageState extends State<PremiosVotePage> {
     super.dispose();
   }
 
-  void _goTo(PremiosCategory c) {
-    setState(() {
-      _step = c;
-      _search.clear();
-    });
-    if (_scroll.hasClients) _scroll.jumpTo(0);
-  }
-
   Future<void> _next() async {
     _searchFocus.unfocus();
-    if (_step == PremiosCategory.tradicional) {
-      _goTo(PremiosCategory.moderno);
+    final nav = Navigator.of(context);
+    if (_first) {
+      nav.push(MaterialPageRoute(
+        builder: (_) =>
+            PremiosVotePage(controller: _c, category: PremiosCategory.moderno),
+      ));
       return;
     }
-    final back = await Navigator.of(context).push<PremiosCategory>(
+    final back = await nav.push<PremiosCategory>(
       MaterialPageRoute(builder: (_) => PremiosReviewPage(controller: _c)),
     );
-    if (back != null && mounted) _goTo(back);
+    // «Cambiar» el tradicional: de vuelta al paso 1.
+    if (back == PremiosCategory.tradicional && mounted) nav.pop();
   }
 
   void _pick(PremiosCandidate c) {
     HapticFeedback.selectionClick();
-    _c.pick(_step, c);
+    _c.pick(_cat, c);
     setState(() => _bump++);
   }
 
   @override
   Widget build(BuildContext context) {
     final gm = GmColors.of(context);
-    final cat = _step;
+    final cat = _cat;
     final band = PremiosColors.catBand(cat, gm);
     final m = PremiosHeaderMetrics.of(context);
     final barH = m.buttonsTop + 44;
-    return PopScope(
-      canPop: _step == PremiosCategory.tradicional,
-      onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) _goTo(PremiosCategory.tradicional);
-      },
-      child: AnnotatedRegion<SystemUiOverlayStyle>(
-        value: gm.isDark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark,
-        child: Scaffold(
-          backgroundColor: gm.canvas,
-          resizeToAvoidBottomInset: false,
-          body: ListenableBuilder(
-            listenable: _c,
-            builder: (context, _) {
-              final state = _c.state;
-              final all = state.candidatesOf(cat);
-              final list = premiosFilter(all, _search.text);
-              final picked = state.picks[cat];
-              return Stack(
-                children: [
-                  Positioned.fill(
-                    top: barH,
-                    child: CustomScrollView(
-                      controller: _scroll,
-                      keyboardDismissBehavior:
-                          ScrollViewKeyboardDismissBehavior.onDrag,
-                      physics: const ClampingScrollPhysics(),
-                      slivers: [
-                        SliverToBoxAdapter(
-                          child: _StepHeader(
-                            category: cat,
-                            metrics: m,
-                            barH: barH,
-                            bump: _bump,
-                          ),
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: gm.isDark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark,
+      child: Scaffold(
+        backgroundColor: gm.canvas,
+        resizeToAvoidBottomInset: false,
+        body: ListenableBuilder(
+          listenable: _c,
+          builder: (context, _) {
+            final state = _c.state;
+            final all = state.candidatesOf(cat);
+            final list = premiosFilter(all, _search.text);
+            final picked = state.picks[cat];
+            return Stack(
+              children: [
+                Positioned.fill(
+                  top: barH,
+                  child: CustomScrollView(
+                    controller: _scroll,
+                    keyboardDismissBehavior:
+                        ScrollViewKeyboardDismissBehavior.onDrag,
+                    physics: const ClampingScrollPhysics(),
+                    slivers: [
+                      SliverToBoxAdapter(
+                        child: _StepHeader(
+                          category: cat,
+                          metrics: m,
+                          barH: barH,
+                          bump: _bump,
                         ),
-                        SliverPersistentHeader(
-                          pinned: true,
-                          delegate: _SearchHeader(
-                            controller: _search,
-                            focusNode: _searchFocus,
-                            hint: state.load == PremiosLoad.ready
-                                ? 'Buscar entre ${all.length} ${cat.candidatesNoun(all.length)}'
-                                : 'Buscar',
-                            canvas: gm.canvas,
-                            textScale:
-                                MediaQuery.textScalerOf(context).scale(1),
-                          ),
+                      ),
+                      SliverPersistentHeader(
+                        pinned: true,
+                        delegate: _SearchHeader(
+                          controller: _search,
+                          focusNode: _searchFocus,
+                          hint: state.load == PremiosLoad.ready
+                              ? 'Buscar entre ${all.length} ${cat.candidatesNoun(all.length)}'
+                              : 'Buscar',
+                          canvas: gm.canvas,
+                          textScale: MediaQuery.textScalerOf(context).scale(1),
                         ),
-                        ..._body(context, state, all, list, picked),
-                        SliverToBoxAdapter(
-                          child: SizedBox(
-                              height: PremiosBottomBar.scrollPadding(context)),
-                        ),
-                      ],
-                    ),
-                  ),
-                  // Barra compacta del color de la banda (fija).
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    top: 0,
-                    height: barH,
-                    child: ColoredBox(
-                      color: band,
-                      child: Padding(
-                        padding: EdgeInsets.fromLTRB(16, m.buttonsTop - 4, 16, 0),
+                      ),
+                      ..._body(context, state, all, list, picked),
+                      SliverToBoxAdapter(
                         child: SizedBox(
-                          height: 48,
-                          child: Row(
-                            children: [
-                              cat == PremiosCategory.tradicional
-                                  ? GmToolbarButton(
-                                      icon: GmIcons.close,
-                                      light: true,
-                                      semanticLabel: 'Cerrar encuesta',
-                                      identifier: 'premios-vote-close',
-                                      onTap: () =>
-                                          Navigator.of(context).maybePop(),
-                                    )
-                                  : GmToolbarButton(
-                                      icon: GmIcons.chevronLeft,
-                                      iconSize: 20,
-                                      light: true,
-                                      semanticLabel:
-                                          'Volver a la categoría tradicional',
-                                      identifier: 'premios-vote-back',
-                                      onTap: () =>
-                                          _goTo(PremiosCategory.tradicional),
-                                    ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Semantics(
-                                  label:
-                                      'Categoría ${cat.index + 1} de 2',
-                                  child: ExcludeSemantics(
-                                    child: PremiosProgress(
-                                        filled: cat.index + 1),
+                            height: PremiosBottomBar.scrollPadding(context)),
+                      ),
+                    ],
+                  ),
+                ),
+                // Barra compacta del color de la banda (fija).
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  top: 0,
+                  height: barH,
+                  child: ColoredBox(
+                    color: band,
+                    child: Padding(
+                      padding: EdgeInsets.fromLTRB(16, m.buttonsTop - 4, 16, 0),
+                      child: SizedBox(
+                        height: 48,
+                        child: Row(
+                          children: [
+                            _first
+                                ? GmToolbarButton(
+                                    icon: GmIcons.close,
+                                    light: true,
+                                    semanticLabel: 'Cerrar encuesta',
+                                    identifier: 'premios-vote-close',
+                                    onTap: () =>
+                                        Navigator.of(context).maybePop(),
+                                  )
+                                : GmToolbarButton(
+                                    icon: GmIcons.chevronLeft,
+                                    iconSize: 20,
+                                    light: true,
+                                    semanticLabel:
+                                        'Volver a la categoría tradicional',
+                                    identifier: 'premios-vote-back',
+                                    onTap: () =>
+                                        Navigator.of(context).maybePop(),
                                   ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              ConstrainedBox(
-                                constraints:
-                                    const BoxConstraints(minWidth: 44),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Semantics(
+                                label: 'Categoría ${cat.index + 1} de 2',
                                 child: ExcludeSemantics(
-                                  child: Text('${cat.index + 1} de 2',
-                                      textAlign: TextAlign.right,
-                                      style: GmText.body(
-                                          color: gm.label2,
-                                          w: FontWeight.w600)),
+                                  child: PremiosProgress(filled: cat.index + 1),
                                 ),
                               ),
-                            ],
-                          ),
+                            ),
+                            const SizedBox(width: 8),
+                            ConstrainedBox(
+                              constraints: const BoxConstraints(minWidth: 44),
+                              child: ExcludeSemantics(
+                                child: Text('${cat.index + 1} de 2',
+                                    textAlign: TextAlign.right,
+                                    style: GmText.body(
+                                        color: gm.label2, w: FontWeight.w600)),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
                   ),
-                  PremiosBottomBar(
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: GmOnce(
-                            key: ValueKey('pop-$_bump-${picked?.value}'),
-                            duration: const Duration(milliseconds: 520),
-                            trigger: GmTrigger.mount,
-                            builder: (_, t, child) {
-                              if (picked == null || _bump == 0) return child!;
-                              final s = gmKeyframes(t,
-                                  const [(0, 0.9), (0.55, 1.04), (1, 1)],
-                                  curve: GmMotion.spring);
-                              final dy = gmKeyframes(
-                                  t, const [(0, 4), (0.55, 0), (1, 0)],
-                                  curve: GmMotion.spring);
-                              return Transform.translate(
-                                offset: Offset(0, dy),
-                                child: Transform.scale(
-                                  scale: s,
-                                  alignment: Alignment.centerLeft,
-                                  child: child,
-                                ),
-                              );
-                            },
-                            child: Semantics(
-                              identifier: 'premios-vote-choice',
-                              child: PremiosBarText(
-                                labelFirst: true,
-                                label: 'Tu voto · ${cat.short}',
-                                value: picked?.name ?? 'Elige uno de la lista',
-                                valueColor: picked == null
-                                    ? PremiosColors.glassInk2(gm)
-                                    : null,
+                ),
+                PremiosBottomBar(
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: GmOnce(
+                          key: ValueKey('pop-$_bump-${picked?.value}'),
+                          duration: const Duration(milliseconds: 520),
+                          trigger: GmTrigger.mount,
+                          builder: (_, t, child) {
+                            if (picked == null || _bump == 0) return child!;
+                            final s = gmKeyframes(
+                                t, const [(0, 0.9), (0.55, 1.04), (1, 1)],
+                                curve: GmMotion.spring);
+                            final dy = gmKeyframes(
+                                t, const [(0, 4), (0.55, 0), (1, 0)],
+                                curve: GmMotion.spring);
+                            return Transform.translate(
+                              offset: Offset(0, dy),
+                              child: Transform.scale(
+                                scale: s,
+                                alignment: Alignment.centerLeft,
+                                child: child,
                               ),
+                            );
+                          },
+                          child: Semantics(
+                            identifier: 'premios-vote-choice',
+                            child: PremiosBarText(
+                              labelFirst: true,
+                              label: 'Tu voto · ${cat.short}',
+                              value: picked?.name ?? 'Elige uno de la lista',
+                              valueColor: picked == null
+                                  ? PremiosColors.glassInk2(gm)
+                                  : null,
                             ),
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        if (picked == null)
-                          GmSoftCapsuleButton(
-                            label: 'Saltar',
-                            identifier: 'premios-vote-skip',
-                            height: 52,
-                            fontSize: 17,
-                            padding: const EdgeInsets.symmetric(horizontal: 22),
-                            onTap: _next,
-                          )
-                        else
-                          GmCapsuleButton(
-                            label: 'Siguiente',
-                            identifier: 'premios-vote-next',
-                            height: 52,
-                            fontSize: 17,
-                            padding: const EdgeInsets.symmetric(horizontal: 24),
-                            onTap: _next,
-                          ),
-                      ],
-                    ),
+                      ),
+                      const SizedBox(width: 8),
+                      if (picked == null)
+                        GmSoftCapsuleButton(
+                          label: 'Saltar',
+                          identifier: 'premios-vote-skip',
+                          height: 52,
+                          fontSize: 17,
+                          padding: const EdgeInsets.symmetric(horizontal: 22),
+                          onTap: _next,
+                        )
+                      else
+                        GmCapsuleButton(
+                          label: 'Siguiente',
+                          identifier: 'premios-vote-next',
+                          height: 52,
+                          fontSize: 17,
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          onTap: _next,
+                        ),
+                    ],
                   ),
-                ],
-              );
-            },
-          ),
+                ),
+              ],
+            );
+          },
         ),
       ),
     );
   }
 
-  List<Widget> _body(BuildContext context, PremiosFlowState state,
-      List<PremiosCandidate> all, List<PremiosCandidate> list,
+  List<Widget> _body(
+      BuildContext context,
+      PremiosFlowState state,
+      List<PremiosCandidate> all,
+      List<PremiosCandidate> list,
       PremiosCandidate? picked) {
     final gm = GmColors.of(context);
     final q = _search.text.trim();
@@ -320,7 +347,9 @@ class _PremiosVotePageState extends State<PremiosVotePage> {
         state.load != PremiosLoad.ready
             ? 'Cargando candidatos…'
             : q.isNotEmpty
-                ? (list.length == 1 ? '1 resultado' : '${list.length} resultados')
+                ? (list.length == 1
+                    ? '1 resultado'
+                    : '${list.length} resultados')
                 : '${all.length} candidatos · elige uno o sáltate la categoría',
         style: GmText.eyebrow(color: gm.label2),
       ),
@@ -505,7 +534,8 @@ class _StepHeader extends StatelessWidget {
 class _SwingingRosette extends StatelessWidget {
   final PremiosCategory category;
   final int bump;
-  const _SwingingRosette({super.key, required this.category, required this.bump});
+  const _SwingingRosette(
+      {super.key, required this.category, required this.bump});
 
   @override
   Widget build(BuildContext context) {
@@ -536,9 +566,14 @@ class _SwingingRosette extends StatelessWidget {
                   child: child,
                   builder: (_, u, c) {
                     final r = gmKeyframes(u, const [
-                      (0, 0), (0.25, -16), (0.55, 6), (0.8, -3), (1, 0),
+                      (0, 0),
+                      (0.25, -16),
+                      (0.55, 6),
+                      (0.8, -3),
+                      (1, 0),
                     ]);
-                    final y = gmKeyframes(u, const [(0, 0), (0.25, -4), (0.55, 0), (1, 0)]);
+                    final y = gmKeyframes(
+                        u, const [(0, 0), (0.25, -4), (0.55, 0), (1, 0)]);
                     return Transform(
                       alignment: Alignment.topCenter,
                       transform: Matrix4.translationValues(0, y, 0)
@@ -558,26 +593,25 @@ class _StripPainter extends CustomPainter {
   final bool trad;
   final Color band;
   final double veil;
-  const _StripPainter({required this.trad, required this.band, required this.veil});
+  const _StripPainter(
+      {required this.trad, required this.band, required this.veil});
 
   @override
   void paint(Canvas canvas, Size size) {
     final rect = Offset.zero & size;
     canvas.save();
     canvas.clipRect(rect);
-    canvas.drawRect(rect,
-        Paint()..color = trad ? const Color(0xFFFFF7EC) : GmColors.creamHi);
-    final p = Paint()
-      ..color = trad ? const Color(0x80C8202C) : const Color(0x9EC9A96B);
-    for (double x = 0; x < size.width; x += 14) {
-      canvas.drawRect(Rect.fromLTWH(x, 0, 7, size.height), p);
-    }
-    for (double y = 0; y < size.height; y += 14) {
-      canvas.drawRect(Rect.fromLTWH(0, y, size.width, 7), p);
-    }
-    if (veil > 0) canvas.drawRect(rect, Paint()..color = band.withValues(alpha: veil));
+    GmGinghamPainter.paintCells(
+      canvas,
+      rect,
+      cell: 7,
+      base: trad ? const Color(0xFFFFF7EC) : GmGinghamPainter.goldBase,
+      stripe: trad ? PremiosColors.stripRed : PremiosColors.stripGold,
+    );
+    if (veil > 0)
+      canvas.drawRect(rect, Paint()..color = band.withValues(alpha: veil));
     canvas.drawRect(Rect.fromLTWH(0, 0, size.width, 10),
-        Paint()..color = const Color(0x1F280A0E));
+        Paint()..color = PremiosColors.stripShade);
     canvas.restore();
   }
 
@@ -611,7 +645,8 @@ class _SearchHeader extends SliverPersistentHeaderDelegate {
   double get maxExtent => _h;
 
   @override
-  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+  Widget build(
+      BuildContext context, double shrinkOffset, bool overlapsContent) {
     final gm = GmColors.of(context);
     return ColoredBox(
       color: canvas,
@@ -651,25 +686,27 @@ class _SearchHeader extends SliverPersistentHeaderDelegate {
                     ),
                   ),
                 ),
-                if (controller.text.isNotEmpty)
-                  Semantics(
-                    button: true,
-                    label: 'Borrar búsqueda',
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: controller.clear,
-                      child: SizedBox(
-                        width: 44,
-                        height: 44,
-                        child: Center(
-                          child: GmIcon(GmIcons.xSmall,
-                              size: 14, color: gm.label2),
+                ValueListenableBuilder<TextEditingValue>(
+                  valueListenable: controller,
+                  builder: (_, v, __) => v.text.isEmpty
+                      ? const SizedBox(width: 16)
+                      : Semantics(
+                          button: true,
+                          label: 'Borrar búsqueda',
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: controller.clear,
+                            child: SizedBox(
+                              width: 44,
+                              height: 44,
+                              child: Center(
+                                child: GmIcon(GmIcons.xSmall,
+                                    size: 14, color: gm.label2),
+                              ),
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
-                  )
-                else
-                  const SizedBox(width: 16),
+                ),
               ],
             ),
           ),
@@ -723,9 +760,11 @@ class _CandidateRow extends StatelessWidget {
                   duration: const Duration(milliseconds: 560),
                   trigger: GmTrigger.mount,
                   builder: (_, t, c) {
-                    final sx = gmKeyframes(t, const [(0, 0.6), (0.4, 1.18), (0.7, 0.94), (1, 1)],
+                    final sx = gmKeyframes(
+                        t, const [(0, 0.6), (0.4, 1.18), (0.7, 0.94), (1, 1)],
                         curve: GmMotion.spring);
-                    final sy = gmKeyframes(t, const [(0, 0.6), (0.4, 0.86), (0.7, 1.06), (1, 1)],
+                    final sy = gmKeyframes(
+                        t, const [(0, 0.6), (0.4, 0.86), (0.7, 1.06), (1, 1)],
                         curve: GmMotion.spring);
                     return Transform(
                       alignment: Alignment.center,
@@ -741,7 +780,7 @@ class _CandidateRow extends StatelessWidget {
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                            color: Color(0x80005A8C),
+                            color: PremiosColors.progressShadow,
                             offset: Offset(0, 3),
                             blurRadius: 8,
                             spreadRadius: -2),
@@ -769,6 +808,7 @@ class _CandidateRow extends StatelessWidget {
       checked: selected,
       button: true,
       label: candidate.name,
+      onTap: onTap,
       excludeSemantics: true,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,

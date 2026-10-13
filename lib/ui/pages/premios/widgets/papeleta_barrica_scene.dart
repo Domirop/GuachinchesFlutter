@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:guachinches/ui/pages/advance_search/widgets/looping_scene.dart';
 import 'package:guachinches/ui/theme/gm_motion.dart';
 import 'package:guachinches/ui/theme/gm_tokens.dart';
+import 'package:guachinches/ui/theme/gm_widgets.dart' show GmGinghamPainter;
 
 /// «F · La papeleta a la barrica» (tablero EncuestaEntrada): la cabecera de
 /// 370 de la encuesta. Banda vino, mesa de madera con mantel de cuadros en
@@ -132,25 +133,8 @@ Path _clothPath() => Path()
   ..quadraticBezierTo(80, 372, -30, 372)
   ..close();
 
-/// Mantel de cuadros (vichy de 16 desplazado 9 px, como el `pattern` del
-/// tablero) dentro de [clip].
-void paintPremiosGingham(Canvas canvas, Path clip, Rect bounds,
-    {double cell = 16, double shift = 9, Color? red}) {
-  canvas.save();
-  canvas.clipPath(clip);
-  canvas.drawRect(bounds, Paint()..color = const Color(0xFFFFF7EC));
-  final p = Paint()..color = red ?? const Color(0x8CC8202C); // .55
-  final half = cell / 2;
-  for (double x = shift - cell * 4; x < bounds.right; x += cell) {
-    if (x + half < bounds.left) continue;
-    canvas.drawRect(Rect.fromLTWH(x, bounds.top, half, bounds.height), p);
-  }
-  for (double y = 0; y < bounds.bottom; y += cell) {
-    if (y + half < bounds.top) continue;
-    canvas.drawRect(Rect.fromLTWH(bounds.left, y, bounds.width, half), p);
-  }
-  canvas.restore();
-}
+/// Rojo del mantel de la escena (rgba(200,32,44,.55)).
+const Color kPremiosClothRed = Color(0x8CC8202C);
 
 // ── Capa quieta ────────────────────────────────────────────────────────────
 
@@ -173,8 +157,7 @@ class PremiosTablePainter extends CustomPainter {
     canvas.save();
     canvas.scale(scale);
     final band = colors.band;
-    canvas.drawRect(
-        const Rect.fromLTWH(0, 0, 402, 370), Paint()..color = band);
+    canvas.drawRect(const Rect.fromLTWH(0, 0, 402, 370), Paint()..color = band);
     canvas.drawRect(const Rect.fromLTWH(0, 200, 402, 170),
         Paint()..color = const Color(0xFF6B3F24));
     canvas.drawPath(
@@ -188,7 +171,12 @@ class PremiosTablePainter extends CustomPainter {
         ..color = const Color(0x2E000000),
     );
     final cloth = _clothPath();
-    paintPremiosGingham(canvas, cloth, const Rect.fromLTRB(-30, 204, 432, 376));
+    // Vichy de 16 desplazado 9 px, como el `pattern` del tablero.
+    GmGinghamPainter.paintCells(canvas, const Rect.fromLTRB(-30, 204, 432, 376),
+        cell: 8,
+        stripe: kPremiosClothRed,
+        phase: const Offset(9, 0),
+        clip: cloth);
     canvas.drawPath(
       cloth,
       Paint()
@@ -370,6 +358,7 @@ class _Barrel {
         canvas,
         Offset(-tp.width / 2,
             6 - tp.computeDistanceToActualBaseline(TextBaseline.alphabetic)));
+    tp.dispose();
     canvas.restore();
 
     // Tapa con el hueco.
@@ -434,8 +423,7 @@ void paintPremiosMedal(Canvas canvas, Offset center) {
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.4
         ..color = const Color(0xFF8A6A2E));
-  canvas.drawPath(
-      premiosStarPath(Offset(center.dx, center.dy - 5.2), 1),
+  canvas.drawPath(premiosStarPath(Offset(center.dx, center.dy - 5.2), 1),
       Paint()..color = GmColors.creamHi);
 }
 
@@ -622,14 +610,45 @@ class PapeletaActionPainter extends CustomPainter {
 
     // Papeleta: arco, pliegue, anticipación y caída por el hueco.
     if (t >= _kRollEnd && q < 33.05) {
-      final tx = _k(q, const [(0, 124), (15, 124), (18.8, 52), (22.4, 0), (100, 0)], _kStd);
-      final ty = _k(q, const [(0, -34), (15, -34), (18.8, -50), (22.4, 0), (100, 0)], _kStd);
-      final rot = _k(q, const [(0, 28), (15, 28), (18.8, 12), (22.4, -7), (24, 3), (25.4, 0), (100, 0)], _kStd);
-      final fold = _k(q, const [(0, 1), (25.6, 1), (27.4, 0.5), (28.2, 0.57), (29, 0.52), (100, 0.52)], GmMotion.spring);
-      final crease = _k(q, const [(0, 0), (26.4, 0), (27.4, 1), (100, 1)], Curves.linear);
-      final dy = _k(q, const [(0, 0), (28.6, 0), (29.8, -8), (31.6, 64), (100, 64)], _kDrop);
-      final dsx = _k(q, const [(0, 1), (28.6, 1), (29.8, 1.1), (31.6, 0.74), (100, 0.74)], _kDrop);
-      final dsy = _k(q, const [(0, 1), (28.6, 1), (29.8, 0.88), (31.6, 1.22), (100, 1.22)], _kDrop);
+      final tx = _k(q,
+          const [(0, 124), (15, 124), (18.8, 52), (22.4, 0), (100, 0)], _kStd);
+      final ty = _k(q,
+          const [(0, -34), (15, -34), (18.8, -50), (22.4, 0), (100, 0)], _kStd);
+      final rot = _k(
+          q,
+          const [
+            (0, 28),
+            (15, 28),
+            (18.8, 12),
+            (22.4, -7),
+            (24, 3),
+            (25.4, 0),
+            (100, 0)
+          ],
+          _kStd);
+      final fold = _k(
+          q,
+          const [
+            (0, 1),
+            (25.6, 1),
+            (27.4, 0.5),
+            (28.2, 0.57),
+            (29, 0.52),
+            (100, 0.52)
+          ],
+          GmMotion.spring);
+      final crease =
+          _k(q, const [(0, 0), (26.4, 0), (27.4, 1), (100, 1)], Curves.linear);
+      final dy = _k(q,
+          const [(0, 0), (28.6, 0), (29.8, -8), (31.6, 64), (100, 64)], _kDrop);
+      final dsx = _k(
+          q,
+          const [(0, 1), (28.6, 1), (29.8, 1.1), (31.6, 0.74), (100, 0.74)],
+          _kDrop);
+      final dsy = _k(
+          q,
+          const [(0, 1), (28.6, 1), (29.8, 0.88), (31.6, 1.22), (100, 1.22)],
+          _kDrop);
       canvas.save();
       canvas.clipRect(const Rect.fromLTWH(0, 0, 402, _clipY));
       canvas.translate(_papCenter.dx + tx, _papCenter.dy + ty);
@@ -653,21 +672,59 @@ class PapeletaActionPainter extends CustomPainter {
     }
     final inLoop = t >= _kRollEnd;
     final sx = inLoop
-        ? _k(q, const [(0, 1), (31.2, 1), (32.3, 1.12), (33.7, 0.95), (35.1, 1.03), (36.6, 1), (100, 1)], GmMotion.spring)
+        ? _k(
+            q,
+            const [
+              (0, 1),
+              (31.2, 1),
+              (32.3, 1.12),
+              (33.7, 0.95),
+              (35.1, 1.03),
+              (36.6, 1),
+              (100, 1)
+            ],
+            GmMotion.spring)
         : 1.0;
     final sy = inLoop
-        ? _k(q, const [(0, 1), (31.2, 1), (32.3, 0.86), (33.7, 1.07), (35.1, 0.98), (36.6, 1), (100, 1)], GmMotion.spring)
+        ? _k(
+            q,
+            const [
+              (0, 1),
+              (31.2, 1),
+              (32.3, 0.86),
+              (33.7, 1.07),
+              (35.1, 0.98),
+              (36.6, 1),
+              (100, 1)
+            ],
+            GmMotion.spring)
         : 1.0;
     final shSx = inLoop
-        ? _k(q, const [(0, 1), (31.2, 1), (32.3, 1.16), (33.7, 0.94), (36.6, 1), (100, 1)], GmMotion.spring)
+        ? _k(
+            q,
+            const [
+              (0, 1),
+              (31.2, 1),
+              (32.3, 1.16),
+              (33.7, 0.94),
+              (36.6, 1),
+              (100, 1)
+            ],
+            GmMotion.spring)
         : 1.0;
     _paintBarrel(canvas, colors,
         rollX: rollX, rollDeg: rollDeg, sx: sx, sy: sy, shadowSx: shSx);
 
     // Chispa dorada del hueco.
     if (inLoop) {
-      final sc = _k(q, const [(0, 0.2), (31.8, 0.2), (32.9, 1), (36.6, 1.5), (100, 1.5)], Curves.easeOut);
-      final op = _k(q, const [(0, 0), (31.8, 0), (32.9, 1), (36.6, 0), (100, 0)], Curves.easeOut);
+      final sc = _k(
+          q,
+          const [(0, 0.2), (31.8, 0.2), (32.9, 1), (36.6, 1.5), (100, 1.5)],
+          Curves.easeOut);
+      final op = _k(
+          q,
+          const [(0, 0), (31.8, 0), (32.9, 1), (36.6, 0), (100, 0)],
+          Curves.easeOut);
       _paintSpark(canvas, sc, op);
     }
     canvas.restore();
@@ -713,10 +770,16 @@ class _SceneLabel extends StatelessWidget {
     double ty = 0, s = 1, rot = -6, op = 1;
     if (q != null) {
       const sp = GmMotion.spring;
-      ty = _k(q, const [(0, 10), (33.6, 10), (35.8, -4), (37.6, 0), (100, 0)], sp);
-      s = _k(q, const [(0, 0.6), (33.6, 0.6), (35.8, 1.08), (37.6, 1), (100, 1)], sp);
-      rot = _k(q, const [(0, -12), (33.6, -12), (35.8, -3), (37.6, -6), (100, -6)], sp);
-      op = _k(q, const [(0, 0), (33.6, 0), (35.8, 1), (88, 1), (91, 0), (100, 0)], sp)
+      ty = _k(
+          q, const [(0, 10), (33.6, 10), (35.8, -4), (37.6, 0), (100, 0)], sp);
+      s = _k(q,
+          const [(0, 0.6), (33.6, 0.6), (35.8, 1.08), (37.6, 1), (100, 1)], sp);
+      rot = _k(q,
+          const [(0, -12), (33.6, -12), (35.8, -3), (37.6, -6), (100, -6)], sp);
+      op = _k(
+              q,
+              const [(0, 0), (33.6, 0), (35.8, 1), (88, 1), (91, 0), (100, 0)],
+              sp)
           .clamp(0.0, 1.0);
     }
     return Stack(
@@ -850,8 +913,8 @@ class PapeletaBarricaCelebration extends StatelessWidget {
                     duration: duration,
                     trigger: GmTrigger.mount,
                     builder: (_, t, __) => CustomPaint(
-                      painter: CelebrationPainter(
-                          colors: colors, scale: s, t: t),
+                      painter:
+                          CelebrationPainter(colors: colors, scale: s, t: t),
                     ),
                   ),
                 ),
@@ -875,40 +938,74 @@ class _Conf {
 }
 
 const _kConfetti = [
-  _Conf(Color(0xFFC9A96B), 5, 12, -97.1, -12.6, -116.7, 81.7, -266.5, 20.8, 0.280, 2.176, true),
-  _Conf(Color(0xFFFFF6E6), 5, 12, 49.0, 28.4, -99.5, 56.7, -414.4, 74.4, 0.298, 2.092, true),
-  _Conf(Color(0xFFB23A4C), 6, 11, -83.1, -22.2, -113.6, 54.5, -212.8, 15.9, 0.316, 2.167, true),
-  _Conf(Color(0xFFF2CF7E), 7, 10, 56.4, 43.9, -128.3, 59.9, 379.9, -6.8, 0.334, 1.867, true),
-  _Conf(Color(0xFFF2E8D5), 8, 8, -50.2, -2.1, -104.6, 79.2, 472.9, -75.2, 0.352, 2.038, true),
-  _Conf(Color(0xFF7A1E2C), 7, 10, 49.5, 17.8, -136.7, 62.7, -505.0, -45.8, 0.370, 2.256, true),
-  _Conf(Color(0xFFC9A96B), 8, 8, -131.5, -17.0, -119.0, 75.3, -480.3, -26.1, 0.388, 1.887, true),
-  _Conf(Color(0xFFFFF6E6), 5, 12, 46.5, 34.1, -133.3, 81.7, -203.9, 47.5, 0.406, 1.807, true),
-  _Conf(Color(0xFFB23A4C), 5, 12, -87.9, -15.3, -103.4, 59.7, -350.9, -61.4, 0.424, 1.952, true),
-  _Conf(Color(0xFFF2CF7E), 7, 10, 52.8, 26.6, -99.8, 83.1, 559.2, -46.3, 0.442, 1.937, true),
-  _Conf(Color(0xFFF2E8D5), 7, 10, -62.5, -10.6, -90.5, 57.0, -359.0, 43.6, 0.460, 1.897, false),
-  _Conf(Color(0xFF7A1E2C), 8, 8, 55.5, 16.0, -110.9, 56.7, -205.6, -20.5, 0.478, 1.972, false),
-  _Conf(Color(0xFFC9A96B), 8, 8, -53.5, -14.4, -96.7, 71.2, -425.8, 65.3, 0.496, 2.191, false),
-  _Conf(Color(0xFFFFF6E6), 5, 12, 54.0, 22.2, -93.0, 76.2, -447.3, 61.2, 0.514, 2.062, false),
-  _Conf(Color(0xFFB23A4C), 5, 12, -99.8, -23.5, -91.9, 55.2, -466.3, -38.9, 0.532, 2.194, false),
-  _Conf(Color(0xFFF2CF7E), 5, 12, 65.1, 27.8, -104.0, 59.3, -245.5, 9.5, 0.550, 2.211, false),
-  _Conf(Color(0xFFF2E8D5), 5, 12, -83.2, -19.3, -129.8, 81.5, -224.9, -8.7, 0.568, 1.736, false),
-  _Conf(Color(0xFF7A1E2C), 5, 12, 51.6, 31.9, -133.4, 71.2, 249.8, 76.9, 0.586, 2.094, false),
-  _Conf(Color(0xFFC9A96B), 8, 8, -76.6, -12.0, -138.2, 58.2, -370.9, 32.2, 0.604, 2.278, false),
-  _Conf(Color(0xFFFFF6E6), 7, 10, 46.7, 46.4, -103.5, 68.5, 249.2, -68.0, 0.622, 2.028, false),
-  _Conf(Color(0xFFB23A4C), 5, 12, -72.6, -4.4, -104.8, 76.1, 326.7, 64.1, 0.640, 2.223, false),
-  _Conf(Color(0xFFF2CF7E), 7, 10, 59.3, 54.7, -111.4, 79.9, 336.5, 17.4, 0.658, 1.748, false),
-  _Conf(Color(0xFFF2E8D5), 5, 12, -81.0, -2.2, -103.6, 80.4, 536.3, -9.5, 0.676, 2.203, false),
-  _Conf(Color(0xFF7A1E2C), 7, 10, 48.7, 52.5, -109.9, 54.9, 208.0, -0.4, 0.694, 2.069, false),
-  _Conf(Color(0xFFC9A96B), 8, 8, -56.8, -19.9, -124.9, 54.3, -386.6, 25.6, 0.712, 1.965, false),
-  _Conf(Color(0xFFFFF6E6), 6, 11, 74.5, 29.7, -130.1, 74.0, 489.3, 60.8, 0.730, 1.931, false),
-  _Conf(Color(0xFFB23A4C), 8, 8, -85.9, -18.4, -115.2, 58.1, -456.0, 51.5, 0.748, 1.768, false),
-  _Conf(Color(0xFFF2CF7E), 5, 12, 61.1, 62.0, -120.9, 78.9, 442.0, -28.7, 0.766, 2.197, false),
-  _Conf(Color(0xFFF2E8D5), 7, 10, -112.1, -11.4, -125.9, 74.3, 311.3, 22.6, 0.784, 1.943, false),
-  _Conf(Color(0xFF7A1E2C), 7, 10, 52.1, 53.5, -101.0, 62.0, -554.2, -8.6, 0.802, 2.078, false),
-  _Conf(Color(0xFFC9A96B), 8, 8, -79.7, -6.6, -105.8, 82.8, -496.6, -51.4, 0.820, 1.706, false),
-  _Conf(Color(0xFFFFF6E6), 6, 11, 61.1, 50.6, -126.4, 59.4, 394.3, -17.0, 0.838, 2.175, false),
-  _Conf(Color(0xFFB23A4C), 6, 11, -58.1, -23.9, -103.9, 82.0, -362.2, 20.1, 0.856, 2.246, false),
-  _Conf(Color(0xFFF2CF7E), 6, 11, 58.1, 42.7, -100.2, 80.4, 366.9, -64.2, 0.874, 2.220, false),
+  _Conf(Color(0xFFC9A96B), 5, 12, -97.1, -12.6, -116.7, 81.7, -266.5, 20.8,
+      0.280, 2.176, true),
+  _Conf(Color(0xFFFFF6E6), 5, 12, 49.0, 28.4, -99.5, 56.7, -414.4, 74.4, 0.298,
+      2.092, true),
+  _Conf(Color(0xFFB23A4C), 6, 11, -83.1, -22.2, -113.6, 54.5, -212.8, 15.9,
+      0.316, 2.167, true),
+  _Conf(Color(0xFFF2CF7E), 7, 10, 56.4, 43.9, -128.3, 59.9, 379.9, -6.8, 0.334,
+      1.867, true),
+  _Conf(Color(0xFFF2E8D5), 8, 8, -50.2, -2.1, -104.6, 79.2, 472.9, -75.2, 0.352,
+      2.038, true),
+  _Conf(Color(0xFF7A1E2C), 7, 10, 49.5, 17.8, -136.7, 62.7, -505.0, -45.8,
+      0.370, 2.256, true),
+  _Conf(Color(0xFFC9A96B), 8, 8, -131.5, -17.0, -119.0, 75.3, -480.3, -26.1,
+      0.388, 1.887, true),
+  _Conf(Color(0xFFFFF6E6), 5, 12, 46.5, 34.1, -133.3, 81.7, -203.9, 47.5, 0.406,
+      1.807, true),
+  _Conf(Color(0xFFB23A4C), 5, 12, -87.9, -15.3, -103.4, 59.7, -350.9, -61.4,
+      0.424, 1.952, true),
+  _Conf(Color(0xFFF2CF7E), 7, 10, 52.8, 26.6, -99.8, 83.1, 559.2, -46.3, 0.442,
+      1.937, true),
+  _Conf(Color(0xFFF2E8D5), 7, 10, -62.5, -10.6, -90.5, 57.0, -359.0, 43.6,
+      0.460, 1.897, false),
+  _Conf(Color(0xFF7A1E2C), 8, 8, 55.5, 16.0, -110.9, 56.7, -205.6, -20.5, 0.478,
+      1.972, false),
+  _Conf(Color(0xFFC9A96B), 8, 8, -53.5, -14.4, -96.7, 71.2, -425.8, 65.3, 0.496,
+      2.191, false),
+  _Conf(Color(0xFFFFF6E6), 5, 12, 54.0, 22.2, -93.0, 76.2, -447.3, 61.2, 0.514,
+      2.062, false),
+  _Conf(Color(0xFFB23A4C), 5, 12, -99.8, -23.5, -91.9, 55.2, -466.3, -38.9,
+      0.532, 2.194, false),
+  _Conf(Color(0xFFF2CF7E), 5, 12, 65.1, 27.8, -104.0, 59.3, -245.5, 9.5, 0.550,
+      2.211, false),
+  _Conf(Color(0xFFF2E8D5), 5, 12, -83.2, -19.3, -129.8, 81.5, -224.9, -8.7,
+      0.568, 1.736, false),
+  _Conf(Color(0xFF7A1E2C), 5, 12, 51.6, 31.9, -133.4, 71.2, 249.8, 76.9, 0.586,
+      2.094, false),
+  _Conf(Color(0xFFC9A96B), 8, 8, -76.6, -12.0, -138.2, 58.2, -370.9, 32.2,
+      0.604, 2.278, false),
+  _Conf(Color(0xFFFFF6E6), 7, 10, 46.7, 46.4, -103.5, 68.5, 249.2, -68.0, 0.622,
+      2.028, false),
+  _Conf(Color(0xFFB23A4C), 5, 12, -72.6, -4.4, -104.8, 76.1, 326.7, 64.1, 0.640,
+      2.223, false),
+  _Conf(Color(0xFFF2CF7E), 7, 10, 59.3, 54.7, -111.4, 79.9, 336.5, 17.4, 0.658,
+      1.748, false),
+  _Conf(Color(0xFFF2E8D5), 5, 12, -81.0, -2.2, -103.6, 80.4, 536.3, -9.5, 0.676,
+      2.203, false),
+  _Conf(Color(0xFF7A1E2C), 7, 10, 48.7, 52.5, -109.9, 54.9, 208.0, -0.4, 0.694,
+      2.069, false),
+  _Conf(Color(0xFFC9A96B), 8, 8, -56.8, -19.9, -124.9, 54.3, -386.6, 25.6,
+      0.712, 1.965, false),
+  _Conf(Color(0xFFFFF6E6), 6, 11, 74.5, 29.7, -130.1, 74.0, 489.3, 60.8, 0.730,
+      1.931, false),
+  _Conf(Color(0xFFB23A4C), 8, 8, -85.9, -18.4, -115.2, 58.1, -456.0, 51.5,
+      0.748, 1.768, false),
+  _Conf(Color(0xFFF2CF7E), 5, 12, 61.1, 62.0, -120.9, 78.9, 442.0, -28.7, 0.766,
+      2.197, false),
+  _Conf(Color(0xFFF2E8D5), 7, 10, -112.1, -11.4, -125.9, 74.3, 311.3, 22.6,
+      0.784, 1.943, false),
+  _Conf(Color(0xFF7A1E2C), 7, 10, 52.1, 53.5, -101.0, 62.0, -554.2, -8.6, 0.802,
+      2.078, false),
+  _Conf(Color(0xFFC9A96B), 8, 8, -79.7, -6.6, -105.8, 82.8, -496.6, -51.4,
+      0.820, 1.706, false),
+  _Conf(Color(0xFFFFF6E6), 6, 11, 61.1, 50.6, -126.4, 59.4, 394.3, -17.0, 0.838,
+      2.175, false),
+  _Conf(Color(0xFFB23A4C), 6, 11, -58.1, -23.9, -103.9, 82.0, -362.2, 20.1,
+      0.856, 2.246, false),
+  _Conf(Color(0xFFF2CF7E), 6, 11, 58.1, 42.7, -100.2, 80.4, 366.9, -64.2, 0.874,
+      2.220, false),
 ];
 
 /// Número de papelitos que se quedan posados (fotograma final).
@@ -934,10 +1031,19 @@ class CelebrationPainter extends CustomPainter {
     canvas.scale(scale);
 
     final bp = ((sec - 0.12) / 0.7).clamp(0.0, 1.0) * 100;
-    final sx = _k(bp, const [(0, 1), (22, 1.1), (48, 0.94), (72, 1.03), (100, 1)], GmMotion.spring);
-    final sy = _k(bp, const [(0, 1), (22, 0.86), (48, 1.08), (72, 0.98), (100, 1)], GmMotion.spring);
+    final sx = _k(
+        bp,
+        const [(0, 1), (22, 1.1), (48, 0.94), (72, 1.03), (100, 1)],
+        GmMotion.spring);
+    final sy = _k(
+        bp,
+        const [(0, 1), (22, 0.86), (48, 1.08), (72, 0.98), (100, 1)],
+        GmMotion.spring);
     final mp = ((sec - 0.2) / 1.4).clamp(0.0, 1.0) * 100;
-    final medal = _k(mp, const [(0, 0), (25, 20), (50, -13), (72, 6), (88, -2), (100, 0)], Curves.easeInOut);
+    final medal = _k(
+        mp,
+        const [(0, 0), (25, 20), (50, -13), (72, 6), (88, -2), (100, 0)],
+        Curves.easeInOut);
     _paintBarrel(canvas, colors, sx: sx, sy: sy, medalDeg: medal);
 
     canvas.save();
@@ -952,13 +1058,15 @@ class CelebrationPainter extends CustomPainter {
       final s = _k(k, const [(0, 0.4), (34, 1), (100, 1)], _confCurve);
       final op = p.stay
           ? 1.0
-          : _k(k, const [(0, 1), (80, 1), (100, 0)], _confCurve).clamp(0.0, 1.0);
+          : _k(k, const [(0, 1), (80, 1), (100, 0)], _confCurve)
+              .clamp(0.0, 1.0);
       if (op <= 0.01) continue;
       // Revoloteo: 5 vueltas de 0,42 s (scaleX 1 → −0,2 → −1 → 0,3 → 1).
       final fl = (sec - p.delay) / 0.42;
       final flut = fl >= 5
           ? 1.0
-          : gmKeyframes(fl % 1, const [(0, 1), (0.25, -0.2), (0.5, -1), (0.75, 0.3), (1, 1)],
+          : gmKeyframes(fl % 1,
+              const [(0, 1), (0.25, -0.2), (0.5, -1), (0.75, 0.3), (1, 1)],
               curve: Curves.linear);
       canvas.save();
       canvas.translate(x, y);
@@ -1038,12 +1146,16 @@ class _MiniBarrelPainter extends CustomPainter {
     final mq = t * 100;
     canvas.save();
     canvas.scale(scale);
-    canvas.translate(-PremiosMiniBarrel._view.left, -PremiosMiniBarrel._view.top);
+    canvas.translate(
+        -PremiosMiniBarrel._view.left, -PremiosMiniBarrel._view.top);
 
-    final ty = _k(q, const [(0, -34), (45, -6), (62, -12), (82, 34), (100, 30)], _kStd);
+    final ty = _k(
+        q, const [(0, -34), (45, -6), (62, -12), (82, 34), (100, 30)], _kStd);
     final rot = _k(q, const [(0, -10), (45, 4), (62, 0), (100, 0)], _kStd);
-    final psx = _k(q, const [(0, 1), (45, 1), (62, 1.06), (82, 0.8), (100, 1)], _kStd);
-    final psy = _k(q, const [(0, 1), (45, 0.9), (62, 0.92), (82, 1.16), (100, 1)], _kStd);
+    final psx =
+        _k(q, const [(0, 1), (45, 1), (62, 1.06), (82, 0.8), (100, 1)], _kStd);
+    final psy = _k(
+        q, const [(0, 1), (45, 0.9), (62, 0.92), (82, 1.16), (100, 1)], _kStd);
     canvas.save();
     canvas.clipRect(const Rect.fromLTWH(0, 0, 402, _clipY));
     canvas.translate(_papCenter.dx, _papCenter.dy + ty);
@@ -1053,9 +1165,12 @@ class _MiniBarrelPainter extends CustomPainter {
     _paintPapeleta(canvas, 0);
     canvas.restore();
 
-    final sx = _k(q, const [(0, 1), (78, 1), (86, 1.1), (94, 0.96), (100, 1)], GmMotion.spring);
-    final sy = _k(q, const [(0, 1), (78, 1), (86, 0.88), (94, 1.05), (100, 1)], GmMotion.spring);
-    final medal = _k(mq, const [(0, 0), (82, 0), (88, 16), (94, -9), (100, 0)], Curves.easeInOut);
+    final sx = _k(q, const [(0, 1), (78, 1), (86, 1.1), (94, 0.96), (100, 1)],
+        GmMotion.spring);
+    final sy = _k(q, const [(0, 1), (78, 1), (86, 0.88), (94, 1.05), (100, 1)],
+        GmMotion.spring);
+    final medal = _k(mq, const [(0, 0), (82, 0), (88, 16), (94, -9), (100, 0)],
+        Curves.easeInOut);
     _paintBarrel(canvas, colors, sx: sx, sy: sy, medalDeg: medal);
 
     if (q > 80 && q < 100) {

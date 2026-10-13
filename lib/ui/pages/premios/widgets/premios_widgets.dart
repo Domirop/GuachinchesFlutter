@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:cached_network_image/cached_network_image.dart';
@@ -55,6 +56,49 @@ class PremiosColors {
 
   /// Azul del progreso y del check (#0085C4).
   static const progress = Color(0xFF0085C4);
+
+  /// Sombra del check elegido.
+  static const progressShadow = Color(0x80005A8C);
+
+  // Crema sobre vino (tarjeta del Inicio, cuenta atrás).
+  static const creamInk = Color(0xFFF2E8D5);
+  static const cream82 = Color(0xD1F2E8D5);
+  static const creamDim = Color(0x80F2E8D5);
+  static const creamLine = Color(0x24F2E8D5);
+  static const creamFill = Color(0x1FF2E8D5);
+  static const creamEdge = Color(0x38F2E8D5);
+
+  /// Cristal crema sobre la banda vino (X, «Ranking»).
+  static const wineGlass = Color(0x24FFF6E6);
+  static const wineGlassEdge = Color(0x38FFF6E6);
+
+  /// Casilla de la cuenta atrás.
+  static const digitFill = Color(0x1AFFF6E6);
+  static const digitEdge = Color(0x4DC9A96B);
+
+  /// Sombras vino (tarjetas y bloques del podio).
+  static const wineShadow = Color(0xB32A0E14);
+  static const wineShadowSoft = Color(0x732A0E14);
+
+  /// Brillos de la tarjeta del Inicio.
+  static const goldGlow = Color(0x38C9A96B);
+  static const wineGlow = Color(0x8C781E2D);
+
+  /// Velo de la hoja y su sombra.
+  static const sheetBarrier = Color(0x6B0A0604);
+  static const sheetShadow = Color(0x2E000000);
+
+  // Manteles: rojo y oro de las franjas, filo del glifo moderno.
+  static const stripRed = Color(0x80C8202C);
+  static const stripGold = Color(0x9EC9A96B);
+  static const mantelEdge = Color(0x667A5A20);
+  static const stripShade = Color(0x1F280A0E);
+
+  // Avisos de Revisar: filos ámbar y rojo, relleno rojo suave.
+  static const warnEdge = Color(0x47D69614);
+  static const closedEdge = Color(0x38C0352B);
+  static Color closedSoft(GmColors gm) =>
+      gm.isDark ? const Color(0x24FF6B5E) : const Color(0x1AC0352B);
 }
 
 // ── Glifos ─────────────────────────────────────────────────────────────────
@@ -94,7 +138,7 @@ class PremiosMantel extends StatelessWidget {
       height: size,
       foregroundDecoration: BoxDecoration(
         borderRadius: BorderRadius.circular(r),
-        border: Border.all(color: const Color(0x4D7A5A20)),
+        border: Border.all(color: PremiosColors.mantelEdge),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(r),
@@ -280,27 +324,21 @@ void _paintCopa(Canvas canvas) {
   canvas.drawLine(const Offset(8.5, 21), const Offset(15.5, 21), s);
 }
 
-/// Mantel de cuadros oro en [s] × [s].
+/// Mantel de cuadros oro en [s] × [s] (glifo de «Guachinches modernos»).
 void _paintMantel(Canvas canvas, double s) {
-  final q = s / 4;
   final r = RRect.fromRectAndRadius(
       Rect.fromLTWH(0, 0, s, s), Radius.circular(s / 4.4));
-  canvas.drawRRect(r, Paint()..color = GmColors.creamHi);
-  canvas.save();
-  canvas.clipRRect(r);
-  final a = Paint()..color = const Color(0xB3C9A96B);
-  final b = Paint()..color = const Color(0x9EC9A96B);
-  canvas.drawRect(Rect.fromLTWH(0, 0, q, s), a);
-  canvas.drawRect(Rect.fromLTWH(2 * q, 0, q, s), a);
-  canvas.drawRect(Rect.fromLTWH(0, 0, s, q), b);
-  canvas.drawRect(Rect.fromLTWH(0, 2 * q, s, q), b);
-  canvas.restore();
+  GmGinghamPainter.paintCells(canvas, Offset.zero & Size(s, s),
+      cell: s / 4,
+      base: GmGinghamPainter.goldBase,
+      stripe: PremiosColors.stripGold,
+      clip: Path()..addRRect(r));
   canvas.drawRRect(
       r,
       Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1
-        ..color = const Color(0x667A5A20));
+        ..color = PremiosColors.mantelEdge);
 }
 
 /// Medalla de 44 de cada fila de la papeleta (disco de oro con el glifo).
@@ -394,6 +432,7 @@ class PremiosWineGlassButton extends StatelessWidget {
       identifier: identifier,
       button: true,
       label: semanticLabel,
+      onTap: onTap,
       excludeSemantics: true,
       child: GmPressable(
         onTap: onTap,
@@ -403,8 +442,8 @@ class PremiosWineGlassButton extends StatelessWidget {
           width: round ? 44 : null,
           child: GmGlass(
             borderRadius: BorderRadius.circular(22),
-            tint: const Color(0x24FFF6E6),
-            edge: const Color(0x38FFF6E6),
+            tint: PremiosColors.wineGlass,
+            edge: PremiosColors.wineGlassEdge,
             blur: 24,
             child: round
                 ? Center(
@@ -620,11 +659,9 @@ class PremiosAlertCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final gm = GmColors.of(context);
     final warn = copy.tone == PremiosTone.warn;
-    final soft = warn
-        ? gm.warnSoft
-        : (gm.isDark ? const Color(0x24FF6B5E) : const Color(0x1AC0352B));
+    final soft = warn ? gm.warnSoft : PremiosColors.closedSoft(gm);
     final ink = warn ? gm.warnText : gm.closedText;
-    final edge = warn ? const Color(0x47D69614) : const Color(0x38C0352B);
+    final edge = warn ? PremiosColors.warnEdge : PremiosColors.closedEdge;
     final card = Container(
       decoration: BoxDecoration(
         color: gm.card,
@@ -853,6 +890,8 @@ class _EdgePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    // Solo el cuerpo: la cabecera vino no lleva filo.
+    canvas.clipRect(Rect.fromLTRB(0, 46, size.width, size.height));
     canvas.drawPath(
         PapeletaClipper.pathFor(size),
         Paint()
@@ -1009,7 +1048,24 @@ class SelloVotado extends StatefulWidget {
 }
 
 class _SelloVotadoState extends State<SelloVotado> {
-  bool _buzzed = false;
+  static const _delay = Duration(milliseconds: 1050);
+  static const _dur = Duration(milliseconds: 620);
+  Timer? _buzz;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Háptica ligera cuando el sello se posa (55 % de la caída).
+    if (_buzz == null && !GmMotion.reduced(context)) {
+      _buzz = Timer(_delay + _dur * 0.55, premiosLightHaptic);
+    }
+  }
+
+  @override
+  void dispose() {
+    _buzz?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1029,39 +1085,40 @@ class _SelloVotadoState extends State<SelloVotado> {
           border: Border.all(color: ink, width: 1.5),
         ),
         alignment: Alignment.center,
+        padding: const EdgeInsets.all(7),
         child: MediaQuery.withNoTextScaling(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text('Votado',
-                  style: TextStyle(
-                      fontSize: 16,
-                      height: 18 / 16,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 0.4,
-                      color: ink)),
-              Text('2026',
-                  style: TextStyle(
-                      fontSize: 12,
-                      height: 15 / 12,
-                      fontWeight: FontWeight.w700,
-                      color: ink)),
-            ],
+          // Nunca se sale del aro.
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('Votado',
+                    style: TextStyle(
+                        fontSize: 15,
+                        height: 18 / 15,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0,
+                        color: ink)),
+                Text('2026',
+                    style: TextStyle(
+                        fontSize: 12,
+                        height: 15 / 12,
+                        fontWeight: FontWeight.w700,
+                        color: ink)),
+              ],
+            ),
           ),
         ),
       ),
     );
     return ExcludeSemantics(
       child: GmOnce(
-        duration: const Duration(milliseconds: 620),
-        delay: const Duration(milliseconds: 1050),
+        duration: _dur,
+        delay: _delay,
         trigger: GmTrigger.mount,
         child: stamp,
         builder: (_, t, c) {
-          if (t >= 0.55 && !_buzzed && !GmMotion.reduced(context)) {
-            _buzzed = true;
-            premiosLightHaptic();
-          }
           const sp = GmMotion.spring;
           final rot = gmKeyframes(
               t, const [(0, -24), (0.55, -12), (0.75, -15), (1, -14)],
@@ -1110,10 +1167,7 @@ class PremiosAvatar extends StatelessWidget {
       ),
       alignment: Alignment.center,
       child: PremiosCategoryGlyph(category,
-          size: category == PremiosCategory.tradicional
-              ? size * 0.46
-              : size * 0.46,
-          ink: PremiosColors.catInk(category, gm)),
+          size: size * 0.46, ink: PremiosColors.catInk(category, gm)),
     );
     final url = photoUrl;
     if (url == null || url.isEmpty) return fallback;
