@@ -8,7 +8,7 @@ import 'package:guachinches/ui/pages/premios/widgets/papeleta_barrica_scene.dart
 
 import 'premios_fakes.dart';
 
-final _open = DateTime(2026, 3, 8, 10);
+final _open = DateTime.utc(2026, 3, 8, 10);
 
 /// Bombea sin esperar a que se asiente (las nubes del borde van en bucle).
 Future<void> _settle(WidgetTester t) async {
@@ -20,7 +20,9 @@ Future<void> _settle(WidgetTester t) async {
 PremiosCandidate _c(String v, String n) => PremiosCandidate(value: v, name: n);
 
 void main() {
-  setUp(() {});
+  setUp(() => PremiosEditionStore.instance
+      .loadFromRemoteConfig(DateTime.utc(2026, 3, 20, 23, 59)));
+  tearDown(() => PremiosEditionStore.instance.reset());
 
   testWidgets('ranking: empates 7·6·6·5 → podio 1, 2, 2 y lista desde el 4',
       (t) async {
@@ -40,8 +42,8 @@ void main() {
         entry('Guachinche El Fogón', 3, 3),
       ],
     ));
-    await t.pumpWidget(app(PremiosRankingPage(
-        controller: ranking, clock: () => _open)));
+    await t.pumpWidget(
+        app(PremiosRankingPage(controller: ranking, clock: () => _open)));
     await _settle(t);
 
     final podium = find.byType(PodioPremios);
@@ -56,9 +58,14 @@ void main() {
     expect(find.text('6 votos · empate'), findsNWidgets(2));
     expect(find.text('(Guachinche El Churrasco)'), findsOneWidget);
     // Fila del 4.º, marcada como mi voto.
-    expect(find.bySemanticsLabel(RegExp(r'^4\.º, Guachinche Casa Pepe, 5 votos, tu voto')),
+    expect(
+        find.bySemanticsLabel(
+            RegExp(r'^4\.º, Guachinche Casa Pepe, 5 votos, tu voto')),
         findsOneWidget);
-    expect(find.text('24 votos · 4 guachinches con algún voto'), findsOneWidget);
+    expect(
+        find.text('24 votos · 4 guachinches con algún voto'), findsOneWidget);
+    expect(find.text('El resto'), findsOneWidget);
+    expect(find.text('12'), findsOneWidget); // cuenta atrás en días
 
     // Modernos: 4·4·3 → 1, 1, 3.
     await t.tap(find.bySemanticsIdentifier('premios-ranking-tab-moderno'));
@@ -71,7 +78,8 @@ void main() {
   testWidgets('votar: el buscador ignora tildes y mayúsculas', (t) async {
     phone(t);
     addTearDown(t.view.reset);
-    final flow = FakeFlow(PremiosFlowState(load: PremiosLoad.ready, candidates: {
+    final flow =
+        FakeFlow(PremiosFlowState(load: PremiosLoad.ready, candidates: {
       PremiosCategory.tradicional: [
         _c('1', 'Guachinche Casa José (El Tejadito)'),
         _c('2', 'Bodega Zacatín'),
@@ -81,7 +89,8 @@ void main() {
     }));
     await t.pumpWidget(app(PremiosVotePage(controller: flow), reduce: true));
     await _settle(t);
-    expect(find.text('3 candidatos · elige uno o sáltate la categoría'), findsOneWidget);
+    expect(find.text('3 candidatos · elige uno o sáltate la categoría'),
+        findsOneWidget);
 
     await t.enterText(find.byType(TextField), 'JOSE');
     await _settle(t);
@@ -114,7 +123,8 @@ void main() {
       phone(t);
       addTearDown(t.view.reset);
       final flow = FakeFlow(s);
-      await t.pumpWidget(app(PremiosReviewPage(controller: flow), reduce: true));
+      await t
+          .pumpWidget(app(PremiosReviewPage(controller: flow), reduce: true));
       await _settle(t);
       return flow;
     }
@@ -151,14 +161,16 @@ void main() {
     });
 
     testWidgets('sin votos: aviso y botón deshabilitado', (t) async {
-      final flow = await pump(t, const PremiosFlowState(load: PremiosLoad.ready));
+      final flow =
+          await pump(t, const PremiosFlowState(load: PremiosLoad.ready));
       expect(summary(t), 'Ningún voto | Elige al menos uno');
       expect(find.text('Te falta elegir'), findsOneWidget);
       await t.tap(find.text('Enviar votos'));
       expect(flow.submits, 0);
     });
 
-    testWidgets('409 con la fila marcada y servidor con «Reintentar»', (t) async {
+    testWidgets('409 con la fila marcada y servidor con «Reintentar»',
+        (t) async {
       final picks = {
         PremiosCategory.tradicional: _c('1', 'Guachinche Nunca Es Lejos'),
       };
@@ -172,7 +184,8 @@ void main() {
                 category: PremiosCategory.tradicional, value: '1'),
           ));
       expect(find.text('Ese ya tenía tu voto'), findsOneWidget);
-      expect(find.text('Ya votaste a este sitio desde este móvil'), findsOneWidget);
+      expect(find.text('Ya votaste a este sitio desde este móvil'),
+          findsOneWidget);
 
       flow.emit(PremiosFlowState(
           load: PremiosLoad.ready,
@@ -187,9 +200,11 @@ void main() {
           picks: picks,
           error: const PremiosError(PremiosErrorKind.deviceUnverified)));
       await _settle(t);
-      expect(find.text('No hemos podido comprobar este móvil'), findsOneWidget);
+      expect(find.text('No hemos podido comprobar este\u00A0móvil'),
+          findsOneWidget);
 
-      flow.emit(PremiosFlowState(load: PremiosLoad.ready, picks: picks, submitting: true));
+      flow.emit(PremiosFlowState(
+          load: PremiosLoad.ready, picks: picks, submitting: true));
       await t.pump();
       expect(find.text('Enviando…'), findsOneWidget);
     });
@@ -208,7 +223,8 @@ void main() {
     testWidgets('movimiento reducido: fotograma final sin reloj', (t) async {
       await t.pumpWidget(scene(reduce: true));
       await t.pump(const Duration(milliseconds: 16));
-      final s = t.state<PapeletaBarricaSceneState>(find.byType(PapeletaBarricaScene));
+      final s =
+          t.state<PapeletaBarricaSceneState>(find.byType(PapeletaBarricaScene));
       expect(s.isStatic, isTrue);
       expect(s.isTicking, isFalse);
       // La etiqueta queda visible y quieta.
@@ -222,11 +238,13 @@ void main() {
       expect(t.takeException(), isNull);
     });
 
-    testWidgets('anima, duerme en el reposo y despierta para el siguiente bucle',
+    testWidgets(
+        'anima, duerme en el reposo y despierta para el siguiente bucle',
         (t) async {
       await t.pumpWidget(scene(dark: true));
       await t.pump(const Duration(milliseconds: 16));
-      final s = t.state<PapeletaBarricaSceneState>(find.byType(PapeletaBarricaScene));
+      final s =
+          t.state<PapeletaBarricaSceneState>(find.byType(PapeletaBarricaScene));
       expect(s.isStatic, isFalse);
       expect(s.isTicking, isTrue);
       for (var i = 0; i < 50; i++) {
@@ -254,8 +272,7 @@ void main() {
     testWidgets('celebración con movimiento reducido: 10 papelitos posados',
         (t) async {
       expect(confettiRestingCount, 10);
-      await t.pumpWidget(app(
-          const Scaffold(body: PapeletaBarricaCelebration()),
+      await t.pumpWidget(app(const Scaffold(body: PapeletaBarricaCelebration()),
           reduce: true));
       await t.pump();
       final p = t.widget<CustomPaint>(find.byWidgetPredicate(

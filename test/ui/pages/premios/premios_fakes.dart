@@ -56,7 +56,8 @@ PremiosRankEntry entry(String name, int votes, int rank,
     );
 
 /// App con tema día/noche y movimiento reducido opcional.
-Widget app(Widget home, {bool dark = false, bool reduce = false}) => MaterialApp(
+Widget app(Widget home, {bool dark = false, bool reduce = false}) =>
+    MaterialApp(
       theme: ThemeData(brightness: dark ? Brightness.dark : Brightness.light),
       builder: (context, child) => MediaQuery(
         data: MediaQuery.of(context).copyWith(
