@@ -143,6 +143,12 @@ class SurveyInAppPresenter {
     }
   }
 
+  /// Negocios que este dispositivo ya ha votado, por categoría. Solo lectura:
+  /// la UI lo repite tras un 409 para marcar la fila rechazada (el contrato
+  /// nuevo devolverá la opción en el propio 409).
+  Future<Map<String, List<String>>> votedByDevice() =>
+      _repository.getVotedByDevice(1, _deviceToken);
+
   String _computeHmac(String key, String data) {
     final keyBytes = utf8.encode(key);
     final dataBytes = utf8.encode(data);
