@@ -33,6 +33,7 @@ import 'package:guachinches/ui/pages/new_home/widgets/today_grid_section.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/card_visit.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/parallax_hero.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/quiz_banner.dart';
+import 'package:guachinches/ui/pages/premios/premios_home_card.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/parallax_hero_slot.dart';
 import 'package:guachinches/ui/components/canarismo_card.dart';
 import 'package:guachinches/ui/components/location_prompt_banner.dart';
@@ -374,6 +375,12 @@ class _NewHomeBodyState extends State<NewHomeBody> {
                       onRestaurantTap: widget.onRestaurantTap,
                     ),
                   )),
+
+                // ── PREMIOS 2026 (solo durante la campaña) ──────────
+                // Tarjeta de la encuesta entre «Hoy» y el quiz, o la hoja al
+                // abrir (tablero EncuestaInicioTarjeta). Lleva su propio
+                // margen superior y no ocupa nada si la campaña está apagada.
+                const SliverToBoxAdapter(child: PremiosHomeSlot()),
 
                 // ── JUEGO: ¿CUÁNTO SABES DE CANARIAS? ───────────────
                 section(Semantics(

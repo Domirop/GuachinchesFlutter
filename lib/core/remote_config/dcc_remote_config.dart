@@ -70,6 +70,7 @@ class DccRemoteConfig {
       'show_weather_chip': true,
       'min_supported_build': 1,
       'maintenance_mode': false,
+      'show_premios': false,
     });
     try {
       await _bridge.fetchAndActivate();
@@ -82,4 +83,8 @@ class DccRemoteConfig {
   bool get showWeatherChip => _bridge.getBool('show_weather_chip');
   int get minSupportedBuild => _bridge.getInt('min_supported_build');
   bool get maintenanceMode => _bridge.getBool('maintenance_mode');
+
+  /// Campaña de la encuesta «Premios Donde Comer Canarias» en el Inicio
+  /// (tarjeta y hoja al abrir). Apagada por defecto.
+  bool get showPremios => _bridge.getBool('show_premios');
 }
