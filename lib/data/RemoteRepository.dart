@@ -6,6 +6,7 @@ import 'package:guachinches/data/model/weather_data.dart';
 import 'package:guachinches/data/model/weather_zone_bundle.dart';
 import 'package:guachinches/data/model/zone.dart';
 import 'package:guachinches/data/model/survey_in_app_choice.dart';
+import 'package:guachinches/data/model/survey_v3.dart';
 import 'package:guachinches/data/model/Cupones.dart';
 import 'package:guachinches/data/model/CuponesAgrupados.dart';
 import 'package:guachinches/data/model/CuponesUser.dart';
@@ -84,10 +85,12 @@ abstract class RemoteRepository{
   Future<List<BlogPost>> getAllBlogPosts();
   //Survey
   Future<bool> checkUserSurveyStatus(String userId);
-  // Survey In-App
-  Future<List<SurveyInAppChoice>> getSurveyInAppChoices(String categoryName, String userId);
-  Future<Map<String, List<String>>> getVotedByDevice(int surveySchemaId, String deviceToken);
-  Future<bool> submitSurveyInAppVotes(String userId, Map<String, String> votes, String signature, int duration, String deviceToken);
+  // Encuesta v3: identidad del móvil + Firebase App Check (ENCUESTA-SEGURIDAD.md,
+  // «Plan elegido: App Check»). Errores: SurveyApiException / SurveyNetworkException.
+  Future<SurveyEdition> getCurrentSurveyEdition();
+  Future<List<SurveyInAppChoice>> getSurveyEditionChoices(int editionId, String categoryName);
+  Future<SurveyMyVotes> getMySurveyVotes(int editionId, Map<String, Object?> body, {required String appCheckToken});
+  Future<SurveyVoteReceipt> submitSurveyVotesV3(int editionId, Map<String, Object?> body, {required String appCheckToken});
   Future<List<SurveyResult>> getSurveyResults(int surveyId, String surveyName,List<Restaurant> allRestaurants);
   Future<List<String>> getVotedRestaurantsByUser(String surveySchemaId, String userId);
   Future<List<Restaurant>> getAllSurveyRestaurants(String surveyId);
