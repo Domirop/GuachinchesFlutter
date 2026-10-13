@@ -34,6 +34,9 @@ class _FakeRcBridge implements RemoteConfigBridge {
 
   @override
   int getInt(String key) => _store[key] as int? ?? 0;
+
+  @override
+  String getString(String key) => _store[key] as String? ?? '';
 }
 
 void main() {

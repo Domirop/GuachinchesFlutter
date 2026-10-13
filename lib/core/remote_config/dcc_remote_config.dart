@@ -12,6 +12,7 @@ abstract class RemoteConfigBridge {
   Future<bool> fetchAndActivate();
   bool getBool(String key);
   int getInt(String key);
+  String getString(String key);
 }
 
 class _FirebaseRcBridge implements RemoteConfigBridge {
@@ -40,6 +41,9 @@ class _FirebaseRcBridge implements RemoteConfigBridge {
 
   @override
   int getInt(String key) => _rc.getInt(key);
+
+  @override
+  String getString(String key) => _rc.getString(key);
 }
 
 class DccRemoteConfig {
@@ -71,6 +75,7 @@ class DccRemoteConfig {
       'min_supported_build': 1,
       'maintenance_mode': false,
       'show_premios': false,
+      'premios_closes_at': '',
     });
     try {
       await _bridge.fetchAndActivate();
@@ -87,4 +92,13 @@ class DccRemoteConfig {
   /// Campaña de la encuesta «Premios Donde Comer Canarias» en el Inicio
   /// (tarjeta y hoja al abrir). Apagada por defecto.
   bool get showPremios => _bridge.getBool('show_premios');
+
+  /// Cierre de la votación de los premios (ISO 8601 en UTC, p. ej.
+  /// `2027-03-20T23:59:00Z`). `null` si no está configurado o no se entiende:
+  /// entonces la campaña no se da por cerrada (estado neutro).
+  DateTime? get premiosClosesAt {
+    final raw = _bridge.getString('premios_closes_at').trim();
+    if (raw.isEmpty) return null;
+    return DateTime.tryParse(raw)?.toUtc();
+  }
 }

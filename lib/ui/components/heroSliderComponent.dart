@@ -3,6 +3,7 @@ import 'package:carousel_slider/carousel_slider.dart';
 import 'package:flutter/material.dart';
 import 'package:guachinches/data/model/fotoBanner.dart';
 import 'package:guachinches/globalMethods.dart';
+import 'package:guachinches/ui/pages/premios/premios_home_card.dart';
 import 'package:guachinches/ui/pages/survey_in_app/survey_in_app_page.dart';
 import 'package:guachinches/ui/pages/surveyRanking/surveyRanking.dart';
 
@@ -27,15 +28,17 @@ class _HeroSliderComponentState extends State<HeroSliderComponent> {
     super.initState();
     banners = List.from(widget.banners);
 
-    // Insertar banner personalizado
-    banners.insert(
-      0,
-      FotoBanner(
-        id: "encuesta",
-        fotoUrl:
-        'https://louvre.s3.fr-par.scw.cloud/Guachinches/banners/logo4.png',
-      ),
-    );
+    // Banner de la encuesta: solo con la campaña encendida (`show_premios`).
+    if (premiosHomeEnabled()) {
+      banners.insert(
+        0,
+        FotoBanner(
+          id: "encuesta",
+          fotoUrl:
+          'https://louvre.s3.fr-par.scw.cloud/Guachinches/banners/logo4.png',
+        ),
+      );
+    }
 
     imageSliders = banners.map((item) {
       return Builder(

@@ -33,6 +33,8 @@ class _FakeRcBridge implements RemoteConfigBridge {
   bool getBool(String key) => true;
   @override
   int getInt(String key) => 1;
+  @override
+  String getString(String key) => '';
 }
 
 class _StubCuratedListsCubit extends CuratedListsCubit {

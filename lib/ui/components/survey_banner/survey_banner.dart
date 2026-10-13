@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:guachinches/globalMethods.dart';
+import 'package:guachinches/ui/pages/premios/premios_home_card.dart';
 import 'package:guachinches/ui/pages/survey_in_app/survey_in_app_page.dart';
 
 class SurveyBanner extends StatelessWidget {
@@ -9,6 +10,8 @@ class SurveyBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Solo con la campaña encendida (`show_premios`).
+    if (!premiosHomeEnabled()) return const SizedBox.shrink();
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () => Navigator.of(context).push(

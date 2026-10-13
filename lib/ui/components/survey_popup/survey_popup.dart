@@ -9,7 +9,9 @@ import 'package:guachinches/ui/pages/premios/premios_home_card.dart';
 class SurveyPopup {
   /// Muestra la hoja una sola vez por sesión de la app.
   static void showIfNeeded(BuildContext context, {VoidCallback? onVoted}) {
-    if (PremiosHomeStore.sheetShownThisSession) return;
+    if (!premiosHomeEnabled() || PremiosHomeStore.sheetShownThisSession) {
+      return;
+    }
     PremiosHomeStore.sheetShownThisSession = true;
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {

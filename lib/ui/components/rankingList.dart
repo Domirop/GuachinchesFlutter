@@ -1,10 +1,11 @@
-import 'package:guachinches/ui/pages/premios/premios_models.dart' show kPremiosMissingName;
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:guachinches/data/model/restaurant.dart';
 import 'package:guachinches/globalMethods.dart';
 import 'package:guachinches/ui/components/SurveyResults/SurveyResults.dart';
 import 'package:guachinches/ui/components/cards/rankingCard.dart';
+import 'package:guachinches/ui/pages/premios/premios_models.dart'
+    show kPremiosMissingName;
 import 'package:guachinches/ui/pages/surveyRanking/surveyRanking.dart';
 
 class RankingList extends StatefulWidget {
