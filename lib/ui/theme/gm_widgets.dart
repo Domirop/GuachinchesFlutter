@@ -317,6 +317,10 @@ class GmCapsuleButton extends StatelessWidget {
   final String? identifier;
   final double height;
 
+  /// Widget delante del texto (p. ej. el indicador de «Enviando…»); manda
+  /// sobre [icon].
+  final Widget? leading;
+
   const GmCapsuleButton({
     super.key,
     required this.label,
@@ -327,6 +331,7 @@ class GmCapsuleButton extends StatelessWidget {
     this.padding = const EdgeInsets.symmetric(horizontal: 20),
     this.identifier,
     this.height = 44,
+    this.leading,
   });
 
   @override
@@ -375,7 +380,10 @@ class GmCapsuleButton extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                if (icon != null) ...[
+                if (leading != null) ...[
+                  leading!,
+                  const SizedBox(width: 8),
+                ] else if (icon != null) ...[
                   GmIcon(icon!, size: iconSize, color: Colors.white),
                   const SizedBox(width: 7),
                 ],
@@ -387,6 +395,77 @@ class GmCapsuleButton extends StatelessWidget {
                     fontWeight: FontWeight.w600,
                     letterSpacing: -0.2,
                     color: Colors.white,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Botón cápsula secundario: relleno `accentSoft` y texto `accent`
+/// («Saltar», «Borrar búsqueda», «Mis votos»). Sin [onTap] se pinta
+/// deshabilitado (texto `label2`). [background] cambia el relleno (p. ej. la
+/// tarjeta, para AA sobre el lienzo) y añade la sombra e1.
+class GmSoftCapsuleButton extends StatelessWidget {
+  final String label;
+  final VoidCallback? onTap;
+  final double height;
+  final double fontSize;
+  final EdgeInsetsGeometry padding;
+  final String? identifier;
+  final Color? background;
+  final Widget? leading;
+
+  const GmSoftCapsuleButton({
+    super.key,
+    required this.label,
+    this.onTap,
+    this.height = 44,
+    this.fontSize = 16,
+    this.padding = const EdgeInsets.symmetric(horizontal: 18),
+    this.identifier,
+    this.background,
+    this.leading,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final gm = GmColors.of(context);
+    final enabled = onTap != null;
+    return Semantics(
+      identifier: identifier,
+      button: true,
+      enabled: enabled,
+      child: GmPressable(
+        onTap: onTap,
+        pressedScale: 0.95,
+        child: Container(
+          constraints: BoxConstraints(minHeight: height),
+          padding: padding.add(const EdgeInsets.symmetric(vertical: 6)),
+          decoration: BoxDecoration(
+            color: background ?? gm.accentSoft,
+            borderRadius: BorderRadius.circular(GmRadius.pill),
+            boxShadow: background != null ? gm.shadow1 : null,
+          ),
+          child: Align(
+            widthFactor: 1,
+            heightFactor: 1,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (leading != null) ...[leading!, const SizedBox(width: 7)],
+                Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: fontSize,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: -0.2,
+                    color: enabled ? gm.accent : gm.label2,
                   ),
                 ),
               ],
@@ -686,16 +765,27 @@ class GmOpenLabel extends StatelessWidget {
   }
 }
 
-/// Mantel de cuadros (vichy rojo) — banda/glifo «Mantel».
+/// Mantel de cuadros (vichy rojo) — banda/glifo «Mantel». Con [base] y
+/// [stripe] pinta otros manteles (el oro sobre crema de «Guachinches
+/// modernos»).
 class GmGinghamPainter extends CustomPainter {
   final double cell;
-  const GmGinghamPainter({this.cell = 7});
+  final Color base;
+  final Color stripe;
+  const GmGinghamPainter({
+    this.cell = 7,
+    this.base = const Color(0xFFFFF7EC),
+    this.stripe = const Color(0x9EC8202C), // rgba(200,32,44,.62)
+  });
+
+  /// Mantel de «Guachinches modernos»: cuadros oro #C9A96B sobre crema.
+  static const goldStripe = Color(0xC7C9A96B); // .78
+  static const goldBase = Color(0xFFFFF6E6);
 
   @override
   void paint(Canvas canvas, Size size) {
-    canvas.drawRect(
-        Offset.zero & size, Paint()..color = const Color(0xFFFFF7EC));
-    final p = Paint()..color = const Color(0x9EC8202C); // rgba(200,32,44,.62)
+    canvas.drawRect(Offset.zero & size, Paint()..color = base);
+    final p = Paint()..color = stripe;
     // Bandas verticales y horizontales de medio paso; donde se cruzan se
     // superponen (más oscuro), como el vichy real.
     for (double x = 0; x < size.width; x += cell * 2) {
@@ -707,7 +797,8 @@ class GmGinghamPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant GmGinghamPainter old) => old.cell != cell;
+  bool shouldRepaint(covariant GmGinghamPainter old) =>
+      old.cell != cell || old.base != base || old.stripe != stripe;
 }
 
 /// Imagen de red con fondo de relleno mientras carga (sin parpadeos).
