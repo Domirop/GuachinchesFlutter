@@ -1,12 +1,16 @@
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
 import 'package:guachinches/data/model/restaurant.dart';
+import 'package:guachinches/services/app_storage.dart';
 import 'package:guachinches/ui/components/SurveyResults/SurveyResults.dart';
 
 class SurveyRankingPresenter {
   final SurveyRankingView _view;
   final RemoteRepository repository;
-  final FlutterSecureStorage storage = const FlutterSecureStorage();
+  // El mismo almacén donde la papeleta guarda `surveyUserId` (en Android
+  // usa encryptedSharedPreferences; un FlutterSecureStorage por defecto no
+  // lo encontraba).
+  final FlutterSecureStorage storage = AppStorage.instance;
 
   SurveyRankingPresenter(this._view, this.repository);
 
@@ -41,8 +45,10 @@ class SurveyRankingPresenter {
 
   Future<List<String>> getRestaurantsVotedByUser() async {
     String? surveyUserId = await storage.read(key: "surveyUserId");
+    // Sin id de encuesta (nunca abrió la papeleta) no hay votos que marcar.
+    if (surveyUserId == null || surveyUserId.isEmpty) return [];
 
-    List<String> restaurantsVoted = await repository.getVotedRestaurantsByUser("1", surveyUserId!);
+    List<String> restaurantsVoted = await repository.getVotedRestaurantsByUser("1", surveyUserId);
     return restaurantsVoted;
   }
 
