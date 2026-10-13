@@ -168,7 +168,7 @@ class _PremiosRankingPageState extends State<PremiosRankingPage> {
                 ],
               ),
             ),
-            GmTopScrim(visible: _offset > 30, extra: m.buttonsTop + 112 - MediaQuery.paddingOf(context).top),
+            GmTopScrim(visible: _offset > 30, extra: m.buttonsTop + 136 - MediaQuery.paddingOf(context).top),
             Positioned(
               left: 16,
               right: 16,
@@ -387,11 +387,15 @@ class _Segmented extends StatelessWidget {
                           ? PremiosColors.catInk(c, gm)
                           : PremiosColors.catInk(c, gm)),
                   const SizedBox(width: 6),
-                  Text(c.plural,
-                      style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                          color: on ? gm.label : gm.label2)),
+                  Flexible(
+                    child: Text(c.plural,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: on ? gm.label : gm.label2)),
+                  ),
                 ],
               ),
             ),
@@ -957,12 +961,15 @@ class PremiosRankRow extends StatelessWidget {
                         ),
                         if (entry.municipio.isNotEmpty) ...[
                           const SizedBox(width: 8),
-                          ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 112),
-                            child: Text(entry.municipio,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: GmText.meta(color: gm.label2)),
+                          Flexible(
+                            flex: 2,
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 112),
+                              child: Text(entry.municipio,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: GmText.meta(color: gm.label2)),
+                            ),
                           ),
                         ],
                       ],

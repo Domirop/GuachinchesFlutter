@@ -210,8 +210,11 @@ class _RosettePainter extends CustomPainter {
           ..close(),
         Paint()..color = ribB);
     const c = Offset(36, 33);
-    canvas.drawCircle(c, 31,
-        Paint()..shader = premiosGoldShader(Rect.fromCircle(center: c, radius: 31)));
+    canvas.drawCircle(
+        c,
+        31,
+        Paint()
+          ..shader = premiosGoldShader(Rect.fromCircle(center: c, radius: 31)));
     canvas.drawCircle(
         c,
         31,
@@ -240,14 +243,13 @@ class _RosettePainter extends CustomPainter {
     final n = (circ / (dash + gap)).floor();
     for (var i = 0; i < n; i++) {
       final a0 = i * (dash + gap) / r;
-      canvas.drawArc(Rect.fromCircle(center: c, radius: r), a0, dash / r,
-          false, p);
+      canvas.drawArc(
+          Rect.fromCircle(center: c, radius: r), a0, dash / r, false, p);
     }
   }
 
   @override
-  bool shouldRepaint(covariant _RosettePainter old) =>
-      old.category != category;
+  bool shouldRepaint(covariant _RosettePainter old) => old.category != category;
 }
 
 /// Copa en 24 × 24 (trazo vino oscuro sobre el oro).
@@ -257,8 +259,7 @@ void _paintCopa(Canvas canvas) {
         ..moveTo(7.3, 7.5)
         ..lineTo(16.7, 7.5)
         ..lineTo(16.6, 8.3)
-        ..arcToPoint(const Offset(7.4, 8.3),
-            radius: const Radius.circular(4.6))
+        ..arcToPoint(const Offset(7.4, 8.3), radius: const Radius.circular(4.6))
         ..close(),
       Paint()..color = const Color(0xFFB23A4C));
   final s = Paint()
@@ -272,8 +273,7 @@ void _paintCopa(Canvas canvas) {
         ..moveTo(7, 3)
         ..lineTo(17, 3)
         ..lineTo(16.6, 8.2)
-        ..arcToPoint(const Offset(7.4, 8.2),
-            radius: const Radius.circular(4.6))
+        ..arcToPoint(const Offset(7.4, 8.2), radius: const Radius.circular(4.6))
         ..close(),
       s);
   canvas.drawLine(const Offset(12, 13), const Offset(12, 20), s);
@@ -338,8 +338,11 @@ class _MiniMedalPainter extends CustomPainter {
             ]));
     }
     const c = Offset(22, 22);
-    canvas.drawCircle(c, 21,
-        Paint()..shader = premiosGoldShader(Rect.fromCircle(center: c, radius: 21)));
+    canvas.drawCircle(
+        c,
+        21,
+        Paint()
+          ..shader = premiosGoldShader(Rect.fromCircle(center: c, radius: 21)));
     canvas.drawCircle(
         c,
         21,
@@ -572,7 +575,8 @@ class PremiosProgress extends StatelessWidget {
     final gm = GmColors.of(context);
     Widget bar(bool on) => Expanded(
           child: AnimatedContainer(
-            duration: Duration(milliseconds: GmMotion.reduced(context) ? 0 : 320),
+            duration:
+                Duration(milliseconds: GmMotion.reduced(context) ? 0 : 320),
             curve: GmMotion.settle,
             height: 6,
             decoration: BoxDecoration(
@@ -616,7 +620,9 @@ class PremiosAlertCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final gm = GmColors.of(context);
     final warn = copy.tone == PremiosTone.warn;
-    final soft = warn ? gm.warnSoft : (gm.isDark ? const Color(0x24FF6B5E) : const Color(0x1AC0352B));
+    final soft = warn
+        ? gm.warnSoft
+        : (gm.isDark ? const Color(0x24FF6B5E) : const Color(0x1AC0352B));
     final ink = warn ? gm.warnText : gm.closedText;
     final edge = warn ? const Color(0x47D69614) : const Color(0x38C0352B);
     final card = Container(
@@ -684,9 +690,17 @@ class PremiosAlertCard extends StatelessWidget {
         trigger: GmTrigger.mount,
         child: card,
         builder: (_, t, c) {
-          final dx = gmKeyframes(t, const [
-            (0, 0), (0.2, -6), (0.4, 5), (0.6, -3), (0.8, 2), (1, 0),
-          ], curve: const Cubic(0.36, 0.07, 0.19, 0.97));
+          final dx = gmKeyframes(
+              t,
+              const [
+                (0, 0),
+                (0.2, -6),
+                (0.4, 5),
+                (0.6, -3),
+                (0.8, 2),
+                (1, 0),
+              ],
+              curve: const Cubic(0.36, 0.07, 0.19, 0.97));
           return Transform.translate(offset: Offset(dx, 0), child: c);
         },
       ),
@@ -906,56 +920,72 @@ class PapeletaVoteRow extends StatelessWidget {
         constraints: BoxConstraints(minHeight: minHeight),
         child: Padding(
           padding: padding,
-          child: Row(
+          child: Stack(
+            clipBehavior: Clip.none,
             children: [
-              PremiosMiniMedal(category),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(category.title,
-                        style: GmText.eyebrow(color: gm.label2)),
-                    const SizedBox(height: 1),
-                    Text(
-                      name ?? 'Sin voto',
-                      style: GmText.body17(
-                          color: name == null ? gm.label2 : gm.label,
-                          w: FontWeight.w600),
-                    ),
-                    if (flagged)
-                      Container(
-                        margin: const EdgeInsets.only(top: 4),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: gm.warnSoft,
-                          borderRadius:
-                              BorderRadius.circular(GmRadius.pill),
+              Row(
+                children: [
+                  PremiosMiniMedal(category),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(category.title,
+                            style: GmText.eyebrow(color: gm.label2)),
+                        const SizedBox(height: 1),
+                        Text(
+                          name ?? 'Sin voto',
+                          style: GmText.body17(
+                              color: name == null ? gm.label2 : gm.label,
+                              w: FontWeight.w600),
                         ),
-                        child: Text(
-                          'Ya votaste a este sitio desde este móvil',
-                          style: GmText.chip(
-                              color: gm.warnText, w: FontWeight.w700),
+                        // Hueco del aviso: el chip va en una línea y puede
+                        // pasar por debajo de «Cambiar» (como el tablero).
+                        if (flagged) const SizedBox(height: 26),
+                      ],
+                    ),
+                  ),
+                  if (action != null)
+                    Semantics(
+                      identifier: 'premios-ballot-change-${category.short}',
+                      button: true,
+                      child: GmPressable(
+                        onTap: onAction,
+                        pressedScale: 0.94,
+                        child: Container(
+                          constraints: const BoxConstraints(minHeight: 44),
+                          padding: const EdgeInsets.symmetric(horizontal: 10),
+                          alignment: Alignment.center,
+                          child: Text(action!,
+                              style: GmText.cardTitle(color: gm.accent)
+                                  .copyWith(fontSize: 16)),
                         ),
                       ),
-                  ],
-                ),
+                    ),
+                ],
               ),
-              if (action != null)
-                Semantics(
-                  identifier: 'premios-ballot-change-${category.short}',
-                  button: true,
-                  child: GmPressable(
-                    onTap: onAction,
-                    pressedScale: 0.94,
-                    child: Container(
-                      constraints: const BoxConstraints(minHeight: 44),
-                      padding: const EdgeInsets.symmetric(horizontal: 10),
-                      alignment: Alignment.center,
-                      child: Text(action!,
-                          style: GmText.cardTitle(color: gm.accent)
-                              .copyWith(fontSize: 16)),
+              if (flagged)
+                Positioned(
+                  left: 56,
+                  bottom: 0,
+                  child: Container(
+                    height: 22,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: gm.warnSoft,
+                      borderRadius: BorderRadius.circular(GmRadius.pill),
+                    ),
+                    child: MediaQuery.withClampedTextScaling(
+                      maxScaleFactor: 1.1,
+                      child: Text(
+                        'Ya votaste a este sitio desde este móvil',
+                        maxLines: 1,
+                        style:
+                            GmText.chip(color: gm.warnText, w: FontWeight.w700)
+                                .copyWith(height: 1),
+                      ),
                     ),
                   ),
                 ),
@@ -1033,9 +1063,14 @@ class _SelloVotadoState extends State<SelloVotado> {
             premiosLightHaptic();
           }
           const sp = GmMotion.spring;
-          final rot = gmKeyframes(t, const [(0, -24), (0.55, -12), (0.75, -15), (1, -14)], curve: sp);
-          final s = gmKeyframes(t, const [(0, 1.9), (0.55, 0.9), (0.75, 1.04), (1, 1)], curve: sp);
-          final op = gmKeyframes(t, const [(0, 0), (0.55, 1), (1, 0.92)], curve: Curves.linear)
+          final rot = gmKeyframes(
+              t, const [(0, -24), (0.55, -12), (0.75, -15), (1, -14)],
+              curve: sp);
+          final s = gmKeyframes(
+              t, const [(0, 1.9), (0.55, 0.9), (0.75, 1.04), (1, 1)],
+              curve: sp);
+          final op = gmKeyframes(t, const [(0, 0), (0.55, 1), (1, 0.92)],
+                  curve: Curves.linear)
               .clamp(0.0, 1.0);
           return Opacity(
             opacity: op,
@@ -1058,7 +1093,10 @@ class PremiosAvatar extends StatelessWidget {
   final PremiosCategory category;
   final double size;
   const PremiosAvatar(
-      {super.key, required this.photoUrl, required this.category, this.size = 44});
+      {super.key,
+      required this.photoUrl,
+      required this.category,
+      this.size = 44});
 
   @override
   Widget build(BuildContext context) {
@@ -1072,7 +1110,9 @@ class PremiosAvatar extends StatelessWidget {
       ),
       alignment: Alignment.center,
       child: PremiosCategoryGlyph(category,
-          size: category == PremiosCategory.tradicional ? size * 0.46 : size * 0.46,
+          size: category == PremiosCategory.tradicional
+              ? size * 0.46
+              : size * 0.46,
           ink: PremiosColors.catInk(category, gm)),
     );
     final url = photoUrl;

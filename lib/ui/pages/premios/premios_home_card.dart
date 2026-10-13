@@ -145,20 +145,17 @@ class PremiosHomeCard extends StatelessWidget {
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Padding(
-                              padding: const EdgeInsets.only(right: 92),
-                              child: PremiosEyebrow(
-                                  text: eyebrow, color: PremiosColors.goldText),
-                            ),
+                            PremiosEyebrow(
+                                text: eyebrow, color: PremiosColors.goldText),
                             const SizedBox(height: 6),
                             Padding(
-                              padding: const EdgeInsets.only(right: 92),
+                              padding: const EdgeInsets.only(right: 84),
                               child: Text(title,
                                   style: GmText.title2(color: GmColors.creamHi)),
                             ),
                             const SizedBox(height: 6),
                             Padding(
-                              padding: const EdgeInsets.only(right: 92),
+                              padding: const EdgeInsets.only(right: 84),
                               child: Text(body,
                                   style: GmText.body(
                                       color: const Color(0xD1F2E8D5))),
@@ -442,7 +439,7 @@ class PremiosSheet extends StatelessWidget {
             const Positioned(
               left: 18,
               top: 18,
-              right: 120,
+              right: 18,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -453,7 +450,9 @@ class PremiosSheet extends StatelessWidget {
               ),
             ),
             const Positioned(
-                right: 26, top: 0, child: PremiosMiniBarrel(width: 84)),
+                right: 26,
+                top: 0,
+                child: PremiosMiniBarrel(width: 84, trigger: GmTrigger.mount)),
           ],
         ),
       ),

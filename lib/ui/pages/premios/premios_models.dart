@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:guachinches/ui/components/SurveyResults/SurveyResults.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/gm_place_card.dart'
-    show gmDisplayName, gmPlaceName;
+    show gmPlaceName;
 
 /// Encuesta «Premios Donde Comer Canarias 2026» (tableros Encuesta*): el
 /// estado que pintan las vistas y la lógica pura que no depende del backend
@@ -55,7 +55,7 @@ class PremiosCandidate {
   const PremiosCandidate({required this.value, required this.name});
 
   factory PremiosCandidate.fromApi(String value, String text) =>
-      PremiosCandidate(value: value, name: gmDisplayName(text));
+      PremiosCandidate(value: value, name: premiosDisplayName(text));
 
   @override
   bool operator ==(Object other) =>
@@ -63,6 +63,50 @@ class PremiosCandidate {
 
   @override
   int get hashCode => value.hashCode;
+}
+
+const _kSmall = {'de', 'del', 'y', 'en', 'por', 'con'};
+const _kArticles = {'el', 'la', 'los', 'las', 'a'};
+final _kLetter = RegExp(r'[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]');
+final _kVowel = RegExp(r'[AEIOUÁÉÍÓÚÜaeiouáéíóúü]');
+
+/// Nombres de la papeleta en tipo título, palabra a palabra (como los datos
+/// del tablero): «GUACHINCHE LA CUADRA (Los Realejos)» → «Guachinche La
+/// Cuadra (Los Realejos)», «BODEGON DE LA ERA» → «Bodegon de la Era». Las
+/// palabras ya mixtas y las siglas sin vocales se respetan; no se inventan
+/// tildes. Comillas rectas → «».
+String premiosDisplayName(String raw) {
+  final words = raw
+      .replaceAll(RegExp('[“”]'), '"')
+      .trim()
+      .split(RegExp(r'\s+'));
+  final out = <String>[];
+  var prev = '';
+  for (var i = 0; i < words.length; i++) {
+    var w = words[i];
+    final core = w.replaceAll(RegExp(r'[^A-Za-zÁÉÍÓÚÜÑáéíóúüñ]'), '');
+    final low = core.toLowerCase();
+    final opens = w.startsWith('(') || w.startsWith('"');
+    final small = i > 0 &&
+        !opens &&
+        (_kSmall.contains(low) || (_kArticles.contains(low) && _kSmall.contains(prev)));
+    final caps = core.length > 1 && core == core.toUpperCase();
+    if (small && (caps || core == low)) {
+      w = w.toLowerCase();
+    } else if (caps && _kVowel.hasMatch(core)) {
+      final lw = w.toLowerCase();
+      final k = lw.indexOf(_kLetter);
+      w = k < 0 ? lw : lw.substring(0, k) + lw[k].toUpperCase() + lw.substring(k + 1);
+    } else if (core.isNotEmpty && core[0] == core[0].toLowerCase() && !small) {
+      final k = w.indexOf(_kLetter);
+      if (k >= 0) w = w.substring(0, k) + w[k].toUpperCase() + w.substring(k + 1);
+    }
+    out.add(w);
+    prev = low;
+  }
+  return out
+      .join(' ')
+      .replaceAllMapped(RegExp(r'"\s*([^"]*?)\s*"'), (m) => '«${m[1]}»');
 }
 
 // ── Buscador ───────────────────────────────────────────────────────────────
@@ -370,7 +414,7 @@ List<PremiosRankEntry> premiosRank(List<SurveyResult> results) {
         id: sorted[i].restaurantId,
         name: sorted[i].restaurant == null
             ? kPremiosMissingName
-            : gmDisplayName(sorted[i].restaurant!.nombre),
+            : premiosDisplayName(sorted[i].restaurant!.nombre),
         municipio: gmPlaceName(sorted[i].restaurant?.municipio ?? ''),
         photoUrl: (sorted[i].restaurant?.mainFoto.isNotEmpty ?? false)
             ? sorted[i].restaurant!.mainFoto

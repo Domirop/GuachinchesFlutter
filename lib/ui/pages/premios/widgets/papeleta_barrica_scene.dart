@@ -995,7 +995,11 @@ class CelebrationPainter extends CustomPainter {
 /// tablero: viewBox 272 150 100 176.
 class PremiosMiniBarrel extends StatelessWidget {
   final double width;
-  const PremiosMiniBarrel({super.key, this.width = 86});
+
+  /// En una hoja (sin scroll) hay que arrancar al montarse.
+  final GmTrigger trigger;
+  const PremiosMiniBarrel(
+      {super.key, this.width = 86, this.trigger = GmTrigger.visible});
 
   static const Rect _view = Rect.fromLTWH(272, 150, 100, 176);
 
@@ -1010,7 +1014,7 @@ class PremiosMiniBarrel extends StatelessWidget {
         child: GmOnce(
           duration: const Duration(milliseconds: 1900),
           delay: const Duration(milliseconds: 400),
-          trigger: GmTrigger.visible,
+          trigger: trigger,
           builder: (_, t, __) => CustomPaint(
             painter: _MiniBarrelPainter(colors: colors, scale: s, t: t),
           ),

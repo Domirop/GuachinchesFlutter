@@ -621,6 +621,7 @@ class _SearchHeader extends SliverPersistentHeaderDelegate {
           identifier: 'premios-vote-search',
           textField: true,
           child: Container(
+            height: _h - 18,
             decoration: BoxDecoration(
               color: gm.card,
               borderRadius: BorderRadius.circular(GmRadius.pill),
