@@ -108,8 +108,13 @@ class GmGlass extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(borderRadius: borderRadius, boxShadow: shadow),
+    // La sombra se pinta solo FUERA del cristal (como `box-shadow` en CSS):
+    // si quedara debajo, el desenfoque y el velo translúcido la dejarían ver
+    // y el cristal saldría gris.
+    return CustomPaint(
+      painter: shadow == null || shadow!.isEmpty
+          ? null
+          : GmOuterShadowPainter(borderRadius: borderRadius, shadows: shadow!),
       child: ClipRRect(
         borderRadius: borderRadius,
         child: BackdropFilter(
@@ -142,6 +147,35 @@ class GmGlass extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Sombras de caja pintadas solo fuera del rectángulo redondeado.
+class GmOuterShadowPainter extends CustomPainter {
+  final BorderRadius borderRadius;
+  final List<BoxShadow> shadows;
+
+  const GmOuterShadowPainter(
+      {required this.borderRadius, required this.shadows});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Offset.zero & size;
+    final rrect = borderRadius.toRRect(rect);
+    canvas.save();
+    canvas.clipPath(Path()
+      ..fillType = PathFillType.evenOdd
+      ..addRect(rect.inflate(200))
+      ..addRRect(rrect));
+    for (final s in shadows) {
+      canvas.drawRRect(
+          rrect.shift(s.offset).inflate(s.spreadRadius), s.toPaint());
+    }
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(covariant GmOuterShadowPainter old) =>
+      old.borderRadius != borderRadius || old.shadows != shadows;
 }
 
 /// Botón de herramientas circular de 44 en cristal oscuro (sobre foto).
@@ -783,17 +817,47 @@ class GmGinghamPainter extends CustomPainter {
   static const goldBase = Color(0xFFFFF6E6);
 
   @override
-  void paint(Canvas canvas, Size size) {
-    canvas.drawRect(Offset.zero & size, Paint()..color = base);
+  void paint(Canvas canvas, Size size) => paintCells(
+        canvas,
+        Offset.zero & size,
+        cell: cell,
+        base: base,
+        stripe: stripe,
+        phase: Offset(0, cell),
+      );
+
+  /// Vichy en [rect] (recortado a [clip] si llega): franjas de [cell] cada
+  /// 2·[cell] en los dos sentidos, desplazadas por [phase]; donde se cruzan
+  /// se superponen (más oscuro), como el vichy real y el `pattern` de los
+  /// tableros. Lo usan todos los manteles (listas, encuesta, glifos).
+  static void paintCells(
+    Canvas canvas,
+    Rect rect, {
+    double cell = 7,
+    Color base = const Color(0xFFFFF7EC),
+    Color stripe = const Color(0x9EC8202C),
+    Offset phase = Offset.zero,
+    Path? clip,
+  }) {
+    canvas.save();
+    canvas.clipRect(rect);
+    if (clip != null) canvas.clipPath(clip);
+    canvas.drawRect(rect, Paint()..color = base);
     final p = Paint()..color = stripe;
-    // Bandas verticales y horizontales de medio paso; donde se cruzan se
-    // superponen (más oscuro), como el vichy real.
-    for (double x = 0; x < size.width; x += cell * 2) {
-      canvas.drawRect(Rect.fromLTWH(x, 0, cell, size.height), p);
+    final step = cell * 2;
+    double first(double origin, double from) =>
+        origin - ((origin - from) / step).ceil() * step;
+    for (double x = first(phase.dx, rect.left - cell);
+        x < rect.right;
+        x += step) {
+      canvas.drawRect(Rect.fromLTWH(x, rect.top, cell, rect.height), p);
     }
-    for (double y = cell; y < size.height; y += cell * 2) {
-      canvas.drawRect(Rect.fromLTWH(0, y, size.width, cell), p);
+    for (double y = first(phase.dy, rect.top - cell);
+        y < rect.bottom;
+        y += step) {
+      canvas.drawRect(Rect.fromLTWH(rect.left, y, rect.width, cell), p);
     }
+    canvas.restore();
   }
 
   @override
