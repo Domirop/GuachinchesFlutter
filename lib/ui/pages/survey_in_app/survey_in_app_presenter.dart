@@ -70,6 +70,8 @@ class SurveyInAppPresenter {
         return 'Ya has votado a este negocio anteriormente.';
       case SurveyNetworkFailure():
         return 'Error al enviar: SocketException';
+      case SurveyInsecureConnection():
+        return 'No podemos conectar de forma segura. Prueba con otra red.';
       case SurveyRateLimited():
         return 'Demasiados intentos, prueba en un minuto.';
       case SurveyIntegrityFailed():

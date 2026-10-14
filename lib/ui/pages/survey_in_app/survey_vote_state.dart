@@ -118,6 +118,17 @@ final class SurveyNetworkFailure extends SurveyFailure {
   bool get retryable => true;
 }
 
+/// La conexión con el servidor no es la nuestra: la cadena TLS no acaba en las
+/// raíces fijadas (proxy, CA instalada en el móvil, wifi con portal cautivo).
+/// No se ha enviado nada. Texto propuesto: «No podemos conectar de forma segura.
+/// Prueba con otra red (datos móviles).»
+final class SurveyInsecureConnection extends SurveyFailure {
+  const SurveyInsecureConnection();
+
+  @override
+  bool get retryable => true;
+}
+
 /// 400, 5xx o respuesta inesperada.
 final class SurveyServerFailure extends SurveyFailure {
   final int? status;

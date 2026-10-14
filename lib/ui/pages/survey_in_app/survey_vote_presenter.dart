@@ -24,8 +24,10 @@ const _tag = 'survey-v3';
 /// - Con espera (backoff) solo en lecturas sin token (edición y candidatos).
 /// - Un voto **nunca** se reenvía con el mismo token de App Check: es de uso
 ///   limitado y el servidor lo consume. Solo hay un reintento automático, con
-///   token nuevo, si el servidor responde `403 integrity_failed /
-///   app_check_replayed` (el voto no llegó a contarse).
+///   token nuevo, si el servidor responde `403 integrity_failed` por token ya
+///   usado (`app_check_replayed`) o caducado (`stale`): no se contó nada.
+/// - `my-votes` usa el token estándar de App Check (no gasta cuota de uso
+///   limitado); `votes`, uno de uso limitado nuevo en cada petición.
 /// - `429`, `503` y red: se informa y el usuario pulsa «Reintentar» (token
 ///   nuevo).
 ///
@@ -241,9 +243,10 @@ class SurveyVotePresenter extends ChangeNotifier {
 
   // ── Envío ──────────────────────────────────────────────────────────────
 
-  /// Firma con un token de App Check nuevo y envía. Si el servidor dice que
-  /// ese token ya se había usado (`app_check_replayed`), pide **otro** y
-  /// repite una sola vez: la petición se rechazó antes de contar nada.
+  /// Pide el token justo antes de enviar ([sign] va pegado a [send]). Si el
+  /// servidor dice que ese token ya se usó (`app_check_replayed`) o que está
+  /// caducado (`app_check_invalid` / `stale`, > 120 s), pide **otro** y repite
+  /// una sola vez: la petición se rechazó antes de contar nada.
   Future<T> _withFreshToken<T>(
     String what,
     Future<SurveySignedRequest> Function() sign,
@@ -254,10 +257,9 @@ class SurveyVotePresenter extends ChangeNotifier {
       try {
         return await send(request);
       } on SurveyApiException catch (e) {
-        final replayed =
-            e.code == 'integrity_failed' && e.reason == 'app_check_replayed';
-        if (!replayed || attempt > 0) rethrow;
-        AppLogger.info(_tag, '$what: token ya usado → token nuevo');
+        final retry = e.isReplayedAppCheck || e.isStaleAppCheck;
+        if (!retry || attempt > 0) rethrow;
+        AppLogger.info(_tag, '$what: token ${e.isStaleAppCheck ? 'caducado' : 'ya usado'} → token nuevo');
       }
     }
   }
@@ -360,7 +362,8 @@ class SurveyVotePresenter extends ChangeNotifier {
       try {
         return await op();
       } catch (e) {
-        final transient = e is SurveyNetworkException ||
+        // Un fallo de pinning no se arregla esperando: no se reintenta.
+        final transient = (e is SurveyNetworkException && !e.untrusted) ||
             (e is SurveyApiException &&
                 e.status >= 500 &&
                 (e.retryAfter == null || e.retryAfter! <= _backoff.last));
@@ -374,7 +377,12 @@ class SurveyVotePresenter extends ChangeNotifier {
 
   /// Error → (etapa que bloquea la pantalla o `null` si es un aviso, fallo).
   (SurveyVoteStage?, SurveyFailure) _map(Object e) {
-    if (e is SurveyNetworkException) return (null, const SurveyNetworkFailure());
+    if (e is SurveyNetworkException) {
+      return (
+        null,
+        e.untrusted ? const SurveyInsecureConnection() : const SurveyNetworkFailure()
+      );
+    }
     if (e is SurveyIntegrityException) {
       switch (e.error) {
         case SurveyIntegrityError.unsupported:

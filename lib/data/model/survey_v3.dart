@@ -182,6 +182,19 @@ class SurveyApiException implements Exception {
   /// `app_check_replayed`, `app_unrecognized`).
   String? get reason => details['reason']?.toString();
 
+  /// Token de App Check demasiado viejo (> 120 s en el servidor). El backend
+  /// lo manda como `app_check_invalid` con el motivo `stale` en `details`
+  /// (se acepta también `reason: app_check_stale`).
+  bool get isStaleAppCheck =>
+      code == 'integrity_failed' &&
+      (reason == 'app_check_stale' ||
+          (reason == 'app_check_invalid' &&
+              details.entries.any((e) => e.key != 'reason' && e.value == 'stale')));
+
+  /// Token ya consumido (repetición).
+  bool get isReplayedAppCheck =>
+      code == 'integrity_failed' && reason == 'app_check_replayed';
+
   /// 426: versión mínima (`details.minAppVersion`, texto o mapa por plataforma).
   Object? get minAppVersion => details['minAppVersion'];
 
@@ -190,12 +203,15 @@ class SurveyApiException implements Exception {
       '${reason != null ? ' / $reason' : ''})';
 }
 
-/// Sin conexión, DNS, TLS o tiempo de espera agotado. [maybeDelivered]: el
-/// fallo llegó después de enviar el cuerpo (el servidor pudo procesarlo).
+/// Sin conexión, DNS o tiempo de espera agotado. [maybeDelivered]: el fallo
+/// llegó después de enviar el cuerpo (el servidor pudo procesarlo).
+/// [untrusted]: la cadena TLS no acaba en las raíces fijadas (pinning): proxy,
+/// CA instalada por el usuario o portal cautivo. No se envió nada.
 class SurveyNetworkException implements Exception {
   final bool maybeDelivered;
-  const SurveyNetworkException({this.maybeDelivered = false});
+  final bool untrusted;
+  const SurveyNetworkException({this.maybeDelivered = false, this.untrusted = false});
 
   @override
-  String toString() => 'SurveyNetworkException';
+  String toString() => untrusted ? 'SurveyNetworkException(untrusted)' : 'SurveyNetworkException';
 }

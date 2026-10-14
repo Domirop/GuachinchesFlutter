@@ -17,6 +17,7 @@ import 'package:guachinches/data/model/weather_zone_bundle.dart';
 import 'package:guachinches/data/model/zone.dart';
 import 'package:guachinches/data/model/survey_in_app_choice.dart';
 import 'package:guachinches/data/model/survey_v3.dart';
+import 'package:guachinches/services/survey_integrity/survey_pinning.dart';
 import 'package:guachinches/data/model/Cupones.dart';
 import 'package:guachinches/data/model/CuponesAgrupados.dart';
 import 'package:guachinches/data/model/CuponesUser.dart';
@@ -64,12 +65,18 @@ class HttpRemoteRepository implements RemoteRepository {
   final HttpCacheStore _cache;
   final bool _backgroundEnabled;
 
+  /// Cliente de la encuesta v3, con *certificate pinning* ([SurveyPinning]).
+  /// Se crea al primer uso; los tests pueden inyectar otro.
+  Future<Client>? _surveyClient;
+
   HttpRemoteRepository(
     this._client, {
     HttpCacheStore? cache,
     bool backgroundEnabled = true,
+    Client? surveyClient,
   })  : _cache = cache ?? HttpCacheStore.instance,
-        _backgroundEnabled = backgroundEnabled;
+        _backgroundEnabled = backgroundEnabled,
+        _surveyClient = surveyClient == null ? null : Future.value(surveyClient);
 
   Future<T> _withSwr<T>(
     String key, {
@@ -861,16 +868,24 @@ class HttpRemoteRepository implements RemoteRepository {
     final h = {'Content-Type': 'application/json', ...?headers};
     final Response response;
     try {
+      final client = await (_surveyClient ??=
+          SurveyPinning.client(uri).catchError((Object e) {
+        _surveyClient = null; // no cachear un fallo al cargar las raíces
+        throw e;
+      }));
       final req = method == 'GET'
-          ? _client.get(uri, headers: h)
-          : _client.post(uri, headers: h, body: jsonEncode(body ?? const {}));
+          ? client.get(uri, headers: h)
+          : client.post(uri, headers: h, body: jsonEncode(body ?? const {}));
       response = await req.timeout(_surveyTimeout);
     } on SocketException {
       throw SurveyNetworkException(maybeDelivered: method != 'GET');
     } on TimeoutException {
       throw SurveyNetworkException(maybeDelivered: method != 'GET');
     } on HandshakeException {
-      throw const SurveyNetworkException();
+      // La cadena no acaba en las raíces fijadas (proxy, CA de usuario, portal
+      // cautivo) o TLS roto. No se envió nada.
+      AppLogger.warn('survey-v3', '$method TLS no fiable (pinning)');
+      throw const SurveyNetworkException(untrusted: true);
     } on ClientException {
       throw SurveyNetworkException(maybeDelivered: method != 'GET');
     }
