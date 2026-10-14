@@ -84,6 +84,8 @@ class SurveyInAppPresenter {
         return 'La votación está cerrada.';
       case SurveyDeviceUnsupported():
         return 'Este dispositivo no puede votar.';
+      case SurveyVotingUnavailable():
+        return 'La votación no está disponible ahora mismo.';
       case SurveyVerificationUnavailable():
         return 'No podemos verificar ahora mismo, inténtalo en unos minutos.';
       default:

@@ -147,10 +147,13 @@ void main() {
       expect(appCheck.tokens, isEmpty);
     });
 
-    test('token falso para el backend en modo fake: formato de fakeAppCheck.verifier.ts', () async {
-      final t1 = await FakeAppCheckTokenSource(appId: '1:123:ios:abc').limitedUseToken();
-      final t2 = await FakeAppCheckTokenSource(appId: '1:123:ios:abc').limitedUseToken();
-      expect(t1, startsWith('fake-appcheck.1:123:ios:abc.'));
+    test('token falso para el backend en modo fake: fake-appcheck.<appId>.<único>~<iat>', () async {
+      final at = DateTime.utc(2027, 2, 10, 12);
+      final src = FakeAppCheckTokenSource(appId: '1:123:ios:abc', clock: () => at);
+      final t1 = await src.limitedUseToken();
+      final t2 = await src.limitedUseToken();
+      expect(t1, matches(RegExp(r'^fake-appcheck\.1:123:ios:abc\.[0-9a-f-]{36}~\d+$')));
+      expect(t1.split('~').last, '${at.millisecondsSinceEpoch ~/ 1000}');
       expect(t1, isNot(t2), reason: 'de un solo uso');
       expect(FakeAppCheckTokenSource.enabled, isFalse, reason: 'solo con --dart-define');
     });

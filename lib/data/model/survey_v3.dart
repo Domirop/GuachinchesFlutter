@@ -182,14 +182,12 @@ class SurveyApiException implements Exception {
   /// `app_check_replayed`, `app_unrecognized`).
   String? get reason => details['reason']?.toString();
 
-  /// Token de App Check demasiado viejo (> 120 s en el servidor). El backend
-  /// lo manda como `app_check_invalid` con el motivo `stale` en `details`
-  /// (se acepta también `reason: app_check_stale`).
+  /// Token de voto con más de 120 s (§11.3 P‑4): `app_check_invalid` con
+  /// `details.cause == "stale"`.
   bool get isStaleAppCheck =>
       code == 'integrity_failed' &&
-      (reason == 'app_check_stale' ||
-          (reason == 'app_check_invalid' &&
-              details.entries.any((e) => e.key != 'reason' && e.value == 'stale')));
+      reason == 'app_check_invalid' &&
+      details['cause'] == 'stale';
 
   /// Token ya consumido (repetición).
   bool get isReplayedAppCheck =>

@@ -366,6 +366,7 @@ class SurveyVotePresenter extends ChangeNotifier {
         final transient = (e is SurveyNetworkException && !e.untrusted) ||
             (e is SurveyApiException &&
                 e.status >= 500 &&
+                e.code != 'integrity_unavailable' &&
                 (e.retryAfter == null || e.retryAfter! <= _backoff.last));
         if (!transient || attempt >= _backoff.length) rethrow;
         await _sleep(e is SurveyApiException && e.retryAfter != null
@@ -424,6 +425,10 @@ class SurveyVotePresenter extends ChangeNotifier {
           return (null, SurveyIntegrityFailed(e.code, e.reason));
         case 'rate_limited':
           return (null, SurveyRateLimited(e.retryAfter));
+        case 'verification_unavailable':
+          return (null, SurveyVerificationUnavailable(e.retryAfter));
+        case 'integrity_unavailable':
+          return (null, const SurveyVotingUnavailable());
         case 'invalid_option':
           final c = e.details['category'], v = e.details['value'];
           return (

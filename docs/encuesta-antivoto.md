@@ -39,9 +39,9 @@ las versiones (antes, 5.0 frente a 4.7 pedía actualizar).
 ### Reintentos
 
 - Solo se reintenta con espera (0,6 s y 2 s) al leer la edición y los candidatos, que no llevan token.
-- Un voto **nunca** se reenvía con el mismo token. Hay un único reintento automático, con un token recién pedido, cuando el servidor responde `403 integrity_failed` porque el token ya se usó (`app_check_replayed`) o porque tiene más de 120 s (`app_check_invalid` con motivo `stale`). En los dos casos el voto no llegó a contarse.
+- Un voto **nunca** se reenvía con el mismo token. Hay un único reintento automático, con un token recién pedido, cuando el servidor responde `403 integrity_failed` porque el token ya se usó (`app_check_replayed`) o porque tiene más de 120 s (`reason: app_check_invalid` con `details.cause: "stale"`). En los dos casos el voto no llegó a contarse.
 - Un fallo de *pinning* (`SurveyInsecureConnection`) no se reintenta solo: esperar no lo arregla.
-- Con `429`, `503` o un error de red no hay reintento automático: la vista muestra «Reintentar», y cada reintento pide un token nuevo.
+- Con `429`, `503 verification_unavailable` o un error de red no hay reintento automático: la vista muestra «Reintentar» (respetando `Retry-After`), y cada reintento pide un token nuevo. `503 integrity_unavailable` (backend sin configurar) no es reintentable.
 - Modo avión a mitad del envío: si el `POST` salió y la conexión se cortó, la app recuerda esos votos. Si al reintentar el servidor responde `409` con todos ellos, significa que el primer envío sí entró, y la app muestra el éxito en lugar del error.
 
 ### Lo que nunca se registra
@@ -115,10 +115,11 @@ presenter.voteAgain();          // «Votar a otros sitios»
 | `SurveyAlreadyVoted(conflicts)` | 409 | «Ya has votado a este negocio anteriormente.» Las filas en conflicto ya están quitadas de `selection`. |
 | `SurveyIntegrityFailed(code, reason)` | 403 `integrity_failed` (`app_check_missing` / `invalid` / `replayed` / `app_unrecognized`), o App Check rechazado en el móvil (`code == 'client'`) | «No hemos podido verificar este móvil. Actualiza la app desde la App Store / Google Play.» |
 | `SurveyRateLimited(retryAfter)` | 429, o Firebase limitando tokens | «Demasiados intentos, prueba en un minuto.» |
-| `SurveyVerificationUnavailable(retryAfter)` | 503, o Firebase, Apple o Google sin servicio | «No podemos verificar ahora mismo, inténtalo en unos minutos.» |
+| `SurveyVerificationUnavailable(retryAfter)` | `503 verification_unavailable` (Firebase o su JWKS caídos; respetar `Retry-After`), o Firebase, Apple o Google sin servicio al pedir el token | «No podemos verificar ahora mismo, inténtalo en unos minutos.» (reintentable) |
+| `SurveyVotingUnavailable` | `503 integrity_unavailable` (backend de la encuesta sin configurar) | propuesto: «La votación no está disponible ahora mismo. Vuelve más tarde.» (**no** reintentable) |
 | `SurveyNetworkFailure` | red (también al pedir el token) | «Se nos fue la cobertura» |
 | `SurveyInsecureConnection` | la cadena TLS no acaba en las raíces fijadas (proxy, CA instalada, wifi con portal cautivo) | propuesto: «No podemos conectar de forma segura. Prueba con otra red (datos móviles).» |
-| `SurveyServerFailure(status, code)` | 400, 5xx, respuesta inesperada | genérico |
+| `SurveyServerFailure(status, code)` | 400, `413 payload_too_large`, 5xx, respuesta inesperada | genérico |
 | `SurveyInvalidOption(option)` | 422 | genérico |
 
 `failure.retryable` indica si el botón principal pasa a ser «Reintentar».
@@ -138,7 +139,7 @@ presenter.voteAgain();          // «Votar a otros sitios»
 7. **Antes de abrir la edición:** subir la versión mínima de `/version` y rotar `DEVICE_HMAC_SECRET`.
 8. **Durante una edición no se toca la identidad de la app:** ni rotar la clave de firma de Play (cambia el SSAID de todos los Android y la huella SHA‑256 que valida Play Integrity: todos los móviles serían identidades nuevas o no podrían votar) ni cambiar de Team de Apple (cambia el App ID de App Attest y el acceso al Keychain: identidades nuevas en iOS).
 
-Para desarrollar contra el backend en modo `fake`, ejecuta `flutter run --dart-define=SURVEY_INTEGRITY=fake`. Solo funciona en debug: la app envía `fake-appcheck.<appId>.<uuid>`, que es el formato de `fakeAppCheck.verifier.ts`.
+Para desarrollar contra el backend en modo `fake`, ejecuta `flutter run --dart-define=SURVEY_INTEGRITY=fake`. Solo funciona en debug, y el backend local debe arrancar con `NODE_ENV=development`. La app envía `fake-appcheck.<appId>.<uuid>~<iat>` (con `iat` en segundos), el formato de `fakeAppCheck.verifier.ts`; así también se prueba la frescura.
 
 ## 5. Cómo probar en dispositivos reales
 

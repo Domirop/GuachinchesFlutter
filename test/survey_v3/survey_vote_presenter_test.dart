@@ -202,10 +202,38 @@ void main() {
     test('token caducado (> 120 s, stale) → un reintento con token recién pedido', () async {
       final p = await ready();
       repo.voteSteps.add(() => apiError(403, 'integrity_failed',
-          details: {'reason': 'app_check_invalid', 'detail': 'stale'}));
+          details: {'reason': 'app_check_invalid', 'cause': 'stale'}));
       await p.submit();
       expect(p.state.stage, SurveyVoteStage.sent);
       expect(repo.votes.map((v) => v.token).toList(), ['${kTokenPrefix}1', '${kTokenPrefix}2']);
+    });
+
+    test('503 verification_unavailable (reintentable, Retry-After) frente a integrity_unavailable (no)', () async {
+      final p = await ready();
+      repo.voteSteps.add(() => apiError(503, 'verification_unavailable', retryAfter: const Duration(seconds: 30)));
+      await p.submit();
+      final f = p.state.failure as SurveyVerificationUnavailable;
+      expect(f.retryAfter, const Duration(seconds: 30));
+      expect(f.retryable, isTrue);
+      repo.voteSteps.add(() => apiError(503, 'integrity_unavailable', retryAfter: const Duration(seconds: 300)));
+      await p.retry();
+      expect(p.state.failure, isA<SurveyVotingUnavailable>());
+      expect(p.state.failure!.retryable, isFalse);
+      expect(repo.votes, hasLength(2), reason: 'ningún reintento automático');
+      // Al cargar, integrity_unavailable tampoco hace backoff.
+      repo.editionSteps.add(() => apiError(503, 'integrity_unavailable'));
+      await p.load();
+      expect(p.state.failure, isA<SurveyVotingUnavailable>());
+      expect(sleeps, isEmpty);
+    });
+
+    test('413 payload_too_large → SurveyServerFailure', () async {
+      final p = await ready();
+      repo.voteSteps.add(() => apiError(413, 'payload_too_large'));
+      await p.submit();
+      final f = p.state.failure as SurveyServerFailure;
+      expect((f.status, f.code), (413, 'payload_too_large'));
+      expect(repo.votes, hasLength(1));
     });
 
     test('app_check_invalid sin stale → no se reintenta', () async {
@@ -278,7 +306,7 @@ void main() {
 
     test('503, red y 500: «Reintentar» siempre con un token nuevo', () async {
       final p = await ready();
-      repo.voteSteps.add(() => apiError(503, 'integrity_unavailable', retryAfter: const Duration(seconds: 30)));
+      repo.voteSteps.add(() => apiError(503, 'verification_unavailable', retryAfter: const Duration(seconds: 30)));
       await p.submit();
       expect((p.state.failure as SurveyVerificationUnavailable).retryAfter, const Duration(seconds: 30));
       repo.voteSteps.add(() => throw const SurveyNetworkException());

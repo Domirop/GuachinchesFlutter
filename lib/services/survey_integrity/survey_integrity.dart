@@ -307,16 +307,20 @@ class FirebaseAppCheckTokenSource implements AppCheckTokenSource {
 }
 
 /// Solo para desarrollo contra el backend en modo `fake`
-/// (`--dart-define=SURVEY_INTEGRITY=fake`, y únicamente en debug): token con el
-/// formato de `fakeAppCheck.verifier.ts`, `fake-appcheck.<appId>.<único>`. En
+/// (`--dart-define=SURVEY_INTEGRITY=fake`, y únicamente en debug; el backend
+/// local necesita `NODE_ENV=development`): token con el formato de
+/// `fakeAppCheck.verifier.ts`, `fake-appcheck.<appId>.<único>~<iat>`, con `iat`
+/// en segundos para que también se pruebe la frescura (> 120 s → `stale`). En
 /// release la constante es `false` y este código se elimina al compilar.
 class FakeAppCheckTokenSource implements AppCheckTokenSource {
   static const enabled = kDebugMode &&
       String.fromEnvironment('SURVEY_INTEGRITY') == 'fake';
 
   final String appId;
-  FakeAppCheckTokenSource({String? appId})
-      : appId = appId ?? _firebaseAppId();
+  final DateTime Function() _now;
+  FakeAppCheckTokenSource({String? appId, DateTime Function()? clock})
+      : appId = appId ?? _firebaseAppId(),
+        _now = clock ?? DateTime.now;
 
   static String _firebaseAppId() {
     try {
@@ -331,7 +335,8 @@ class FakeAppCheckTokenSource implements AppCheckTokenSource {
 
   @override
   Future<String> limitedUseToken() async =>
-      'fake-appcheck.$appId.${const Uuid().v4()}';
+      'fake-appcheck.$appId.${const Uuid().v4()}'
+      '~${_now().millisecondsSinceEpoch ~/ 1000}';
 
   @override
   Future<String> standardToken() => limitedUseToken();
