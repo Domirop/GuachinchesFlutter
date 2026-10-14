@@ -158,12 +158,13 @@ class _PremiosRankingPageState extends State<PremiosRankingPage> {
                               ),
                             ),
                             const SizedBox(height: 16),
-                            ValueListenableBuilder<bool>(
-                              valueListenable: _pinned,
-                              builder: (_, pinned, child) => Opacity(
-                                  opacity: pinned ? 0 : 1, child: child),
-                              child: KeyedSubtree(key: _segKey, child: seg),
-                            ),
+                            if (!_c.state.hidden)
+                              ValueListenableBuilder<bool>(
+                                valueListenable: _pinned,
+                                builder: (_, pinned, child) => Opacity(
+                                    opacity: pinned ? 0 : 1, child: child),
+                                child: KeyedSubtree(key: _segKey, child: seg),
+                              ),
                             if (phase.counting ||
                                 phase == PremiosPhase.closed) ...[
                               const SizedBox(height: 16),
