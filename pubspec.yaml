@@ -124,6 +124,8 @@ flutter:
     - assets/images/backgrounds/
     - assets/images/backgrounds/ddc_island_bg/
     - assets/audio/
+    # Raíces fijadas para el pinning de la encuesta v3 (SurveyPinning).
+    - assets/certs/
     - env_files/
   fonts:
     - family: YourCustomFont

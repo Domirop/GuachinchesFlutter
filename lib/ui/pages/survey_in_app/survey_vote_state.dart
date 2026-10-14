@@ -99,9 +99,9 @@ final class SurveyRateLimited extends SurveyFailure {
   bool get retryable => true;
 }
 
-/// `503 integrity_unavailable`, o Firebase / Apple / Google sin servicio al
-/// pedir el token en el móvil: «No podemos verificar ahora mismo, inténtalo en
-/// unos minutos.»
+/// `503 verification_unavailable` (Firebase o su JWKS caídos; respeta
+/// [retryAfter]), o Firebase / Apple / Google sin servicio al pedir el token
+/// en el móvil: «No podemos verificar ahora mismo, inténtalo en unos minutos.»
 final class SurveyVerificationUnavailable extends SurveyFailure {
   final Duration? retryAfter;
   const SurveyVerificationUnavailable([this.retryAfter]);
@@ -118,7 +118,25 @@ final class SurveyNetworkFailure extends SurveyFailure {
   bool get retryable => true;
 }
 
-/// 400, 5xx o respuesta inesperada.
+/// La conexión con el servidor no es la nuestra: la cadena TLS no acaba en las
+/// raíces fijadas (proxy, CA instalada en el móvil, wifi con portal cautivo).
+/// No se ha enviado nada. Texto propuesto: «No podemos conectar de forma segura.
+/// Prueba con otra red (datos móviles).»
+final class SurveyInsecureConnection extends SurveyFailure {
+  const SurveyInsecureConnection();
+
+  @override
+  bool get retryable => true;
+}
+
+/// `503 integrity_unavailable`: el backend de la encuesta no está configurado.
+/// Reintentar no sirve hasta que lo arreglemos nosotros. Texto propuesto: «La
+/// votación no está disponible ahora mismo. Vuelve más tarde.»
+final class SurveyVotingUnavailable extends SurveyFailure {
+  const SurveyVotingUnavailable();
+}
+
+/// 400, 413 `payload_too_large`, 5xx o respuesta inesperada.
 final class SurveyServerFailure extends SurveyFailure {
   final int? status;
   final String? code;

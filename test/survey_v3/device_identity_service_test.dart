@@ -8,6 +8,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:guachinches/data/model/survey_v3.dart';
 import 'package:guachinches/services/survey_integrity/device_identity_service.dart';
+import 'package:guachinches/services/survey_integrity/survey_pinning.dart';
 import 'package:guachinches/utils/app_version.dart';
 
 import 'survey_fakes.dart';
@@ -71,6 +72,32 @@ void main() {
     });
   });
 
+  group('carrera en el primer arranque', () {
+    test('dos llamadas simultáneas al servicio → mismo id y una sola lectura', () async {
+      final src = _SlowRandomSource();
+      final s = identity(localIds: src);
+      final results = await Future.wait([s.localId(), s.localId(), s.enrollLike()]);
+      expect(results.map((r) => r.hash).toSet(), hasLength(1));
+      expect(src.calls, 1);
+    });
+
+    test('dos llamadas simultáneas al Keychain vacío → un solo secreto escrito', () async {
+      final keychain = MemorySecureStorage();
+      final src = KeychainLocalIdSource(storage: keychain, random: Random.secure());
+      final results = await Future.wait([src.localId(), src.localId()]);
+      expect(results[0].hash, results[1].hash);
+      expect(keychain.writes, 1);
+    });
+
+    test('si la lectura falla, se olvida y el siguiente intento vuelve a leer', () async {
+      final src = _SlowRandomSource()..failNext = true;
+      final s = identity(localIds: src);
+      await expectLater(s.localId(), throwsA(isA<SurveyIntegrityException>()));
+      expect((await s.localId()).hash, isNotEmpty);
+      expect(src.calls, 2);
+    });
+  });
+
   group('SsaidLocalIdSource (Android)', () {
     const channel = MethodChannel('test/survey_device');
     final messenger = TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
@@ -120,12 +147,48 @@ void main() {
       expect(appCheck.tokens, isEmpty);
     });
 
-    test('token falso para el backend en modo fake: formato de fakeAppCheck.verifier.ts', () async {
-      final t1 = await FakeAppCheckTokenSource(appId: '1:123:ios:abc').limitedUseToken();
-      final t2 = await FakeAppCheckTokenSource(appId: '1:123:ios:abc').limitedUseToken();
-      expect(t1, startsWith('fake-appcheck.1:123:ios:abc.'));
+    test('token falso para el backend en modo fake: fake-appcheck.<appId>.<único>~<iat>', () async {
+      final at = DateTime.utc(2027, 2, 10, 12);
+      final src = FakeAppCheckTokenSource(appId: '1:123:ios:abc', clock: () => at);
+      final t1 = await src.limitedUseToken();
+      final t2 = await src.limitedUseToken();
+      expect(t1, matches(RegExp(r'^fake-appcheck\.1:123:ios:abc\.[0-9a-f-]{36}~\d+$')));
+      expect(t1.split('~').last, '${at.millisecondsSinceEpoch ~/ 1000}');
       expect(t1, isNot(t2), reason: 'de un solo uso');
       expect(FakeAppCheckTokenSource.enabled, isFalse, reason: 'solo con --dart-define');
+    });
+  });
+
+  group('SurveyPinning', () {
+    test('raíces fijadas: ISRG Root X1 y X2 (huellas SHA-256 del DER)', () async {
+      const expected = {
+        'assets/certs/isrg_root_x1.pem':
+            '96bcec06264976f37460779acf28c5a7cfe8a3c0aae11a8ffcee05c0bddf08c6',
+        'assets/certs/isrg_root_x2.pem':
+            '69729b8e15a86efc177a57afb7171dfc64add28c2fca8cf1507e34453ccb1470',
+      };
+      expect(SurveyPinning.roots, expected.keys.toList());
+      for (final e in expected.entries) {
+        final pem = await rootBundle.loadString(e.key);
+        final b64 = pem
+            .split('\n')
+            .where((l) => l.isNotEmpty && !l.startsWith('-----'))
+            .join();
+        expect(sha256.convert(base64Decode(b64)).toString(), e.value, reason: e.key);
+      }
+      // Y el contexto TLS las acepta.
+      expect(await SurveyPinning.context(), isNotNull);
+    });
+
+    test('solo se desactiva en debug contra un backend local (o fake)', () {
+      for (final h in ['localhost', '127.0.0.1', '10.0.2.2', '192.168.1.20', 'mac.local']) {
+        expect(SurveyPinning.isLocalHost(h), isTrue, reason: h);
+      }
+      for (final h in ['api.guachinchesmodernos.com', '51.159.11.23', 'evil.localhost.com']) {
+        expect(SurveyPinning.isLocalHost(h), isFalse, reason: h);
+      }
+      expect(SurveyPinning.disabledFor(Uri.parse('https://api.guachinchesmodernos.com:459/')), isFalse,
+          reason: 'producción siempre con pinning, también en debug');
     });
   });
 
@@ -155,4 +218,31 @@ void main() {
       expect(compareAppVersions('4.7', '4.7.0'), 0);
     });
   });
+}
+
+/// Fuente lenta que daría un id distinto en cada lectura: si el servicio la
+/// llamara dos veces a la vez, saldrían dos identidades.
+class _SlowRandomSource implements LocalIdSource {
+  int calls = 0;
+  bool failNext = false;
+  final _random = Random();
+
+  @override
+  Future<SurveyLocalId> localId() async {
+    calls++;
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    if (failNext) {
+      failNext = false;
+      throw const SurveyIntegrityException(SurveyIntegrityError.keychain);
+    }
+    return SurveyLocalId(SurveyLocalId.hashOf([_random.nextInt(1 << 32)]));
+  }
+}
+
+extension on DeviceIdentityService {
+  /// Una petición real también lee la identidad.
+  Future<SurveyLocalId> enrollLike() async {
+    final r = await identityRequest();
+    return SurveyLocalId(r.body['localIdHash'] as String);
+  }
 }

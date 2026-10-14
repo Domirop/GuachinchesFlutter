@@ -85,6 +85,7 @@ class FakeLocalIdSource implements LocalIdSource {
 class FakeAppCheck implements AppCheckTokenSource {
   int activations = 0;
   final tokens = <String>[];
+  final standardTokens = <String>[];
   SurveyIntegrityException? activateError;
   final tokenErrors = <SurveyIntegrityException>[];
 
@@ -99,6 +100,14 @@ class FakeAppCheck implements AppCheckTokenSource {
     if (tokenErrors.isNotEmpty) throw tokenErrors.removeAt(0);
     final t = '$kTokenPrefix${tokens.length + 1}';
     tokens.add(t);
+    return t;
+  }
+
+  @override
+  Future<String> standardToken() async {
+    if (tokenErrors.isNotEmpty) throw tokenErrors.removeAt(0);
+    final t = '${kTokenPrefix}STD-${standardTokens.length + 1}';
+    standardTokens.add(t);
     return t;
   }
 }

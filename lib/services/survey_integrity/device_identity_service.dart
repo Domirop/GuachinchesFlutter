@@ -24,13 +24,17 @@ class SurveySignedRequest {
 ///   Play Integrity.
 /// - Debug: proveedor Debug de App Check.
 ///
-/// Cada petición pide un token de App Check **nuevo** (de uso limitado: el
-/// servidor lo consume al votar). Sin token no hay petición.
+/// `votes` pide un token de App Check de uso limitado **nuevo** (el servidor lo
+/// consume); `my-votes`, el token estándar. Sin token no hay petición.
 class DeviceIdentityService {
   final LocalIdSource _localIds;
   final AppCheckTokenSource _appCheck;
   final String platform;
-  SurveyLocalId? _localId;
+
+  /// Se guarda el Future, no el resultado: dos llamadas simultáneas en el
+  /// primer arranque esperan la misma lectura (y en iOS la misma creación del
+  /// secreto). Si falla, se olvida para poder reintentar.
+  Future<SurveyLocalId>? _pending;
 
   DeviceIdentityService({
     required LocalIdSource localIds,
@@ -43,7 +47,7 @@ class DeviceIdentityService {
   factory DeviceIdentityService.platform() {
     final ios = Platform.isIOS;
     return DeviceIdentityService(
-      localIds: ios ? KeychainLocalIdSource() : SsaidLocalIdSource(),
+      localIds: ios ? KeychainLocalIdSource.shared : SsaidLocalIdSource(),
       appCheck: FakeAppCheckTokenSource.enabled
           ? FakeAppCheckTokenSource()
           : FirebaseAppCheckTokenSource(),
@@ -60,10 +64,19 @@ class DeviceIdentityService {
 
   /// Una lectura por instancia; el secreto (iOS) o el SSAID (Android) se
   /// reutilizan siempre.
-  Future<SurveyLocalId> localId() async => _localId ??= await _localIds.localId();
+  Future<SurveyLocalId> localId() {
+    final pending = _pending ??= _localIds.localId();
+    pending.then((_) {}, onError: (Object _) {
+      if (identical(_pending, pending)) _pending = null;
+    });
+    return pending;
+  }
 
   /// `my-votes`: el servidor reconoce la identidad y devuelve lo que ya votó.
-  Future<SurveySignedRequest> identityRequest() => _signed(const {});
+  /// Token **estándar** de App Check (el servidor no lo consume): no gasta la
+  /// cuota de tokens de uso limitado de Play Integrity / App Attest.
+  Future<SurveySignedRequest> identityRequest() =>
+      _signed(const {}, limitedUse: false);
 
   Future<SurveySignedRequest> voteRequest(List<SurveyVoteSelection> votes) {
     final cats = votes.map((v) => v.category).toSet();
@@ -75,9 +88,14 @@ class DeviceIdentityService {
     });
   }
 
-  Future<SurveySignedRequest> _signed(Map<String, Object?> extra) async {
+  /// El token se pide lo último, justo antes del POST (el servidor rechaza
+  /// los de más de 120 s).
+  Future<SurveySignedRequest> _signed(Map<String, Object?> extra,
+      {bool limitedUse = true}) async {
     final local = await localId();
-    final token = await _appCheck.limitedUseToken();
+    final token = limitedUse
+        ? await _appCheck.limitedUseToken()
+        : await _appCheck.standardToken();
     return SurveySignedRequest({
       'platform': platform,
       'localIdHash': local.hash,

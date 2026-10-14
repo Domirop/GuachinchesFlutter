@@ -94,15 +94,30 @@ class KeychainLocalIdSource implements LocalIdSource {
     synchronizable: false,
   );
 
+  /// Una sola instancia por proceso: todas las lecturas y la creación del
+  /// secreto pasan por el mismo [_pending].
+  static final shared = KeychainLocalIdSource();
+
   final FlutterSecureStorage _storage;
   final Random _random;
+  Future<SurveyLocalId>? _pending;
 
   KeychainLocalIdSource({FlutterSecureStorage? storage, Random? random})
       : _storage = storage ?? const FlutterSecureStorage(iOptions: iosOptions),
         _random = random ?? Random.secure();
 
+  /// Dos llamadas a la vez (primer arranque) comparten la misma lectura y la
+  /// misma creación: nunca se escriben dos secretos distintos.
   @override
-  Future<SurveyLocalId> localId() async {
+  Future<SurveyLocalId> localId() {
+    final pending = _pending ??= _readOrCreate();
+    pending.then((_) {}, onError: (Object _) {
+      if (identical(_pending, pending)) _pending = null;
+    });
+    return pending;
+  }
+
+  Future<SurveyLocalId> _readOrCreate() async {
     final stored = await _read();
     if (stored != null) {
       final bytes = _decode(stored);
@@ -186,8 +201,13 @@ abstract class AppCheckTokenSource {
   /// Activa App Check (idempotente). Lanza [SurveyIntegrityException].
   Future<void> activate();
 
-  /// Token nuevo para la cabecera `X-Firebase-AppCheck`. Opaco: no se imprime.
+  /// Token de uso limitado nuevo para la cabecera `X-Firebase-AppCheck` de
+  /// `votes`. Opaco: no se imprime.
   Future<String> limitedUseToken();
+
+  /// Token estándar (el SDK lo reutiliza mientras no caduque) para `my-votes`,
+  /// que el servidor verifica sin consumir.
+  Future<String> standardToken();
 }
 
 /// Proveedores: App Attest en iOS, Play Integrity en Android y Debug en las
@@ -226,6 +246,21 @@ class FirebaseAppCheckTokenSource implements AppCheckTokenSource {
       throw classify(e);
     }
     if (token.isEmpty) {
+      throw const SurveyIntegrityException(SurveyIntegrityError.failed);
+    }
+    return token;
+  }
+
+  @override
+  Future<String> standardToken() async {
+    await activate();
+    final String? token;
+    try {
+      token = await FirebaseAppCheck.instance.getToken();
+    } catch (e) {
+      throw classify(e);
+    }
+    if (token == null || token.isEmpty) {
       throw const SurveyIntegrityException(SurveyIntegrityError.failed);
     }
     return token;
@@ -272,16 +307,20 @@ class FirebaseAppCheckTokenSource implements AppCheckTokenSource {
 }
 
 /// Solo para desarrollo contra el backend en modo `fake`
-/// (`--dart-define=SURVEY_INTEGRITY=fake`, y únicamente en debug): token con el
-/// formato de `fakeAppCheck.verifier.ts`, `fake-appcheck.<appId>.<único>`. En
+/// (`--dart-define=SURVEY_INTEGRITY=fake`, y únicamente en debug; el backend
+/// local necesita `NODE_ENV=development`): token con el formato de
+/// `fakeAppCheck.verifier.ts`, `fake-appcheck.<appId>.<único>~<iat>`, con `iat`
+/// en segundos para que también se pruebe la frescura (> 120 s → `stale`). En
 /// release la constante es `false` y este código se elimina al compilar.
 class FakeAppCheckTokenSource implements AppCheckTokenSource {
   static const enabled = kDebugMode &&
       String.fromEnvironment('SURVEY_INTEGRITY') == 'fake';
 
   final String appId;
-  FakeAppCheckTokenSource({String? appId})
-      : appId = appId ?? _firebaseAppId();
+  final DateTime Function() _now;
+  FakeAppCheckTokenSource({String? appId, DateTime Function()? clock})
+      : appId = appId ?? _firebaseAppId(),
+        _now = clock ?? DateTime.now;
 
   static String _firebaseAppId() {
     try {
@@ -296,5 +335,9 @@ class FakeAppCheckTokenSource implements AppCheckTokenSource {
 
   @override
   Future<String> limitedUseToken() async =>
-      'fake-appcheck.$appId.${const Uuid().v4()}';
+      'fake-appcheck.$appId.${const Uuid().v4()}'
+      '~${_now().millisecondsSinceEpoch ~/ 1000}';
+
+  @override
+  Future<String> standardToken() => limitedUseToken();
 }
