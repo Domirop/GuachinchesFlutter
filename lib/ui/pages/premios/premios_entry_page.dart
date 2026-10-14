@@ -258,7 +258,9 @@ class _Categories extends StatelessWidget {
       final flavour = c == PremiosCategory.tradicional
           ? 'vino de la casa'
           : 'con otra vuelta';
-      if (state.load != PremiosLoad.ready) return flavour;
+      if (state.load != PremiosLoad.ready || state.gate != null) {
+        return flavour;
+      }
       final n = state.candidatesOf(c).length;
       return '$n ${n == 1 ? 'candidato' : 'candidatos'} · $flavour';
     }

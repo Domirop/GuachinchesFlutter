@@ -490,7 +490,7 @@ class PremiosSegmented extends StatelessWidget {
           identifier: '$identifierPrefix-${c.short}',
           button: true,
           selected: on,
-          label: c.plural,
+          label: flat ? c.singular : c.plural,
           onTap: () => onChanged(c),
           excludeSemantics: true,
           child: GestureDetector(
@@ -519,7 +519,7 @@ class PremiosSegmented extends StatelessWidget {
                       size: 16, ink: PremiosColors.catInk(c, gm)),
                   const SizedBox(width: 6),
                   Flexible(
-                    child: Text(c.plural,
+                    child: Text(flat ? c.singular : c.plural,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
@@ -1028,6 +1028,7 @@ class _PodiumColumn extends StatelessWidget {
                 style: TextStyle(
                     fontSize: m.metaSize,
                     height: m.metaLine / m.metaSize,
+                    fontWeight: FontWeight.w400,
                     color: gm.label2,
                     fontFeatures: const [FontFeature.tabularFigures()])),
           ),

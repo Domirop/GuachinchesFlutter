@@ -44,6 +44,9 @@ enum PremiosCategory {
     required this.plural,
   });
 
+  /// «Tradicional» / «Moderno» (segmentado del Inicio).
+  String get singular => short[0].toUpperCase() + short.substring(1);
+
   /// «36 guachinches» / «154 sitios» (el tablero distingue los dos).
   String candidatesNoun(int n) => this == tradicional
       ? (n == 1 ? 'guachinche' : 'guachinches')
