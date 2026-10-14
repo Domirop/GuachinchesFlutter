@@ -29,11 +29,9 @@ class SurveyRanking extends StatefulWidget {
 }
 
 class _SurveyRankingState extends State<SurveyRanking> {
-  late final PremiosResultsController _c = PremiosResultsController(
-    restaurants: widget.allRestaurants,
-    tradicionales: widget.guachinchesTradicionales,
-    modernos: widget.guachinchesModernos,
-  );
+  /// El ranking sale de la API v3 por edición; las listas que traía el
+  /// Inicio viejo (`surveys/results/1/…`) ya no se usan.
+  late final PremiosResultsController _c = PremiosResultsController();
 
   @override
   void dispose() {

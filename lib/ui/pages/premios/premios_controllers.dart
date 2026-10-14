@@ -4,10 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:guachinches/core/logging/app_logger.dart';
 import 'package:guachinches/data/HttpRemoteRepository.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
-import 'package:guachinches/data/model/restaurant.dart';
 import 'package:guachinches/data/model/survey_v3.dart';
 import 'package:guachinches/services/app_storage.dart';
-import 'package:guachinches/ui/components/SurveyResults/SurveyResults.dart';
 import 'package:guachinches/ui/pages/premios/premios_models.dart';
 import 'package:guachinches/ui/pages/survey_in_app/survey_vote_presenter.dart';
 import 'package:http/http.dart';
@@ -330,62 +328,49 @@ class PremiosVotedStore
 
 // ── Ranking ────────────────────────────────────────────────────────────────
 
-/// Resultados públicos (`GET surveys/results/1/{categoría}`, sin identidad)
-/// con «Tu voto» desde [PremiosVotedStore].
+/// Ranking público de la edición en curso (`GET /surveys/v3/editions/:id/
+/// results`, sin App Check, cliente con pinning) con «Tu voto» desde
+/// [PremiosVotedStore]. El `editionId` sale de `editions/current`.
 class PremiosResultsController extends PremiosRankingController {
   final RemoteRepository _repository;
-  List<Restaurant>? _restaurants;
-  List<SurveyResult> _trad = const [], _mod = const [];
+  SurveyEditionResults? _results;
   PremiosRankingState _state = const PremiosRankingState();
   bool _disposed = false;
 
-  /// [restaurants] y los resultados iniciales son opcionales: el Inicio
-  /// viejo ya los tenía cargados.
-  PremiosResultsController({
-    RemoteRepository? repository,
-    List<Restaurant>? restaurants,
-    List<SurveyResult>? tradicionales,
-    List<SurveyResult>? modernos,
-  }) : _repository = repository ?? HttpRemoteRepository(Client()) {
-    _restaurants =
-        restaurants == null || restaurants.isEmpty ? null : restaurants;
+  PremiosResultsController({RemoteRepository? repository})
+      : _repository = repository ?? HttpRemoteRepository(Client()) {
     PremiosVotedStore.instance.addListener(_remark);
     PremiosVotedStore.instance.ensureLoaded();
-    if (tradicionales != null &&
-        modernos != null &&
-        (tradicionales.isNotEmpty || modernos.isNotEmpty)) {
-      _trad = tradicionales;
-      _mod = modernos;
-      _state = _build();
-    }
   }
 
   @override
   PremiosRankingState get state => _state;
 
   /// Total de votos de las dos categorías (antetítulo del Inicio).
-  int get totalVotes =>
-      [..._state.tradicional, ..._state.moderno].fold(0, (a, e) => a + e.votes);
+  int get totalVotes => _state.totalVotes;
 
-  PremiosRankingState _build() {
+  PremiosRankingState _build(SurveyEditionResults r) {
     final voted = PremiosVotedStore.instance;
-    // Con votos del servidor manda el servidor; los marcados del resultado
-    // (Inicio viejo) se respetan si aún no hay datos.
-    if (voted.value.isNotEmpty) {
-      for (final r in [..._trad, ..._mod]) {
-        r.isVotedByUser = voted.isMine(r.restaurantId);
-      }
-    }
+    List<PremiosRankEntry> rows(PremiosCategory c) => r.hidden
+        ? const []
+        : premiosRankFromRows(r.category(c.apiName)?.results ?? const [],
+            isMine: voted.isMine);
     return PremiosRankingState(
       load: PremiosLoad.ready,
-      tradicional: premiosRank(_trad),
-      moderno: premiosRank(_mod),
+      hidden: r.hidden,
+      tradicional: rows(PremiosCategory.tradicional),
+      moderno: rows(PremiosCategory.moderno),
+      totals: {
+        for (final c in PremiosCategory.values)
+          c: r.category(c.apiName)?.totalVotes ?? 0,
+      },
     );
   }
 
   void _remark() {
-    if (_disposed || _state.load != PremiosLoad.ready) return;
-    _state = _build();
+    final r = _results;
+    if (_disposed || r == null) return;
+    _state = _build(r);
     notifyListeners();
   }
 
@@ -399,23 +384,22 @@ class PremiosResultsController extends PremiosRankingController {
   Future<void> refresh() async {
     if (_state.load == PremiosLoad.error) _set(const PremiosRankingState());
     try {
-      final restaurants = _restaurants ??= [
-        ...await _repository
-            .getAllSurveyRestaurants(PremiosCategory.moderno.apiName),
-        ...await _repository
-            .getAllSurveyRestaurants(PremiosCategory.tradicional.apiName),
-      ];
-      final results = await Future.wait([
-        _repository.getSurveyResults(
-            1, PremiosCategory.tradicional.apiName, restaurants),
-        _repository.getSurveyResults(
-            1, PremiosCategory.moderno.apiName, restaurants),
-      ]);
-      _trad = results[0];
-      _mod = results[1];
-      _set(_build());
+      final store = PremiosEditionStore.instance;
+      store.ensureLoaded(_repository);
+      await store.loading;
+      var id = store.current.id;
+      if (id == null) {
+        // Respaldo sin API: se intenta una vez más la edición en curso.
+        final e = await _repository.getCurrentSurveyEdition();
+        store.publish(e);
+        id = e.editionId;
+      }
+      final r = _results = await _repository.getSurveyEditionResults(id);
+      _set(_build(r));
     } catch (e) {
-      AppLogger.warn('premios', 'ranking: ${e.runtimeType}');
+      // 404 edition_not_found, 429, red… El Inicio no enseña un fallo.
+      AppLogger.warn('premios',
+          'ranking: ${e is SurveyApiException ? e.code : e.runtimeType}');
       if (_state.load != PremiosLoad.ready) {
         _set(const PremiosRankingState(load: PremiosLoad.error));
       }

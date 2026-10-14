@@ -21,10 +21,8 @@ class MyVotedRestaurants extends StatefulWidget {
 }
 
 class _MyVotedRestaurantsState extends State<MyVotedRestaurants> {
-  late final PremiosResultsController _c = PremiosResultsController(
-    tradicionales: widget.tradicionales,
-    modernos: widget.modernos,
-  );
+  /// Los puestos salen de la API v3 por edición.
+  late final PremiosResultsController _c = PremiosResultsController();
 
   @override
   void dispose() {

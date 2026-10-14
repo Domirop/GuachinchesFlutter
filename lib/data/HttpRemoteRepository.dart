@@ -917,6 +917,11 @@ class HttpRemoteRepository implements RemoteRepository {
       SurveyEdition.fromJson(await _surveyV3('GET', 'editions/current'));
 
   @override
+  Future<SurveyEditionResults> getSurveyEditionResults(int editionId) async =>
+      SurveyEditionResults.fromJson(
+          await _surveyV3('GET', 'editions/$editionId/results'));
+
+  @override
   Future<List<SurveyInAppChoice>> getSurveyEditionChoices(
       int editionId, String categoryName) async {
     final uri = Uri.parse(

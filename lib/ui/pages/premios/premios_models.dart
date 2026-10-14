@@ -6,7 +6,6 @@ import 'package:guachinches/data/HttpRemoteRepository.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
 import 'package:guachinches/data/model/survey_v3.dart';
 import 'package:http/http.dart' show Client;
-import 'package:guachinches/ui/components/SurveyResults/SurveyResults.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/gm_place_card.dart'
     show gmPlaceName;
 
@@ -580,23 +579,26 @@ class PremiosRankEntry {
   });
 }
 
-/// Nombre cuando el resultado no casa con ningún restaurante de la encuesta
-/// (antes `firstWhere` sin `orElse` tumbaba la pantalla).
+/// Nombre de un candidato que llega sin nombre.
 const kPremiosMissingName = 'Sitio sin ficha';
 
-/// Resultados del backend → filas con puesto real (empates incluidos).
-List<PremiosRankEntry> premiosRank(List<SurveyResult> results) {
-  String name(SurveyResult r) => r.restaurant == null
-      ? kPremiosMissingName
-      : premiosDisplayName(r.restaurant!.nombre);
-  // Más votos primero; con los mismos votos, por nombre (orden estable).
-  final sorted = [...results]..sort((a, b) {
-      final v = b.votes.compareTo(a.votes);
-      return v != 0
-          ? v
-          : premiosNormalize(name(a)).compareTo(premiosNormalize(name(b)));
-    });
-  final ranks = premiosCompetitionRanks([for (final r in sorted) r.votes]);
+/// Filas de `GET editions/:id/results` → entradas del ranking. El puesto
+/// ([SurveyResultRow.rank]) viene del servidor con los puestos compartidos y
+/// el desempate; solo si falta se calcula aquí. Los candidatos con 0 votos
+/// no entran (ni podio ni «El resto»: una lista de ceros no dice nada).
+List<PremiosRankEntry> premiosRankFromRows(List<SurveyResultRow> rows,
+    {bool Function(String value)? isMine}) {
+  final voted = [
+    for (final r in rows)
+      if (r.votes > 0) r
+  ];
+  final serverRanks = voted.every((r) => r.rank > 0);
+  final sorted = serverRanks
+      ? ([...voted]..sort((a, b) => a.rank.compareTo(b.rank)))
+      : ([...voted]..sort((a, b) => b.votes.compareTo(a.votes)));
+  final ranks = serverRanks
+      ? [for (final r in sorted) r.rank]
+      : premiosCompetitionRanks([for (final r in sorted) r.votes]);
   final count = <int, int>{};
   for (final r in ranks) {
     count[r] = (count[r] ?? 0) + 1;
@@ -604,16 +606,16 @@ List<PremiosRankEntry> premiosRank(List<SurveyResult> results) {
   return [
     for (var i = 0; i < sorted.length; i++)
       PremiosRankEntry(
-        id: sorted[i].restaurantId,
-        name: name(sorted[i]),
-        municipio: gmPlaceName(sorted[i].restaurant?.municipio ?? ''),
-        photoUrl: (sorted[i].restaurant?.mainFoto.isNotEmpty ?? false)
-            ? sorted[i].restaurant!.mainFoto
-            : null,
+        id: sorted[i].value,
+        name: sorted[i].name.trim().isEmpty
+            ? kPremiosMissingName
+            : premiosDisplayName(sorted[i].name),
+        municipio: gmPlaceName(sorted[i].municipality ?? ''),
+        photoUrl: sorted[i].photoUrl,
         votes: sorted[i].votes,
         rank: ranks[i],
         tied: (count[ranks[i]] ?? 0) > 1,
-        mine: sorted[i].isVotedByUser,
+        mine: isMine?.call(sorted[i].value) ?? false,
       ),
   ];
 }
@@ -632,11 +634,22 @@ class PremiosRankingState {
   final List<PremiosRankEntry> tradicional;
   final List<PremiosRankEntry> moderno;
 
+  /// `hidden: true` (modo `after_close`): el ranking se desvela al cierre.
+  final bool hidden;
+
+  /// Votos totales de cada categoría (del servidor).
+  final Map<PremiosCategory, int> totals;
+
   const PremiosRankingState({
     this.load = PremiosLoad.loading,
     this.tradicional = const [],
     this.moderno = const [],
+    this.hidden = false,
+    this.totals = const {},
   });
+
+  /// Votos de las dos categorías.
+  int get totalVotes => totals.values.fold(0, (a, b) => a + b);
 
   List<PremiosRankEntry> of(PremiosCategory c) =>
       c == PremiosCategory.tradicional ? tradicional : moderno;

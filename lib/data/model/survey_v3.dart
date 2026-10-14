@@ -106,7 +106,8 @@ class SurveyMyVotes {
   final SurveyDeviceStatus status;
   final SurveyVoted voted;
 
-  const SurveyMyVotes({this.status = SurveyDeviceStatus.fresh, this.voted = const {}});
+  const SurveyMyVotes(
+      {this.status = SurveyDeviceStatus.fresh, this.voted = const {}});
 
   factory SurveyMyVotes.fromJson(Map<String, dynamic> j) => SurveyMyVotes(
         status: switch (j['status']) {
@@ -208,8 +209,130 @@ class SurveyApiException implements Exception {
 class SurveyNetworkException implements Exception {
   final bool maybeDelivered;
   final bool untrusted;
-  const SurveyNetworkException({this.maybeDelivered = false, this.untrusted = false});
+  const SurveyNetworkException(
+      {this.maybeDelivered = false, this.untrusted = false});
 
   @override
-  String toString() => untrusted ? 'SurveyNetworkException(untrusted)' : 'SurveyNetworkException';
+  String toString() => untrusted
+      ? 'SurveyNetworkException(untrusted)'
+      : 'SurveyNetworkException';
+}
+
+// ── Resultados por edición (`GET editions/:id/results`, público) ──────────
+
+int _int(Object? v) => v is num ? v.toInt() : int.tryParse('$v') ?? 0;
+
+String? _str(Object? v) {
+  final s = v?.toString().trim();
+  return s == null || s.isEmpty || s == 'null' ? null : s;
+}
+
+/// Un candidato en el ranking de una categoría. [rank] ya viene con puestos
+/// compartidos y desempate del servidor.
+@immutable
+class SurveyResultRow {
+  final String value;
+  final String? restaurantId;
+  final String name;
+  final String? municipality;
+  final String? island;
+  final String? photoUrl;
+  final int votes;
+  final int rank;
+
+  const SurveyResultRow({
+    required this.value,
+    this.restaurantId,
+    required this.name,
+    this.municipality,
+    this.island,
+    this.photoUrl,
+    required this.votes,
+    required this.rank,
+  });
+
+  factory SurveyResultRow.fromJson(Map<String, dynamic> j) => SurveyResultRow(
+        value: j['value']?.toString() ?? '',
+        restaurantId: _str(j['restaurantId']),
+        name: j['name']?.toString() ?? '',
+        municipality: _str(j['municipality']),
+        island: _str(j['island']),
+        photoUrl: _str(j['photoUrl']),
+        votes: _int(j['votes']),
+        rank: _int(j['rank']),
+      );
+}
+
+@immutable
+class SurveyCategoryResults {
+  final String category;
+  final String label;
+  final int totalVotes;
+  final int candidatesWithVotes;
+  final List<SurveyResultRow> results;
+
+  const SurveyCategoryResults({
+    required this.category,
+    this.label = '',
+    this.totalVotes = 0,
+    this.candidatesWithVotes = 0,
+    this.results = const [],
+  });
+
+  factory SurveyCategoryResults.fromJson(Map<String, dynamic> j) =>
+      SurveyCategoryResults(
+        category: j['category']?.toString() ?? '',
+        label: j['label']?.toString() ?? '',
+        totalVotes: _int(j['totalVotes']),
+        candidatesWithVotes: _int(j['candidatesWithVotes']),
+        results: [
+          for (final r
+              in (j['results'] is List ? j['results'] as List : const []))
+            if (r is Map) SurveyResultRow.fromJson(Map<String, dynamic>.from(r))
+        ],
+      );
+}
+
+/// Respuesta de `GET /surveys/v3/editions/:id/results`. Con [hidden] (modo
+/// `after_close`) el ranking no se publica hasta el cierre.
+@immutable
+class SurveyEditionResults {
+  final int editionId;
+  final SurveyEditionStatus status;
+  final DateTime? generatedAt;
+  final bool hidden;
+  final List<SurveyCategoryResults> categories;
+
+  const SurveyEditionResults({
+    required this.editionId,
+    required this.status,
+    this.generatedAt,
+    this.hidden = false,
+    this.categories = const [],
+  });
+
+  SurveyCategoryResults? category(String name) {
+    for (final c in categories) {
+      if (c.category == name) return c;
+    }
+    return null;
+  }
+
+  factory SurveyEditionResults.fromJson(Map<String, dynamic> j) =>
+      SurveyEditionResults(
+        editionId: _int(j['editionId']),
+        status: switch (j['status']) {
+          'open' => SurveyEditionStatus.open,
+          'upcoming' => SurveyEditionStatus.upcoming,
+          _ => SurveyEditionStatus.closed,
+        },
+        generatedAt: DateTime.tryParse(j['generatedAt']?.toString() ?? ''),
+        hidden: j['hidden'] == true,
+        categories: [
+          for (final c
+              in (j['categories'] is List ? j['categories'] as List : const []))
+            if (c is Map)
+              SurveyCategoryResults.fromJson(Map<String, dynamic>.from(c))
+        ],
+      );
 }

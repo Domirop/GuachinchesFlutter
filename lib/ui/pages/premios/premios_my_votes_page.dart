@@ -48,6 +48,9 @@ class _PremiosMyVotesPageState extends State<PremiosMyVotesPage> {
     }
   }
 
+  int _myCount() => PremiosVotedStore.instance.value.values
+      .fold(0, (a, set) => a + set.length);
+
   @override
   Widget build(BuildContext context) {
     final controller = widget.controller;
@@ -70,7 +73,8 @@ class _PremiosMyVotesPageState extends State<PremiosMyVotesPage> {
       child: Scaffold(
         backgroundColor: gm.canvas,
         body: ListenableBuilder(
-          listenable: controller,
+          listenable:
+              Listenable.merge([controller, PremiosVotedStore.instance]),
           builder: (context, _) {
             final s = controller.state;
             final sections = [
@@ -124,6 +128,22 @@ class _PremiosMyVotesPageState extends State<PremiosMyVotesPage> {
                           text: 'Revisa tu conexión e inténtalo de nuevo.',
                           action: 'Reintentar',
                           onAction: controller.refresh,
+                        )
+                      else if (s.hidden && _myCount() > 0)
+                        // Ranking oculto hasta el cierre: sin puestos que
+                        // enseñar, pero lo votado sí cuenta.
+                        GmRise(
+                          index: 1,
+                          trigger: GmTrigger.mount,
+                          child: PremiosStateCard(
+                            identifier: 'premios-my-votes-hidden',
+                            title: 'Tus votos ya están en la barrica',
+                            text: _myCount() == 1
+                                ? 'Has votado un sitio desde este móvil. Su '
+                                    'puesto se verá al cierre.'
+                                : 'Has votado ${_myCount()} sitios desde este '
+                                    'móvil. Sus puestos se verán al cierre.',
+                          ),
                         )
                       else if (!has)
                         const GmRise(

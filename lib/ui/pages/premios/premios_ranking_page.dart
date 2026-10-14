@@ -320,6 +320,12 @@ class _PremiosRankingPageState extends State<PremiosRankingPage> {
         )),
       ];
     }
+    if (s.hidden) {
+      return [
+        box(PremiosHiddenRanking(
+            untilShort: PremiosEditionStore.instance.current.untilShort)),
+      ];
+    }
     final list = s.of(_tab);
     if (list.isEmpty) {
       return [
@@ -330,7 +336,7 @@ class _PremiosRankingPageState extends State<PremiosRankingPage> {
         )),
       ];
     }
-    final total = list.fold<int>(0, (a, e) => a + e.votes);
+    final total = s.totals[_tab] ?? list.fold<int>(0, (a, e) => a + e.votes);
     final noun = _tab.candidatesNoun(list.length);
     final rest = list.skip(3).toList();
     final ink = PremiosColors.catInk(_tab, gm);

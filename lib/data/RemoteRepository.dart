@@ -91,6 +91,8 @@ abstract class RemoteRepository{
   Future<List<SurveyInAppChoice>> getSurveyEditionChoices(int editionId, String categoryName);
   Future<SurveyMyVotes> getMySurveyVotes(int editionId, Map<String, Object?> body, {required String appCheckToken});
   Future<SurveyVoteReceipt> submitSurveyVotesV3(int editionId, Map<String, Object?> body, {required String appCheckToken});
+  /// Ranking público de la edición (sin App Check, cliente con pinning).
+  Future<SurveyEditionResults> getSurveyEditionResults(int editionId);
   Future<List<SurveyResult>> getSurveyResults(int surveyId, String surveyName,List<Restaurant> allRestaurants);
   Future<List<String>> getVotedRestaurantsByUser(String surveySchemaId, String userId);
   Future<List<Restaurant>> getAllSurveyRestaurants(String surveyId);

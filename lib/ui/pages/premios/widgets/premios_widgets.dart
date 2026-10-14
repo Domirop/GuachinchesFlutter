@@ -1302,3 +1302,71 @@ Future<void> premiosOpenStore() async {
     AppLogger.warn('premios', 'abrir la tienda: ${e.runtimeType}');
   }
 }
+
+// ── Ranking oculto hasta el cierre ─────────────────────────────────────────
+
+/// «El ranking se desvela al cierre» (resultados con `hidden: true`, modo
+/// `after_close`): la barrica guarda los votos y el podio sale al cerrar.
+/// [compact] va dentro de la tarjeta del Inicio; si no, es una tarjeta.
+class PremiosHiddenRanking extends StatelessWidget {
+  /// «hasta el 20 de marzo» (vacío sin fecha).
+  final String untilShort;
+  final bool compact;
+  const PremiosHiddenRanking(
+      {super.key, required this.untilShort, this.compact = false});
+
+  static String textFor(String untilShort) {
+    final when = untilShort.isEmpty
+        ? 'al cierre'
+        : 'el ${untilShort.replaceFirst('hasta el ', '')}';
+    return 'Los votos se cuentan a puerta cerrada y el podio sale $when. '
+        'Mientras, vota a tus favoritos.';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final gm = GmColors.of(context);
+    final body = Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        if (!compact) ...[
+          const PremiosMiniBarrel(width: 58),
+          const SizedBox(width: 14),
+        ],
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('El ranking se desvela al cierre',
+                  style: GmText.cardTitle(color: gm.label)),
+              const SizedBox(height: 3),
+              Text(textFor(untilShort),
+                  style:
+                      (compact ? GmText.meta : GmText.body)(color: gm.label2)),
+            ],
+          ),
+        ),
+      ],
+    );
+    return Semantics(
+      identifier: compact ? 'home-premios-hidden' : 'premios-ranking-hidden',
+      container: true,
+      child: compact
+          ? Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: gm.fill,
+                borderRadius: BorderRadius.circular(18),
+              ),
+              child: body,
+            )
+          : GmCard(
+              radius: GmRadius.guide,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 14, 18, 14),
+                child: body,
+              ),
+            ),
+    );
+  }
+}

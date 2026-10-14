@@ -251,6 +251,9 @@ class PremiosLiveSection extends StatefulWidget {
   final PremiosRankingState ranking;
   final int totalVotes;
   final String remaining;
+
+  /// «hasta el 20 de marzo» (texto del ranking oculto).
+  final String untilShort;
   final VoidCallback onVote;
   final VoidCallback onRanking;
 
@@ -260,6 +263,7 @@ class PremiosLiveSection extends StatefulWidget {
     required this.ranking,
     required this.totalVotes,
     required this.remaining,
+    this.untilShort = '',
     required this.onVote,
     required this.onRanking,
   });
@@ -279,6 +283,11 @@ class _PremiosLiveSectionState extends State<PremiosLiveSection> {
     final mine = widget.variant == PremiosLiveVariant.notVoted
         ? null
         : list.where((e) => e.mine).firstOrNull;
+    final r = widget.ranking;
+    final hidden = r.load == PremiosLoad.ready && r.hidden;
+    // Sin resultados (404, red…): el anuncio y el botón Votar, sin podio ni
+    // aviso de fallo.
+    final failed = r.load == PremiosLoad.error;
     final eyebrow = closed
         ? const PremiosEyebrow()
         : GmEyebrow(
@@ -286,12 +295,17 @@ class _PremiosLiveSectionState extends State<PremiosLiveSection> {
               TextSpan(
                   text: 'En directo', style: TextStyle(color: gm.greenText)),
               TextSpan(
-                  text: widget.totalVotes > 0
+                  text: widget.totalVotes > 0 && !hidden
                       ? ' · Premios 2026 · ${premiosVotes(widget.totalVotes)}'
                       : ' · Premios 2026'),
             ],
             leading: const GmLiveDot(),
           );
+    final title = closed
+        ? 'Ganadores 2026'
+        : (hidden || failed)
+            ? 'Votación en marcha'
+            : 'Así va la votación';
     return Semantics(
       identifier: 'home-premios-live',
       container: true,
@@ -305,7 +319,7 @@ class _PremiosLiveSectionState extends State<PremiosLiveSection> {
                 padding: const EdgeInsets.only(right: 96),
                 child: GmSectionHeader(
                   eyebrow: eyebrow,
-                  title: closed ? 'Ganadores 2026' : 'Así va la votación',
+                  title: title,
                   onTap: widget.onRanking,
                   identifier: 'home-premios-title',
                 ),
@@ -320,37 +334,54 @@ class _PremiosLiveSectionState extends State<PremiosLiveSection> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 14),
-                          child: PremiosSegmented(
-                            value: _tab,
-                            flat: true,
-                            identifierPrefix: 'home-premios-tab',
-                            onChanged: (c) => setState(() => _tab = c),
+                        if (hidden)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 14),
+                            child: PremiosHiddenRanking(
+                                untilShort: widget.untilShort, compact: true),
+                          )
+                        else if (failed)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 18),
+                            child: Text(
+                                'Dos categorías, tradicional y moderno: elige '
+                                'tu favorito en cada una.',
+                                style: GmText.body(color: gm.label2)),
+                          )
+                        else ...[
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 14),
+                            child: PremiosSegmented(
+                              value: _tab,
+                              flat: true,
+                              identifierPrefix: 'home-premios-tab',
+                              onChanged: (c) => setState(() => _tab = c),
+                            ),
                           ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
-                          child: switch (widget.ranking.load) {
-                            PremiosLoad.ready when list.isNotEmpty =>
-                              PodioPremios(
-                                key: ValueKey(_tab),
-                                category: _tab,
-                                entries: list.take(3).toList(),
-                                compact: true,
-                              ),
-                            PremiosLoad.ready => SizedBox(
-                                height: 72,
-                                child: Center(
-                                  child: Text(
-                                      'Aún no hay votos. ¡Estrena el podio!',
-                                      style: GmText.meta(color: gm.label2)),
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
+                            child: switch (widget.ranking.load) {
+                              PremiosLoad.ready when list.isNotEmpty =>
+                                PodioPremios(
+                                  key: ValueKey(_tab),
+                                  category: _tab,
+                                  entries: list.take(3).toList(),
+                                  compact: true,
                                 ),
-                              ),
-                            _ => const _PodiumSkeleton(),
-                          },
-                        ),
-                        if (mine != null) _MineRow(entry: mine, closed: closed),
+                              PremiosLoad.ready => SizedBox(
+                                  height: 72,
+                                  child: Center(
+                                    child: Text(
+                                        'Aún no hay votos. ¡Estrena el podio!',
+                                        style: GmText.meta(color: gm.label2)),
+                                  ),
+                                ),
+                              _ => const _PodiumSkeleton(),
+                            },
+                          ),
+                          if (mine != null)
+                            _MineRow(entry: mine, closed: closed),
+                        ],
                         const SizedBox(height: 14),
                         Container(height: 1, color: gm.sep),
                         closed
@@ -721,7 +752,7 @@ class _PremiosHomeSlotState extends State<PremiosHomeSlot> {
             ? PremiosLiveVariant.voted
             : PremiosLiveVariant.notVoted);
     final r = _ranking;
-    final total = r is PremiosResultsController ? r.totalVotes : 0;
+    final total = r?.state.totalVotes ?? 0;
     return Padding(
       padding: const EdgeInsets.only(top: GmSpace.section),
       child: GmRise(
@@ -733,6 +764,7 @@ class _PremiosHomeSlotState extends State<PremiosHomeSlot> {
           ranking: r?.state ?? const PremiosRankingState(),
           totalVotes: total,
           remaining: phase.counting ? edition.remainingLabel(now) : '',
+          untilShort: edition.untilShort,
           onVote: variant == PremiosLiveVariant.voted ? _voteAgain : _openEntry,
           onRanking: () => Navigator.of(context).push(MaterialPageRoute(
             builder: (_) => PremiosRankingPage(controller: _ranking),
