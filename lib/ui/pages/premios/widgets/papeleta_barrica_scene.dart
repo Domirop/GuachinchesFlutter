@@ -4,13 +4,14 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:guachinches/ui/pages/advance_search/widgets/looping_scene.dart';
+import 'package:guachinches/ui/pages/premios/premios_models.dart';
 import 'package:guachinches/ui/theme/gm_motion.dart';
 import 'package:guachinches/ui/theme/gm_tokens.dart';
 import 'package:guachinches/ui/theme/gm_widgets.dart' show GmGinghamPainter;
 
 /// «F · La papeleta a la barrica» (tablero EncuestaEntrada): la cabecera de
 /// 370 de la encuesta. Banda vino, mesa de madera con mantel de cuadros en
-/// trapecio y un lápiz quieto; la barrica de roble con «2026» en tiza y la
+/// trapecio y un lápiz quieto; la barrica de roble con el año en tiza y la
 /// escarapela de oro llega rodando una vez; la papeleta entra en arco, se
 /// dobla, se agacha y cae por el hueco; la barrica se aplasta, salta una
 /// chispa dorada y aparece «¡Ese es el mío!». Bucle de 10 s.
@@ -18,7 +19,8 @@ import 'package:guachinches/ui/theme/gm_widgets.dart' show GmGinghamPainter;
 /// Mismo patrón que «Mesa con brindis» y «El barraquito» ([LoopingScene]):
 /// - capa quieta (banda, mesa, mantel, lápiz, velo de noche y difuminado)
 ///   en su RepaintBoundary: se pinta una vez;
-/// - barrica grabada en un `Picture` por tema (solo se escala desde la base);
+/// - barrica grabada en un `Picture` por tema y año (solo se escala desde la
+///   base);
 /// - el reloj duerme en el reposo (3,8–8,8 s) y se para fuera de pantalla;
 /// - «reducir movimiento»: barrica quieta, etiqueta visible y sin papeleta
 ///   (ya está dentro).
@@ -45,8 +47,11 @@ class PapeletaBarricaSceneState
 
   @override
   Widget buildLayers(
-      BuildContext context, double scale, double? time, bool dark) {
-    final colors = PremiosSceneColors.of(dark);
+          BuildContext context, double scale, double? time, bool dark) =>
+      _withEditionYear((year) =>
+          _layers(PremiosSceneColors.of(dark, year: year), scale, time));
+
+  Widget _layers(PremiosSceneColors colors, double scale, double? time) {
     final q = time == null ? null : (time % _kLoop) / _kLoop * 100;
     return ClipRect(
       child: Stack(
@@ -104,13 +109,37 @@ class PremiosSceneColors {
   final double barDim;
   final bool dark;
 
-  const PremiosSceneColors._(this.band, this.veil, this.barDim, this.dark);
+  /// El año de la edición en tiza sobre la barrica (vacío sin edición).
+  final String chalk;
+
+  const PremiosSceneColors._(this.band, this.veil, this.barDim, this.dark,
+      [this.chalk = '']);
 
   static const day = PremiosSceneColors._(Color(0xFF2A0E14), 0, 1, false);
   static const night = PremiosSceneColors._(Color(0xFF1E0A0F), 0.5, 0.84, true);
 
-  static PremiosSceneColors of(bool dark) => dark ? night : day;
+  static PremiosSceneColors of(bool dark, {int? year}) {
+    final base = dark ? night : day;
+    if (year == null) return base;
+    return PremiosSceneColors._(
+        base.band, base.veil, base.barDim, base.dark, '$year');
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      other is PremiosSceneColors && other.dark == dark && other.chalk == chalk;
+
+  @override
+  int get hashCode => Object.hash(dark, chalk);
 }
+
+/// Construye con el año de la edición en curso (para la tiza de la
+/// barrica), al día si la edición cambia.
+Widget _withEditionYear(Widget Function(int? year) builder) =>
+    ValueListenableBuilder<PremiosEdition>(
+      valueListenable: PremiosEditionStore.instance,
+      builder: (_, e, __) => builder(e.year),
+    );
 
 // ── Geometría (tablero 402 × 370) ──────────────────────────────────────────
 
@@ -243,17 +272,17 @@ class PremiosTablePainter extends CustomPainter {
       old.colors != colors || old.scale != scale || old.pencil != pencil;
 }
 
-// ── Barrica grabada (una vez por tema) ─────────────────────────────────────
+// ── Barrica grabada (una vez por tema y año) ───────────────────────────────
 
 class _Barrel {
   final ui.Picture body;
   final ui.Picture medal;
   const _Barrel(this.body, this.medal);
 
-  static final Map<bool, _Barrel> _cache = {};
+  static final Map<PremiosSceneColors, _Barrel> _cache = {};
 
   static _Barrel of(PremiosSceneColors c) =>
-      _cache.putIfAbsent(c.dark, () => _Barrel(_body(c), _medal(c)));
+      _cache.putIfAbsent(c, () => _Barrel(_body(c), _medal(c)));
 
   /// Brillo de la barrica (filtro `brightness(.84)` de noche).
   static void _dim(Canvas canvas, double k) {
@@ -338,28 +367,30 @@ class _Barrel {
     hoop(_top + 20, 35);
     hoop(_base - 18, 36);
 
-    // «2026» en tiza, girado −4°.
-    final tp = TextPainter(
-      text: const TextSpan(
-        text: '2026',
-        style: TextStyle(
-          fontSize: 16,
-          fontWeight: FontWeight.w900,
-          letterSpacing: 0.4,
-          color: Color(0xEBFFF3DE),
+    // El año de la edición en tiza, girado −4° (sin edición, sin año).
+    if (c.chalk.isNotEmpty) {
+      final tp = TextPainter(
+        text: TextSpan(
+          text: c.chalk,
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 0.4,
+            color: Color(0xEBFFF3DE),
+          ),
         ),
-      ),
-      textDirection: TextDirection.ltr,
-    )..layout();
-    canvas.save();
-    canvas.translate(_cx - 8, (_top + _base) / 2 + 7);
-    canvas.rotate(-4 * math.pi / 180);
-    tp.paint(
-        canvas,
-        Offset(-tp.width / 2,
-            6 - tp.computeDistanceToActualBaseline(TextBaseline.alphabetic)));
-    tp.dispose();
-    canvas.restore();
+        textDirection: TextDirection.ltr,
+      )..layout();
+      canvas.save();
+      canvas.translate(_cx - 8, (_top + _base) / 2 + 7);
+      canvas.rotate(-4 * math.pi / 180);
+      tp.paint(
+          canvas,
+          Offset(-tp.width / 2,
+              6 - tp.computeDistanceToActualBaseline(TextBaseline.alphabetic)));
+      tp.dispose();
+      canvas.restore();
+    }
 
     // Tapa con el hueco.
     final lid = Rect.fromCenter(
@@ -891,7 +922,12 @@ class PapeletaBarricaCelebration extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = PremiosSceneColors.of(GmColors.of(context).isDark);
+    final dark = GmColors.of(context).isDark;
+    return _withEditionYear(
+        (year) => _build(PremiosSceneColors.of(dark, year: year)));
+  }
+
+  Widget _build(PremiosSceneColors colors) {
     return LayoutBuilder(builder: (context, c) {
       final s = c.maxWidth / PapeletaBarricaScene.designWidth;
       return ExcludeSemantics(
@@ -1113,23 +1149,26 @@ class PremiosMiniBarrel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = PremiosSceneColors.of(GmColors.of(context).isDark);
+    final dark = GmColors.of(context).isDark;
     final s = width / _view.width;
-    return ExcludeSemantics(
-      child: SizedBox(
-        width: width,
-        height: _view.height * s,
-        child: GmOnce(
-          duration: const Duration(milliseconds: 1900),
-          delay: const Duration(milliseconds: 400),
-          trigger: trigger,
-          builder: (_, t, __) => CustomPaint(
-            painter:
-                _MiniBarrelPainter(colors: colors, scale: s, t: t, view: _view),
+    return _withEditionYear((year) {
+      final colors = PremiosSceneColors.of(dark, year: year);
+      return ExcludeSemantics(
+        child: SizedBox(
+          width: width,
+          height: _view.height * s,
+          child: GmOnce(
+            duration: const Duration(milliseconds: 1900),
+            delay: const Duration(milliseconds: 400),
+            trigger: trigger,
+            builder: (_, t, __) => CustomPaint(
+              painter: _MiniBarrelPainter(
+                  colors: colors, scale: s, t: t, view: _view),
+            ),
           ),
         ),
-      ),
-    );
+      );
+    });
   }
 }
 
@@ -1143,18 +1182,21 @@ class PremiosBarrelGlyph extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = PremiosSceneColors.of(GmColors.of(context).isDark);
+    final dark = GmColors.of(context).isDark;
     final s = width / _view.width;
-    return ExcludeSemantics(
-      child: SizedBox(
-        width: width,
-        height: _view.height * s,
-        child: CustomPaint(
-          painter:
-              _MiniBarrelPainter(colors: colors, scale: s, t: 1, view: _view),
+    return _withEditionYear((year) {
+      final colors = PremiosSceneColors.of(dark, year: year);
+      return ExcludeSemantics(
+        child: SizedBox(
+          width: width,
+          height: _view.height * s,
+          child: CustomPaint(
+            painter:
+                _MiniBarrelPainter(colors: colors, scale: s, t: 1, view: _view),
+          ),
         ),
-      ),
-    );
+      );
+    });
   }
 }
 

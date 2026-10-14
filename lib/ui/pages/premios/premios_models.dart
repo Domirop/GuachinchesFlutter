@@ -720,10 +720,37 @@ class PremiosEdition {
   /// `editionId` de la API v3 (`null` en el respaldo).
   final int? id;
 
+  /// `label` de la API v3 («Premios 2027»; vacío en el respaldo).
+  final String label;
+
   PremiosEdition(
-      {DateTime? votingStartsAt, DateTime? votingEndsAt, this.status, this.id})
+      {DateTime? votingStartsAt,
+      DateTime? votingEndsAt,
+      this.status,
+      this.id,
+      this.label = ''})
       : votingStartsAt = votingStartsAt?.toUtc(),
         votingEndsAt = votingEndsAt?.toUtc();
+
+  /// Año de la edición: el del `label` si lo trae y, si no, el del cierre
+  /// (API o Remote Config). Sin edición, `null`: nunca un año inventado.
+  int? get year {
+    final m = RegExp(r'(?<!\d)(20\d\d)(?!\d)').firstMatch(label);
+    if (m != null) return int.parse(m.group(1)!);
+    return votingEndsAt?.year;
+  }
+
+  /// « 2027» o vacío, para pegar detrás de un título.
+  String get _yearSuffix => year == null ? '' : ' $year';
+
+  /// «Premios Donde Comer Canarias 2027» (sin año si no hay edición).
+  String get awardsTitle => 'Premios Donde Comer Canarias$_yearSuffix';
+
+  /// «Premios 2027».
+  String get shortTitle => 'Premios$_yearSuffix';
+
+  /// «Ganadores 2027».
+  String get winnersTitle => 'Ganadores$_yearSuffix';
 
   /// Sin fechas: estado neutro.
   static final PremiosEdition none = PremiosEdition();
@@ -733,9 +760,10 @@ class PremiosEdition {
         votingEndsAt: e.votingEndsAt,
         status: e.status,
         id: e.editionId,
+        label: e.label,
       );
 
-  /// `{"votingStartsAt": "…Z", "votingEndsAt": "…Z", "status": …}` de
+  /// `{"label": …, "votingStartsAt": "…Z", "votingEndsAt": "…Z", "status": …}` de
   /// `GET /surveys/v3/editions/current`.
   factory PremiosEdition.fromApi(Map<String, dynamic> json) {
     DateTime? d(Object? v) =>
@@ -749,6 +777,7 @@ class PremiosEdition {
         'closed' => SurveyEditionStatus.closed,
         _ => null,
       },
+      label: json['label']?.toString() ?? '',
     );
   }
 
@@ -850,10 +879,12 @@ class PremiosEdition {
       other.votingStartsAt == votingStartsAt &&
       other.votingEndsAt == votingEndsAt &&
       other.status == status &&
-      other.id == id;
+      other.id == id &&
+      other.label == label;
 
   @override
-  int get hashCode => Object.hash(votingStartsAt, votingEndsAt, status, id);
+  int get hashCode =>
+      Object.hash(votingStartsAt, votingEndsAt, status, id, label);
 }
 
 /// La edición en curso, compartida por las pantallas. Arranca vacía (estado

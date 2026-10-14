@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:guachinches/data/model/survey_v3.dart';
 import 'package:guachinches/ui/pages/premios/premios_home.dart';
 import 'package:guachinches/ui/pages/premios/premios_models.dart';
 import 'package:guachinches/ui/pages/premios/premios_ranking_page.dart';
+import 'package:guachinches/ui/pages/premios/widgets/papeleta_barrica_scene.dart';
+import 'package:guachinches/ui/pages/premios/widgets/premios_widgets.dart';
 
 import 'premios_fakes.dart';
 
@@ -31,6 +34,7 @@ void main() {
     PremiosRankingState? state,
     bool reduce = true,
     bool dark = false,
+    PremiosEdition? edition,
   }) async {
     phone(t);
     addTearDown(t.view.reset);
@@ -42,6 +46,8 @@ void main() {
             variant: variant,
             ranking: state ?? ranking(),
             totalVotes: 130,
+            edition: edition ??
+                PremiosEdition(votingEndsAt: DateTime.utc(2026, 3, 20, 23, 59)),
             remaining: 'Quedan 12 días',
             untilShort: 'hasta el 20 de marzo',
             onVote: () => taps.add('vote'),
@@ -183,6 +189,96 @@ void main() {
     expect(premiosShortName('Guachinche Don Trino'), 'Don Trino');
     expect(premiosShortName('Bodega Zacatín'), 'Bodega Zacatín');
     expect(premiosShortName('Guachinche'), 'Guachinche');
+  });
+
+  group('año de la edición', () {
+    tearDown(PremiosEditionStore.instance.reset);
+
+    test('del label; si no, del cierre; sin edición, ninguno', () {
+      expect(
+          PremiosEdition(
+                  label: 'Premios Donde Comer Canarias 2027',
+                  votingEndsAt: DateTime.utc(2026, 12, 31))
+              .year,
+          2027);
+      expect(
+          PremiosEdition(
+                  label: 'Edición de primavera',
+                  votingEndsAt: DateTime.utc(2028, 3, 20))
+              .year,
+          2028);
+      expect(PremiosEdition(label: 'Ed. 120267').year, isNull);
+      expect(PremiosEdition.none.year, isNull);
+      expect(PremiosEdition.none.awardsTitle, 'Premios Donde Comer Canarias');
+      expect(PremiosEdition.none.winnersTitle, 'Ganadores');
+      expect(PremiosEdition.none.shortTitle, 'Premios');
+      final e = PremiosEdition.fromSurvey(const SurveyEdition(
+          editionId: 3,
+          label: 'Premios 2027',
+          status: SurveyEditionStatus.open));
+      expect(e.awardsTitle, 'Premios Donde Comer Canarias 2027');
+      expect(e.winnersTitle, 'Ganadores 2027');
+    });
+
+    testWidgets('card: el año sale de la edición', (t) async {
+      await pumpCard(t,
+          variant: PremiosCardVariant.closed,
+          state: ranking(mine: true),
+          edition: PremiosEdition(label: 'Premios 2027'));
+      expect(find.text('Premios Donde Comer Canarias 2027'), findsOneWidget);
+      expect(find.text('Ganadores 2027'), findsOneWidget);
+      expect(find.textContaining('2026'), findsNothing);
+    });
+
+    testWidgets('card sin edición (404/red): sin año inventado', (t) async {
+      await pumpCard(t,
+          variant: PremiosCardVariant.closed,
+          state: ranking(mine: true),
+          edition: PremiosEdition.none);
+      expect(find.text('Premios Donde Comer Canarias'), findsOneWidget);
+      expect(find.text('Ganadores'), findsOneWidget);
+      expect(find.textContaining(RegExp(r'20\d\d')), findsNothing);
+    });
+
+    testWidgets('papeleta, sello y antetítulo con el año de la edición',
+        (t) async {
+      phone(t);
+      addTearDown(t.view.reset);
+      PremiosEditionStore.instance.set(PremiosEdition(label: 'Premios 2027'));
+      await t.pumpWidget(app(
+          const Scaffold(
+            body: SingleChildScrollView(
+              child: Column(children: [
+                PremiosEyebrow(),
+                PapeletaCard(rows: [], overlay: SelloVotado()),
+              ]),
+            ),
+          ),
+          reduce: true));
+      await t.pump(const Duration(seconds: 2));
+      expect(find.text('Premios Donde Comer Canarias 2027', findRichText: true),
+          findsOneWidget);
+      expect(find.text('Papeleta · Premios 2027'), findsOneWidget);
+      expect(find.text('2027'), findsOneWidget); // sello
+      // Sin edición: sin año en ninguno.
+      PremiosEditionStore.instance.set(PremiosEdition.none);
+      await t.pump();
+      expect(find.text('Premios Donde Comer Canarias', findRichText: true),
+          findsOneWidget);
+      expect(find.text('Papeleta · Premios'), findsOneWidget);
+      expect(find.textContaining(RegExp(r'20\d\d'), findRichText: true),
+          findsNothing);
+      await t.pump(const Duration(seconds: 2));
+    });
+
+    test('la barrica lleva el año de la edición en tiza', () {
+      expect(PremiosSceneColors.of(false, year: 2027).chalk, '2027');
+      expect(PremiosSceneColors.of(true).chalk, isEmpty);
+      expect(PremiosSceneColors.of(true, year: 2027),
+          PremiosSceneColors.of(true, year: 2027));
+      expect(PremiosSceneColors.of(true, year: 2027),
+          isNot(PremiosSceneColors.of(true, year: 2028)));
+    });
   });
 
   testWidgets('noche: misma card', (t) async {

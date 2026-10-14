@@ -14,8 +14,8 @@ import 'package:guachinches/ui/theme/gm_motion.dart';
 import 'package:guachinches/ui/theme/gm_tokens.dart';
 import 'package:guachinches/ui/theme/gm_widgets.dart';
 
-/// Ranking (tablero EncuestaRanking): «Así va la votación» / «Ganadores
-/// 2026», control segmentado (se fija bajo la barra al hacer scroll),
+/// Ranking (tablero EncuestaRanking): «Así va la votación» / «Ganadores» y
+/// el año de la edición, control segmentado (se fija bajo la barra al hacer scroll),
 /// tarjeta vino con la cuenta atrás, podio en vino con puestos compartidos
 /// y la lista «Del 4.º en adelante».
 class PremiosRankingPage extends StatefulWidget {
@@ -109,8 +109,9 @@ class _PremiosRankingPageState extends State<PremiosRankingPage> {
     final now = (widget.clock ?? DateTime.now)();
     final phase = edition.phase(now);
     final canVote = phase.canVote;
-    final title =
-        phase == PremiosPhase.closed ? 'Ganadores 2026' : 'Así va la votación';
+    final title = phase == PremiosPhase.closed
+        ? edition.winnersTitle
+        : 'Así va la votación';
     final seg = PremiosSegmented(
       value: _tab,
       onChanged: (c) => setState(() => _tab = c),

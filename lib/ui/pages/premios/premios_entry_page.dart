@@ -214,8 +214,8 @@ class _PremiosEntryPageState extends State<PremiosEntryPage> {
                       ? 'Abre muy pronto'
                       : 'Abre ${edition.opensLabel}'),
               // Sin fecha: estado neutro.
-              PremiosPhase.unknown => const PremiosBarText(
-                  label: 'Premios 2026',
+              PremiosPhase.unknown => PremiosBarText(
+                  label: edition.shortTitle,
                   value: 'Dos categorías, un voto en cada una'),
             },
           ),

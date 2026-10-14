@@ -218,22 +218,34 @@ class PremiosPodiumIcon extends StatelessWidget {
   }
 }
 
-/// Antetítulo con la medalla: «Premios Donde Comer Canarias 2026».
-class PremiosEyebrow extends StatelessWidget {
-  final String text;
-  final Color? color;
-  final Widget? leading;
-  const PremiosEyebrow(
-      {super.key,
-      this.text = 'Premios Donde Comer Canarias 2026',
-      this.color,
-      this.leading});
+/// El año de la edición en curso, con su texto ([builder]) al día: sale
+/// de la edición v3 (o de Remote Config) y nunca se inventa.
+class PremiosEditionText extends StatelessWidget {
+  final Widget Function(BuildContext context, PremiosEdition edition) builder;
+  const PremiosEditionText({super.key, required this.builder});
 
   @override
-  Widget build(BuildContext context) => GmEyebrow(
-        leading: leading ?? const GmGlyph(GmGlyphKind.medalla, size: 14),
-        text: text,
-        color: color,
+  Widget build(BuildContext context) => ValueListenableBuilder<PremiosEdition>(
+        valueListenable: PremiosEditionStore.instance,
+        builder: (context, e, _) => builder(context, e),
+      );
+}
+
+/// Antetítulo con la medalla: «Premios Donde Comer Canarias 2027» (el año
+/// de la edición; sin edición, sin año).
+class PremiosEyebrow extends StatelessWidget {
+  final String? text;
+  final Color? color;
+  final Widget? leading;
+  const PremiosEyebrow({super.key, this.text, this.color, this.leading});
+
+  @override
+  Widget build(BuildContext context) => PremiosEditionText(
+        builder: (_, e) => GmEyebrow(
+          leading: leading ?? const GmGlyph(GmGlyphKind.medalla, size: 14),
+          text: text ?? e.awardsTitle,
+          color: color,
+        ),
       );
 }
 
@@ -820,7 +832,7 @@ class PapeletaClipper extends CustomClipper<Path> {
   bool shouldReclip(covariant CustomClipper<Path> oldClipper) => false;
 }
 
-/// La papeleta: cabecera vino «Papeleta · Premios 2026», línea perforada,
+/// La papeleta: cabecera vino «Papeleta · Premios 2027», línea perforada,
 /// filas y festón. La sombra sigue el festón (un BoxShadow no lo haría).
 class PapeletaCard extends StatelessWidget {
   final String? trailing;
@@ -844,11 +856,13 @@ class PapeletaCard extends StatelessWidget {
               const GmGlyph(GmGlyphKind.medalla, size: 15),
               const SizedBox(width: 7),
               Expanded(
-                child: Text('Papeleta · Premios 2026',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: GmText.eyebrow(
-                        color: PremiosColors.goldText, w: FontWeight.w700)),
+                child: PremiosEditionText(
+                  builder: (_, e) => Text('Papeleta · ${e.shortTitle}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GmText.eyebrow(
+                          color: PremiosColors.goldText, w: FontWeight.w700)),
+                ),
               ),
               if (trailing != null)
                 Text(trailing!,
@@ -1074,10 +1088,11 @@ class PapeletaVoteRow extends StatelessWidget {
   }
 }
 
-// ── Sello «Votado 2026» ────────────────────────────────────────────────────
+// ── Sello «Votado 2027» ────────────────────────────────────────────────────
 
 /// Sello de 76 a −14° que cae sobre la papeleta (1,05 s, muelle) con
-/// háptica ligera al posarse.
+/// háptica ligera al posarse. Debajo de «Votado», el año de la edición (sin
+/// edición, solo «Votado»).
 class SelloVotado extends StatefulWidget {
   const SelloVotado({super.key});
 
@@ -1138,12 +1153,16 @@ class _SelloVotadoState extends State<SelloVotado> {
                         fontWeight: FontWeight.w800,
                         letterSpacing: 0,
                         color: ink)),
-                Text('2026',
-                    style: TextStyle(
-                        fontSize: 12,
-                        height: 15 / 12,
-                        fontWeight: FontWeight.w700,
-                        color: ink)),
+                PremiosEditionText(
+                  builder: (_, e) => e.year == null
+                      ? const SizedBox.shrink()
+                      : Text('${e.year}',
+                          style: TextStyle(
+                              fontSize: 12,
+                              height: 15 / 12,
+                              fontWeight: FontWeight.w700,
+                              color: ink)),
+                ),
               ],
             ),
           ),

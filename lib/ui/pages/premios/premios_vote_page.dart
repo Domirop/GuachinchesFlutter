@@ -478,11 +478,13 @@ class _StepHeader extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  GmEyebrow(
-                    leading: PremiosCategoryGlyph(category,
-                        size: trad ? 14 : 15, ink: ink),
-                    text: 'Premios 2026',
-                    color: ink,
+                  PremiosEditionText(
+                    builder: (_, e) => GmEyebrow(
+                      leading: PremiosCategoryGlyph(category,
+                          size: trad ? 14 : 15, ink: ink),
+                      text: e.shortTitle,
+                      color: ink,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Semantics(

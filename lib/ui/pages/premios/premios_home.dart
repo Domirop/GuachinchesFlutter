@@ -255,6 +255,10 @@ class PremiosWineCard extends StatefulWidget {
   final PremiosRankingState ranking;
   final int totalVotes;
 
+  /// La edición: el año del antetítulo y de «Ganadores» (sin edición, sin
+  /// año).
+  final PremiosEdition edition;
+
   /// «Quedan 12 días» (vacío fuera de plazo) y «hasta el 20 de marzo».
   final String remaining;
   final String untilShort;
@@ -268,6 +272,7 @@ class PremiosWineCard extends StatefulWidget {
     required this.variant,
     required this.ranking,
     required this.totalVotes,
+    required this.edition,
     required this.remaining,
     required this.untilShort,
     required this.onVote,
@@ -321,7 +326,7 @@ class _PremiosWineCardState extends State<PremiosWineCard> {
         : list.where((e) => e.mine).firstOrNull;
 
     final title = switch (v) {
-      PremiosCardVariant.closed => 'Ganadores 2026',
+      PremiosCardVariant.closed => widget.edition.winnersTitle,
       PremiosCardVariant.voted => 'Así va la votación',
       PremiosCardVariant.notVoted => '¿Cuál es tu favorito?',
     };
@@ -355,7 +360,11 @@ class _PremiosWineCardState extends State<PremiosWineCard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _Header(title: title, link: link, onLink: linkTap),
+          _Header(
+              eyebrow: widget.edition.awardsTitle,
+              title: title,
+              link: link,
+              onLink: linkTap),
           if (hidden) ...[
             const SizedBox(height: 8),
             const PremiosSilhouettePodium(
@@ -457,15 +466,19 @@ class _PremiosWineCardState extends State<PremiosWineCard> {
   }
 }
 
-/// Antetítulo (barrica como glifo + «Premios Donde Comer Canarias 2026» en
+/// Antetítulo (barrica como glifo + «Premios Donde Comer Canarias 2027» en
 /// oro) y, a 4, el título con el enlace en oro a la derecha. El enlace tiene
 /// área táctil alta: sube sobre el antetítulo y baja hasta el segmentado.
 class _Header extends StatelessWidget {
+  final String eyebrow;
   final String title;
   final String link;
   final VoidCallback onLink;
   const _Header(
-      {required this.title, required this.link, required this.onLink});
+      {required this.eyebrow,
+      required this.title,
+      required this.link,
+      required this.onLink});
 
   @override
   Widget build(BuildContext context) {
@@ -473,7 +486,7 @@ class _Header extends StatelessWidget {
     // Línea de 18 con la barrica de 18 × 29 (márgenes -6 / -4): 19.
     final eyebrowH = ts.scale(19);
     final titleH = ts.scale(25);
-    final eyebrow = SizedBox(
+    final eyebrowRow = SizedBox(
       height: eyebrowH,
       child: Row(
         children: [
@@ -502,10 +515,10 @@ class _Header extends StatelessWidget {
                 0.55,
                 1
               ]).createShader(r),
-              child: const Text('Premios Donde Comer Canarias 2026',
+              child: Text(eyebrow,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
+                  style: const TextStyle(
                       fontSize: 13,
                       height: 18 / 13,
                       fontWeight: FontWeight.w700,
@@ -557,7 +570,7 @@ class _Header extends StatelessWidget {
       height: total,
       child: Stack(
         children: [
-          Positioned(left: 0, right: 0, top: 0, child: eyebrow),
+          Positioned(left: 0, right: 0, top: 0, child: eyebrowRow),
           Positioned(
             left: 0,
             right: 0,
@@ -1058,6 +1071,7 @@ class _PremiosHomeSlotState extends State<PremiosHomeSlot> {
           variant: variant,
           ranking: r?.state ?? const PremiosRankingState(),
           totalVotes: total,
+          edition: edition,
           remaining: phase.counting ? edition.remainingLabel(now) : '',
           untilShort: phase.counting ? edition.untilShort : '',
           onVote: variant == PremiosCardVariant.voted ? _voteAgain : _openEntry,

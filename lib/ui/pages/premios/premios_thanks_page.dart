@@ -10,7 +10,7 @@ import 'package:guachinches/ui/theme/gm_tokens.dart';
 import 'package:guachinches/ui/theme/gm_widgets.dart';
 
 /// Gracias (tablero EncuestaGracias): la escena en modo celebración (una
-/// vez, confeti), la papeleta enviada con el sello «Votado 2026» y los
+/// vez, confeti), la papeleta enviada con el sello «Votado» y el año, y los
 /// caminos «Ver el ranking» y «Votar a otros sitios». La X vuelve al Inicio.
 class PremiosThanksPage extends StatefulWidget {
   final PremiosFlowController controller;
