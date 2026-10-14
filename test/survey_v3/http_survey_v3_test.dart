@@ -32,12 +32,13 @@ void main() {
 
   HttpRemoteRepository repo(Future<http.Response> Function(http.Request) handler) =>
       HttpRemoteRepository(
-        MockClient((r) {
+        MockClient((r) => fail('la encuesta v3 no usa el cliente general')),
+        cache: HttpCacheStore.withStorage(InMemoryCacheStorage()),
+        backgroundEnabled: false,
+        surveyClient: MockClient((r) {
           requests.add(r);
           return handler(r);
         }),
-        cache: HttpCacheStore.withStorage(InMemoryCacheStorage()),
-        backgroundEnabled: false,
       );
 
   http.Response json_(Object body, int status, {Map<String, String> headers = const {}}) =>
@@ -146,10 +147,26 @@ void main() {
         throwsA(isA<SurveyNetworkException>().having((e) => e.maybeDelivered, 'maybeDelivered', isFalse)));
   });
 
-  test('candidatos por edición, sin survey_schema_id fijo', () async {
-    final r = repo((_) async => json_([
+  test('fallo TLS (pinning) → SurveyNetworkException(untrusted), sin «quizá entregado»', () async {
+    final r = repo((_) async => throw const HandshakeException('CERTIFICATE_VERIFY_FAILED'));
+    await expectLater(
+        r.submitSurveyVotesV3(2, const {}, appCheckToken: _token),
+        throwsA(isA<SurveyNetworkException>()
+            .having((e) => e.untrusted, 'untrusted', isTrue)
+            .having((e) => e.maybeDelivered, 'maybeDelivered', isFalse)));
+  });
+
+  test('candidatos por edición (cliente general), sin survey_schema_id fijo', () async {
+    final r = HttpRemoteRepository(
+      MockClient((req) async {
+        requests.add(req);
+        return json_([
           {'value': 'r-1', 'text': 'UNO'}
-        ], 200));
+        ], 200);
+      }),
+      cache: HttpCacheStore.withStorage(InMemoryCacheStorage()),
+      backgroundEnabled: false,
+    );
     final list = await r.getSurveyEditionChoices(2, kTrad);
     expect(requests.single.url.path, '/v2/category-restaurants/surveyjs/2/$kTrad');
     expect(list.single.value, 'r-1');

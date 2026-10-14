@@ -64,7 +64,8 @@ void main() {
       expect(p.state.stage, SurveyVoteStage.ready);
       expect(appCheck.activations, 1);
       final enroll = repo.mineReads.single;
-      expect(enroll.token, '${kTokenPrefix}1');
+      expect(enroll.token, '${kTokenPrefix}STD-1', reason: 'my-votes usa el token estándar');
+      expect(appCheck.tokens, isEmpty, reason: 'sin gastar cuota de uso limitado');
       expect(enroll.body, {'platform': 'ios', 'localIdHash': 'a' * 64});
       // voteScope=business: un negocio votado sale de las dos categorías.
       expect(p.state.candidates[kTrad]!.map((c) => c.value), isNot(contains('r-both')));
@@ -99,6 +100,7 @@ void main() {
       expect(p.state.stage, SurveyVoteStage.upgradeRequired);
       expect((p.state.failure as SurveyUpgradeRequired).minAppVersion, '4.7.0');
       expect(appCheck.tokens, isEmpty);
+      expect(appCheck.standardTokens, isEmpty);
     });
 
     test('identidad bloqueada en my-votes → stage blocked; sin edición protegida → closed', () async {
@@ -142,7 +144,7 @@ void main() {
       expect(p.state.selection, isEmpty);
       expect(p.state.candidates[kTrad]!.map((c) => c.value), isNot(contains('r-t1')));
       final vote = repo.votes.single;
-      expect(vote.token, '${kTokenPrefix}2', reason: 'otro token, no el de my-votes');
+      expect(vote.token, '${kTokenPrefix}1', reason: 'token de uso limitado, no el estándar');
       expect(vote.body, {
         'platform': 'ios',
         'localIdHash': 'a' * 64,
@@ -195,6 +197,38 @@ void main() {
       expect(repo.votes, hasLength(2));
       expect(repo.votes.map((v) => v.token).toSet(), hasLength(2),
           reason: 'nunca se reenvía con el mismo token');
+    });
+
+    test('token caducado (> 120 s, stale) → un reintento con token recién pedido', () async {
+      final p = await ready();
+      repo.voteSteps.add(() => apiError(403, 'integrity_failed',
+          details: {'reason': 'app_check_invalid', 'detail': 'stale'}));
+      await p.submit();
+      expect(p.state.stage, SurveyVoteStage.sent);
+      expect(repo.votes.map((v) => v.token).toList(), ['${kTokenPrefix}1', '${kTokenPrefix}2']);
+    });
+
+    test('app_check_invalid sin stale → no se reintenta', () async {
+      final p = await ready();
+      repo.voteSteps.add(() => apiError(403, 'integrity_failed', details: {'reason': 'app_check_invalid'}));
+      await p.submit();
+      expect(p.state.failure, isA<SurveyIntegrityFailed>());
+      expect(repo.votes, hasLength(1));
+    });
+
+    test('pinning: cadena TLS no fiable → SurveyInsecureConnection, sin reintentos', () async {
+      final p = await ready();
+      repo.voteSteps.add(() => throw const SurveyNetworkException(untrusted: true));
+      await p.submit();
+      expect(p.state.failure, isA<SurveyInsecureConnection>());
+      expect(p.state.failure!.retryable, isTrue, reason: 'el usuario puede cambiar de red');
+      expect(repo.votes, hasLength(1));
+      // Al cargar tampoco hay backoff: un proxy no se arregla esperando.
+      repo.editionSteps.add(() => throw const SurveyNetworkException(untrusted: true));
+      await p.load();
+      expect(p.state.stage, SurveyVoteStage.failed);
+      expect(p.state.failure, isA<SurveyInsecureConnection>());
+      expect(sleeps, isEmpty);
     });
 
     test('token consumido dos veces → se rinde tras un solo reintento', () async {
@@ -292,7 +326,7 @@ void main() {
       p.select(kTrad, 'r-t1');
       await p.submit();
       expect(p.state.failure, isA<SurveyTooFast>());
-      expect(appCheck.tokens, hasLength(1), reason: 'solo el de my-votes');
+      expect(appCheck.tokens, isEmpty, reason: 'ningún token de uso limitado');
     });
 
     test('Android: mismo flujo con platform=android', () async {
