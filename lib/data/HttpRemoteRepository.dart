@@ -7,8 +7,6 @@ import 'package:guachinches/core/logging/app_logger.dart';
 import 'package:guachinches/data/HttpCachePolicy.dart';
 import 'package:guachinches/data/filter_session_cache.dart';
 import 'package:guachinches/data/local/http_cache_store.dart';
-import 'package:guachinches/ui/pages/survey_in_app/survey_in_app_presenter.dart'
-    show AlreadyVotedThisBusinessException;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:guachinches/data/model/Category.dart';
 import 'package:guachinches/data/model/Island.dart';
@@ -18,6 +16,7 @@ import 'package:guachinches/data/model/weather_data.dart';
 import 'package:guachinches/data/model/weather_zone_bundle.dart';
 import 'package:guachinches/data/model/zone.dart';
 import 'package:guachinches/data/model/survey_in_app_choice.dart';
+import 'package:guachinches/data/model/survey_v3.dart';
 import 'package:guachinches/data/model/Cupones.dart';
 import 'package:guachinches/data/model/CuponesAgrupados.dart';
 import 'package:guachinches/data/model/CuponesUser.dart';
@@ -844,70 +843,101 @@ class HttpRemoteRepository implements RemoteRepository {
     });
   }
 
-  @override
-  Future<List<SurveyInAppChoice>> getSurveyInAppChoices(String categoryName, String userId) async {
-    try {
-      final String url = dotenv.env['ENDPOINT_V2']! +
-          'category-restaurants/surveyjs/1/$categoryName/by-user?user_id=$userId';
-      final uri = Uri.parse(url);
-      final response = await _client.get(uri);
-      if (response.statusCode == 200) {
-        final List<dynamic> data = json.decode(response.body);
-        return data.map((e) => SurveyInAppChoice.fromJson(e)).toList();
-      } else {
-        throw Exception('Error al obtener opciones: ${response.statusCode}');
-      }
-    } catch (e) {
-      throw Exception('Fallo al obtener opciones de encuesta: $e');
-    }
-  }
+  // ── Encuesta v3 (ENCUESTA-SEGURIDAD.md, «Plan elegido: App Check») ──
+  //
+  // Nunca se registra el cuerpo, la respuesta ni las cabeceras: llevan el token
+  // de App Check y la identidad del móvil. Solo método, ruta, estado y código
+  // de error.
 
-  @override
-  Future<Map<String, List<String>>> getVotedByDevice(int surveySchemaId, String deviceToken) async {
+  static const _surveyTimeout = Duration(seconds: 20);
+
+  Future<Map<String, dynamic>> _surveyV3(
+    String method,
+    String path, {
+    Map<String, Object?>? body,
+    Map<String, String>? headers,
+  }) async {
+    final uri = Uri.parse('${dotenv.env['ENDPOINT_V2']!}surveys/v3/$path');
+    final h = {'Content-Type': 'application/json', ...?headers};
+    final Response response;
     try {
-      final encodedToken = Uri.encodeComponent(deviceToken);
-      final url = dotenv.env['ENDPOINT_V2']! +
-          'surveys/results/$surveySchemaId/by-device?device_token=$encodedToken';
-      final response = await _client.get(Uri.parse(url));
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body) as Map<String, dynamic>;
-        final voted = data['voted'] as Map<String, dynamic>? ?? {};
-        return voted.map((key, value) =>
-            MapEntry(key, (value as List).map((e) => e.toString()).toList()));
+      final req = method == 'GET'
+          ? _client.get(uri, headers: h)
+          : _client.post(uri, headers: h, body: jsonEncode(body ?? const {}));
+      response = await req.timeout(_surveyTimeout);
+    } on SocketException {
+      throw SurveyNetworkException(maybeDelivered: method != 'GET');
+    } on TimeoutException {
+      throw SurveyNetworkException(maybeDelivered: method != 'GET');
+    } on HandshakeException {
+      throw const SurveyNetworkException();
+    } on ClientException {
+      throw SurveyNetworkException(maybeDelivered: method != 'GET');
+    }
+    final logPath = path.replaceAll(RegExp(r'^editions/\d+/'), 'editions/:id/');
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      AppLogger.info('survey-v3', '$method $logPath → ${response.statusCode}');
+      final decoded = response.body.isEmpty ? null : json.decode(response.body);
+      return decoded is Map<String, dynamic> ? decoded : <String, dynamic>{};
+    }
+    String code = response.statusCode == 426 ? 'upgrade_required' : 'http_${response.statusCode}';
+    Map<String, dynamic> details = const {};
+    try {
+      final err = json.decode(response.body);
+      if (err is Map) {
+        if (err['error'] is String) code = err['error'] as String;
+        if (err['details'] is Map) details = Map<String, dynamic>.from(err['details'] as Map);
       }
-      return {};
     } catch (_) {
-      return {};
+      // Cuerpo no JSON (proxy, HTML de error): se queda el código HTTP.
     }
+    final retry = int.tryParse(response.headers['retry-after'] ?? '');
+    AppLogger.warn('survey-v3', '$method $logPath → ${response.statusCode} $code');
+    throw SurveyApiException(response.statusCode, code,
+        details: details, retryAfter: retry == null ? null : Duration(seconds: retry));
   }
 
   @override
-  Future<bool> submitSurveyInAppVotes(String userId, Map<String, String> votes, String signature, int duration, String deviceToken) async {
+  Future<SurveyEdition> getCurrentSurveyEdition() async =>
+      SurveyEdition.fromJson(await _surveyV3('GET', 'editions/current'));
+
+  @override
+  Future<List<SurveyInAppChoice>> getSurveyEditionChoices(
+      int editionId, String categoryName) async {
+    final uri = Uri.parse(
+        '${dotenv.env['ENDPOINT_V2']!}category-restaurants/surveyjs/$editionId/${Uri.encodeComponent(categoryName)}');
+    final Response response;
     try {
-      final String url = dotenv.env['ENDPOINT_V2']! + 'surveys/results/v2';
-      final uri = Uri.parse(url);
-      final body = jsonEncode({
-        'survey_schema_id': 1,
-        'content': votes,
-        'user_id': userId,
-        'token': signature,
-        'duration': duration,
-        'source': 'mobile',
-        'device_token': deviceToken,
-      });
-      final response = await _client.post(uri,
-          headers: {'Content-Type': 'application/json'}, body: body);
-      AppLogger.info('http-repo', 'HTTP POST $url → ${response.statusCode} | ${response.body}');
-      if (response.statusCode == 409) {
-        throw AlreadyVotedThisBusinessException();
-      }
-      return response.statusCode == 200 || response.statusCode == 201;
-    } on AlreadyVotedThisBusinessException {
-      rethrow;
-    } catch (e) {
-      throw Exception('Error al enviar votos: $e');
+      response = await _client.get(uri).timeout(_surveyTimeout);
+    } on SocketException {
+      throw const SurveyNetworkException();
+    } on TimeoutException {
+      throw const SurveyNetworkException();
+    } on ClientException {
+      throw const SurveyNetworkException();
     }
+    if (response.statusCode != 200) {
+      throw SurveyApiException(response.statusCode, 'http_${response.statusCode}');
+    }
+    final data = json.decode(response.body);
+    if (data is! List) throw SurveyApiException(response.statusCode, 'bad_response');
+    return [
+      for (final e in data)
+        if (e is Map<String, dynamic>) SurveyInAppChoice.fromJson(e)
+    ];
   }
+
+  @override
+  Future<SurveyMyVotes> getMySurveyVotes(int editionId, Map<String, Object?> body,
+          {required String appCheckToken}) async =>
+      SurveyMyVotes.fromJson(await _surveyV3('POST', 'editions/$editionId/my-votes',
+          body: body, headers: {kAppCheckHeader: appCheckToken}));
+
+  @override
+  Future<SurveyVoteReceipt> submitSurveyVotesV3(int editionId, Map<String, Object?> body,
+          {required String appCheckToken}) async =>
+      SurveyVoteReceipt.fromJson(await _surveyV3('POST', 'editions/$editionId/votes',
+          body: body, headers: {kAppCheckHeader: appCheckToken}));
 
   @override
   Future<bool> checkUserSurveyStatus(String userId) {

@@ -13,6 +13,7 @@ import 'package:guachinches/ui/pages/listas/listas_screen.dart';
 import 'package:guachinches/ui/pages/new_home/new_home_screen.dart';
 import 'package:guachinches/ui/pages/discover/discover_screen.dart';
 import 'package:guachinches/ui/pages/settings/settings_screen.dart';
+import 'package:guachinches/utils/app_version.dart';
 
 class SplashScreenPresenter {
   final SplashScreenView _view;
@@ -38,8 +39,9 @@ class SplashScreenPresenter {
       versionApp = dotenv.env['GET_ANDROID_VERSION']!;
     }
 
-    return int.parse(versionApp.split(".")[0]) < int.parse(versionBD.split(".")[0]) ||
-        int.parse(versionApp.split(".")[1]) < int.parse(versionBD.split(".")[1]);
+    // Antes comparaba el menor aunque el mayor fuera más alto (5.0 < 4.7 daba
+    // «actualiza»). La encuesta v3 fuerza la actualización con esta pantalla.
+    return compareAppVersions(versionApp, versionBD) < 0;
   }
 
 
