@@ -14,8 +14,9 @@ protege y qué no, cómo probarlo y qué hay que configurar.
 |---|---|---|
 | Identidad iOS | `KeychainLocalIdSource` (`lib/services/survey_integrity/survey_integrity.dart`) | Un secreto aleatorio `L` de 32 bytes en el Keychain con `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly`, sin sincronizar y en un servicio propio (`com.jonay.guachinches.survey`) para que `FreshInstallGuard` no lo borre al reinstalar. Solo sale `localIdHash = SHA256("gm-survey-id:" ‖ L)`. |
 | Identidad Android | `SsaidLocalIdSource` + `android/…/SurveyDevicePlugin.kt` | `localIdHash = SHA256("gm-survey-id:" + SSAID)`. El SSAID no sale del código nativo. |
-| App Check | `FirebaseAppCheckTokenSource` | Proveedores: App Attest (iOS), Play Integrity (Android) y Debug en las compilaciones de depuración. Se activa la primera vez que se abre la encuesta, sin refresco en segundo plano. Cada petición pide `getLimitedUseToken()` y lo envía en la cabecera `X-Firebase-AppCheck`. |
-| `DeviceIdentityService` | `lib/services/survey_integrity/device_identity_service.dart` | Monta el cuerpo `{platform, localIdHash, votes?}` y pide un token nuevo para cada petición. Sin token, no hay petición. |
+| App Check | `FirebaseAppCheckTokenSource` | Proveedores: App Attest (iOS), Play Integrity (Android) y Debug en las compilaciones de depuración. Se activa la primera vez que se abre la encuesta, sin refresco en segundo plano. `votes` pide `getLimitedUseToken()` nuevo en cada envío; `my-votes`, el token estándar (`getToken()`, que el servidor no consume y no gasta cuota de Play Integrity). Va en la cabecera `X-Firebase-AppCheck`. El token se pide justo antes del POST. |
+| `DeviceIdentityService` | `lib/services/survey_integrity/device_identity_service.dart` | Monta el cuerpo `{platform, localIdHash, votes?}` y pide el token de cada petición. Sin token, no hay petición. Guarda el *Future* de la identidad (no el resultado): dos llamadas a la vez en el primer arranque comparten la misma lectura y la misma creación del secreto. |
+| *Certificate pinning* | `lib/services/survey_integrity/survey_pinning.dart` + `assets/certs/*.pem` | El cliente HTTP de `/surveys/v3` solo confía en ISRG Root X1 e ISRG Root X2 (`SecurityContext(withTrustedRoots: false)`). Ver §7. |
 | Repositorio | `HttpRemoteRepository` | `GET /surveys/v3/editions/current`, `POST …/editions/:id/my-votes` y `POST …/editions/:id/votes`. Errores tipados (`SurveyApiException`, `SurveyNetworkException`). **No** registra ni el cuerpo, ni la respuesta, ni las cabeceras. |
 | Presenter | `lib/ui/pages/survey_in_app/survey_vote_presenter.dart` | Estado de la vista (`SurveyVoteState`) y errores tipados (`SurveyFailure`). |
 
@@ -31,14 +32,15 @@ las versiones (antes, 5.0 frente a 4.7 pedía actualizar).
 
 1. `GET editions/current`. Si la edición es `upcoming` o `closed`, el flujo se detiene. Si la versión de la app es menor que `minAppVersion`, aparece la pantalla de actualizar.
 2. Activa App Check y lee la identidad. Si el móvil no puede dar token (no tiene App Attest, Google Play ni Play Integrity), la etapa es `unsupported`.
-3. `POST my-votes` con un token nuevo: devuelve lo que este móvil ya votó, o `blocked`.
+3. `POST my-votes` con el token estándar: devuelve lo que este móvil ya votó, o `blocked`.
 4. Candidatos de la edición, sin los negocios ya votados (con `voteScope=business`, en cualquier categoría).
-5. `POST votes` con otro token nuevo, que el servidor consume.
+5. `POST votes` con un token de uso limitado nuevo, que el servidor consume.
 
 ### Reintentos
 
 - Solo se reintenta con espera (0,6 s y 2 s) al leer la edición y los candidatos, que no llevan token.
-- Un voto **nunca** se reenvía con el mismo token. Hay un único reintento automático, con un token nuevo, cuando el servidor responde `403 integrity_failed / app_check_replayed`. En ese caso el voto no llegó a contarse.
+- Un voto **nunca** se reenvía con el mismo token. Hay un único reintento automático, con un token recién pedido, cuando el servidor responde `403 integrity_failed` porque el token ya se usó (`app_check_replayed`) o porque tiene más de 120 s (`app_check_invalid` con motivo `stale`). En los dos casos el voto no llegó a contarse.
+- Un fallo de *pinning* (`SurveyInsecureConnection`) no se reintenta solo: esperar no lo arregla.
 - Con `429`, `503` o un error de red no hay reintento automático: la vista muestra «Reintentar», y cada reintento pide un token nuevo.
 - Modo avión a mitad del envío: si el `POST` salió y la conexión se cortó, la app recuerda esos votos. Si al reintentar el servidor responde `409` con todos ellos, significa que el primer envío sí entró, y la app muestra el éxito en lugar del error.
 
@@ -69,7 +71,7 @@ ni Google guardan bits que sobrevivan a un restablecimiento.
 | **Otro móvil físico** | **ABIERTO** (fuera de cualquier garantía técnica) | **ABIERTO** |
 | Restaurar una copia en otro iPhone | `L` no migra (`ThisDeviceOnly`): es otro móvil y vota | n/a |
 | *Jailbreak* o *root* con ocultación | App Attest puede saltarse con el sistema modificado | Play Integrity a veces se supera con *keyboxes* filtrados |
-| **Fabricar identidades con tokens auténticos** (§10.2 #11) | **Parcial**: el token no está ligado a la identidad. Con un proxy y una CA instalada, alguien puede quedarse tokens sin consumir y emparejarlos con `localIdHash` inventados. Lo frenan los límites del servidor; lo **cierra** el *certificate pinning* en la app, que no forma parte de este cambio | Igual |
+| **Fabricar identidades con tokens auténticos** (§10.2 #11) | **Mitigado** por el *certificate pinning*: con una CA de usuario y un proxy ya no se pueden leer ni reescribir las peticiones de `/surveys/v3`. Queda abierto con *jailbreak* o Frida (desactivar el pinning en el propio proceso) | Igual (con *root*) |
 | Tokens de depuración registrados en producción | Cualquiera con uno vota desde un emulador o un script: **hay que borrarlos antes de abrir la edición** | Igual |
 
 ## 3. Interfaz para la vista
@@ -115,6 +117,7 @@ presenter.voteAgain();          // «Votar a otros sitios»
 | `SurveyRateLimited(retryAfter)` | 429, o Firebase limitando tokens | «Demasiados intentos, prueba en un minuto.» |
 | `SurveyVerificationUnavailable(retryAfter)` | 503, o Firebase, Apple o Google sin servicio | «No podemos verificar ahora mismo, inténtalo en unos minutos.» |
 | `SurveyNetworkFailure` | red (también al pedir el token) | «Se nos fue la cobertura» |
+| `SurveyInsecureConnection` | la cadena TLS no acaba en las raíces fijadas (proxy, CA instalada, wifi con portal cautivo) | propuesto: «No podemos conectar de forma segura. Prueba con otra red (datos móviles).» |
 | `SurveyServerFailure(status, code)` | 400, 5xx, respuesta inesperada | genérico |
 | `SurveyInvalidOption(option)` | 422 | genérico |
 
@@ -124,7 +127,7 @@ presenter.voteAgain();          // «Votar a otros sitios»
 
 1. **App Check → Apps → iOS (`com.jonay.guachinches`) → App Attest.** Hay que indicar el **Team ID** (`GQ54L72VZ8`); no hace falta la clave `.p8`. Sin respaldo DeviceCheck: la app exige iOS 15 y todos esos iPhone tienen App Attest, y DeviceCheck pediría la `.p8`. En el portal de Apple, activar la capacidad **App Attest** en el App ID y regenerar los perfiles. **Sin esto falla la firma de Release**, porque `RunnerRelease.entitlements` declara `com.apple.developer.devicecheck.appattest-environment = production`. Debug y Profile usan `development`.
 2. **App Check → Apps → Android → Play Integrity.** Pegar la huella **SHA‑256 del certificado de firma de Play** (Play Console → *Integridad de la app* → *Firma de apps*). Vincular el proyecto de Cloud de Firebase en Play Console (*Play Integrity API*).
-3. **Tokens de depuración** (*App Check → Apps → ⋮ → Administrar tokens de depuración*). Al arrancar una compilación de depuración y abrir la encuesta:
+3. **Compilaciones de depuración.** Lo recomendable es registrarlas en Firebase como **otra app** (otro `appId`, p. ej. `com.jonay.guachinches.debug`), que el backend **no** acepta en producción. Hoy debug y release comparten bundle id y `appId`; si no se separan, como mínimo hay que **borrar los tokens de depuración antes de abrir la edición** (punto 5): con uno, cualquiera vota desde un emulador o un script. Tokens de depuración (*App Check → Apps → ⋮ → Administrar tokens de depuración*). Al arrancar una compilación de depuración y abrir la encuesta:
    - iOS: el token aparece en la consola de Xcode (`Firebase App Check Debug Token: …`).
    - Android: el token aparece en logcat (`DebugAppCheckProvider: Enter this debug secret…`).
    
@@ -133,6 +136,7 @@ presenter.voteAgain();          // «Votar a otros sitios»
 5. **Borra los tokens de depuración** del proyecto antes de abrir la edición.
 6. **Backend:** el `appId` de Firebase de cada plataforma y la credencial de *firebase-admin* (rol «Firebase App Check Token Verifier»). Lo configura el backend.
 7. **Antes de abrir la edición:** subir la versión mínima de `/version` y rotar `DEVICE_HMAC_SECRET`.
+8. **Durante una edición no se toca la identidad de la app:** ni rotar la clave de firma de Play (cambia el SSAID de todos los Android y la huella SHA‑256 que valida Play Integrity: todos los móviles serían identidades nuevas o no podrían votar) ni cambiar de Team de Apple (cambia el App ID de App Attest y el acceso al Keychain: identidades nuevas en iOS).
 
 Para desarrollar contra el backend en modo `fake`, ejecuta `flutter run --dart-define=SURVEY_INTEGRITY=fake`. Solo funciona en debug: la app envía `fake-appcheck.<appId>.<uuid>`, que es el formato de `fakeAppCheck.verifier.ts`.
 
@@ -159,6 +163,8 @@ Para cada caso, vota primero el negocio A (`201`) y luego intenta votarlo otra v
 | 10 | Repetir con un proxy la petición capturada | `403 integrity_failed / app_check_replayed` | Igual |
 | 11 | Llamar a la API con `curl` sin token o con uno inventado | `403 app_check_missing / app_check_invalid` | Igual |
 | 12 | Simulador o emulador en Release | `unsupported` («no puede verificarse»), sin cierres | `unsupported` o `403` |
+| 13 | **Proxy con CA de usuario** (Charles, mitmproxy o Proxyman) con la CA instalada y de confianza en *Ajustes → General → Información → Certificados* y el proxy en la wifi | Con el pinning activo, el proxy **no puede leer ni reescribir** `/surveys/v3/*`: el handshake falla y la app muestra `SurveyInsecureConnection`. En el proxy solo se ve el `CONNECT` y un TLS abortado. El resto de la app (fuera de la encuesta) sí pasa por el proxy, y eso es lo esperado. | Desde Android 7 las CA de usuario no se aceptan por defecto, pero el pinning lo cubre igual (también con *root* y la CA en el almacén del sistema). |
+| 14 | Mismo proxy en modo «pass-through» o sin interceptar `api.guachinchesmodernos.com` | La encuesta funciona con normalidad | Igual |
 
 ## 6. Qué no se puede probar sin dispositivos reales o sin claves
 
@@ -166,3 +172,26 @@ Para cada caso, vota primero el negocio A (`201`) y luego intenta votarlo otra v
 - Play Integrity real: necesita la app instalada desde Play y la huella SHA‑256 en Firebase.
 - La persistencia del Keychain al desinstalar: Apple no la garantiza. Se verifica a mano (caso 1).
 - La verificación y el consumo del token en el servidor: necesita *firebase-admin* con credenciales. Sin ellas, el backend en modo `fake`.
+
+## 7. *Certificate pinning*: raíces y rotación
+
+`api.guachinchesmodernos.com:459` usa Let's Encrypt. Cadena del 14/10/2026 (`openssl s_client -showcerts`):
+hoja (caduca el 12/12/2026) ← **YR2** (intermedia, caduca el 2/9/2028) ← **Root YR**, con firma cruzada de **ISRG Root X1** (la firma cruzada caduca el 2/9/2032).
+
+Raíces fijadas (`assets/certs/`, sacadas del almacén de raíces de macOS):
+
+| Fichero | Raíz | Tipo | Caduca | SHA‑256 (DER) |
+|---|---|---|---|---|
+| `isrg_root_x1.pem` | ISRG Root X1 | RSA 4096 | 4/6/2035 | `96:BC:EC:06:26:49:76:F3:74:60:77:9A:CF:28:C5:A7:CF:E8:A3:C0:AA:E1:1A:8F:FC:EE:05:C0:BD:DF:08:C6` |
+| `isrg_root_x2.pem` | ISRG Root X2 (respaldo ECDSA) | ECDSA P‑384 | 17/9/2040 | `69:72:9B:8E:15:A8:6E:FC:17:7A:57:AF:B7:17:1D:FC:64:AD:D2:8C:2F:CA:8C:F1:50:7E:34:45:3C:CB:14:70` |
+
+Se fijan **raíces**, no la hoja ni la intermedia: las renovaciones de cada 90 días y los cambios de intermedia (YR1, YR2, E7…) no rompen nada.
+Comprobado contra el servidor real con `dart:io`: X1+X2 → handshake correcto; solo X2 → `HandshakeException`.
+Un test (`device_identity_service_test.dart`) verifica las huellas para que nadie cambie las raíces por error.
+
+**Riesgos y cómo rotar:**
+- **Nueva generación de Let's Encrypt (Root YR / Root YE).** Hoy la cadena llega a X1 por la firma cruzada. Si el servidor deja de enviar la firma cruzada (o Let's Encrypt la retira), la cadena acabará en **Root YR autofirmada**, que no está fijada, y la encuesta fallará con `SurveyInsecureConnection`. **Antes de que pase:** añadir `isrg_root_yr.pem` (y `isrg_root_ye.pem` para ECDSA), sacados de <https://letsencrypt.org/certificates/> y comprobados por huella, a `assets/certs/` y a `SurveyPinning.roots`, y publicar esa versión **con margen** (los móviles tardan semanas en actualizarse). Después, subir `minAppVersion`.
+- **Cambiar de CA en el balanceador** (p. ej. a ZeroSSL, Google Trust Services o un certificado de Cloudflare) **rompe la encuesta en todas las apps publicadas** hasta que actualicen. Procedimiento: 1) añadir la raíz nueva junto a las actuales; 2) publicar y esperar adopción; 3) subir `minAppVersion`; 4) solo entonces cambiar el certificado. Nunca durante una edición abierta.
+- **Proxy corporativo o portal cautivo:** esos usuarios ven `SurveyInsecureConnection` y tienen que cambiar de red. Es el precio del pinning.
+- **Desactivación:** solo en `kDebugMode` y solo con `--dart-define=SURVEY_INTEGRITY=fake` o contra un backend local (`localhost`, `10.0.2.2`, IPs privadas, `*.local`). En release el pinning está siempre activo.
+- Solo cubre `/surveys/v3/*` (`editions/current`, `my-votes`, `votes`). Los candidatos (`category-restaurants/surveyjs/…`) y el resto de la app usan el cliente general.
