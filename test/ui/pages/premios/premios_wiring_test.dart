@@ -232,7 +232,7 @@ void main() {
       await t.pumpWidget(
           app(const Scaffold(body: PremiosHomeSlot(enabled: false))));
       await t.pump();
-      expect(find.byType(PremiosLiveSection), findsNothing);
+      expect(find.byType(PremiosWineCard), findsNothing);
       expect(t.getSize(find.byType(PremiosHomeSlot)), Size.zero);
     });
 
@@ -245,8 +245,8 @@ void main() {
       for (var i = 0; i < 5; i++) {
         await t.pump(const Duration(milliseconds: 50));
       }
-      expect(find.byType(PremiosLiveSection), findsNothing);
-      expect(find.text('Ganadores 2026'), findsNothing);
+      expect(find.byType(PremiosWineCard), findsNothing);
+      expect(find.text('Ya tenemos ganadores'), findsNothing);
     });
 
     PremiosRankingState rk({bool mine = false}) => PremiosRankingState(
@@ -277,17 +277,19 @@ void main() {
       }
     }
 
-    testWidgets('abierta y sin votar: módulo en directo con podio 2·1·2',
+    testWidgets('abierta y sin votar: card vino y oro con podio 2·1·2',
         (t) async {
       addTearDown(t.view.reset);
       PremiosEditionStore.instance
           .loadFromRemoteConfig(DateTime.utc(2026, 3, 20, 23, 59));
       await pumpSlot(t, rk());
-      expect(find.text('Así va la votación'), findsOneWidget);
+      expect(find.byType(PremiosWineCard), findsOneWidget);
       expect(find.byType(PodioPremios), findsOneWidget);
       expect(find.text('¿Cuál es tu guachinche favorito?'), findsOneWidget);
       expect(find.text('Quedan 12 días'), findsOneWidget);
-      expect(find.text('Votar'), findsOneWidget);
+      expect(find.text('Votar ahora'), findsOneWidget);
+      expect(find.text('Ver el ranking'), findsOneWidget);
+      expect(find.text('Ahora no'), findsNothing);
       expect(find.text('6 votos · empate'), findsNWidgets(2));
       expect(find.bySemanticsIdentifier('home-premios-mine'), findsNothing);
       await t.pumpWidget(const SizedBox());
@@ -301,21 +303,23 @@ void main() {
         PremiosCategory.tradicional.apiName: {'Guachinche Casa Pepe'}
       });
       await pumpSlot(t, rk(mine: true));
-      expect(find.text('Ya has votado'), findsOneWidget);
+      expect(find.text('¡Gracias por votar!'), findsOneWidget);
       expect(find.text('Votar a otros sitios'), findsOneWidget);
       expect(find.text('Va 4.º con 5 votos'), findsOneWidget);
       await t.pumpWidget(const SizedBox());
     });
 
-    testWidgets('cerrada: «Ganadores 2026» 15 días y luego nada', (t) async {
+    testWidgets('cerrada: «Ya tenemos ganadores» 15 días y luego nada',
+        (t) async {
       addTearDown(t.view.reset);
       PremiosEditionStore.instance
           .loadFromRemoteConfig(DateTime.utc(2026, 3, 20, 23, 59));
       await pumpSlot(t, rk(), now: DateTime.utc(2026, 3, 25));
-      expect(find.text('Ganadores 2026'), findsOneWidget);
+      expect(find.text('Ya tenemos ganadores'), findsOneWidget);
       expect(find.text('Ver el ranking completo'), findsOneWidget);
+      expect(find.text('Mis votos'), findsOneWidget);
       await pumpSlot(t, rk(), now: DateTime.utc(2026, 4, 10));
-      expect(find.byType(PremiosLiveSection), findsNothing);
+      expect(find.byType(PremiosWineCard), findsNothing);
       await t.pumpWidget(const SizedBox());
     });
   });
@@ -423,14 +427,16 @@ void main() {
       }
     }
 
-    testWidgets('oculto: anuncio, «se desvela al cierre» y Votar', (t) async {
+    testWidgets('oculto: silueta, «se desvela al cierre» y Votar ahora',
+        (t) async {
       addTearDown(t.view.reset);
       await pump(
           t, const PremiosRankingState(load: PremiosLoad.ready, hidden: true));
-      expect(find.text('Votación en marcha'), findsOneWidget);
+      expect(find.text('¿Cuál es tu guachinche favorito?'), findsOneWidget);
       expect(find.text('El ranking se desvela al cierre'), findsOneWidget);
+      expect(find.byType(PremiosSilhouettePodium), findsOneWidget);
       expect(find.byType(PodioPremios), findsNothing);
-      expect(find.text('Votar'), findsOneWidget);
+      expect(find.text('Votar ahora'), findsOneWidget);
       await t.pumpWidget(const SizedBox());
     });
 
@@ -440,7 +446,7 @@ void main() {
       await pump(t, const PremiosRankingState(load: PremiosLoad.error));
       expect(find.byType(PodioPremios), findsNothing);
       expect(find.textContaining('No pudimos'), findsNothing);
-      expect(find.text('Votar'), findsOneWidget);
+      expect(find.text('Votar ahora'), findsOneWidget);
       await t.pumpWidget(const SizedBox());
     });
 
