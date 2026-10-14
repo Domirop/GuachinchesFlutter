@@ -33,7 +33,7 @@ import 'package:guachinches/ui/pages/new_home/widgets/today_grid_section.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/card_visit.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/parallax_hero.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/quiz_banner.dart';
-import 'package:guachinches/ui/pages/premios/premios_home_card.dart';
+import 'package:guachinches/ui/pages/premios/premios_home.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/parallax_hero_slot.dart';
 import 'package:guachinches/ui/components/canarismo_card.dart';
 import 'package:guachinches/ui/components/location_prompt_banner.dart';
@@ -265,7 +265,10 @@ class _NewHomeBodyState extends State<NewHomeBody> {
         Semantics(
           identifier: 'home-refresh-indicator',
           child: RefreshIndicator(
-            onRefresh: widget.onRefresh ?? () async {},
+            onRefresh: () async {
+              PremiosHomeSlot.refresh();
+              await widget.onRefresh?.call();
+            },
             color: gm.accent,
             child: CustomScrollView(
               controller: widget.scrollCtrl,
@@ -332,6 +335,12 @@ class _NewHomeBodyState extends State<NewHomeBody> {
                 // duplicaba intención con la sección "HOY EN…". Para reactivarlo,
                 // reinsertar aquí un OpenNowCalloutSlot con `openNow.length`.
 
+                // ── PREMIOS 2026 EN DIRECTO (solo durante la campaña) ──────
+                // Módulo de la encuesta encima de «Hoy», o la hoja al abrir
+                // (tablero EncuestaInicioTarjeta). Lleva su propio margen
+                // superior y no ocupa nada si la campaña está apagada.
+                const SliverToBoxAdapter(child: PremiosHomeSlot()),
+
                 // ── HOY (rejilla de sitios según la hora) ───────────────────
                 // Sólo mostramos esta sección si hay restaurantes con horario
                 // confirmado abiertos ahora; si no, el fallback "abren pronto"
@@ -375,12 +384,6 @@ class _NewHomeBodyState extends State<NewHomeBody> {
                       onRestaurantTap: widget.onRestaurantTap,
                     ),
                   )),
-
-                // ── PREMIOS 2026 (solo durante la campaña) ──────────
-                // Tarjeta de la encuesta entre «Hoy» y el quiz, o la hoja al
-                // abrir (tablero EncuestaInicioTarjeta). Lleva su propio
-                // margen superior y no ocupa nada si la campaña está apagada.
-                const SliverToBoxAdapter(child: PremiosHomeSlot()),
 
                 // ── JUEGO: ¿CUÁNTO SABES DE CANARIAS? ───────────────
                 section(Semantics(

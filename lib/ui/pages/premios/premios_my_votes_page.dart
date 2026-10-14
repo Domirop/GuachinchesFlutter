@@ -20,8 +20,16 @@ class PremiosMyVotesPage extends StatefulWidget {
   final VoidCallback? onVote;
   final DateTime Function()? clock;
 
-  const PremiosMyVotesPage(
-      {super.key, required this.controller, this.onVote, this.clock});
+  /// Pide `my-votes` al servidor al abrir (los tests lo apagan).
+  final bool refreshVoted;
+
+  const PremiosMyVotesPage({
+    super.key,
+    required this.controller,
+    this.onVote,
+    this.clock,
+    this.refreshVoted = true,
+  });
 
   @override
   State<PremiosMyVotesPage> createState() => _PremiosMyVotesPageState();
@@ -32,6 +40,8 @@ class _PremiosMyVotesPageState extends State<PremiosMyVotesPage> {
   void initState() {
     super.initState();
     PremiosEditionStore.instance.ensureLoaded();
+    // «Mis votos» sale del servidor (`my-votes` v3); la caché se ve mientras.
+    if (widget.refreshVoted) PremiosVotedStore.instance.refreshFromServer();
     // Sin datos todavía (p. ej. desde el envoltorio viejo): se cargan.
     if (widget.controller.state.load != PremiosLoad.ready) {
       widget.controller.refresh();

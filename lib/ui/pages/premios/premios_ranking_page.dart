@@ -54,7 +54,7 @@ class _PremiosRankingPageState extends State<PremiosRankingPage> {
   void initState() {
     super.initState();
     _owned = widget.controller == null;
-    _c = widget.controller ?? LegacyPremiosRankingController();
+    _c = widget.controller ?? PremiosResultsController();
     if (_c.state.load != PremiosLoad.ready) _c.refresh();
     PremiosEditionStore.instance.ensureLoaded();
     _scroll.addListener(_onScroll);
@@ -111,7 +111,7 @@ class _PremiosRankingPageState extends State<PremiosRankingPage> {
     final canVote = phase.canVote;
     final title =
         phase == PremiosPhase.closed ? 'Ganadores 2026' : 'Así va la votación';
-    final seg = _Segmented(
+    final seg = PremiosSegmented(
       value: _tab,
       onChanged: (c) => setState(() => _tab = c),
     );
@@ -465,10 +465,20 @@ class _TopScrim extends StatelessWidget {
 
 // ── Control segmentado ─────────────────────────────────────────────────────
 
-class _Segmented extends StatelessWidget {
+class PremiosSegmented extends StatelessWidget {
   final PremiosCategory value;
   final ValueChanged<PremiosCategory> onChanged;
-  const _Segmented({required this.value, required this.onChanged});
+
+  /// Inicio: relleno `fill` en vez de cristal.
+  final bool flat;
+  final String identifierPrefix;
+  const PremiosSegmented({
+    super.key,
+    required this.value,
+    required this.onChanged,
+    this.flat = false,
+    this.identifierPrefix = 'premios-ranking-tab',
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -477,7 +487,7 @@ class _Segmented extends StatelessWidget {
       final on = c == value;
       return Expanded(
         child: Semantics(
-          identifier: 'premios-ranking-tab-${c.short}',
+          identifier: '$identifierPrefix-${c.short}',
           button: true,
           selected: on,
           label: c.plural,
@@ -525,22 +535,31 @@ class _Segmented extends StatelessWidget {
       );
     }
 
+    final row = Padding(
+      padding: const EdgeInsets.all(3),
+      child: Row(children: [
+        seg(PremiosCategory.tradicional),
+        const SizedBox(width: 2),
+        seg(PremiosCategory.moderno),
+      ]),
+    );
     return MediaQuery.withClampedTextScaling(
       maxScaleFactor: 1.2,
-      child: GmGlass(
-        borderRadius: BorderRadius.circular(GmRadius.pill),
-        tint: gm.glass,
-        edge: gm.glassEdge,
-        shadow: gm.shadow1,
-        child: Padding(
-          padding: const EdgeInsets.all(3),
-          child: Row(children: [
-            seg(PremiosCategory.tradicional),
-            const SizedBox(width: 2),
-            seg(PremiosCategory.moderno),
-          ]),
-        ),
-      ),
+      child: flat
+          ? DecoratedBox(
+              decoration: BoxDecoration(
+                color: gm.fill,
+                borderRadius: BorderRadius.circular(GmRadius.pill),
+              ),
+              child: row,
+            )
+          : GmGlass(
+              borderRadius: BorderRadius.circular(GmRadius.pill),
+              tint: gm.glass,
+              edge: gm.glassEdge,
+              shadow: gm.shadow1,
+              child: row,
+            ),
     );
   }
 }
@@ -678,16 +697,117 @@ class _Metal {
 /// Podio en vino: 2.º · 1.º · 3.º con alturas 104 / 78 / 56 según el puesto
 /// real (los empates igualan columnas). Los bloques crecen (3.º, 2.º, 1.º)
 /// y los avatares caen con squash; brillo de 1,1 s solo en el oro.
+/// Medidas del podio: el del Ranking y el compacto del Inicio.
+class _PodiumMetrics {
+  final Map<int, double> blockH;
+  final double avatar1, avatar, ring, zone, avatarGap, gap;
+  final double topR, bottomR, cap, number1, number, numberTop1, numberTop;
+  final double nameSize, nameLine, metaSize, metaLine, nameTop;
+  final bool paren;
+  final Duration grow, drop, sheenDelay;
+  final double dropDy;
+
+  const _PodiumMetrics({
+    required this.blockH,
+    required this.avatar1,
+    required this.avatar,
+    required this.ring,
+    required this.zone,
+    required this.avatarGap,
+    required this.gap,
+    required this.topR,
+    required this.bottomR,
+    required this.cap,
+    required this.number1,
+    required this.number,
+    required this.numberTop1,
+    required this.numberTop,
+    required this.nameSize,
+    required this.nameLine,
+    required this.metaSize,
+    required this.metaLine,
+    required this.nameTop,
+    required this.paren,
+    required this.grow,
+    required this.drop,
+    required this.sheenDelay,
+    required this.dropDy,
+  });
+
+  static const full = _PodiumMetrics(
+    blockH: {1: 104, 2: 78, 3: 56},
+    avatar1: 72,
+    avatar: 60,
+    ring: 3,
+    zone: 192,
+    avatarGap: 10,
+    gap: 10,
+    topR: 16,
+    bottomR: 6,
+    cap: 6,
+    number1: 32,
+    number: 24,
+    numberTop1: 18,
+    numberTop: 14,
+    nameSize: 14,
+    nameLine: 18,
+    metaSize: 13,
+    metaLine: 18,
+    nameTop: 10,
+    paren: true,
+    grow: Duration(milliseconds: 760),
+    drop: Duration(milliseconds: 820),
+    sheenDelay: Duration(milliseconds: 1600),
+    dropDy: 14,
+  );
+
+  /// Inicio (tablero EncuestaInicioTarjeta): bloques de 54 / 40 / 30.
+  static const compact = _PodiumMetrics(
+    blockH: {1: 54, 2: 40, 3: 30},
+    avatar1: 52,
+    avatar: 44,
+    ring: 2.5,
+    zone: 120,
+    avatarGap: 7,
+    gap: 8,
+    topR: 12,
+    bottomR: 5,
+    cap: 5,
+    number1: 22,
+    number: 17,
+    numberTop1: 11,
+    numberTop: 8,
+    nameSize: 13,
+    nameLine: 16,
+    metaSize: 12,
+    metaLine: 16,
+    nameTop: 8,
+    paren: false,
+    grow: Duration(milliseconds: 700),
+    drop: Duration(milliseconds: 760),
+    sheenDelay: Duration(milliseconds: 1500),
+    dropDy: 12,
+  );
+}
+
+/// Podio en vino: 2.º · 1.º · 3.º con alturas según el puesto real (los
+/// empates igualan columnas). Los bloques crecen (3.º, 2.º, 1.º) y los
+/// avatares caen con squash; brillo una vez solo en el oro. [compact] es el
+/// del Inicio (arranca al verse en pantalla).
 class PodioPremios extends StatelessWidget {
   final PremiosCategory category;
   final List<PremiosRankEntry> entries;
-  const PodioPremios(
-      {super.key, required this.category, required this.entries});
-
-  static const _blockH = {1: 104.0, 2: 78.0, 3: 56.0};
+  final bool compact;
+  const PodioPremios({
+    super.key,
+    required this.category,
+    required this.entries,
+    this.compact = false,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final m = compact ? _PodiumMetrics.compact : _PodiumMetrics.full;
     final order = <(PremiosRankEntry, double)>[
       if (entries.length > 1) (entries[1], 0.30),
       if (entries.isNotEmpty) (entries[0], 0.45),
@@ -696,23 +816,27 @@ class PodioPremios extends StatelessWidget {
     // Con texto grande las cajas de nombre crecen con el TextScaler (hasta
     // 1,2×) en vez de desbordar.
     return Semantics(
-      identifier: 'premios-ranking-podium',
+      identifier: compact ? 'home-premios-podium' : 'premios-ranking-podium',
       container: true,
       child: MediaQuery.withClampedTextScaling(
         maxScaleFactor: 1.2,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(2, 4, 2, 0),
+          padding:
+              compact ? EdgeInsets.zero : const EdgeInsets.fromLTRB(2, 4, 2, 0),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               for (var i = 0; i < 3; i++) ...[
-                if (i > 0) const SizedBox(width: 10),
+                if (i > 0) SizedBox(width: m.gap),
                 Expanded(
                   child: i < order.length
                       ? _PodiumColumn(
                           entry: order[i].$1,
                           category: category,
                           delay: order[i].$2,
+                          m: m,
+                          trigger:
+                              compact ? GmTrigger.visible : GmTrigger.mount,
                         )
                       : const SizedBox.shrink(),
                 ),
@@ -729,21 +853,30 @@ class _PodiumColumn extends StatelessWidget {
   final PremiosRankEntry entry;
   final PremiosCategory category;
   final double delay;
-  const _PodiumColumn(
-      {required this.entry, required this.category, required this.delay});
+  final _PodiumMetrics m;
+  final GmTrigger trigger;
+  const _PodiumColumn({
+    required this.entry,
+    required this.category,
+    required this.delay,
+    required this.m,
+    required this.trigger,
+  });
 
   @override
   Widget build(BuildContext context) {
     final gm = GmColors.of(context);
     final p = math.min(entry.rank, 3);
     final metal = _Metal.of(p);
-    final h = PodioPremios._blockH[p]!;
-    final av = p == 1 ? 72.0 : 60.0;
+    final h = m.blockH[p]!;
+    final av = p == 1 ? m.avatar1 : m.avatar;
     final (name, paren) = premiosSplitName(entry.name);
     final ts = MediaQuery.textScalerOf(context);
     final vt = premiosVotes(entry.votes) + (entry.tied ? ' · empate' : '');
+    final radius = BorderRadius.vertical(
+        top: Radius.circular(m.topR), bottom: Radius.circular(m.bottomR));
     final ring = Container(
-      padding: const EdgeInsets.all(3),
+      padding: EdgeInsets.all(m.ring),
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         gradient: metal.gradient,
@@ -761,12 +894,11 @@ class _PodiumColumn extends StatelessWidget {
     final block = Container(
       height: h,
       decoration: BoxDecoration(
-        borderRadius: const BorderRadius.vertical(
-            top: Radius.circular(16), bottom: Radius.circular(6)),
+        borderRadius: radius,
         gradient: const LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Color(0xFF3A1520), Color(0xFF2A0E14)],
+          colors: [PremiosColors.podiumTop, GmColors.wine],
         ),
         border: gm.isDark ? Border.all(color: gm.wineEdge) : null,
         boxShadow: const [
@@ -778,26 +910,26 @@ class _PodiumColumn extends StatelessWidget {
         ],
       ),
       child: ClipRRect(
-        borderRadius: const BorderRadius.vertical(
-            top: Radius.circular(16), bottom: Radius.circular(6)),
+        borderRadius: radius,
         child: Stack(
           children: [
             Positioned(
               left: 0,
               right: 0,
               top: 0,
-              height: 6,
+              height: m.cap,
               child: DecoratedBox(
                   decoration: BoxDecoration(gradient: metal.gradient)),
             ),
             Align(
               alignment: Alignment.topCenter,
               child: Padding(
-                padding: EdgeInsets.only(top: p == 1 ? 18 : 14),
+                padding:
+                    EdgeInsets.only(top: p == 1 ? m.numberTop1 : m.numberTop),
                 child: MediaQuery.withNoTextScaling(
                   child: Text('${entry.rank}',
                       style: TextStyle(
-                          fontSize: p == 1 ? 32 : 24,
+                          fontSize: p == 1 ? m.number1 : m.number,
                           height: 1,
                           fontWeight: FontWeight.w800,
                           color: metal.number,
@@ -816,20 +948,21 @@ class _PodiumColumn extends StatelessWidget {
       child: Column(
         children: [
           SizedBox(
-            height: 192,
+            height: m.zone,
             child: Column(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 GmOnce(
-                  duration: const Duration(milliseconds: 820),
+                  duration: m.drop,
                   delay:
                       Duration(milliseconds: ((delay + 0.35) * 1000).round()),
-                  trigger: GmTrigger.mount,
-                  child: p == 1 ? _Sheen(child: ring) : ring,
+                  trigger: trigger,
+                  child:
+                      p == 1 ? _Sheen(delay: m.sheenDelay, child: ring) : ring,
                   builder: (_, t, c) {
                     const cv = Cubic(0.3, 0.7, 0.3, 1);
                     final dy = gmKeyframes(
-                        t, const [(0, -14), (0.55, 2), (0.78, -2), (1, 0)],
+                        t, [(0, -m.dropDy), (0.55, 2), (0.78, -2), (1, 0)],
                         curve: cv);
                     final sx = gmKeyframes(t,
                         const [(0, 0.92), (0.55, 1.12), (0.78, 0.97), (1, 1)],
@@ -845,11 +978,11 @@ class _PodiumColumn extends StatelessWidget {
                     );
                   },
                 ),
-                const SizedBox(height: 10),
+                SizedBox(height: m.avatarGap),
                 GmOnce(
-                  duration: const Duration(milliseconds: 760),
+                  duration: m.grow,
                   delay: Duration(milliseconds: (delay * 1000).round()),
-                  trigger: GmTrigger.mount,
+                  trigger: trigger,
                   child: block,
                   builder: (_, t, c) {
                     final inset = 0.62 *
@@ -863,31 +996,40 @@ class _PodiumColumn extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: 10),
+          SizedBox(height: m.nameTop),
           SizedBox(
-            height: ts.scale(18) * 2,
+            height: ts.scale(m.nameLine) * 2,
             child: Text(name,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.center,
-                style: GmText.sub(color: gm.label, w: FontWeight.w600)
-                    .copyWith(height: 18 / 14, letterSpacing: -0.2)),
+                style: TextStyle(
+                    fontSize: m.nameSize,
+                    height: m.nameLine / m.nameSize,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: -0.2,
+                    color: gm.label)),
           ),
+          if (m.paren)
+            SizedBox(
+              height: ts.scale(16),
+              child: Text(paren,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: GmText.chip(color: gm.label2, w: FontWeight.w400)),
+            ),
           SizedBox(
-            height: ts.scale(16),
-            child: Text(paren,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                style: GmText.chip(color: gm.label2, w: FontWeight.w400)),
-          ),
-          SizedBox(
-            height: ts.scale(18),
+            height: ts.scale(m.metaLine),
             child: Text(vt,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.center,
-                style: GmText.meta(color: gm.label2)),
+                style: TextStyle(
+                    fontSize: m.metaSize,
+                    height: m.metaLine / m.metaSize,
+                    color: gm.label2,
+                    fontFeatures: const [FontFeature.tabularFigures()])),
           ),
         ],
       ),
@@ -910,7 +1052,8 @@ class _TopInset extends CustomClipper<Rect> {
 /// Brillo que cruza el anillo de oro una vez (1,1 s a 1,6 s).
 class _Sheen extends StatelessWidget {
   final Widget child;
-  const _Sheen({required this.child});
+  final Duration delay;
+  const _Sheen({required this.child, required this.delay});
 
   @override
   Widget build(BuildContext context) => Stack(
@@ -921,7 +1064,7 @@ class _Sheen extends StatelessWidget {
               child: ClipOval(
                 child: GmOnce(
                   duration: const Duration(milliseconds: 1100),
-                  delay: const Duration(milliseconds: 1600),
+                  delay: delay,
                   trigger: GmTrigger.mount,
                   builder: (_, t, __) {
                     if (t <= 0 || t >= 1) return const SizedBox.shrink();

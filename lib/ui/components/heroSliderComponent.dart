@@ -3,7 +3,7 @@ import 'package:carousel_slider/carousel_slider.dart';
 import 'package:flutter/material.dart';
 import 'package:guachinches/data/model/fotoBanner.dart';
 import 'package:guachinches/globalMethods.dart';
-import 'package:guachinches/ui/pages/premios/premios_home_card.dart';
+import 'package:guachinches/ui/pages/premios/premios_home.dart';
 import 'package:guachinches/ui/pages/survey_in_app/survey_in_app_page.dart';
 import 'package:guachinches/ui/pages/surveyRanking/surveyRanking.dart';
 

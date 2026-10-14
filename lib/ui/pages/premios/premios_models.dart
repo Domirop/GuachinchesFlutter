@@ -2,6 +2,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:guachinches/core/logging/app_logger.dart';
 import 'package:guachinches/core/remote_config/dcc_remote_config.dart';
+import 'package:guachinches/data/HttpRemoteRepository.dart';
+import 'package:guachinches/data/RemoteRepository.dart';
+import 'package:guachinches/data/model/survey_v3.dart';
+import 'package:http/http.dart' show Client;
 import 'package:guachinches/ui/components/SurveyResults/SurveyResults.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/gm_place_card.dart'
     show gmPlaceName;
@@ -172,14 +176,44 @@ List<PremiosCandidate> premiosFilter(
 /// Errores que la UI sabe pintar. Los de hoy llegan del presenter actual;
 /// [deviceUnverified] (403) y [rateLimited] (429) vendrán con el contrato
 /// nuevo de identidad del dispositivo.
+/// Avisos sobre la papeleta (Revisar) o al cargar. Vienen de los
+/// `SurveyFailure` del presenter v3 (`docs/encuesta-antivoto.md` §3).
 enum PremiosErrorKind {
   noSelection,
   tooFast,
   alreadyVoted,
+
+  /// 403 `integrity_failed` o App Check rechazado en el móvil.
   deviceUnverified,
+
+  /// 429 o Firebase limitando tokens.
   rateLimited,
+
+  /// 503 o Firebase / Apple / Google sin servicio.
+  verificationUnavailable,
+
+  /// 422 `invalid_option`: la opción ya no es candidata.
+  invalidOption,
   network,
   server,
+}
+
+/// Lo que impide votar (pantalla entera, no un aviso sobre la papeleta).
+enum PremiosGate {
+  /// La edición aún no ha abierto.
+  upcoming,
+
+  /// Votación cerrada (hora del servidor).
+  closed,
+
+  /// `403 device_blocked`.
+  blocked,
+
+  /// `426` o versión por debajo de `minAppVersion`.
+  upgradeRequired,
+
+  /// Sin App Attest / Google Play: no puede dar token de App Check.
+  unsupported,
 }
 
 @immutable
@@ -237,7 +271,7 @@ class PremiosErrorCopy {
 
 /// [rowFlagged]: tras un 409 ya se sabe qué fila tenía el voto.
 PremiosErrorCopy premiosErrorCopy(PremiosErrorKind kind,
-    {bool rowFlagged = false}) {
+    {bool rowFlagged = false, String store = 'la tienda'}) {
   switch (kind) {
     case PremiosErrorKind.noSelection:
       return const PremiosErrorCopy(
@@ -272,28 +306,41 @@ PremiosErrorCopy premiosErrorCopy(PremiosErrorKind kind,
               tone: PremiosTone.warn,
               icon: PremiosAlertIcon.warn,
             );
-    // Copy provisional (pendiente del diseño): 403 del contrato nuevo de
-    // identidad del dispositivo.
+    // Textos de `docs/encuesta-antivoto.md` §3 en el tono de la app.
     case PremiosErrorKind.deviceUnverified:
-      return const PremiosErrorCopy(
+      return PremiosErrorCopy(
         title: 'No hemos podido comprobar este\u00A0móvil',
-        message: 'Así evitamos votos repetidos. Actualiza la app o '
-            'inténtalo más tarde.',
+        message: 'Actualiza la app desde $store y vuelve a probar.',
         help: 'Tus votos siguen aquí.',
         tone: PremiosTone.closed,
         icon: PremiosAlertIcon.error,
         retry: true,
       );
-    // Copy provisional (pendiente del diseño): 429.
     case PremiosErrorKind.rateLimited:
       return const PremiosErrorCopy(
         title: 'Un momentito, que hay cola',
-        message: 'Has enviado muchas veces seguidas. Espera un poco y '
-            'vuelve a probar.',
+        message: 'Demasiados intentos, prueba en un minuto.',
         help: 'Tus votos siguen aquí.',
         tone: PremiosTone.warn,
         icon: PremiosAlertIcon.clock,
         retry: true,
+      );
+    case PremiosErrorKind.verificationUnavailable:
+      return const PremiosErrorCopy(
+        title: 'Ahora mismo no podemos comprobarlo',
+        message: 'No podemos verificar ahora mismo, inténtalo en unos minutos.',
+        help: 'Tus votos siguen aquí.',
+        tone: PremiosTone.warn,
+        icon: PremiosAlertIcon.clock,
+        retry: true,
+      );
+    case PremiosErrorKind.invalidOption:
+      return const PremiosErrorCopy(
+        title: 'Ese sitio ya no está en la lista',
+        message: 'Uno de tus votos ya no es candidato.',
+        help: 'Elige otro y vuelve a enviar.',
+        tone: PremiosTone.warn,
+        icon: PremiosAlertIcon.warn,
       );
     case PremiosErrorKind.network:
       return const PremiosErrorCopy(
@@ -316,6 +363,64 @@ PremiosErrorCopy premiosErrorCopy(PremiosErrorKind kind,
   }
 }
 
+/// Pantalla de bloqueo de cada [PremiosGate], con la estética de los avisos.
+/// [action] es el botón (tienda, ranking…).
+PremiosErrorCopy premiosGateCopy(PremiosGate gate,
+    {String store = 'la tienda', String? minVersion, String opensLabel = ''}) {
+  switch (gate) {
+    case PremiosGate.upcoming:
+      return PremiosErrorCopy(
+        title: 'La votación aún no ha empezado',
+        message: opensLabel.isEmpty
+            ? 'Te avisamos en cuanto abra.'
+            : 'Abre $opensLabel.',
+        help: 'Mientras tanto, mira quién va delante.',
+        tone: PremiosTone.warn,
+        icon: PremiosAlertIcon.clock,
+        action: 'Ver el ranking',
+      );
+    case PremiosGate.closed:
+      return const PremiosErrorCopy(
+        title: 'La votación ya está cerrada',
+        message: 'Gracias a todos los que votaron.',
+        help: 'Ya tenemos ganadores.',
+        tone: PremiosTone.warn,
+        icon: PremiosAlertIcon.clock,
+        action: 'Ver ganadores',
+      );
+    case PremiosGate.blocked:
+      return const PremiosErrorCopy(
+        title: 'Este móvil no puede votar',
+        message: 'Hemos visto algo raro con los votos desde este móvil.',
+        help: 'Si crees que es un error, escríbenos.',
+        tone: PremiosTone.closed,
+        icon: PremiosAlertIcon.error,
+        action: 'Ver el ranking',
+      );
+    case PremiosGate.upgradeRequired:
+      return PremiosErrorCopy(
+        title: 'Actualiza la app para votar',
+        message: minVersion == null
+            ? 'Esta versión ya no puede votar.'
+            : 'Hace falta la versión $minVersion o una más nueva.',
+        help: 'Es un momento y tu voto te espera.',
+        tone: PremiosTone.warn,
+        icon: PremiosAlertIcon.warn,
+        action: 'Abrir $store',
+      );
+    case PremiosGate.unsupported:
+      return const PremiosErrorCopy(
+        title: 'Este móvil no puede verificarse para\u00A0votar',
+        message: 'Para votar hace falta un iPhone con iOS 15 o un Android con '
+            'Google Play.',
+        help: 'El ranking sí lo puedes seguir.',
+        tone: PremiosTone.closed,
+        icon: PremiosAlertIcon.error,
+        action: 'Ver el ranking',
+      );
+  }
+}
+
 // ── Estado del flujo de votación ───────────────────────────────────────────
 
 enum PremiosLoad { loading, ready, error }
@@ -334,6 +439,19 @@ class PremiosFlowState {
   /// Votos enviados con éxito (Gracias). `null` mientras no se envía.
   final Map<PremiosCategory, PremiosCandidate>? sent;
 
+  /// Tras un 409: el sitio que ya tenía voto, por categoría (el presenter ya
+  /// lo quitó de [picks]; la fila lo enseña marcado).
+  final Map<PremiosCategory, PremiosCandidate> conflicts;
+
+  /// Lo que impide votar (pantalla entera).
+  final PremiosGate? gate;
+
+  /// Por qué no cargó ([load] == error).
+  final PremiosErrorKind? loadError;
+
+  /// Versión mínima con [PremiosGate.upgradeRequired].
+  final String? minAppVersion;
+
   const PremiosFlowState({
     this.load = PremiosLoad.loading,
     this.candidates = const {},
@@ -342,6 +460,10 @@ class PremiosFlowState {
     this.error,
     this.flagged = const {},
     this.sent,
+    this.conflicts = const {},
+    this.gate,
+    this.loadError,
+    this.minAppVersion,
   });
 
   List<PremiosCandidate> candidatesOf(PremiosCategory c) =>
@@ -357,6 +479,10 @@ class PremiosFlowState {
     PremiosError? Function()? error,
     Set<String>? flagged,
     Map<PremiosCategory, PremiosCandidate>? Function()? sent,
+    Map<PremiosCategory, PremiosCandidate>? conflicts,
+    PremiosGate? Function()? gate,
+    PremiosErrorKind? Function()? loadError,
+    String? Function()? minAppVersion,
   }) =>
       PremiosFlowState(
         load: load ?? this.load,
@@ -366,6 +492,11 @@ class PremiosFlowState {
         error: error != null ? error() : this.error,
         flagged: flagged ?? this.flagged,
         sent: sent != null ? sent() : this.sent,
+        conflicts: conflicts ?? this.conflicts,
+        gate: gate != null ? gate() : this.gate,
+        loadError: loadError != null ? loadError() : this.loadError,
+        minAppVersion:
+            minAppVersion != null ? minAppVersion() : this.minAppVersion,
       );
 }
 
@@ -519,24 +650,38 @@ const _kMonths = [
   'diciembre',
 ];
 
-/// Una edición de los premios: apertura y cierre de la votación en UTC.
-/// Hoy llega de Remote Config (`premios_closes_at`); el repositorio del
-/// contrato v3 la rellenará con `GET /surveys/v3/editions/current`
-/// ([PremiosEdition.fromApi]) y la publicará en [PremiosEditionStore].
-/// Todos los cálculos van en UTC (hora del servidor), nunca en la local.
+/// Una edición de los premios: estado, apertura y cierre de la votación.
+/// Sale de `GET /surveys/v3/editions/current` ([PremiosEdition.fromSurvey]):
+/// el estado (`upcoming`/`open`/`closed`) lo calcula el servidor con su hora
+/// y manda sobre el reloj del móvil; las fechas (UTC) dan la cuenta atrás.
+/// Si la API no responde, respaldo de Remote Config (`premios_closes_at`).
 @immutable
 class PremiosEdition {
   final DateTime? votingStartsAt;
   final DateTime? votingEndsAt;
 
-  PremiosEdition({DateTime? votingStartsAt, DateTime? votingEndsAt})
+  /// Estado según el servidor (`null` en el respaldo sin API).
+  final SurveyEditionStatus? status;
+
+  /// `editionId` de la API v3 (`null` en el respaldo).
+  final int? id;
+
+  PremiosEdition(
+      {DateTime? votingStartsAt, DateTime? votingEndsAt, this.status, this.id})
       : votingStartsAt = votingStartsAt?.toUtc(),
         votingEndsAt = votingEndsAt?.toUtc();
 
   /// Sin fechas: estado neutro.
   static final PremiosEdition none = PremiosEdition();
 
-  /// `{"votingStartsAt": "…Z", "votingEndsAt": "…Z"}` de
+  factory PremiosEdition.fromSurvey(SurveyEdition e) => PremiosEdition(
+        votingStartsAt: e.votingStartsAt,
+        votingEndsAt: e.votingEndsAt,
+        status: e.status,
+        id: e.editionId,
+      );
+
+  /// `{"votingStartsAt": "…Z", "votingEndsAt": "…Z", "status": …}` de
   /// `GET /surveys/v3/editions/current`.
   factory PremiosEdition.fromApi(Map<String, dynamic> json) {
     DateTime? d(Object? v) =>
@@ -544,19 +689,58 @@ class PremiosEdition {
     return PremiosEdition(
       votingStartsAt: d(json['votingStartsAt']),
       votingEndsAt: d(json['votingEndsAt']),
+      status: switch (json['status']) {
+        'open' => SurveyEditionStatus.open,
+        'upcoming' => SurveyEditionStatus.upcoming,
+        'closed' => SurveyEditionStatus.closed,
+        _ => null,
+      },
     );
+  }
+
+  /// Días que el Inicio sigue enseñando a los ganadores tras el cierre.
+  static const winnersFor = Duration(days: 15);
+
+  /// ¿Se anuncia la campaña en el Inicio? Abierta, o cerrada hace menos de
+  /// [winnersFor].
+  bool showOnHome(DateTime now) {
+    final p = phase(now);
+    if (p.counting) return true;
+    if (p != PremiosPhase.closed) return false;
+    final end = votingEndsAt;
+    return end != null && now.toUtc().difference(end) < winnersFor;
   }
 
   bool get known => votingEndsAt != null;
 
   PremiosPhase phase(DateTime now) {
+    // El servidor manda: su estado va por delante del reloj del móvil.
+    switch (status) {
+      case SurveyEditionStatus.upcoming:
+        return PremiosPhase.upcoming;
+      case SurveyEditionStatus.closed:
+        return PremiosPhase.closed;
+      case SurveyEditionStatus.open:
+      case null:
+        break;
+    }
     final end = votingEndsAt;
-    if (end == null) return PremiosPhase.unknown;
+    if (end == null) {
+      return status == SurveyEditionStatus.open
+          ? PremiosPhase.open
+          : PremiosPhase.unknown;
+    }
     final n = now.toUtc();
     final start = votingStartsAt;
-    if (start != null && n.isBefore(start)) return PremiosPhase.upcoming;
-    if (!n.isBefore(end)) return PremiosPhase.closed;
-    return daysLeft(n) == 0 ? PremiosPhase.lastDay : PremiosPhase.open;
+    if (status == null) {
+      if (start != null && n.isBefore(start)) return PremiosPhase.upcoming;
+      if (!n.isBefore(end)) return PremiosPhase.closed;
+    } else if (!n.isBefore(end)) {
+      // Abierta según el servidor pero ya pasada la hora en este móvil
+      // (reloj adelantado): último día, sin cuenta negativa.
+      return PremiosPhase.lastDay;
+    }
+    return daysLeft(n) <= 0 ? PremiosPhase.lastDay : PremiosPhase.open;
   }
 
   /// Días de calendario hasta el día del cierre, comparando fechas UTC (el
@@ -596,6 +780,13 @@ class PremiosEdition {
     return 'hasta el ${end.day} de ${_kMonths[end.month - 1]}';
   }
 
+  /// «el 1 de febrero» (apertura, fecha UTC). Vacío sin fecha.
+  String get opensLabel {
+    final start = votingStartsAt;
+    if (start == null) return '';
+    return 'el ${start.day} de ${_kMonths[start.month - 1]}';
+  }
+
   /// «Se vota hasta el 20 de marzo».
   String get untilLabel => known ? 'Se vota $untilShort' : '';
 
@@ -603,10 +794,12 @@ class PremiosEdition {
   bool operator ==(Object other) =>
       other is PremiosEdition &&
       other.votingStartsAt == votingStartsAt &&
-      other.votingEndsAt == votingEndsAt;
+      other.votingEndsAt == votingEndsAt &&
+      other.status == status &&
+      other.id == id;
 
   @override
-  int get hashCode => Object.hash(votingStartsAt, votingEndsAt);
+  int get hashCode => Object.hash(votingStartsAt, votingEndsAt, status, id);
 }
 
 /// La edición en curso, compartida por las pantallas. Arranca vacía (estado
@@ -620,11 +813,41 @@ class PremiosEditionStore extends ValueNotifier<PremiosEdition> {
   PremiosEdition get current => value;
 
   bool _loaded = false;
+  Future<void>? _loading;
 
-  /// Lee Remote Config una vez (las pantallas lo llaman al abrirse).
-  void ensureLoaded() {
+  /// Las pantallas lo llaman al abrirse: una vez por sesión pide la edición
+  /// a la API (sin token, sin identidad) y, si falla, usa el respaldo.
+  void ensureLoaded([RemoteRepository? repository]) {
     if (_loaded) return;
     _loaded = true;
+    _loading = refresh(repository ?? HttpRemoteRepository(Client()));
+  }
+
+  /// Espera a la carga en curso (tests y pull-to-refresh).
+  Future<void> get loading => _loading ?? Future.value();
+
+  /// `GET /surveys/v3/editions/current`; si no responde, Remote Config.
+  Future<void> refresh(RemoteRepository repository) async {
+    try {
+      final e = await repository.getCurrentSurveyEdition();
+      value = PremiosEdition.fromSurvey(e);
+    } on SurveyApiException catch (e) {
+      // `edition_not_found`: no hay edición protegida → sin campaña.
+      AppLogger.warn('premios', 'edición: ${e.code}');
+      _fallback();
+    } catch (e) {
+      AppLogger.warn('premios', 'edición no disponible: ${e.runtimeType}');
+      _fallback();
+    }
+  }
+
+  /// La edición que trae el presenter de la votación (misma fuente).
+  void publish(SurveyEdition edition) {
+    _loaded = true;
+    value = PremiosEdition.fromSurvey(edition);
+  }
+
+  void _fallback() {
     DateTime? closes;
     try {
       closes = DccRemoteConfig.instance.premiosClosesAt;
@@ -632,21 +855,29 @@ class PremiosEditionStore extends ValueNotifier<PremiosEdition> {
       // Sin Firebase (tests): sin fecha → estado neutro.
       AppLogger.warn('premios', 'remote config no disponible: $e');
     }
-    loadFromRemoteConfig(closes);
+    if (value.status == null) loadFromRemoteConfig(closes);
   }
 
   @visibleForTesting
   void reset() {
     _loaded = false;
+    _loading = null;
     value = PremiosEdition.none;
   }
 
-  /// [closesAt] viene de Remote Config `premios_closes_at` (ISO UTC). En
+  /// Respaldo: [closesAt] de Remote Config `premios_closes_at` (ISO UTC). En
   /// debug, `PREMIOS_CLOSES_AT` en `env_files/debug.env` manda.
   void loadFromRemoteConfig(DateTime? closesAt) {
     final raw = dotenv.isInitialized ? dotenv.env['PREMIOS_CLOSES_AT'] : null;
     final debug = raw == null ? null : DateTime.tryParse(raw.trim());
     _loaded = true;
     value = PremiosEdition(votingEndsAt: debug ?? closesAt);
+  }
+
+  /// Para tests y la galería de desarrollo.
+  @visibleForTesting
+  void set(PremiosEdition edition) {
+    _loaded = true;
+    value = edition;
   }
 }

@@ -29,7 +29,7 @@ class SurveyRanking extends StatefulWidget {
 }
 
 class _SurveyRankingState extends State<SurveyRanking> {
-  late final LegacyPremiosRankingController _c = LegacyPremiosRankingController(
+  late final PremiosResultsController _c = PremiosResultsController(
     restaurants: widget.allRestaurants,
     tradicionales: widget.guachinchesTradicionales,
     modernos: widget.guachinchesModernos,

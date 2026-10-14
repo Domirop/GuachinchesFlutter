@@ -4,6 +4,7 @@ import 'package:guachinches/ui/pages/premios/premios_models.dart';
 import 'package:guachinches/ui/pages/premios/premios_ranking_page.dart';
 import 'package:guachinches/ui/pages/premios/premios_vote_page.dart';
 import 'package:guachinches/ui/pages/premios/widgets/papeleta_barrica_scene.dart';
+import 'package:guachinches/ui/pages/premios/widgets/premios_gate.dart';
 import 'package:guachinches/ui/pages/premios/widgets/premios_header.dart';
 import 'package:guachinches/ui/pages/premios/widgets/premios_widgets.dart';
 import 'package:guachinches/ui/theme/gm_icons.dart';
@@ -40,8 +41,7 @@ class _PremiosEntryPageState extends State<PremiosEntryPage> {
   void initState() {
     super.initState();
     _owned = widget.controller == null;
-    _c = widget.controller ??
-        LegacyPremiosFlowController(onVoted: widget.onVoted);
+    _c = widget.controller ?? V3PremiosFlowController(onVoted: widget.onVoted);
     if (_owned) _c.load();
     PremiosEditionStore.instance.ensureLoaded();
     _scroll.addListener(() {
@@ -133,12 +133,19 @@ class _PremiosEntryPageState extends State<PremiosEntryPage> {
                         builder: (_, __) => Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
+                            if (PremiosGateCard.shows(_c.state)) ...[
+                              PremiosGateCard(
+                                  state: _c.state, onRetry: _c.retry),
+                              const SizedBox(height: 22),
+                            ],
                             GmRise(
                               index: 1,
                               trigger: GmTrigger.mount,
                               child: _Categories(
                                 state: _c.state,
-                                onTap: open ? _vote : null,
+                                onTap: open && _c.state.gate == null
+                                    ? _vote
+                                    : null,
                               ),
                             ),
                             const SizedBox(height: 22),
@@ -159,43 +166,69 @@ class _PremiosEntryPageState extends State<PremiosEntryPage> {
                 ),
               ],
             ),
-            PremiosBottomBar(
-              child: Row(
-                children: [
-                  Expanded(
-                    child: switch (phase) {
-                      PremiosPhase.closed => const PremiosBarText(
-                          label: 'Votación cerrada',
-                          value: 'Enhorabuena a los ganadores'),
-                      PremiosPhase.open ||
-                      PremiosPhase.lastDay =>
-                        _CountdownText(edition: edition, now: now),
-                      // Sin fecha (o aún sin abrir): estado neutro.
-                      _ => const PremiosBarText(
-                          label: 'Premios 2026',
-                          value: 'Dos categorías, un voto en cada una'),
-                    },
-                  ),
-                  const SizedBox(width: 8),
-                  GmCapsuleButton(
-                    label: open
-                        ? 'Votar ahora'
-                        : phase == PremiosPhase.closed
-                            ? 'Ver ganadores'
-                            : 'Ver el ranking',
-                    identifier: 'premios-entry-vote',
-                    height: 52,
-                    fontSize: 17,
-                    padding: const EdgeInsets.symmetric(horizontal: 22),
-                    onTap: open
-                        ? () => _vote(PremiosCategory.tradicional)
-                        : _ranking,
-                  ),
-                ],
-              ),
+            ListenableBuilder(
+              listenable: _c,
+              builder: (context, _) => _bar(context, edition, now, phase, open),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  /// Barra inferior: cuenta atrás y «Votar ahora»; con un bloqueo, su botón
+  /// (tienda, ranking) y con un fallo de carga, «Reintentar».
+  Widget _bar(BuildContext context, PremiosEdition edition, DateTime now,
+      PremiosPhase phase, bool open) {
+    final s = _c.state;
+    final gate = s.gate;
+    final (String label, VoidCallback onTap) = gate != null
+        ? (
+            premiosGateCopy(gate, store: premiosStoreName()).action!,
+            () => premiosGateAction(context, gate)
+          )
+        : s.load == PremiosLoad.error
+            ? ('Reintentar', () => _c.retry())
+            : open
+                ? ('Votar ahora', () => _vote(PremiosCategory.tradicional))
+                : (
+                    phase == PremiosPhase.closed
+                        ? 'Ver ganadores'
+                        : 'Ver el ranking',
+                    _ranking
+                  );
+    return PremiosBottomBar(
+      child: Row(
+        children: [
+          Expanded(
+            child: switch (phase) {
+              PremiosPhase.closed => const PremiosBarText(
+                  label: 'Votación cerrada',
+                  value: 'Enhorabuena a los ganadores'),
+              PremiosPhase.open ||
+              PremiosPhase.lastDay =>
+                _CountdownText(edition: edition, now: now),
+              PremiosPhase.upcoming => PremiosBarText(
+                  label: 'Aún no se vota',
+                  value: edition.opensLabel.isEmpty
+                      ? 'Abre muy pronto'
+                      : 'Abre ${edition.opensLabel}'),
+              // Sin fecha: estado neutro.
+              PremiosPhase.unknown => const PremiosBarText(
+                  label: 'Premios 2026',
+                  value: 'Dos categorías, un voto en cada una'),
+            },
+          ),
+          const SizedBox(width: 8),
+          GmCapsuleButton(
+            label: label,
+            identifier: 'premios-entry-vote',
+            height: 52,
+            fontSize: 17,
+            padding: const EdgeInsets.symmetric(horizontal: 22),
+            onTap: onTap,
+          ),
+        ],
       ),
     );
   }

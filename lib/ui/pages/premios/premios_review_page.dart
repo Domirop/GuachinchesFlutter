@@ -70,8 +70,9 @@ class _PremiosReviewPageState extends State<PremiosReviewPage> {
             final copy = error == null
                 ? null
                 : premiosErrorCopy(error.kind,
+                    store: premiosStoreName(),
                     rowFlagged: error.kind == PremiosErrorKind.alreadyVoted &&
-                        s.flagged.isNotEmpty);
+                        s.conflicts.isNotEmpty);
             final (count, sub) = premiosPickSummary(picks);
             return Stack(
               children: [
@@ -122,12 +123,17 @@ class _PremiosReviewPageState extends State<PremiosReviewPage> {
                           trailing: '2 categorías',
                           rows: [
                             for (final c in PremiosCategory.values)
+                              // Tras un 409 el presenter quita el voto en
+                              // conflicto: la fila lo enseña marcado.
                               PapeletaVoteRow(
                                 category: c,
-                                name: picks[c]?.name,
-                                flagged: picks[c] != null &&
-                                    s.flagged.contains(picks[c]!.value),
-                                action: picks[c] == null ? 'Elegir' : 'Cambiar',
+                                name: (picks[c] ?? s.conflicts[c])?.name,
+                                flagged:
+                                    picks[c] == null && s.conflicts[c] != null,
+                                action:
+                                    picks[c] == null && s.conflicts[c] == null
+                                        ? 'Elegir'
+                                        : 'Cambiar',
                                 onAction:
                                     s.submitting ? null : () => _change(c),
                               ),
@@ -184,7 +190,8 @@ class _PremiosReviewPageState extends State<PremiosReviewPage> {
                       _SendButton(
                           state: s,
                           retry: copy?.retry ?? false,
-                          onSend: _c.submit),
+                          onSend:
+                              (copy?.retry ?? false) ? _c.retry : _c.submit),
                     ],
                   ),
                 ),

@@ -1,15 +1,18 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 import 'dart:math' as math;
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:guachinches/core/logging/app_logger.dart';
 import 'package:guachinches/ui/pages/premios/premios_models.dart';
 import 'package:guachinches/ui/pages/premios/widgets/papeleta_barrica_scene.dart';
 import 'package:guachinches/ui/theme/gm_icons.dart';
 import 'package:guachinches/ui/theme/gm_motion.dart';
 import 'package:guachinches/ui/theme/gm_tokens.dart';
 import 'package:guachinches/ui/theme/gm_widgets.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 /// Piezas de la encuesta (tableros Encuesta*) sobre la capa Gm.
 
@@ -75,6 +78,9 @@ class PremiosColors {
   /// Casilla de la cuenta atrás.
   static const digitFill = Color(0x1AFFF6E6);
   static const digitEdge = Color(0x4DC9A96B);
+
+  /// Arriba del degradado de los bloques del podio (#3A1520 → vino).
+  static const podiumTop = Color(0xFF3A1520);
 
   /// Sombras vino (tarjetas y bloques del podio).
   static const wineShadow = Color(0xB32A0E14);
@@ -642,7 +648,13 @@ class PremiosProgress extends StatelessWidget {
 class PremiosAlertCard extends StatelessWidget {
   final PremiosErrorCopy copy;
   final VoidCallback? onAction;
-  const PremiosAlertCard({super.key, required this.copy, this.onAction});
+  final String identifier;
+  const PremiosAlertCard({
+    super.key,
+    required this.copy,
+    this.onAction,
+    this.identifier = 'premios-review-alert',
+  });
 
   static String _icon(PremiosAlertIcon i) => switch (i) {
         PremiosAlertIcon.warn =>
@@ -699,13 +711,16 @@ class PremiosAlertCard extends StatelessWidget {
                 children: [
                   Text(copy.title, style: GmText.cardTitle(color: gm.label)),
                   const SizedBox(height: 2),
-                  Text('${copy.message} ${copy.help}',
+                  Text(
+                      [copy.message, copy.help]
+                          .where((t) => t.isNotEmpty)
+                          .join(' '),
                       style: GmText.body(color: gm.label2)),
                   if (copy.action != null && onAction != null) ...[
                     const SizedBox(height: 10),
                     GmSoftCapsuleButton(
                       label: copy.action!,
-                      identifier: 'premios-review-alert-action',
+                      identifier: '$identifier-action',
                       onTap: onAction,
                     ),
                   ],
@@ -717,7 +732,7 @@ class PremiosAlertCard extends StatelessWidget {
       ),
     );
     return Semantics(
-      identifier: 'premios-review-alert',
+      identifier: identifier,
       liveRegion: true,
       container: true,
       child: GmOnce(
@@ -1268,5 +1283,22 @@ class PremiosStateCard extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+// ── Tienda ─────────────────────────────────────────────────────────────────
+
+/// «la App Store» / «Google Play» (textos de actualizar).
+String premiosStoreName() => Platform.isIOS ? 'la App Store' : 'Google Play';
+
+/// Abre la ficha de la app en su tienda (la misma que «Actualizar»).
+Future<void> premiosOpenStore() async {
+  final uri = Uri.parse(Platform.isIOS
+      ? 'https://apps.apple.com/es/app/guachinches-modernos/id1575882373'
+      : 'https://play.google.com/store/apps/details?id=com.jonay.guachinches');
+  try {
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  } catch (e) {
+    AppLogger.warn('premios', 'abrir la tienda: ${e.runtimeType}');
   }
 }

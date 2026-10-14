@@ -21,7 +21,7 @@ class MyVotedRestaurants extends StatefulWidget {
 }
 
 class _MyVotedRestaurantsState extends State<MyVotedRestaurants> {
-  late final LegacyPremiosRankingController _c = LegacyPremiosRankingController(
+  late final PremiosResultsController _c = PremiosResultsController(
     tradicionales: widget.tradicionales,
     modernos: widget.modernos,
   );

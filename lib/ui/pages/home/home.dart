@@ -43,7 +43,7 @@ import 'package:guachinches/ui/components/nearby_section.dart';
 import 'package:guachinches/ui/components/rankingList.dart';
 import 'package:guachinches/ui/components/survey_banner/survey_banner.dart';
 import 'package:guachinches/ui/components/survey_popup/survey_popup.dart';
-import 'package:guachinches/ui/pages/premios/premios_home_card.dart';
+import 'package:guachinches/ui/pages/premios/premios_home.dart';
 import 'package:guachinches/ui/components/visit/visit_list.dart';
 import 'package:guachinches/ui/pages/advance_search/advanced_search.dart';
 import 'package:guachinches/ui/pages/changeIsland/change_island.dart';

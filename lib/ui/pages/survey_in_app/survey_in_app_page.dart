@@ -3,8 +3,8 @@ import 'package:guachinches/ui/pages/premios/premios_entry_page.dart';
 
 /// Entrada de la encuesta desde las pantallas de siempre (hero del Inicio
 /// viejo, ranking, onboarding). Pinta el rediseño (tablero EncuestaEntrada);
-/// el envío sigue en [SurveyInAppPresenter] a través de
-/// `LegacyPremiosFlowController`.
+/// la votación va por el contrato v3 (`SurveyVotePresenter`) a través de
+/// `V3PremiosFlowController`.
 class SurveyInAppPage extends StatelessWidget {
   final VoidCallback? onVoted;
 

@@ -6,6 +6,7 @@ import 'package:guachinches/ui/pages/new_home/widgets/gm_home_extras.dart';
 import 'package:guachinches/ui/pages/premios/premios_controllers.dart';
 import 'package:guachinches/ui/pages/premios/premios_models.dart';
 import 'package:guachinches/ui/pages/premios/premios_review_page.dart';
+import 'package:guachinches/ui/pages/premios/widgets/premios_gate.dart';
 import 'package:guachinches/ui/pages/premios/widgets/premios_header.dart';
 import 'package:guachinches/ui/pages/premios/widgets/premios_widgets.dart';
 import 'package:guachinches/ui/theme/gm_icons.dart';
@@ -63,7 +64,7 @@ class _PremiosVotePageState extends State<PremiosVotePage> {
   void initState() {
     super.initState();
     _owned = widget.controller == null;
-    _c = widget.controller ?? LegacyPremiosFlowController();
+    _c = widget.controller ?? V3PremiosFlowController();
     if (_owned) _c.load();
     _hadSent = _c.state.sent != null;
     _c.addListener(_onState);
@@ -323,20 +324,12 @@ class _PremiosVotePageState extends State<PremiosVotePage> {
     Widget pad(Widget w) => SliverPadding(
         padding: const EdgeInsets.symmetric(horizontal: 16), sliver: w);
 
-    if (state.load == PremiosLoad.error) {
+    if (PremiosGateCard.shows(state)) {
       return [
         pad(SliverToBoxAdapter(
           child: Padding(
             padding: const EdgeInsets.only(top: 6),
-            child: PremiosStateCard(
-              identifier: 'premios-vote-load-error',
-              sad: true,
-              volcanoWidth: 84,
-              title: 'No pudimos cargar los candidatos',
-              text: 'Revisa tu conexión e inténtalo de nuevo.',
-              action: 'Reintentar',
-              onAction: _c.load,
-            ),
+            child: PremiosGateCard(state: state, onRetry: _c.retry),
           ),
         )),
       ];

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:guachinches/ui/pages/premios/premios_controllers.dart';
 import 'package:guachinches/ui/pages/premios/premios_entry_page.dart';
-import 'package:guachinches/ui/pages/premios/premios_home_card.dart';
+import 'package:guachinches/ui/pages/premios/premios_home.dart';
 
 /// Hoja de la encuesta al abrir la app (tablero EncuestaInicioTarjeta,
 /// «hoja al abrir»). En el Inicio nuevo la gestiona `PremiosHomeSlot`; esto
