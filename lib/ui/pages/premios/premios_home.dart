@@ -14,7 +14,6 @@ import 'package:guachinches/ui/pages/premios/premios_ranking_page.dart';
 import 'package:guachinches/ui/pages/premios/premios_vote_page.dart';
 import 'package:guachinches/ui/pages/premios/widgets/papeleta_barrica_scene.dart';
 import 'package:guachinches/ui/pages/premios/widgets/premios_widgets.dart';
-import 'package:guachinches/ui/theme/gm_icons.dart';
 import 'package:guachinches/ui/theme/gm_motion.dart';
 import 'package:guachinches/ui/theme/gm_tokens.dart';
 import 'package:guachinches/ui/theme/gm_widgets.dart';
@@ -240,21 +239,25 @@ class _SheetTablePainter extends CustomPainter {
       old.band != band || old.veil != veil;
 }
 
-// ── Card de Premios en vino y oro ──────────────────────────────────────────
+// ── Card de Premios en vino y oro (compacta) ───────────────────────────────
 
 enum PremiosCardVariant { notVoted, voted, closed }
 
-/// La card de Premios del Inicio (tablero EncuestaInicioCard), encima de
-/// «Hoy»: vino con resplandor oro y filo de oro de 2 px con brillo que lo
-/// recorre una vez; antetítulo, título, barrica, segmentado y el podio del
-/// Ranking; «Tu voto»; CTA a todo el ancho (brillo sincronizado con el filo y
-/// tres respiraciones) y pie con línea de oro. Sin «Ahora no». Con el
-/// ranking oculto, el podio en silueta y «El ranking se desvela al cierre».
+/// La card compacta de Premios del Inicio (tablero EncuestaInicioCard),
+/// encima de «Hoy»: vino con filo de oro de 2 px y brillo que lo recorre
+/// una vez; antetítulo con la barrica como glifo, título con el enlace en oro
+/// a la derecha, segmentado de 32, podio compacto, «Tu voto» en una línea,
+/// CTA de 50 (brillo sincronizado con el filo y tres respiraciones) y línea
+/// de estado. Sin «Ahora no» ni pie. Con el ranking oculto, el podio en
+/// silueta y «El ranking se desvela al cierre».
 class PremiosWineCard extends StatefulWidget {
   final PremiosCardVariant variant;
   final PremiosRankingState ranking;
   final int totalVotes;
+
+  /// «Quedan 12 días» (vacío fuera de plazo) y «hasta el 20 de marzo».
   final String remaining;
+  final String untilShort;
   final VoidCallback onVote;
   final VoidCallback onRanking;
   final VoidCallback onMyVotes;
@@ -266,11 +269,33 @@ class PremiosWineCard extends StatefulWidget {
     required this.ranking,
     required this.totalVotes,
     required this.remaining,
+    required this.untilShort,
     required this.onVote,
     required this.onRanking,
     required this.onMyVotes,
     required this.onHowTo,
   });
+
+  /// Línea de estado bajo el CTA.
+  static String statusLine({
+    required PremiosCardVariant variant,
+    required String remaining,
+    required String untilShort,
+    required int totalVotes,
+  }) {
+    switch (variant) {
+      case PremiosCardVariant.closed:
+        return totalVotes > 0
+            ? 'Votación cerrada · ${premiosVotes(totalVotes)}'
+            : 'Votación cerrada';
+      case PremiosCardVariant.voted:
+        if (remaining.isEmpty) return 'Ya votaste';
+        return 'Ya votaste · ${remaining[0].toLowerCase()}'
+            '${remaining.substring(1)}';
+      case PremiosCardVariant.notVoted:
+        return [remaining, untilShort].where((x) => x.isNotEmpty).join(' · ');
+    }
+  }
 
   @override
   State<PremiosWineCard> createState() => _PremiosWineCardState();
@@ -288,126 +313,105 @@ class _PremiosWineCardState extends State<PremiosWineCard> {
     final v = widget.variant;
     final closed = v == PremiosCardVariant.closed;
     final hidden = r.load == PremiosLoad.ready && r.hidden;
-    // 404, red…: estado discreto (anuncio y CTA, sin podio ni fallo).
+    // 404, red…: estado discreto (título, CTA y estado; sin podio ni fallo).
     final failed = r.load == PremiosLoad.error;
     final list = r.of(_tab);
     final mine = v == PremiosCardVariant.notVoted || hidden || failed
         ? null
         : list.where((e) => e.mine).firstOrNull;
 
-    final (eyebrow, title, body) = switch (v) {
-      PremiosCardVariant.closed => (
-          'Premios 2026 · ganadores',
-          'Ya tenemos ganadores',
-          'Gracias a todos los que votaron. Enhorabuena a los ganadores.'
-        ),
-      PremiosCardVariant.voted => (
-          'Premios 2026 · ya votaste',
-          '¡Gracias por votar!',
-          hidden || failed
-              ? 'Tu voto ya está en la barrica.'
-              : 'Tu voto ya está en la barrica. Así va la votación:'
-        ),
-      PremiosCardVariant.notVoted => (
-          'Premios Donde Comer Canarias 2026',
-          '¿Cuál es tu guachinche favorito?',
-          hidden || failed
-              ? 'Vota y decide quiénes merecen los premios de este año.'
-              : 'Así va la votación ahora mismo. Vota y decide quién se lo '
-                  'lleva.'
-        ),
+    final title = switch (v) {
+      PremiosCardVariant.closed => 'Ganadores 2026',
+      PremiosCardVariant.voted => 'Así va la votación',
+      PremiosCardVariant.notVoted => '¿Cuál es tu favorito?',
     };
+    final (String link, VoidCallback linkTap) = closed
+        ? ('Mis votos', widget.onMyVotes)
+        : (hidden || failed)
+            ? ('Cómo se vota', widget.onHowTo)
+            : ('Ver el ranking', widget.onRanking);
     final (String ctaLabel, Widget ctaIcon, VoidCallback ctaTap) = closed
         ? (
             'Ver el ranking completo',
-            const PremiosPodiumIcon(size: 20, color: Colors.white),
+            const PremiosPodiumIcon(size: 19, color: Colors.white),
             widget.onRanking
           )
         : (
             v == PremiosCardVariant.voted
                 ? 'Votar a otros sitios'
                 : 'Votar ahora',
-            const PremiosBallotIcon(),
+            const PremiosBallotIcon(size: 19),
             widget.onVote
           );
-    final (String footLabel, String footMeta, VoidCallback footTap) = closed
-        ? (
-            'Mis votos',
-            widget.totalVotes > 0 ? premiosVotes(widget.totalVotes) : '',
-            widget.onMyVotes
-          )
-        : (hidden || failed)
-            ? ('Cómo se vota', widget.remaining, widget.onHowTo)
-            : ('Ver el ranking', widget.remaining, widget.onRanking);
+    final status = PremiosWineCard.statusLine(
+        variant: v,
+        remaining: widget.remaining,
+        untilShort: widget.untilShort,
+        totalVotes: widget.totalVotes);
 
-    final content = Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(20, 20, 18, 18),
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(minHeight: 132),
-                    child: _Header(eyebrow: eyebrow, title: title, body: body),
-                  ),
-                  if (hidden || failed) const _CategoriesMeta(),
-                  if (hidden) ...[
-                    const SizedBox(height: 12),
-                    const PremiosSilhouettePodium(
-                        label: 'El ranking se desvela al cierre'),
-                  ] else if (!failed) ...[
-                    const SizedBox(height: 4),
-                    PremiosSegmented(
-                      value: _tab,
-                      onWine: true,
-                      identifierPrefix: 'home-premios-tab',
-                      onChanged: (c) => setState(() => _tab = c),
-                    ),
-                    const SizedBox(height: 12),
-                    if (r.load == PremiosLoad.ready && list.isNotEmpty)
-                      PodioPremios(
-                        key: ValueKey(_tab),
-                        category: _tab,
-                        entries: list.take(3).toList(),
-                        onWine: true,
-                      )
-                    else if (r.load == PremiosLoad.ready)
-                      SizedBox(
-                        height: 64,
-                        child: Center(
-                          child: Text('Aún no hay votos. ¡Estrena el podio!',
-                              style: GmText.meta(color: PremiosColors.cream72)),
-                        ),
-                      )
-                    else
-                      const PremiosSilhouettePodium(),
-                    if (mine != null) _MineRow(entry: mine, closed: closed),
-                  ],
-                  const SizedBox(height: 18),
-                  PremiosCardCta(
-                    label: ctaLabel,
-                    icon: ctaIcon,
-                    onTap: ctaTap,
-                    sheenDelay: _sheenDelay,
-                  ),
-                ],
-              ),
-              const Positioned(
-                right: -4,
-                top: -12,
-                child: PremiosMiniBarrel(width: 76),
-              ),
-            ],
+    // 14 / 16 / 10 / 16 dentro del filo de 2.
+    final content = Padding(
+      padding: const EdgeInsets.fromLTRB(18, 16, 18, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _Header(title: title, link: link, onLink: linkTap),
+          if (hidden) ...[
+            const SizedBox(height: 8),
+            const PremiosSilhouettePodium(
+                label: 'El ranking se desvela al cierre'),
+          ] else if (!failed) ...[
+            // Segmentado de 32 a 10 del título, con área táctil de 44.
+            PremiosSegmented(
+              value: _tab,
+              onWine: true,
+              identifierPrefix: 'home-premios-tab',
+              onChanged: (c) => setState(() => _tab = c),
+            ),
+            if (r.load == PremiosLoad.ready && list.isNotEmpty)
+              PodioPremios(
+                key: ValueKey(_tab),
+                category: _tab,
+                entries: list.take(3).toList(),
+                onWine: true,
+              )
+            else if (r.load == PremiosLoad.ready)
+              SizedBox(
+                height: 56,
+                child: Center(
+                  child: Text('Aún no hay votos. ¡Estrena el podio!',
+                      style: GmText.meta(color: PremiosColors.cream72)),
+                ),
+              )
+            else
+              const PremiosSilhouettePodium(),
+            if (mine != null) _MineRow(entry: mine),
+          ],
+          const SizedBox(height: 12),
+          PremiosCardCta(
+            label: ctaLabel,
+            icon: ctaIcon,
+            onTap: ctaTap,
+            sheenDelay: _sheenDelay,
           ),
-        ),
-        const _GoldRule(),
-        _Foot(label: footLabel, meta: footMeta, onTap: footTap),
-      ],
+          if (status.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Semantics(
+              identifier: 'home-premios-status',
+              child: Text(status,
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                      fontSize: 12,
+                      height: 16 / 12,
+                      fontWeight: FontWeight.w600,
+                      color: PremiosColors.cream75,
+                      fontFeatures: [FontFeature.tabularFigures()])),
+            ),
+          ],
+        ],
+      ),
     );
 
     return Semantics(
@@ -416,7 +420,7 @@ class _PremiosWineCardState extends State<PremiosWineCard> {
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: GmSpace.gutter),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(GmRadius.guide),
+          borderRadius: BorderRadius.circular(PremiosGoldRimPainter.radius),
           boxShadow: const [
             BoxShadow(
                 color: PremiosColors.wineShadow,
@@ -431,7 +435,7 @@ class _PremiosWineCardState extends State<PremiosWineCard> {
           ],
         ),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(GmRadius.guide),
+          borderRadius: BorderRadius.circular(PremiosGoldRimPainter.radius),
           child: GmOnce(
             duration: const Duration(milliseconds: 1100),
             delay: _sheenDelay,
@@ -453,55 +457,143 @@ class _PremiosWineCardState extends State<PremiosWineCard> {
   }
 }
 
+/// Antetítulo (barrica como glifo + «Premios Donde Comer Canarias 2026» en
+/// oro) y, a 4, el título con el enlace en oro a la derecha. El enlace tiene
+/// área táctil alta: sube sobre el antetítulo y baja hasta el segmentado.
 class _Header extends StatelessWidget {
-  final String eyebrow, title, body;
+  final String title;
+  final String link;
+  final VoidCallback onLink;
   const _Header(
-      {required this.eyebrow, required this.title, required this.body});
+      {required this.title, required this.link, required this.onLink});
 
   @override
-  Widget build(BuildContext context) => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+  Widget build(BuildContext context) {
+    final ts = MediaQuery.textScalerOf(context);
+    // Línea de 18 con la barrica de 18 × 29 (márgenes -6 / -4): 19.
+    final eyebrowH = ts.scale(19);
+    final titleH = ts.scale(25);
+    final eyebrow = SizedBox(
+      height: eyebrowH,
+      child: Row(
         children: [
-          Row(
-            children: [
-              const GmGlyph(GmGlyphKind.medalla, size: 14),
-              const SizedBox(width: 6),
-              Flexible(
-                child: ShaderMask(
-                  blendMode: BlendMode.srcIn,
-                  shaderCallback: (r) => const LinearGradient(colors: [
-                    Color(0xFFF3DFA8),
-                    Color(0xFFD6B675),
-                    PremiosColors.goldText,
-                  ], stops: [
-                    0,
-                    0.55,
-                    1
-                  ]).createShader(r),
-                  child: Text(eyebrow,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: GmText.eyebrow(
-                          color: Colors.white, w: FontWeight.w700)),
-                ),
+          // 18 × 29, con la papeleta asomando por encima de la línea.
+          SizedBox(
+            width: 18,
+            height: eyebrowH,
+            child: OverflowBox(
+              maxHeight: 40,
+              child: Transform.translate(
+                offset: const Offset(0, -1),
+                child: const PremiosBarrelGlyph(width: 18),
               ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Padding(
-            padding: const EdgeInsets.only(right: 84),
-            child: Semantics(
-              header: true,
-              child: Text(title, style: GmText.title2(color: GmColors.creamHi)),
             ),
           ),
-          const SizedBox(height: 6),
-          Padding(
-            padding: const EdgeInsets.only(right: 84),
-            child: Text(body, style: GmText.body(color: PremiosColors.cream82)),
+          const SizedBox(width: 6),
+          Flexible(
+            child: ShaderMask(
+              blendMode: BlendMode.srcIn,
+              shaderCallback: (r) => const LinearGradient(colors: [
+                Color(0xFFF3DFA8),
+                Color(0xFFD6B675),
+                PremiosColors.goldText,
+              ], stops: [
+                0,
+                0.55,
+                1
+              ]).createShader(r),
+              child: const Text('Premios Donde Comer Canarias 2026',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                      fontSize: 13,
+                      height: 18 / 13,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white)),
+            ),
           ),
         ],
-      );
+      ),
+    );
+    final titleText = Semantics(
+      header: true,
+      child: Text(title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+              fontSize: 20,
+              height: 25 / 20,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -0.4,
+              color: GmColors.creamHi)),
+    );
+    const linkStyle = TextStyle(
+        fontSize: 14,
+        height: 18 / 14,
+        fontWeight: FontWeight.w700,
+        color: PremiosColors.goldText);
+    final linkLabel = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(link, maxLines: 1, style: linkStyle),
+        const SizedBox(width: 2),
+        const Icon(Icons.chevron_right_rounded,
+            size: 16, color: PremiosColors.goldText),
+      ],
+    );
+    // El título deja sitio al enlace, que va encima con su área táctil.
+    final linkW = (TextPainter(
+          text: TextSpan(text: link, style: linkStyle),
+          textScaler: ts,
+          maxLines: 1,
+          textDirection: TextDirection.ltr,
+        )..layout())
+            .width +
+        2 +
+        16;
+    // Área del enlace: 44 de alto, de la mitad del antetítulo al segmentado.
+    final total = eyebrowH + 4 + titleH + 4;
+    return SizedBox(
+      height: total,
+      child: Stack(
+        children: [
+          Positioned(left: 0, right: 0, top: 0, child: eyebrow),
+          Positioned(
+            left: 0,
+            right: 0,
+            top: eyebrowH + 4,
+            height: titleH,
+            child: Padding(
+              padding: EdgeInsets.only(right: linkW + 12),
+              child: titleText,
+            ),
+          ),
+          Positioned(
+            right: 0,
+            top: math.max(0.0, total - 44),
+            bottom: 0,
+            child: Semantics(
+              identifier: 'home-premios-link',
+              button: true,
+              label: link,
+              excludeSemantics: true,
+              onTap: onLink,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: onLink,
+                child: Padding(
+                  padding:
+                      EdgeInsets.only(left: 10, top: 0, bottom: 4, right: 2),
+                  child:
+                      Align(alignment: Alignment.bottomRight, child: linkLabel),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 /// Fondo vino con resplandor oro arriba a la derecha y vino abajo.
@@ -519,8 +611,8 @@ class _WineGlow extends StatelessWidget {
                 gradient: RadialGradient(
                   center: Alignment.topRight,
                   radius: 1.2,
-                  colors: [Color(0x3DC9A96B), Color(0x00C9A96B)],
-                  stops: [0, 0.55],
+                  colors: [PremiosColors.goldGlow, Color(0x00C9A96B)],
+                  stops: [0, 0.6],
                 ),
               ),
             ),
@@ -545,7 +637,9 @@ class PremiosGoldRimPainter extends CustomPainter {
   final double sheen;
   const PremiosGoldRimPainter({required this.sheen});
 
-  static const _radius = 28.0;
+  /// Radio de la card (el filo va a 25, por dentro).
+  static const radius = 26.0;
+  static const _radius = radius;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -599,20 +693,7 @@ class PremiosGoldRimPainter extends CustomPainter {
   bool shouldRepaint(covariant PremiosGoldRimPainter old) => old.sheen != sheen;
 }
 
-class _GoldRule extends StatelessWidget {
-  const _GoldRule();
-
-  @override
-  Widget build(BuildContext context) => Container(
-        height: 1,
-        decoration: const BoxDecoration(
-          gradient:
-              LinearGradient(colors: PremiosColors.metal, stops: [0, 0.48, 1]),
-        ),
-      );
-}
-
-/// CTA de la card: cápsula Atlántico de 56 a todo el ancho, 18 en negrita,
+/// CTA de la card: cápsula Atlántico de 50 a todo el ancho, 17 en negrita,
 /// icono y chevron; brillo que cruza una vez y tres «respiraciones» desde
 /// 2,4 s (escala 1 → 1,03 con halo azul) y luego quieta. Con movimiento
 /// reducido, ni brillo ni pulso.
@@ -695,13 +776,13 @@ class PremiosCardCtaState extends State<PremiosCardCta>
     final button = GmCapsuleButton(
       label: widget.label,
       identifier: 'home-premios-cta',
-      height: 56,
-      fontSize: 18,
+      height: 50,
+      fontSize: 17,
       fontWeight: FontWeight.w700,
       leading: widget.icon,
       trailing: const Opacity(
         opacity: 0.85,
-        child: Icon(Icons.chevron_right_rounded, size: 22, color: Colors.white),
+        child: Icon(Icons.chevron_right_rounded, size: 20, color: Colors.white),
       ),
       shadow: _shadow,
       onTap: widget.onTap,
@@ -756,26 +837,25 @@ class PremiosCardCtaState extends State<PremiosCardCta>
   }
 }
 
-/// «Tu voto · Guachinche Casa Pepe · Va 4.º con 5 votos» sobre vino.
+/// «Tu voto · Casa Pepe · 4.º · 5 votos» en una cápsula de 34 sobre vino.
 class _MineRow extends StatelessWidget {
   final PremiosRankEntry entry;
-  final bool closed;
-  const _MineRow({required this.entry, required this.closed});
+  const _MineRow({required this.entry});
 
   @override
   Widget build(BuildContext context) {
-    final pos = '${closed ? 'Quedó' : 'Va'} ${entry.rank}.º con '
-        '${premiosVotes(entry.votes)}';
-    return Semantics(
+    final pos = '${entry.rank}.º · ${premiosVotes(entry.votes)}';
+    final row = Semantics(
       identifier: 'home-premios-mine',
-      label: 'Tu voto: ${entry.name}. $pos',
+      label: 'Tu voto: ${entry.name}, ${entry.rank}.º con '
+          '${premiosVotes(entry.votes)}',
       excludeSemantics: true,
       child: Container(
-        margin: const EdgeInsets.only(top: 12),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        constraints: const BoxConstraints(minHeight: 34),
+        padding: const EdgeInsets.fromLTRB(6, 4, 10, 4),
         decoration: BoxDecoration(
           color: PremiosColors.wineRowFill,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(GmRadius.pill),
           border: Border.all(color: PremiosColors.wineRowEdge),
         ),
         child: Row(
@@ -792,71 +872,30 @@ class _MineRow extends StatelessWidget {
                   style: GmText.chip(color: GmColors.wine, w: FontWeight.w800)
                       .copyWith(height: 1)),
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 8),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(entry.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: GmText.sub(
-                              color: GmColors.creamHi, w: FontWeight.w600)
-                          .copyWith(height: 18 / 14)),
-                  Text(pos,
-                      style: GmText.chip(
-                          color: PremiosColors.cream72, w: FontWeight.w400)),
-                ],
-              ),
+              child: Text(premiosShortName(entry.name),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                      fontSize: 13,
+                      height: 18 / 13,
+                      fontWeight: FontWeight.w600,
+                      color: GmColors.creamHi)),
             ),
+            const SizedBox(width: 8),
+            Text(pos,
+                style: const TextStyle(
+                    fontSize: 12,
+                    height: 16 / 12,
+                    color: PremiosColors.cream75,
+                    fontFeatures: [FontFeature.tabularFigures()])),
           ],
         ),
       ),
     );
+    return Padding(padding: const EdgeInsets.only(top: 10), child: row);
   }
-}
-
-class _Foot extends StatelessWidget {
-  final String label;
-  final String meta;
-  final VoidCallback onTap;
-  const _Foot({required this.label, required this.meta, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) => Semantics(
-        identifier: 'home-premios-foot',
-        button: true,
-        label: meta.isEmpty ? label : '$label. $meta',
-        onTap: onTap,
-        excludeSemantics: true,
-        child: GmPressable(
-          onTap: onTap,
-          pressedScale: 0.98,
-          child: Container(
-            constraints: const BoxConstraints(minHeight: 50),
-            padding: const EdgeInsets.fromLTRB(22, 0, 20, 0),
-            child: Row(
-              children: [
-                const PremiosPodiumIcon(
-                    size: 17, color: PremiosColors.goldText),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: GmText.body(
-                          color: GmColors.creamHi, w: FontWeight.w600)),
-                ),
-                if (meta.isNotEmpty)
-                  Text(meta,
-                      style: GmText.eyebrow(color: PremiosColors.cream2)),
-                const SizedBox(width: 6),
-                GmIcon(GmIcons.chevronRight, size: 14, color: GmColors.gold),
-              ],
-            ),
-          ),
-        ),
-      );
 }
 
 // ── Hueco en el Inicio ─────────────────────────────────────────────────────
@@ -1020,6 +1059,7 @@ class _PremiosHomeSlotState extends State<PremiosHomeSlot> {
           ranking: r?.state ?? const PremiosRankingState(),
           totalVotes: total,
           remaining: phase.counting ? edition.remainingLabel(now) : '',
+          untilShort: phase.counting ? edition.untilShort : '',
           onVote: variant == PremiosCardVariant.voted ? _voteAgain : _openEntry,
           onRanking: () => push(PremiosRankingPage(controller: _ranking)),
           onMyVotes: () => push(PremiosMyVotesPage(

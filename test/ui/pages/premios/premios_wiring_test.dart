@@ -246,7 +246,7 @@ void main() {
         await t.pump(const Duration(milliseconds: 50));
       }
       expect(find.byType(PremiosWineCard), findsNothing);
-      expect(find.text('Ya tenemos ganadores'), findsNothing);
+      expect(find.text('Ganadores 2026'), findsNothing);
     });
 
     PremiosRankingState rk({bool mine = false}) => PremiosRankingState(
@@ -277,7 +277,7 @@ void main() {
       }
     }
 
-    testWidgets('abierta y sin votar: card vino y oro con podio 2·1·2',
+    testWidgets('abierta y sin votar: card compacta con podio 2·1·2',
         (t) async {
       addTearDown(t.view.reset);
       PremiosEditionStore.instance
@@ -285,8 +285,10 @@ void main() {
       await pumpSlot(t, rk());
       expect(find.byType(PremiosWineCard), findsOneWidget);
       expect(find.byType(PodioPremios), findsOneWidget);
-      expect(find.text('¿Cuál es tu guachinche favorito?'), findsOneWidget);
-      expect(find.text('Quedan 12 días'), findsOneWidget);
+      expect(find.text('¿Cuál es tu favorito?'), findsOneWidget);
+      // Fechas de la edición (API v3 o, sin ella, Remote Config).
+      expect(
+          find.text('Quedan 12 días · hasta el 20 de marzo'), findsOneWidget);
       expect(find.text('Votar ahora'), findsOneWidget);
       expect(find.text('Ver el ranking'), findsOneWidget);
       expect(find.text('Ahora no'), findsNothing);
@@ -295,7 +297,7 @@ void main() {
       await t.pumpWidget(const SizedBox());
     });
 
-    testWidgets('ya votó (my-votes en caché): «Tu voto · Va 4.º»', (t) async {
+    testWidgets('ya votó (my-votes en caché): «Tu voto · 4.º»', (t) async {
       addTearDown(t.view.reset);
       PremiosEditionStore.instance
           .loadFromRemoteConfig(DateTime.utc(2026, 3, 20, 23, 59));
@@ -303,21 +305,22 @@ void main() {
         PremiosCategory.tradicional.apiName: {'Guachinche Casa Pepe'}
       });
       await pumpSlot(t, rk(mine: true));
-      expect(find.text('¡Gracias por votar!'), findsOneWidget);
+      expect(find.text('Así va la votación'), findsOneWidget);
       expect(find.text('Votar a otros sitios'), findsOneWidget);
-      expect(find.text('Va 4.º con 5 votos'), findsOneWidget);
+      expect(find.text('4.º · 5 votos'), findsOneWidget);
+      expect(find.text('Ya votaste · quedan 12 días'), findsOneWidget);
       await t.pumpWidget(const SizedBox());
     });
 
-    testWidgets('cerrada: «Ya tenemos ganadores» 15 días y luego nada',
-        (t) async {
+    testWidgets('cerrada: «Ganadores 2026» 15 días y luego nada', (t) async {
       addTearDown(t.view.reset);
       PremiosEditionStore.instance
           .loadFromRemoteConfig(DateTime.utc(2026, 3, 20, 23, 59));
       await pumpSlot(t, rk(), now: DateTime.utc(2026, 3, 25));
-      expect(find.text('Ya tenemos ganadores'), findsOneWidget);
+      expect(find.text('Ganadores 2026'), findsOneWidget);
       expect(find.text('Ver el ranking completo'), findsOneWidget);
       expect(find.text('Mis votos'), findsOneWidget);
+      expect(find.text('Votación cerrada'), findsOneWidget);
       await pumpSlot(t, rk(), now: DateTime.utc(2026, 4, 10));
       expect(find.byType(PremiosWineCard), findsNothing);
       await t.pumpWidget(const SizedBox());
@@ -432,7 +435,8 @@ void main() {
       addTearDown(t.view.reset);
       await pump(
           t, const PremiosRankingState(load: PremiosLoad.ready, hidden: true));
-      expect(find.text('¿Cuál es tu guachinche favorito?'), findsOneWidget);
+      expect(find.text('¿Cuál es tu favorito?'), findsOneWidget);
+      expect(find.text('Cómo se vota'), findsOneWidget);
       expect(find.text('El ranking se desvela al cierre'), findsOneWidget);
       expect(find.byType(PremiosSilhouettePodium), findsOneWidget);
       expect(find.byType(PodioPremios), findsNothing);
