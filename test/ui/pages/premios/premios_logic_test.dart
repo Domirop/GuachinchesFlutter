@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:guachinches/data/model/restaurant.dart';
 import 'package:guachinches/ui/components/SurveyResults/SurveyResults.dart';
 import 'package:guachinches/ui/pages/premios/premios_controllers.dart';
+import 'package:guachinches/ui/pages/survey_in_app/survey_vote_presenter.dart';
 import 'package:guachinches/ui/pages/premios/premios_models.dart';
 
 void main() {
@@ -81,27 +82,21 @@ void main() {
   });
 
   group('errores del presenter actual', () {
-    test('mensajes literales → errores tipados', () {
-      expect(
-          premiosErrorFromLegacyMessage(
-              'Por favor, tómate tu tiempo para votar.'),
-          PremiosErrorKind.tooFast);
-      expect(
-          premiosErrorFromLegacyMessage(
-              'Debes seleccionar al menos una opción.'),
-          PremiosErrorKind.noSelection);
-      expect(
-          premiosErrorFromLegacyMessage(
-              'Ya has votado a este negocio anteriormente.'),
+    test('fallos del presenter v3 → avisos y bloqueos', () {
+      expect(premiosErrorKindOf(const SurveyAlreadyVoted([])),
           PremiosErrorKind.alreadyVoted);
       expect(
-          premiosErrorFromLegacyMessage(
-              'No se pudo enviar tu voto. Inténtalo de nuevo.'),
-          PremiosErrorKind.server);
+          premiosErrorKindOf(const SurveyIntegrityFailed('integrity_failed')),
+          PremiosErrorKind.deviceUnverified);
+      expect(premiosErrorKindOf(const SurveyVerificationUnavailable()),
+          PremiosErrorKind.verificationUnavailable);
+      expect(premiosErrorKindOf(const SurveyInvalidOption()),
+          PremiosErrorKind.invalidOption);
+      expect(premiosErrorKindOf(const SurveyDeviceBlocked()), isNull);
       expect(
-          premiosErrorFromLegacyMessage(
-              'Error al enviar: Exception: Error al enviar votos: SocketException: Failed host lookup'),
-          PremiosErrorKind.network);
+          premiosGateOf(SurveyVoteStage.unsupported), PremiosGate.unsupported);
+      expect(premiosGateOf(SurveyVoteStage.upcoming), PremiosGate.upcoming);
+      expect(premiosGateOf(SurveyVoteStage.ready), isNull);
     });
 
     test('el copy nunca enseña la excepción y 403/429 tienen el suyo', () {

@@ -174,12 +174,18 @@ void main() {
       final picks = {
         PremiosCategory.tradicional: _c('1', 'Guachinche Nunca Es Lejos'),
       };
+      // El presenter v3 quita el voto en conflicto de la papeleta.
       final flow = await pump(
           t,
           PremiosFlowState(
             load: PremiosLoad.ready,
-            picks: picks,
-            flagged: const {'1'},
+            picks: const {
+              PremiosCategory.moderno:
+                  PremiosCandidate(value: '9', name: 'Tasca Las Dehesas'),
+            },
+            conflicts: {
+              PremiosCategory.tradicional: _c('1', 'Guachinche Nunca Es Lejos'),
+            },
             error: const PremiosError(PremiosErrorKind.alreadyVoted,
                 category: PremiosCategory.tradicional, value: '1'),
           ));

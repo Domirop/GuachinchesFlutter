@@ -29,6 +29,10 @@ class FakeFlow extends PremiosFlowController {
   @override
   Future<void> submit() async => submits++;
 
+  int retries = 0;
+  @override
+  Future<void> retry() async => retries++;
+
   @override
   Future<void> voteAgain() async {}
 }
