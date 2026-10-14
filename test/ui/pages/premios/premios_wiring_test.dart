@@ -4,9 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:guachinches/core/remote_config/dcc_remote_config.dart';
-import 'package:guachinches/data/model/restaurant.dart';
 import 'package:guachinches/data/model/survey_v3.dart';
-import 'package:guachinches/ui/components/SurveyResults/SurveyResults.dart';
 import 'package:guachinches/ui/pages/myVotedRestaurants/myVotedRestaurants.dart';
 import 'package:guachinches/ui/pages/premios/premios_controllers.dart';
 import 'package:guachinches/ui/pages/premios/premios_entry_page.dart';
@@ -39,12 +37,6 @@ class _Rc implements RemoteConfigBridge {
   @override
   String getString(String key) => values[key] as String? ?? '';
 }
-
-SurveyResult _res(String id, int v, {bool mine = false}) => SurveyResult(
-    restaurantId: id,
-    votes: v,
-    restaurant: Restaurant(id: id, nombre: id, municipio: 'La Orotava'))
-  ..isVotedByUser = mine;
 
 void main() {
   setUp(() {
@@ -328,6 +320,147 @@ void main() {
     });
   });
 
+  group('ranking por edición (v3)', () {
+    SurveyEditionResults results({bool hidden = false}) =>
+        SurveyEditionResults.fromJson({
+          'editionId': 2,
+          'status': 'open',
+          'hidden': hidden,
+          'categories': hidden
+              ? []
+              : [
+                  {
+                    'category': kTrad,
+                    'totalVotes': 9,
+                    'results': [
+                      {
+                        'value': 'r-t1',
+                        'name': 'Tradicional 1',
+                        'votes': 5,
+                        'rank': 1,
+                        'municipality': 'Tacoronte'
+                      },
+                      {
+                        'value': 'r-t2',
+                        'name': 'Tradicional 2',
+                        'votes': 2,
+                        'rank': 2,
+                        'photoUrl': null
+                      },
+                      {
+                        'value': 'r-both',
+                        'name': 'En las dos',
+                        'votes': 2,
+                        'rank': 2
+                      },
+                      {
+                        'value': 'r-0',
+                        'name': 'Sin votos',
+                        'votes': 0,
+                        'rank': 4
+                      },
+                    ]
+                  },
+                  {'category': kMod, 'totalVotes': 0, 'results': []},
+                ],
+        });
+
+    setUp(() => PremiosVotedStore.instance.reset());
+
+    test('usa el editionId de editions/current y el puesto del servidor',
+        () async {
+      final repo = _ResultsRepo(results());
+      PremiosVotedStore.instance.update({
+        kTrad: {'r-t2'}
+      });
+      final c = PremiosResultsController(repository: repo);
+      await c.refresh();
+      expect(repo.resultsFor, [2]);
+      final s = c.state;
+      expect(s.load, PremiosLoad.ready);
+      expect(s.hidden, isFalse);
+      expect(s.tradicional.map((e) => e.rank).toList(), [1, 2, 2]);
+      expect(s.tradicional.first.municipio, 'Tacoronte');
+      expect(s.tradicional.where((e) => e.mine).single.id, 'r-t2');
+      expect(s.totalVotes, 9);
+      expect(s.moderno, isEmpty);
+    });
+
+    test('oculto hasta el cierre: sin filas y con la marca', () async {
+      final c = PremiosResultsController(
+          repository: _ResultsRepo(results(hidden: true)));
+      await c.refresh();
+      expect(c.state.load, PremiosLoad.ready);
+      expect(c.state.hidden, isTrue);
+      expect(c.state.tradicional, isEmpty);
+    });
+
+    test('404 edition_not_found → error discreto (sin excepción)', () async {
+      final repo = _ResultsRepo(results())
+        ..resultsError = const SurveyApiException(404, 'edition_not_found');
+      final c = PremiosResultsController(repository: repo);
+      await c.refresh();
+      expect(c.state.load, PremiosLoad.error);
+    });
+  });
+
+  group('Inicio: ranking oculto o sin resultados', () {
+    Future<void> pump(WidgetTester t, PremiosRankingState r) async {
+      phone(t);
+      PremiosHomeStore.sheetShownThisSession = true;
+      PremiosEditionStore.instance
+          .loadFromRemoteConfig(DateTime.utc(2026, 3, 20, 23, 59));
+      await t.pumpWidget(app(
+          Scaffold(
+              body: SingleChildScrollView(
+                  child: PremiosHomeSlot(
+                      enabled: true,
+                      ranking: FakeRanking(r),
+                      clock: () => DateTime.utc(2026, 3, 8)))),
+          reduce: true));
+      for (var i = 0; i < 10; i++) {
+        await t.pump(const Duration(milliseconds: 100));
+      }
+    }
+
+    testWidgets('oculto: anuncio, «se desvela al cierre» y Votar', (t) async {
+      addTearDown(t.view.reset);
+      await pump(
+          t, const PremiosRankingState(load: PremiosLoad.ready, hidden: true));
+      expect(find.text('Votación en marcha'), findsOneWidget);
+      expect(find.text('El ranking se desvela al cierre'), findsOneWidget);
+      expect(find.byType(PodioPremios), findsNothing);
+      expect(find.text('Votar'), findsOneWidget);
+      await t.pumpWidget(const SizedBox());
+    });
+
+    testWidgets('sin resultados (404/red): sin podio ni fallo, con Votar',
+        (t) async {
+      addTearDown(t.view.reset);
+      await pump(t, const PremiosRankingState(load: PremiosLoad.error));
+      expect(find.byType(PodioPremios), findsNothing);
+      expect(find.textContaining('No pudimos'), findsNothing);
+      expect(find.text('Votar'), findsOneWidget);
+      await t.pumpWidget(const SizedBox());
+    });
+
+    testWidgets('Ranking oculto: la tarjeta del cierre en vez del podio',
+        (t) async {
+      phone(t);
+      addTearDown(t.view.reset);
+      await t.pumpWidget(app(
+          PremiosRankingPage(
+              controller: FakeRanking(const PremiosRankingState(
+                  load: PremiosLoad.ready, hidden: true))),
+          reduce: true));
+      await t.pump(const Duration(milliseconds: 200));
+      expect(
+          find.bySemanticsIdentifier('premios-ranking-hidden'), findsOneWidget);
+      expect(find.byType(PodioPremios), findsNothing);
+      await t.pumpWidget(const SizedBox());
+    });
+  });
+
   group('envoltorios de siempre', () {
     testWidgets('SurveyInAppPage pinta la Entrada nueva', (t) async {
       phone(t);
@@ -339,14 +472,14 @@ void main() {
       await t.pumpWidget(const SizedBox());
     });
 
-    testWidgets('SurveyRanking pinta el ranking con los resultados que trae',
+    testWidgets('SurveyRanking y MyVotedRestaurants abren las pantallas v3',
         (t) async {
       phone(t);
       addTearDown(t.view.reset);
       await t.pumpWidget(app(
           SurveyRanking(
-            guachinchesTradicionales: [_res('Alfa', 3), _res('Beta', 2)],
-            guachinchesModernos: [_res('Gama', 1)],
+            guachinchesTradicionales: const [],
+            guachinchesModernos: const [],
             isInitialTraditional: true,
             allRestaurants: const [],
             onRefresh: () {},
@@ -354,36 +487,51 @@ void main() {
           reduce: true));
       await t.pump(const Duration(milliseconds: 100));
       expect(find.byType(PremiosRankingPage), findsOneWidget);
-      expect(find.byType(PodioPremios), findsOneWidget);
-      await t.pumpWidget(const SizedBox());
-    });
-
-    testWidgets('MyVotedRestaurants: puesto real y sin carga infinita',
-        (t) async {
-      phone(t);
-      addTearDown(t.view.reset);
-      await t.pumpWidget(app(
-          MyVotedRestaurants(
-            tradicionales: [
-              _res('Alfa', 7),
-              _res('Beta', 6),
-              _res('Gama', 6, mine: true),
-            ],
-            modernos: const [],
-          ),
-          reduce: true));
-      await t.pump(const Duration(milliseconds: 100));
-      expect(find.byType(PremiosMyVotesPage), findsOneWidget);
-      // Gama empata en el 2.º (no «1» por ser la primera de la lista).
-      expect(find.text('2.º'), findsOneWidget);
-
-      // Sin datos: se cargan (vacío) y sale el estado vacío, no un spinner.
       await t.pumpWidget(app(
           const MyVotedRestaurants(tradicionales: [], modernos: []),
           reduce: true));
-      await t.pump(const Duration(milliseconds: 100));
+      for (var i = 0; i < 5; i++) {
+        await t.pump(const Duration(milliseconds: 100));
+      }
+      expect(find.byType(PremiosMyVotesPage), findsOneWidget);
+      // Sin red en el test: estado de error, nunca un spinner infinito.
       expect(find.byType(CircularProgressIndicator), findsNothing);
       await t.pumpWidget(const SizedBox());
     });
+
+    testWidgets('Mis votos: puesto real del ranking (no index + 1)', (t) async {
+      phone(t);
+      addTearDown(t.view.reset);
+      await t.pumpWidget(app(
+          PremiosMyVotesPage(
+            refreshVoted: false,
+            controller: FakeRanking(PremiosRankingState(
+              load: PremiosLoad.ready,
+              tradicional: [
+                entry('Alfa', 7, 1),
+                entry('Beta', 6, 2, tied: true),
+                entry('Gama', 6, 2, tied: true, mine: true),
+              ],
+            )),
+          ),
+          reduce: true));
+      await t.pump(const Duration(milliseconds: 200));
+      expect(find.text('2.º'), findsOneWidget);
+      await t.pumpWidget(const SizedBox());
+    });
   });
+}
+
+class _ResultsRepo extends FakeSurveyRepo {
+  final SurveyEditionResults res;
+  Object? resultsError;
+  final resultsFor = <int>[];
+  _ResultsRepo(this.res);
+
+  @override
+  Future<SurveyEditionResults> getSurveyEditionResults(int editionId) async {
+    resultsFor.add(editionId);
+    if (resultsError != null) throw resultsError!;
+    return res;
+  }
 }

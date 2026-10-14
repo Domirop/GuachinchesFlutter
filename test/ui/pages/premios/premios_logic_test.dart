@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:guachinches/data/model/restaurant.dart';
+import 'package:guachinches/data/model/survey_v3.dart';
 import 'package:guachinches/ui/components/SurveyResults/SurveyResults.dart';
 import 'package:guachinches/ui/pages/premios/premios_controllers.dart';
 import 'package:guachinches/ui/pages/survey_in_app/survey_vote_presenter.dart';
@@ -46,33 +47,101 @@ void main() {
       expect(premiosCompetitionRanks([]), isEmpty);
     });
 
-    test('una opción sin restaurante ya no tumba la pantalla', () {
-      final r = [
-        Restaurant(id: 'a', nombre: 'BODEGA ZACATIN', municipio: 'LA OROTAVA')
-      ];
-      final ok = SurveyResult.fromJsonWithRestaurants(
-          {'option': 'a', 'votes': '7'}, r);
+    test('SurveyResult viejo: una opción sin restaurante no tumba nada', () {
+      final r = [Restaurant(id: 'a', nombre: 'BODEGA ZACATIN')];
       final missing = SurveyResult.fromJsonWithRestaurants(
           {'option': 'zz', 'votes': '6'}, r);
       expect(missing.restaurant, isNull);
-      final ranked = premiosRank([missing, ok]);
-      expect(ranked.first.name, 'Bodega Zacatin');
-      expect(ranked.first.municipio, 'La Orotava');
-      expect(ranked.last.name, kPremiosMissingName);
-      expect([for (final e in ranked) e.rank], [1, 2]);
     });
 
-    test('empates marcados y nombre con paréntesis aparte', () {
-      SurveyResult res(String id, int v) => SurveyResult(
-          restaurantId: id,
-          votes: v,
-          restaurant: Restaurant(id: id, nombre: id));
-      final e = premiosRank([res('a', 4), res('b', 4), res('c', 3)]);
+    test('resultados v3: parseo con nulos, números en texto y oculto', () {
+      final res = SurveyEditionResults.fromJson({
+        'editionId': '2',
+        'status': 'open',
+        'generatedAt': '2027-03-01T10:00:00Z',
+        'hidden': false,
+        'categories': [
+          {
+            'category': 'Mejor-Guachinche-Tradicional',
+            'label': 'Tradicional',
+            'totalVotes': 9,
+            'candidatesWithVotes': 3,
+            'results': [
+              {
+                'value': 'a',
+                'restaurantId': null,
+                'name': 'BODEGA ZACATIN',
+                'municipality': 'LA OROTAVA',
+                'island': null,
+                'photoUrl': null,
+                'votes': '7',
+                'rank': 1
+              },
+              {'value': 'b', 'name': 'Casa Pepe', 'votes': 2, 'rank': 2},
+              {
+                'value': 'c',
+                'name': '',
+                'municipality': '',
+                'votes': 0,
+                'rank': 3
+              },
+            ]
+          },
+          'basura',
+        ],
+      });
+      expect(res.editionId, 2);
+      expect(res.status, SurveyEditionStatus.open);
+      expect(res.hidden, isFalse);
+      final t = res.category('Mejor-Guachinche-Tradicional')!;
+      expect(t.totalVotes, 9);
+      expect(t.results.first.votes, 7);
+      expect(t.results.first.restaurantId, isNull);
+      expect(t.results.first.photoUrl, isNull);
+      expect(t.results.last.municipality, isNull);
+      expect(res.category('Mejor-Guachinche-Moderno'), isNull);
+
+      final hidden = SurveyEditionResults.fromJson(
+          {'editionId': 2, 'status': 'open', 'hidden': true, 'categories': []});
+      expect(hidden.hidden, isTrue);
+      expect(SurveyEditionResults.fromJson({}).hidden, isFalse);
+    });
+
+    test('filas → ranking: puesto del servidor, empates, sin ceros, nulos', () {
+      const rows = [
+        SurveyResultRow(value: 'z', name: 'Zeta', votes: 4, rank: 2),
+        SurveyResultRow(
+            value: 'a',
+            name: 'BODEGA ZACATIN',
+            municipality: 'LA OROTAVA',
+            photoUrl: 'https://x/a.jpg',
+            votes: 7,
+            rank: 1),
+        SurveyResultRow(value: 'b', name: 'Alfa', votes: 4, rank: 2),
+        SurveyResultRow(value: 'c', name: 'Cero', votes: 0, rank: 4),
+        SurveyResultRow(value: 'd', name: '  ', votes: 1, rank: 4),
+      ];
+      final e = premiosRankFromRows(rows, isMine: (v) => v == 'b');
+      expect(e.map((x) => x.id).toList(), ['a', 'z', 'b', 'd']);
       expect(e.map((x) => (x.rank, x.tied)).toList(),
-          [(1, true), (1, true), (3, false)]);
-      // Empate: por nombre.
-      final t = premiosRank([res('Zeta', 4), res('Alfa', 4), res('Beta', 5)]);
-      expect(t.map((x) => x.name).toList(), ['Beta', 'Alfa', 'Zeta']);
+          [(1, false), (2, true), (2, true), (4, false)]);
+      expect(e.first.name, 'Bodega Zacatin');
+      expect(e.first.municipio, 'La Orotava');
+      expect(e.first.photoUrl, 'https://x/a.jpg');
+      expect(e[1].municipio, isEmpty);
+      expect(e[1].photoUrl, isNull);
+      expect(e.last.name, kPremiosMissingName);
+      expect(e.where((x) => x.mine).single.id, 'b');
+      // Sin puesto del servidor: competición en el cliente.
+      final f = premiosRankFromRows(const [
+        SurveyResultRow(value: 'a', name: 'A', votes: 3, rank: 0),
+        SurveyResultRow(value: 'b', name: 'B', votes: 5, rank: 0),
+        SurveyResultRow(value: 'c', name: 'C', votes: 3, rank: 0),
+      ]);
+      expect(f.map((x) => x.rank).toList(), [1, 2, 2]);
+    });
+
+    test('nombre con paréntesis aparte y votos en singular', () {
       expect(premiosSplitName('Bodega Zacatín (Guachinche El Churrasco)'),
           ('Bodega Zacatín', '(Guachinche El Churrasco)'));
       expect(premiosSplitName('Casa Pepe'), ('Casa Pepe', ''));
