@@ -476,7 +476,8 @@ class PremiosSegmented extends StatelessWidget {
   final PremiosCategory value;
   final ValueChanged<PremiosCategory> onChanged;
 
-  /// Card vino del Inicio: cristal crema sobre vino y etiquetas en singular.
+  /// Card vino del Inicio: cristal crema sobre vino, etiquetas en singular
+  /// y 32 de alto con área táctil de 44 (el widget mide 44).
   final bool onWine;
   final String identifierPrefix;
   const PremiosSegmented({
@@ -506,7 +507,10 @@ class PremiosSegmented extends StatelessWidget {
             child: AnimatedContainer(
               duration:
                   Duration(milliseconds: GmMotion.reduced(context) ? 0 : 200),
-              height: 38,
+              height: onWine ? 28 : 38,
+              margin: onWine
+                  ? const EdgeInsets.symmetric(vertical: 8)
+                  : EdgeInsets.zero,
               decoration: onWine
                   ? BoxDecoration(
                       color: on ? PremiosColors.wineSegOn : Colors.transparent,
@@ -532,17 +536,17 @@ class PremiosSegmented extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   PremiosCategoryGlyph(c,
-                      size: 16,
+                      size: onWine ? 14 : 16,
                       ink: onWine
                           ? PremiosColors.creamInk
                           : PremiosColors.catInk(c, gm)),
-                  const SizedBox(width: 6),
+                  SizedBox(width: onWine ? 5 : 6),
                   Flexible(
                     child: Text(onWine ? c.singular : c.plural,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                            fontSize: 15,
+                            fontSize: onWine ? 14 : 15,
                             fontWeight: FontWeight.w600,
                             color: onWine
                                 ? (on ? GmColors.creamHi : PremiosColors.cream2)
@@ -557,7 +561,9 @@ class PremiosSegmented extends StatelessWidget {
     }
 
     final row = Padding(
-      padding: const EdgeInsets.all(3),
+      padding: onWine
+          ? const EdgeInsets.symmetric(horizontal: 2)
+          : const EdgeInsets.all(3),
       child: Row(children: [
         seg(PremiosCategory.tradicional),
         const SizedBox(width: 2),
@@ -567,13 +573,24 @@ class PremiosSegmented extends StatelessWidget {
     return MediaQuery.withClampedTextScaling(
       maxScaleFactor: 1.2,
       child: onWine
-          ? DecoratedBox(
-              decoration: BoxDecoration(
-                color: PremiosColors.wineSegFill,
-                borderRadius: BorderRadius.circular(GmRadius.pill),
-                border: Border.all(color: PremiosColors.wineSegEdge),
-              ),
-              child: row,
+          // Pastilla de 32 centrada en el área táctil de 44.
+          ? Stack(
+              alignment: Alignment.center,
+              children: [
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  height: 32,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: PremiosColors.wineSegFill,
+                      borderRadius: BorderRadius.circular(GmRadius.pill),
+                      border: Border.all(color: PremiosColors.wineSegEdge),
+                    ),
+                  ),
+                ),
+                row,
+              ],
             )
           : GmGlass(
               borderRadius: BorderRadius.circular(GmRadius.pill),
@@ -780,39 +797,41 @@ class _PodiumMetrics {
     dropDy: 14,
   );
 
-  /// Card vino del Inicio (tablero EncuestaInicioCard): bloques 72/54/40.
+  /// Card vino compacta del Inicio (tablero EncuestaInicioCard): bloques
+  /// 44/32/24 en una zona de 96, nombre en una línea y votos debajo.
   static const card = _PodiumMetrics(
-    blockH: {1: 72, 2: 54, 3: 40},
-    avatar1: 56,
-    avatar: 46,
-    ring: 3,
-    zone: 158,
-    avatarGap: 8,
-    gap: 8,
-    topR: 14,
-    bottomR: 5,
-    cap: 5,
-    number1: 26,
-    number: 20,
-    numberTop1: 13,
-    numberTop: 9,
+    blockH: {1: 44, 2: 32, 3: 24},
+    avatar1: 40,
+    avatar: 34,
+    ring: 2.5,
+    zone: 96,
+    avatarGap: 5,
+    gap: 10,
+    topR: 11,
+    bottomR: 4,
+    cap: 4,
+    number1: 18,
+    number: 14,
+    numberTop1: 9,
+    numberTop: 7,
     nameSize: 13,
     nameLine: 16,
     metaSize: 12,
-    metaLine: 16,
-    nameTop: 9,
+    metaLine: 15,
+    nameTop: 6,
     grow: Duration(milliseconds: 760),
     drop: Duration(milliseconds: 820),
     sheenDelay: Duration(milliseconds: 1600),
-    dropDy: 14,
+    dropDy: 10,
   );
 }
 
 /// Podio en vino: 2.º · 1.º · 3.º con alturas según el puesto real (los
 /// empates igualan columnas). Los bloques crecen (3.º, 2.º, 1.º) y los
 /// avatares caen con squash; brillo una vez solo en el oro. [onWine] es el
-/// de la card del Inicio: bloques en vino más claro con filo oro, textos en
-/// crema y oro, y arranca al verse en pantalla.
+/// de la card compacta del Inicio: bloques en vino más claro con filo oro,
+/// nombre corto en una línea (sin «Guachinche» delante; el completo va en el
+/// texto accesible) y votos en oro, y arranca al verse en pantalla.
 class PodioPremios extends StatelessWidget {
   final PremiosCategory category;
   final List<PremiosRankEntry> entries;
@@ -888,12 +907,11 @@ class _PodiumColumn extends StatelessWidget {
     final metal = _Metal.of(p);
     final h = m.blockH[p]!;
     final av = p == 1 ? m.avatar1 : m.avatar;
-    final (name, paren) = premiosSplitName(entry.name);
+    final (full, paren) = premiosSplitName(entry.name);
+    final name = onWine ? premiosShortName(full) : full;
     final ts = MediaQuery.textScalerOf(context);
     final vt = premiosVotes(entry.votes) + (entry.tied ? ' · empate' : '');
     final trigger = onWine ? GmTrigger.visible : GmTrigger.mount;
-    // Debajo del nombre: el paréntesis o, en la card, el municipio.
-    final sub = paren.isNotEmpty || !onWine ? paren : entry.municipio;
     final radius = BorderRadius.vertical(
         top: Radius.circular(m.topR), bottom: Radius.circular(m.bottomR));
     final ring = Container(
@@ -901,12 +919,18 @@ class _PodiumColumn extends StatelessWidget {
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         gradient: metal.gradient,
-        boxShadow: const [
-          BoxShadow(
-              color: PremiosColors.wineShadowSoft,
-              offset: Offset(0, 6),
-              blurRadius: 14,
-              spreadRadius: -6),
+        boxShadow: [
+          onWine
+              ? const BoxShadow(
+                  color: Color(0x8C000000),
+                  offset: Offset(0, 5),
+                  blurRadius: 10,
+                  spreadRadius: -5)
+              : const BoxShadow(
+                  color: PremiosColors.wineShadowSoft,
+                  offset: Offset(0, 6),
+                  blurRadius: 14,
+                  spreadRadius: -6),
         ],
       ),
       child:
@@ -930,9 +954,9 @@ class _PodiumColumn extends StatelessWidget {
           onWine
               ? const BoxShadow(
                   color: Color(0xA6000000),
-                  offset: Offset(0, 10),
-                  blurRadius: 18,
-                  spreadRadius: -10)
+                  offset: Offset(0, 8),
+                  blurRadius: 14,
+                  spreadRadius: -8)
               : const BoxShadow(
                   color: PremiosColors.wineShadow,
                   offset: Offset(0, 14),
@@ -973,7 +997,7 @@ class _PodiumColumn extends StatelessWidget {
       ),
     );
     final nameColor = onWine ? GmColors.creamHi : gm.label;
-    final subColor = onWine ? PremiosColors.cream72 : gm.label2;
+    final subColor = gm.label2;
     final votesColor = onWine ? PremiosColors.goldText : gm.label2;
     return Semantics(
       label: '${entry.rank}.º puesto, medalla de ${metal.name}: '
@@ -1033,26 +1057,27 @@ class _PodiumColumn extends StatelessWidget {
           ),
           SizedBox(height: m.nameTop),
           SizedBox(
-            height: ts.scale(m.nameLine) * 2,
+            height: ts.scale(m.nameLine) * (onWine ? 1 : 2),
             child: Text(name,
-                maxLines: 2,
+                maxLines: onWine ? 1 : 2,
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.center,
                 style: TextStyle(
                     fontSize: m.nameSize,
                     height: m.nameLine / m.nameSize,
                     fontWeight: FontWeight.w600,
-                    letterSpacing: -0.2,
+                    letterSpacing: onWine ? -0.15 : -0.2,
                     color: nameColor)),
           ),
-          SizedBox(
-            height: ts.scale(16),
-            child: Text(sub,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                style: GmText.chip(color: subColor, w: FontWeight.w400)),
-          ),
+          if (!onWine)
+            SizedBox(
+              height: ts.scale(16),
+              child: Text(paren,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: GmText.chip(color: subColor, w: FontWeight.w400)),
+            ),
           SizedBox(
             height: ts.scale(m.metaLine),
             child: Text(vt,
@@ -1094,7 +1119,7 @@ class PremiosSilhouettePodium extends StatelessWidget {
       final metal = _Metal.of(p);
       final av = p == 1 ? m.avatar1 : m.avatar;
       final q = TextStyle(
-          fontSize: p == 1 ? 22 : 18,
+          fontSize: p == 1 ? 17 : 15,
           height: 1,
           fontWeight: FontWeight.w800,
           color: metal.number);
@@ -1165,12 +1190,10 @@ class PremiosSilhouettePodium extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(height: 9),
-            bar(0.78, 10, const Color(0x29F2E8D5)),
             const SizedBox(height: 7),
-            bar(0.56, 8, const Color(0x1AF2E8D5)),
-            const SizedBox(height: 9),
-            bar(0.44, 8, const Color(0x4DC9A96B)),
+            bar(0.74, 9, const Color(0x29F2E8D5)),
+            const SizedBox(height: 6),
+            bar(0.40, 8, const Color(0x4DC9A96B)),
           ],
         ),
       );
@@ -1195,14 +1218,14 @@ class PremiosSilhouettePodium extends StatelessWidget {
       children: [
         podium,
         Positioned(
-          top: 168,
+          top: 98,
           child: Semantics(
             identifier: 'home-premios-hidden',
             label: label,
             child: ExcludeSemantics(
               child: Container(
-                height: 32,
-                padding: const EdgeInsets.symmetric(horizontal: 14),
+                height: 28,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
                 decoration: BoxDecoration(
                   color: GmColors.wine,
                   borderRadius: BorderRadius.circular(GmRadius.pill),
@@ -1218,11 +1241,11 @@ class PremiosSilhouettePodium extends StatelessWidget {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const PremiosLockIcon(),
-                    const SizedBox(width: 7),
+                    const PremiosLockIcon(size: 13),
+                    const SizedBox(width: 6),
                     Text(label!,
                         style: const TextStyle(
-                            fontSize: 13,
+                            fontSize: 12,
                             fontWeight: FontWeight.w700,
                             color: PremiosColors.goldText)),
                   ],

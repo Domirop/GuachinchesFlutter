@@ -1124,8 +1124,34 @@ class PremiosMiniBarrel extends StatelessWidget {
           delay: const Duration(milliseconds: 400),
           trigger: trigger,
           builder: (_, t, __) => CustomPaint(
-            painter: _MiniBarrelPainter(colors: colors, scale: s, t: t),
+            painter:
+                _MiniBarrelPainter(colors: colors, scale: s, t: t, view: _view),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// La barrica pequeña como glifo (antetítulo de la card del Inicio): el
+/// fotograma final, con la papeleta medio metida; sin animación.
+class PremiosBarrelGlyph extends StatelessWidget {
+  final double width;
+  const PremiosBarrelGlyph({super.key, this.width = 18});
+
+  static const Rect _view = Rect.fromLTWH(278, 192, 80, 130);
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = PremiosSceneColors.of(GmColors.of(context).isDark);
+    final s = width / _view.width;
+    return ExcludeSemantics(
+      child: SizedBox(
+        width: width,
+        height: _view.height * s,
+        child: CustomPaint(
+          painter:
+              _MiniBarrelPainter(colors: colors, scale: s, t: 1, view: _view),
         ),
       ),
     );
@@ -1136,8 +1162,12 @@ class _MiniBarrelPainter extends CustomPainter {
   final PremiosSceneColors colors;
   final double scale;
   final double t;
+  final Rect view;
   const _MiniBarrelPainter(
-      {required this.colors, required this.scale, required this.t});
+      {required this.colors,
+      required this.scale,
+      required this.t,
+      required this.view});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1146,8 +1176,7 @@ class _MiniBarrelPainter extends CustomPainter {
     final mq = t * 100;
     canvas.save();
     canvas.scale(scale);
-    canvas.translate(
-        -PremiosMiniBarrel._view.left, -PremiosMiniBarrel._view.top);
+    canvas.translate(-view.left, -view.top);
 
     final ty = _k(
         q, const [(0, -34), (45, -6), (62, -12), (82, 34), (100, 30)], _kStd);
@@ -1184,7 +1213,10 @@ class _MiniBarrelPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _MiniBarrelPainter old) =>
-      old.t != t || old.scale != scale || old.colors != colors;
+      old.t != t ||
+      old.scale != scale ||
+      old.colors != colors ||
+      old.view != view;
 }
 
 /// Háptica ligera (se usa al caer el sello de Gracias).

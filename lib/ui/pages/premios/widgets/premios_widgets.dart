@@ -67,9 +67,6 @@ class PremiosColors {
   static const creamInk = Color(0xFFF2E8D5);
   static const cream82 = Color(0xD1F2E8D5);
   static const creamDim = Color(0x80F2E8D5);
-  static const creamLine = Color(0x24F2E8D5);
-  static const creamFill = Color(0x1FF2E8D5);
-  static const creamEdge = Color(0x38F2E8D5);
 
   /// Cristal crema sobre la banda vino (X, «Ranking»).
   static const wineGlass = Color(0x24FFF6E6);
@@ -92,6 +89,7 @@ class PremiosColors {
 
   /// Crema al 72 % (paréntesis y municipio sobre vino).
   static const cream72 = Color(0xB8F2E8D5);
+  static const cream75 = Color(0xBFF2E8D5);
 
   /// Fila «Tu voto» sobre vino.
   static const wineRowFill = Color(0x14FFF6E6);
@@ -1382,15 +1380,16 @@ class PremiosHiddenRanking extends StatelessWidget {
 
 /// Candado de 14 en oro (píldora del ranking oculto).
 class PremiosLockIcon extends StatelessWidget {
-  const PremiosLockIcon({super.key});
+  final double size;
+  const PremiosLockIcon({super.key, this.size = 14});
 
   @override
   Widget build(BuildContext context) => SvgPicture.string(
         '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" '
         'stroke="${_hex(PremiosColors.goldText)}" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">'
         '<rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8 10.5V8a4 4 0 018 0v2.5"/></svg>',
-        width: 14,
-        height: 14,
+        width: size,
+        height: size,
         excludeFromSemantics: true,
       );
 }

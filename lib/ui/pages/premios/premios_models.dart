@@ -620,6 +620,19 @@ List<PremiosRankEntry> premiosRankFromRows(List<SurveyResultRow> rows,
   ];
 }
 
+/// Nombre corto para el podio compacto de la card del Inicio: sin el
+/// genérico «Guachinche» delante («Guachinche Don Trino» → «Don Trino»). El
+/// nombre completo va en el texto accesible.
+String premiosShortName(String name) {
+  const prefix = 'Guachinche ';
+  final n = name.trim();
+  if (n.length > prefix.length &&
+      n.toLowerCase().startsWith(prefix.toLowerCase())) {
+    return n.substring(prefix.length).trim();
+  }
+  return n;
+}
+
 /// «Bodega Zacatín (Guachinche El Churrasco)» → nombre y paréntesis en
 /// línea aparte (podio).
 (String, String) premiosSplitName(String name) {
