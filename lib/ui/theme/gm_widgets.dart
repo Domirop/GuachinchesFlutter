@@ -355,6 +355,22 @@ class GmCapsuleButton extends StatelessWidget {
   /// sobre [icon].
   final Widget? leading;
 
+  /// Widget detrás del texto (p. ej. un chevron).
+  final Widget? trailing;
+  final FontWeight fontWeight;
+
+  /// Sombra propia (CTA destacados); por defecto la del sistema.
+  final List<BoxShadow>? shadow;
+
+  static const defaultShadow = [
+    BoxShadow(
+      color: Color(0x8C005A8C),
+      offset: Offset(0, 8),
+      blurRadius: 18,
+      spreadRadius: -6,
+    ),
+  ];
+
   const GmCapsuleButton({
     super.key,
     required this.label,
@@ -366,6 +382,9 @@ class GmCapsuleButton extends StatelessWidget {
     this.identifier,
     this.height = 44,
     this.leading,
+    this.trailing,
+    this.fontWeight = FontWeight.w600,
+    this.shadow,
   });
 
   @override
@@ -383,14 +402,7 @@ class GmCapsuleButton extends StatelessWidget {
           decoration: BoxDecoration(
             gradient: GmColors.accentFill,
             borderRadius: BorderRadius.circular(GmRadius.pill),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x8C005A8C),
-                offset: Offset(0, 8),
-                blurRadius: 18,
-                spreadRadius: -6,
-              ),
-            ],
+            boxShadow: shadow ?? defaultShadow,
           ),
           foregroundDecoration: BoxDecoration(
             borderRadius: BorderRadius.circular(GmRadius.pill),
@@ -421,16 +433,23 @@ class GmCapsuleButton extends StatelessWidget {
                   GmIcon(icon!, size: iconSize, color: Colors.white),
                   const SizedBox(width: 7),
                 ],
-                Text(
-                  label,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: fontSize,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: -0.2,
-                    color: Colors.white,
+                // Flexible: con texto grande parte en dos líneas.
+                Flexible(
+                  child: Text(
+                    label,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: fontSize,
+                      fontWeight: fontWeight,
+                      letterSpacing: -0.2,
+                      color: Colors.white,
+                    ),
                   ),
                 ),
+                if (trailing != null) ...[
+                  const SizedBox(width: 8),
+                  trailing!,
+                ],
               ],
             ),
           ),

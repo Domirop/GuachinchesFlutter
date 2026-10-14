@@ -79,6 +79,31 @@ class PremiosColors {
   static const digitFill = Color(0x1AFFF6E6);
   static const digitEdge = Color(0x4DC9A96B);
 
+  // Card vino del Inicio (tablero EncuestaInicioCard).
+  /// Segmentado sobre vino: relleno, filo y pestaña activa.
+  static const wineSegFill = Color(0x14FFF6E6); // .08
+  static const wineSegEdge = Color(0x29F2E8D5); // .16
+  static const wineSegOn = Color(0x29FFF6E6); // .16
+  static const wineSegOnEdge = Color(0x73C9A96B); // .45
+
+  /// Bloques del podio sobre vino (#4A1B27 → #3A1520) y su filo oro .30.
+  static const podiumWineTop = Color(0xFF4A1B27);
+  static const podiumWineEdge = Color(0x4DC9A96B);
+
+  /// Crema al 72 % (paréntesis y municipio sobre vino).
+  static const cream72 = Color(0xB8F2E8D5);
+
+  /// Fila «Tu voto» sobre vino.
+  static const wineRowFill = Color(0x14FFF6E6);
+  static const wineRowEdge = Color(0x24F2E8D5);
+
+  /// Metal del filo de la card (135°: #F3DFA8 → #D6B675 48 % → #B08A48).
+  static const metal = [
+    Color(0xFFF3DFA8),
+    Color(0xFFD6B675),
+    Color(0xFFB08A48)
+  ];
+
   /// Arriba del degradado de los bloques del podio (#3A1520 → vino).
   static const podiumTop = Color(0xFF3A1520);
 
@@ -1307,13 +1332,10 @@ Future<void> premiosOpenStore() async {
 
 /// «El ranking se desvela al cierre» (resultados con `hidden: true`, modo
 /// `after_close`): la barrica guarda los votos y el podio sale al cerrar.
-/// [compact] va dentro de la tarjeta del Inicio; si no, es una tarjeta.
 class PremiosHiddenRanking extends StatelessWidget {
   /// «hasta el 20 de marzo» (vacío sin fecha).
   final String untilShort;
-  final bool compact;
-  const PremiosHiddenRanking(
-      {super.key, required this.untilShort, this.compact = false});
+  const PremiosHiddenRanking({super.key, required this.untilShort});
 
   static String textFor(String untilShort) {
     final when = untilShort.isEmpty
@@ -1326,47 +1348,67 @@ class PremiosHiddenRanking extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final gm = GmColors.of(context);
-    final body = Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        if (!compact) ...[
-          const PremiosMiniBarrel(width: 58),
-          const SizedBox(width: 14),
-        ],
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    return Semantics(
+      identifier: 'premios-ranking-hidden',
+      container: true,
+      child: GmCard(
+        radius: GmRadius.guide,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 14, 18, 14),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Text('El ranking se desvela al cierre',
-                  style: GmText.cardTitle(color: gm.label)),
-              const SizedBox(height: 3),
-              Text(textFor(untilShort),
-                  style:
-                      (compact ? GmText.meta : GmText.body)(color: gm.label2)),
+              const PremiosMiniBarrel(width: 58),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('El ranking se desvela al cierre',
+                        style: GmText.cardTitle(color: gm.label)),
+                    const SizedBox(height: 3),
+                    Text(textFor(untilShort),
+                        style: GmText.body(color: gm.label2)),
+                  ],
+                ),
+              ),
             ],
           ),
         ),
-      ],
-    );
-    return Semantics(
-      identifier: compact ? 'home-premios-hidden' : 'premios-ranking-hidden',
-      container: true,
-      child: compact
-          ? Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: gm.fill,
-                borderRadius: BorderRadius.circular(18),
-              ),
-              child: body,
-            )
-          : GmCard(
-              radius: GmRadius.guide,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 14, 18, 14),
-                child: body,
-              ),
-            ),
+      ),
     );
   }
+}
+
+/// Candado de 14 en oro (píldora del ranking oculto).
+class PremiosLockIcon extends StatelessWidget {
+  const PremiosLockIcon({super.key});
+
+  @override
+  Widget build(BuildContext context) => SvgPicture.string(
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" '
+        'stroke="${_hex(PremiosColors.goldText)}" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">'
+        '<rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8 10.5V8a4 4 0 018 0v2.5"/></svg>',
+        width: 14,
+        height: 14,
+        excludeFromSemantics: true,
+      );
+}
+
+/// Papeleta con check (icono del CTA «Votar ahora»).
+class PremiosBallotIcon extends StatelessWidget {
+  final double size;
+  final Color color;
+  const PremiosBallotIcon(
+      {super.key, this.size = 20, this.color = Colors.white});
+
+  @override
+  Widget build(BuildContext context) => SvgPicture.string(
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" '
+        'stroke="${_hex(color)}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">'
+        '<path d="M6 3.5h9l3.5 3.5v13.5H6z"/><path d="M9 12.5l2.2 2.2 4.3-4.6"/></svg>',
+        width: size,
+        height: size,
+        excludeFromSemantics: true,
+      );
 }
