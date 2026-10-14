@@ -197,6 +197,14 @@ enum PremiosErrorKind {
 
   /// 422 `invalid_option`: la opción ya no es candidata.
   invalidOption,
+
+  /// El pinning de `/surveys/v3` falla (proxy, CA instalada, portal
+  /// cautivo): no se ha enviado nada.
+  insecureConnection,
+
+  /// `503 integrity_unavailable`: el backend de la encuesta no está listo.
+  /// Reintentar no sirve.
+  votingUnavailable,
   network,
   server,
 }
@@ -344,6 +352,23 @@ PremiosErrorCopy premiosErrorCopy(PremiosErrorKind kind,
         help: 'Elige otro y vuelve a enviar.',
         tone: PremiosTone.warn,
         icon: PremiosAlertIcon.warn,
+      );
+    case PremiosErrorKind.insecureConnection:
+      return const PremiosErrorCopy(
+        title: 'No podemos conectar de forma segura',
+        message: 'Prueba con otra red, por ejemplo con datos móviles.',
+        help: 'Tus votos siguen aquí.',
+        tone: PremiosTone.closed,
+        icon: PremiosAlertIcon.network,
+        retry: true,
+      );
+    case PremiosErrorKind.votingUnavailable:
+      return const PremiosErrorCopy(
+        title: 'La votación no está disponible ahora\u00A0mismo',
+        message: 'Vuelve más tarde.',
+        help: 'Tus votos siguen aquí.',
+        tone: PremiosTone.warn,
+        icon: PremiosAlertIcon.clock,
       );
     case PremiosErrorKind.network:
       return const PremiosErrorCopy(

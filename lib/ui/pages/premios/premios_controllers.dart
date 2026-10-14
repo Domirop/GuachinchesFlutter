@@ -60,6 +60,8 @@ PremiosErrorKind? premiosErrorKindOf(SurveyFailure? f) => switch (f) {
         PremiosErrorKind.verificationUnavailable,
       SurveyNetworkFailure() => PremiosErrorKind.network,
       SurveyInvalidOption() => PremiosErrorKind.invalidOption,
+      SurveyInsecureConnection() => PremiosErrorKind.insecureConnection,
+      SurveyVotingUnavailable() => PremiosErrorKind.votingUnavailable,
       SurveyServerFailure() => PremiosErrorKind.server,
       // Estos acompañan a una etapa de bloqueo ([premiosGateOf]).
       SurveyUpgradeRequired() ||

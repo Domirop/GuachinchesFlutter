@@ -127,7 +127,7 @@ void main() {
       for (final (step, kind) in [
         (() => apiError(429, 'rate_limited'), PremiosErrorKind.rateLimited),
         (
-          () => apiError(503, 'integrity_unavailable'),
+          () => apiError(503, 'verification_unavailable'),
           PremiosErrorKind.verificationUnavailable
         ),
         (
@@ -142,6 +142,13 @@ void main() {
         expect(c.state.error?.kind, kind);
         expect(premiosErrorCopy(kind).retry, isTrue);
       }
+      // 503 integrity_unavailable: la votación no está disponible (sin
+      // «Reintentar»).
+      repo.voteSteps.add(() => apiError(503, 'integrity_unavailable'));
+      await c.submit();
+      expect(c.state.error?.kind, PremiosErrorKind.votingUnavailable);
+      expect(
+          premiosErrorCopy(PremiosErrorKind.votingUnavailable).retry, isFalse);
     });
 
     test('bloqueos: cerrada, móvil bloqueado y versión antigua', () async {

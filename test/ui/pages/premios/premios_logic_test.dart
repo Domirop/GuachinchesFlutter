@@ -92,6 +92,14 @@ void main() {
           PremiosErrorKind.verificationUnavailable);
       expect(premiosErrorKindOf(const SurveyInvalidOption()),
           PremiosErrorKind.invalidOption);
+      expect(premiosErrorKindOf(const SurveyInsecureConnection()),
+          PremiosErrorKind.insecureConnection);
+      expect(premiosErrorKindOf(const SurveyVotingUnavailable()),
+          PremiosErrorKind.votingUnavailable);
+      expect(
+          premiosErrorCopy(PremiosErrorKind.votingUnavailable).retry, isFalse);
+      expect(premiosErrorCopy(PremiosErrorKind.insecureConnection).title,
+          'No podemos conectar de forma segura');
       expect(premiosErrorKindOf(const SurveyDeviceBlocked()), isNull);
       expect(
           premiosGateOf(SurveyVoteStage.unsupported), PremiosGate.unsupported);
