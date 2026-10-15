@@ -73,8 +73,8 @@ final class SurveyAlreadyVoted extends SurveyFailure {
 
 /// `403 integrity_failed` (App Check ausente, no válido, reutilizado o de otra
 /// app) o App Check rechazado en el propio móvil (`code == 'client'`):
-/// «No hemos podido verificar este móvil. Actualiza la app desde la App Store /
-/// Google Play.» [reason] solo para métricas, nunca en pantalla.
+/// «No hemos podido comprobar este móvil» (copy en `premiosErrorCopy`).
+/// [reason] solo para métricas, nunca en pantalla.
 final class SurveyIntegrityFailed extends SurveyFailure {
   final String code;
   final String? reason;

@@ -183,6 +183,16 @@ void main() {
       }
       expect(premiosErrorCopy(PremiosErrorKind.deviceUnverified).title,
           'No hemos podido comprobar este\u00A0móvil');
+      // QA Android: si falla Play Integrity, «actualiza la app» no ayuda.
+      final android = premiosErrorCopy(PremiosErrorKind.deviceUnverified,
+          store: 'Google Play');
+      expect(android.message, contains('Google Play esté al día'));
+      expect(android.message, isNot(contains('Actualiza la app')));
+      expect(
+          premiosErrorCopy(PremiosErrorKind.deviceUnverified,
+                  store: 'la App Store')
+              .message,
+          contains('la hora del móvil en automático'));
       expect(
           premiosErrorCopy(PremiosErrorKind.alreadyVoted, rowFlagged: true)
               .title,

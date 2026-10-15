@@ -321,7 +321,14 @@ PremiosErrorCopy premiosErrorCopy(PremiosErrorKind kind,
     case PremiosErrorKind.deviceUnverified:
       return PremiosErrorCopy(
         title: 'No hemos podido comprobar este\u00A0móvil',
-        message: 'Actualiza la app desde $store y vuelve a probar.',
+        // Actualizar la app no arregla un fallo de Play Integrity / App
+        // Attest: lo que suele fallar es la tienda, la hora o la conexión.
+        message: store == 'Google Play'
+            ? 'Mira que Google Play esté al día y la hora del móvil en '
+                'automático, y vuelve a probar.'
+            : 'Mira que tengas conexión y la hora del móvil en automático, '
+                'y vuelve a probar. Si sigue igual, actualiza la app desde '
+                '$store.',
         help: 'Tus votos siguen aquí.',
         tone: PremiosTone.closed,
         icon: PremiosAlertIcon.error,
