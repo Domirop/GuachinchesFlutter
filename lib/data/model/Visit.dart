@@ -94,6 +94,10 @@ class Visit {
   String? videoPublishedAt;
   String? myTicket;
   String? thumbnail;
+
+  /// Fotograma vertical del Short en nuestro S3 (`youtubeVideo.posterUrl`,
+  /// backend migration 044). Puede faltar: entonces se usa [thumbnail].
+  String? posterUrl;
   Restaurant? restaurant;
 
   // Campos extraídos del video / IA
@@ -134,6 +138,7 @@ class Visit {
     this.videoPublishedAt,
     this.myTicket,
     this.thumbnail,
+    this.posterUrl,
     this.restaurant,
     this.summary,
     this.overallSentiment,
@@ -248,6 +253,7 @@ class Visit {
           ?.toString(),
       myTicket: (json['myTicket'] ?? json['my_ticket'])?.toString(),
       thumbnail: thumbnail?.toString(),
+      posterUrl: (yt?['posterUrl'] ?? json['posterUrl'])?.toString(),
       restaurant: json['restaurant'] is Map<String, dynamic>
           ? Restaurant.fromJson(json['restaurant'])
           : null,
@@ -336,6 +342,7 @@ class Visit {
       'updatedAt': updatedAt,
       'myTicket': myTicket,
       'thumbnail': thumbnail,
+      'posterUrl': posterUrl,
     };
   }
 }

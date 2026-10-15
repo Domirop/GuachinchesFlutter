@@ -169,7 +169,7 @@ class VisitDishesScreen extends StatelessWidget {
                           dish: d,
                           nameLines: 2,
                           heroTag: photoIndex >= 0
-                              ? '${visit.id}-platos-$photoIndex'
+                              ? '${visit.id}-platos-dish-$photoIndex'
                               : null,
                           onTap: photoIndex < 0
                               ? null
@@ -178,6 +178,7 @@ class VisitDishesScreen extends StatelessWidget {
                                     dishes: photoDishes,
                                     initialIndex: photoIndex,
                                     heroPrefix: '${visit.id}-platos',
+                                    visit: visit,
                                   ),
                         ),
                       );

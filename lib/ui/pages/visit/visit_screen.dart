@@ -242,7 +242,7 @@ class _VisitDetailPageState extends State<VisitDetailPage>
     if (v == null) return Future.value();
     final ytId = fichaYoutubeId(v);
     if (ytId != null) {
-      return YoutubeEmbedSheet.show(context, videoId: ytId);
+      return YoutubeEmbedSheet.show(context, videoId: ytId, visit: v);
     }
     return _openVideoExternal();
   }

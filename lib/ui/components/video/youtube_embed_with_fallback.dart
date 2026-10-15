@@ -19,12 +19,31 @@ class YoutubeEmbedWithFallback extends StatefulWidget {
   final double aspectRatio;
   final VoidCallback? onClose;
 
+  /// Sustituye el bloque de respaldo por defecto (miniatura + «Abrir en
+  /// YouTube»). Se pinta cuando el id no es válido, el player falla o no
+  /// arranca a tiempo.
+  final WidgetBuilder? fallbackBuilder;
+
+  /// Capa que se pinta encima del player (sin recibir toques) hasta que el
+  /// iframe informa de su primer estado. `null` = sin capa (por defecto).
+  final WidgetBuilder? loadingBuilder;
+
+  /// Se llama una vez, tras el frame, cuando se pasa al respaldo.
+  final VoidCallback? onFallback;
+
+  /// Fondo del iframe (por defecto el `surface` del tema).
+  final Color? backgroundColor;
+
   const YoutubeEmbedWithFallback({
     super.key,
     required this.videoId,
     this.startSeconds,
     this.aspectRatio = 9 / 16,
     this.onClose,
+    this.fallbackBuilder,
+    this.loadingBuilder,
+    this.onFallback,
+    this.backgroundColor,
   });
 
   @override
@@ -38,6 +57,8 @@ class _YoutubeEmbedWithFallbackState extends State<YoutubeEmbedWithFallback> {
   Timer? _timeoutTimer;
   bool _failed = false;
   bool _playbackStarted = false;
+  bool _playerReported = false;
+  bool _fallbackNotified = false;
 
   @override
   void initState() {
@@ -70,6 +91,10 @@ class _YoutubeEmbedWithFallbackState extends State<YoutubeEmbedWithFallback> {
   void _onPlayerValue(YoutubePlayerValue value) {
     final state = value.playerState;
     AppLogger.info('youtube-embed', 'state_change state=$state');
+
+    if (state != PlayerState.unknown && !_playerReported && mounted) {
+      setState(() => _playerReported = true);
+    }
 
     if (state == PlayerState.playing || state == PlayerState.buffering) {
       _playbackStarted = true;
@@ -105,20 +130,41 @@ class _YoutubeEmbedWithFallbackState extends State<YoutubeEmbedWithFallback> {
 
     Widget content;
     if (invalidId || _failed || _controller == null) {
+      if (!_fallbackNotified && widget.onFallback != null) {
+        _fallbackNotified = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) widget.onFallback!();
+        });
+      }
       content = Semantics(
         identifier: 'youtube-embed-fallback',
-        child: _FallbackBlock(
-          videoId: widget.videoId,
-          startSeconds: widget.startSeconds,
-        ),
+        child: widget.fallbackBuilder?.call(context) ??
+            _FallbackBlock(
+              videoId: widget.videoId,
+              startSeconds: widget.startSeconds,
+            ),
       );
     } else {
+      Widget player = YoutubePlayer(
+        controller: _controller!,
+        aspectRatio: widget.aspectRatio,
+        backgroundColor: widget.backgroundColor,
+      );
+      if (widget.loadingBuilder != null) {
+        player = Stack(
+          fit: StackFit.passthrough,
+          children: [
+            player,
+            if (!_playerReported)
+              Positioned.fill(
+                child: IgnorePointer(child: widget.loadingBuilder!(context)),
+              ),
+          ],
+        );
+      }
       content = Semantics(
         identifier: 'youtube-embed-player',
-        child: YoutubePlayer(
-          controller: _controller!,
-          aspectRatio: widget.aspectRatio,
-        ),
+        child: player,
       );
     }
 
