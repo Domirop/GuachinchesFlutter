@@ -3,6 +3,7 @@ import 'dart:math';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:guachinches/core/analytics/analytics.dart';
+import 'package:guachinches/core/logging/app_logger.dart';
 import 'package:guachinches/data/cubit/quiz/quiz_game_state.dart';
 import 'package:guachinches/data/model/quiz/quiz_models.dart';
 import 'package:guachinches/data/quiz/quiz_repository.dart';
@@ -20,6 +21,7 @@ class QuizGameCubit extends Cubit<QuizGameState> {
   static const int warningSeconds = 5;
 
   Timer? _timer;
+  DateTime? _pausedAt;
   final Random _rng = Random();
   final Set<String> _exhausted = {}; // categorías sin preguntas en la partida
   int _gamesWonBefore = 0;
@@ -51,8 +53,7 @@ class QuizGameCubit extends Cubit<QuizGameState> {
 
   /// Traduce el `correctIndex` (orden original) del servidor a la posición
   /// barajada que ve el usuario, para que el reveal ilumine bien.
-  QuizAnswerResult _mapResultToShuffled(
-      QuizAnswerResult res, List<int>? perm) {
+  QuizAnswerResult _mapResultToShuffled(QuizAnswerResult res, List<int>? perm) {
     if (perm == null) return res;
     final shownCorrect = perm.indexOf(res.correctIndex);
     return QuizAnswerResult(
@@ -68,10 +69,12 @@ class QuizGameCubit extends Cubit<QuizGameState> {
   // ── Lobby ───────────────────────────────────────────────────────────────────
 
   /// Carga categorías + stats para el lobby. No inicia partida (sigue en idle).
-  /// Resiliente: si una llamada falla (p.ej. backend aún sin desplegar), deja
-  /// lo que se pudo cargar y no rompe la pantalla.
+  /// Los fallos no se tragan: se registran y se marcan en el estado
+  /// ([QuizGameState.lobbyFailed] / [QuizGameState.historyFailed]) para que la
+  /// UI pinte error + «Reintentar» en vez de datos vacíos que mienten.
   Future<void> loadLobby() async {
-    if (state.phase == QuizPhase.idle && state.categories.isEmpty) {
+    if (state.phase == QuizPhase.idle &&
+        (state.categories.isEmpty || state.lobbyFailed)) {
       emit(state.copyWith(phase: QuizPhase.loading, clearError: true));
     }
     List<QuizCategory>? cats;
@@ -79,32 +82,29 @@ class QuizGameCubit extends Cubit<QuizGameState> {
     QuizSession? active;
     List<QuizSessionSummary>? history;
     QuizConquest? conquest;
+    var lobbyFailed = false;
+    var historyFailed = false;
+    Future<void> guard(String what, Future<void> Function() f,
+        {bool history = false}) async {
+      try {
+        await f();
+      } catch (e, st) {
+        AppLogger.error('quiz-lobby', 'load $what: $e', st);
+        if (history) {
+          historyFailed = true;
+        } else {
+          lobbyFailed = true;
+        }
+      }
+    }
+
     await Future.wait([
-      () async {
-        try {
-          cats = await _repo.getCategories();
-        } catch (_) {}
-      }(),
-      () async {
-        try {
-          stats = await _repo.getStats();
-        } catch (_) {}
-      }(),
-      () async {
-        try {
-          active = await _repo.getActiveSession();
-        } catch (_) {}
-      }(),
-      () async {
-        try {
-          history = await _repo.getMySessions();
-        } catch (_) {}
-      }(),
-      () async {
-        try {
-          conquest = await _repo.getConquest();
-        } catch (_) {}
-      }(),
+      guard('categories', () async => cats = await _repo.getCategories()),
+      guard('stats', () async => stats = await _repo.getStats()),
+      guard('active', () async => active = await _repo.getActiveSession()),
+      guard('history', () async => history = await _repo.getMySessions(),
+          history: true),
+      guard('conquest', () async => conquest = await _repo.getConquest()),
     ]);
     emit(state.copyWith(
       phase: QuizPhase.idle,
@@ -114,12 +114,27 @@ class QuizGameCubit extends Cubit<QuizGameState> {
       activeSession: active,
       clearActiveSession: active == null,
       history: history ?? state.history,
+      lobbyFailed: lobbyFailed,
+      historyFailed: historyFailed,
     ));
   }
 
-  /// Segundos por pregunta según el tier (arena). Tiers altos = menos tiempo.
-  int _secondsForTier() {
-    switch (state.conquest?.tier ?? 1) {
+  /// Reintenta solo el historial (pestaña Historial con error).
+  Future<void> loadHistory() async {
+    emit(state.copyWith(historyFailed: false, phase: QuizPhase.loading));
+    try {
+      final h = await _repo.getMySessions();
+      emit(state.copyWith(phase: QuizPhase.idle, history: h));
+    } catch (e, st) {
+      AppLogger.error('quiz-lobby', 'load history: $e', st);
+      emit(state.copyWith(phase: QuizPhase.idle, historyFailed: true));
+    }
+  }
+
+  /// Segundos por pregunta de un tier (arena): Marea 20 · Volcán 18 ·
+  /// Leyenda 15. Tiers altos = menos tiempo.
+  static int secondsForTier(int tier) {
+    switch (tier) {
       case 3:
         return 15;
       case 2:
@@ -129,12 +144,16 @@ class QuizGameCubit extends Cubit<QuizGameState> {
     }
   }
 
+  /// Segundos por pregunta según el tier (arena) actual.
+  int _secondsForTier() => secondsForTier(state.conquest?.tier ?? 1);
+
   /// Reclama la conquista de una isla tras GANAR. Actualiza el mapa y marca si
   /// hubo ascenso de tier.
   Future<void> conquer(String islandSlug) async {
     final s = state.session;
     if (s == null || !s.isWon || state.conquering) return;
-    emit(state.copyWith(conquering: true, clearConquerResult: true));
+    emit(state.copyWith(
+        conquering: true, clearConquerResult: true, clearError: true));
     try {
       final res = await _repo.conquerIsland(s.id, islandSlug);
       Analytics.I.logEvent('quiz_island_conquered', {
@@ -147,19 +166,22 @@ class QuizGameCubit extends Cubit<QuizGameState> {
         conquest: res.conquest,
         conquerResult: res,
       ));
-    } catch (e) {
+    } catch (e, st) {
+      AppLogger.error('quiz-conquer', e, st);
       emit(state.copyWith(conquering: false, error: e.toString()));
     }
   }
 
   /// Carga el ranking (pestaña Ranking, on-demand).
   Future<void> loadRanking() async {
-    emit(state.copyWith(rankingLoading: true));
+    emit(state.copyWith(rankingLoading: true, rankingFailed: false));
     try {
       final r = await _repo.getRanking();
-      emit(state.copyWith(ranking: r, rankingLoading: false));
-    } catch (_) {
-      emit(state.copyWith(rankingLoading: false));
+      emit(state.copyWith(
+          ranking: r, rankingLoading: false, rankingLoaded: true));
+    } catch (e, st) {
+      AppLogger.error('quiz-ranking', e, st);
+      emit(state.copyWith(rankingLoading: false, rankingFailed: true));
     }
   }
 
@@ -172,6 +194,8 @@ class QuizGameCubit extends Cubit<QuizGameState> {
       clearResult: true,
       clearSelected: true,
       clearLanded: true,
+      clearConquerResult: true,
+      paused: false,
     ));
     _exhausted.clear();
     try {
@@ -200,7 +224,9 @@ class QuizGameCubit extends Cubit<QuizGameState> {
       clearResult: true,
       clearSelected: true,
       clearLanded: true,
+      clearConquerResult: true,
       leveledUp: false,
+      paused: false,
     ));
     _exhausted.clear();
     try {
@@ -209,8 +235,9 @@ class QuizGameCubit extends Cubit<QuizGameState> {
       // Para detectar ascenso de rango al ganar.
       try {
         _gamesWonBefore = (await _repo.getStats()).gamesWon;
-      } catch (_) {
-        _gamesWonBefore = 0;
+      } catch (e) {
+        AppLogger.warn('quiz-start', 'stats no disponibles: $e');
+        _gamesWonBefore = state.stats?.gamesWon ?? 0;
       }
       final session = await _repo.startSession();
       Analytics.I.logEvent('quiz_session_start');
@@ -290,7 +317,10 @@ class QuizGameCubit extends Cubit<QuizGameState> {
   Future<void> answer(int? index) async {
     final session = state.session;
     final q = state.question;
-    if (session == null || q == null || state.phase != QuizPhase.question) {
+    if (session == null ||
+        q == null ||
+        state.phase != QuizPhase.question ||
+        state.paused) {
       return;
     }
     _cancelTimer();
@@ -302,8 +332,7 @@ class QuizGameCubit extends Cubit<QuizGameState> {
     // `index` es la posición BARAJADA que tocó el usuario; el servidor valida
     // contra el orden original, así que traducimos.
     final perm = _optionPerm;
-    final originalIndex =
-        (index != null && perm != null) ? perm[index] : index;
+    final originalIndex = (index != null && perm != null) ? perm[index] : index;
 
     // Muestra de inmediato la opción elegida (en su posición barajada).
     emit(state.copyWith(selectedIndex: index));
@@ -321,8 +350,8 @@ class QuizGameCubit extends Cubit<QuizGameState> {
       // posición barajada para que el reveal ilumine la opción correcta.
       final shown = _mapResultToShuffled(res, perm);
       final won = res.session.isWon;
-      final leveled = won &&
-          _rankIndex(_gamesWonBefore) != _rankIndex(_gamesWonBefore + 1);
+      final leveled =
+          won && _rankIndex(_gamesWonBefore) != _rankIndex(_gamesWonBefore + 1);
       emit(state.copyWith(
         phase: QuizPhase.revealing,
         result: shown,
@@ -357,12 +386,67 @@ class QuizGameCubit extends Cubit<QuizGameState> {
 
   Future<void> restart() => startGame();
 
+  /// «Nueva» con una partida en curso (ya confirmado por el usuario):
+  /// abandona la activa en el servidor y empieza otra.
+  Future<void> startNewGame() async {
+    final active = state.activeSession;
+    if (active != null && active.isActive) {
+      try {
+        await _repo.abandon(active.id);
+      } catch (e, st) {
+        AppLogger.error('quiz-new', 'abandon: $e', st);
+      }
+    }
+    await startGame();
+  }
+
+  /// Desde el resultado (o un error) vuelve al lobby con datos frescos.
+  Future<void> backToLobby() async {
+    _cancelTimer();
+    emit(state.copyWith(
+      phase: QuizPhase.loading,
+      clearQuestion: true,
+      clearResult: true,
+      clearSelected: true,
+      clearLanded: true,
+      clearConquerResult: true,
+      clearError: true,
+      paused: false,
+    ));
+    await loadLobby();
+  }
+
+  /// Pausa el reloj de la pregunta (hoja «¿Salir de la partida?» abierta).
+  void pauseTimer() {
+    if (state.phase != QuizPhase.question || state.paused) return;
+    _cancelTimer();
+    _pausedAt = DateTime.now();
+    emit(state.copyWith(paused: true));
+  }
+
+  /// Reanuda el reloj; el tiempo en pausa no cuenta para `timeMs`.
+  void resumeTimer() {
+    if (!state.paused) return;
+    final pausedAt = _pausedAt;
+    _pausedAt = null;
+    if (pausedAt != null && _questionShownAt != null) {
+      _questionShownAt =
+          _questionShownAt!.add(DateTime.now().difference(pausedAt));
+    }
+    emit(state.copyWith(paused: false));
+    if (state.phase == QuizPhase.question && state.selectedIndex == null) {
+      _startTimer();
+    }
+  }
+
   /// Sale del juego: abandona la partida activa (fire-and-forget).
   void quit() {
     _cancelTimer();
     final s = state.session;
     if (s != null && s.isActive) {
-      _repo.abandon(s.id).catchError((_) {});
+      _repo
+          .abandon(s.id)
+          .catchError((Object e) => AppLogger.warn('quiz-quit', 'abandon: $e'));
     }
     emit(const QuizGameState());
   }
@@ -371,7 +455,10 @@ class QuizGameCubit extends Cubit<QuizGameState> {
   /// No abandona la sesión; sigue 'active' en el backend.
   void leaveToLobby() {
     _cancelTimer();
+    _pausedAt = null;
     emit(state.copyWith(
+      phase: QuizPhase.loading,
+      paused: false,
       clearQuestion: true,
       clearResult: true,
       clearSelected: true,
@@ -383,18 +470,23 @@ class QuizGameCubit extends Cubit<QuizGameState> {
   /// Abandona la partida (no se podrá continuar) y vuelve al lobby.
   Future<void> abandonAndLeave() async {
     _cancelTimer();
+    _pausedAt = null;
     final s = state.session;
-    if (s != null && s.isActive) {
-      try {
-        await _repo.abandon(s.id);
-      } catch (_) {}
-    }
     emit(state.copyWith(
+      phase: QuizPhase.loading,
+      paused: false,
       clearQuestion: true,
       clearResult: true,
       clearSelected: true,
       clearLanded: true,
     ));
+    if (s != null && s.isActive) {
+      try {
+        await _repo.abandon(s.id);
+      } catch (e, st) {
+        AppLogger.error('quiz-abandon', e, st);
+      }
+    }
     await loadLobby();
   }
 
@@ -457,8 +549,7 @@ class QuizGameCubit extends Cubit<QuizGameState> {
     _timer = null;
   }
 
-  int _rankIndex(int gamesWon) =>
-      gamesWon >= 12 ? 2 : (gamesWon >= 3 ? 1 : 0);
+  int _rankIndex(int gamesWon) => gamesWon >= 12 ? 2 : (gamesWon >= 3 ? 1 : 0);
 
   @override
   Future<void> close() {
