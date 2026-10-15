@@ -120,11 +120,10 @@ class _NewHomeTabScaffoldState extends State<NewHomeTabScaffold> {
                 index: _index,
                 children: [
                   for (var i = 0; i < screens.length; i++)
-                    // Las animaciones en bucle de la home (nubes, punto
-                    // vivo) se paran cuando su pestaña no está visible.
-                    i == 0
-                        ? TickerMode(enabled: _index == 0, child: screens[i])
-                        : screens[i],
+                    // Las animaciones de una pestaña (nubes, punto vivo,
+                    // shimmer, escenas) se paran mientras no está visible:
+                    // el IndexedStack mantiene montadas las cinco.
+                    TickerMode(enabled: _index == i, child: screens[i]),
                 ],
               ),
             ),
