@@ -1,166 +1,737 @@
 import 'dart:async';
 import 'dart:math' as math;
-import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
-import 'package:guachinches/l10n/app_localizations.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:guachinches/core/logging/app_logger.dart';
 import 'package:guachinches/data/HttpRemoteRepository.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
-import 'package:guachinches/config/app_colors.dart';
-import 'package:guachinches/config/app_text_styles.dart';
-import 'package:guachinches/config/brand_colors.dart';
 import 'package:guachinches/data/cubit/menu/menu_cubit.dart';
-import 'package:guachinches/data/cubit/restaurants/map/restaurant_map_cubit.dart';
-import 'package:guachinches/data/cubit/restaurants/map/restaurant_map_state.dart';
-import 'package:guachinches/data/model/Category.dart';
-import 'package:guachinches/data/model/Municipality.dart';
-import 'package:guachinches/data/model/Types.dart';
-import 'package:guachinches/data/model/restaurant.dart';
+import 'package:guachinches/data/cubit/new_home/islands_cubit.dart';
 import 'package:guachinches/data/cubit/new_home/new_home_filters_cubit.dart';
 import 'package:guachinches/data/cubit/new_home/new_home_filters_state.dart';
+import 'package:guachinches/data/cubit/restaurants/map/restaurant_map_cubit.dart';
+import 'package:guachinches/data/cubit/restaurants/map/restaurant_map_state.dart';
+import 'package:guachinches/data/http_client.dart';
+import 'package:guachinches/data/model/Island.dart';
+import 'package:guachinches/data/model/Types.dart';
+import 'package:guachinches/data/model/restaurant.dart';
+import 'package:guachinches/ui/pages/advance_search/list_theme.dart';
+import 'package:guachinches/ui/pages/advance_search/map_clusters.dart';
+import 'package:guachinches/ui/pages/map/driving_detector.dart';
+import 'package:guachinches/ui/pages/map/map_logic.dart';
+import 'package:guachinches/ui/pages/map/map_pins.dart';
 import 'package:guachinches/ui/pages/map/map_search_presenter.dart';
 import 'package:guachinches/ui/pages/map/map_style.dart';
-import 'package:guachinches/ui/pages/map/label_placement.dart';
-import 'package:guachinches/ui/pages/map/marker_render_mode.dart';
-import 'package:guachinches/ui/pages/restaurant_detail/restaurant_detail_screen.dart';
-import 'package:guachinches/data/http_client.dart';
-import 'package:maps_launcher/maps_launcher.dart';
-import 'package:share_plus/share_plus.dart';
+import 'package:guachinches/ui/pages/map/widgets/map_chrome.dart';
+import 'package:guachinches/ui/pages/map/widgets/map_drive.dart';
+import 'package:guachinches/ui/pages/map/widgets/map_nearby.dart';
+import 'package:guachinches/ui/pages/map/widgets/map_peek_sheet.dart';
 import 'package:guachinches/ui/pages/new_home/sheets/island_picker_sheet.dart';
-import 'package:guachinches/core/logging/app_logger.dart';
-import 'package:guachinches/data/cubit/new_home/islands_cubit.dart';
-import 'package:guachinches/data/model/Island.dart';
+import 'package:guachinches/ui/pages/new_home/widgets/gm_place_card.dart'
+    show gmDisplayName, gmPlaceName;
+import 'package:guachinches/ui/pages/restaurant_detail/restaurant_detail_screen.dart';
+import 'package:guachinches/ui/theme/gm_favorites.dart';
+import 'package:guachinches/ui/theme/gm_motion.dart';
+import 'package:guachinches/ui/theme/gm_tokens.dart';
+import 'package:guachinches/ui/theme/gm_widgets.dart';
 import 'package:guachinches/utils/island_bounds.dart';
-import 'package:guachinches/utils/open_state.dart';
 import 'package:guachinches/utils/island_key_utils.dart';
+import 'package:maps_launcher/maps_launcher.dart';
+import 'package:url_launcher/url_launcher.dart';
 
-const double _markerHueOpen = BitmapDescriptor.hueGreen;
-const double _markerHueClosed = BitmapDescriptor.hueRed;
-
-// Driving detection thresholds (m/s)
-const double _kEnterDriveSpeed = 5.0; // ~18 km/h
-const double _kExitDriveSpeed = 1.5; // ~5.4 km/h
-const int _kDriveSampleWindow = 8;
-const int _kDriveMinSamplesToEnter = 5;
-
+/// Pestaña Mapa (tablero TabMapa) y su variante empujada «Cerca de ti»
+/// (tablero MapaEmpujado). Ambas abren el modo coche (tablero MapaCoche)
+/// cuando el usuario confirma que va conduciendo.
+///
+/// - `MapSearch()` es la pestaña 2 de `NewHomeTabScaffold`: el GoogleMap se
+///   monta la primera vez que el usuario entra en la pestaña.
+/// - `MapSearch(nearby: true)` se empuja desde «Cerca de ti» del Inicio y de
+///   Listas: se monta al instante (antes esperaba a que la pestaña 2 fuera
+///   la elegida y nunca aparecía).
 class MapSearch extends StatefulWidget {
-  const MapSearch({Key? key}) : super(key: key);
+  final bool nearby;
+  const MapSearch({super.key, this.nearby = false});
 
   @override
   State<MapSearch> createState() => MapSearchState();
 }
 
-class MapSearchState extends State<MapSearch> implements MapSearchView {
-  final Completer<GoogleMapController> _controller =
-      Completer<GoogleMapController>();
-  LatLng currentLocation = const LatLng(28.4495292, -16.4206765);
-  double _lastHeading = 0;
-  bool _hasUserLocation = false;
+enum _Phase { loading, ready, error }
 
-  static const CameraPosition _initialCamera = CameraPosition(
-    target: LatLng(28.4495292, -16.4206765),
-    zoom: 14.4746,
-  );
+enum _Loc { unknown, granted, denied }
 
-  Set<Marker> _markers = {};
-  bool _firstCameraMove = true;
+class MapSearchState extends State<MapSearch>
+    with WidgetsBindingObserver
+    implements MapSearchView {
+  static const int _kMapTabIndex = 2;
+  static const LatLng _kDefaultTarget = LatLng(28.4528, -16.4478);
 
-  late RemoteRepository remoteRepository;
-  late RestaurantMapCubit restaurantsCubit;
-  late MapSearchPresenter presenter;
+  late final RemoteRepository _repo;
+  late final RestaurantMapCubit _restaurantsCubit;
+  late final MapSearchPresenter _presenter;
+  late final MapPinFactory _pins = MapPinFactory(onReady: _onPinReady);
 
-  List<ModelCategory> categories = [];
-  List<Municipality> municipalities = [];
-  List<Types> types = [];
-  String islandId = '';
-
-  // Quick filter state (header chips)
-  bool _quickOpen = false;
-  String? _quickCategoryId;
-  String _searchText = '';
-
-  StreamSubscription<Position>? _locationSubscription;
-  final _DrivingDetector _driving = _DrivingDetector();
-
-  // Cached list of currently rendered restaurants (whatever the cubit emitted)
-  List<Restaurant> _allRestaurants = [];
-
-  // Custom marker bitmap cache, keyed by "${id}_${open}_${mode}".
-  final Map<String, ({BitmapDescriptor bitmap, Offset anchor})> _markerCache = {};
-  final Set<String> _pendingMarkerKeys = {};
-
-  // Compact dot icons (zoom-out fallback)
-  BitmapDescriptor? _dotIconOpen;
-  BitmapDescriptor? _dotIconClosed;
-  double _currentZoom = 14.4746;
-  // Niveles de detalle de markers (dot → burbuja → etiqueta con nombre).
-  // Los nombres solo aparecen ya bien metido en una zona (15+) y con un cap
-  // bajo: a media isla los nombres tapaban los topónimos y saturaban el mapa.
-  static const double _kBubbleZoomThreshold = 14.0;
-  static const double _kLabelZoomThreshold = 15.0;
-  static const int _kMaxLabelsInViewport = 10;
-
-  // Visible-restaurants carousel
-  List<Restaurant> _visibleRestaurants = [];
-  String? _selectedRestaurantId;
-  final PageController _cardsPageController =
-      PageController(viewportFraction: 0.88);
-  bool _suppressNextPageEvent = false;
-
-  // Live search
-  final TextEditingController _searchController = TextEditingController();
+  final Completer<GoogleMapController> _controller = Completer();
+  final MapDrivingDetector _driving = MapDrivingDetector();
+  final TextEditingController _search = TextEditingController();
+  final ScrollController _carousel = ScrollController();
   Timer? _searchDebounce;
 
-  // Index del tab Mapa en NewHomeTabScaffold.
-  static const int _kMapTabIndex = 2;
-  // Defer-mount: el GoogleMap solo se monta cuando el usuario entra al tab,
-  // si no las platform views fallan al renderizar tiles.
+  String _islandId = '';
+  List<Types> _types = const [];
+  _Phase _phase = _Phase.loading;
+  List<Restaurant> _restaurants = const [];
+  List<MapSite> _sites = const [];
+  MapFilters _filters = const MapFilters();
+
+  // Ubicación.
+  StreamSubscription<Position>? _posSub;
+  bool _startingLocation = false;
+  _Loc _loc = _Loc.unknown;
+  LocationPermission? _lastPermission;
+  bool _serviceOff = false;
+  double? _userLat;
+  double? _userLon;
+  double _heading = 0;
+  bool _firstFix = true;
+  DateTime _sitesAt = DateTime.fromMillisecondsSinceEpoch(0);
+  double? _sitesLat;
+  double? _sitesLon;
+
+  // Mapa.
   bool _mapMounted = false;
+  bool _onMapTab = false;
+  double _zoom = 14.5;
+  double? _pendingZoom;
+  MapBox? _bounds;
+  int _pinVersion = 0;
+  String? _markersKey;
+  Set<Marker> _markersMemo = const {};
+
+  // Selección (pestaña) y zona congelada para anterior/siguiente.
+  String? _selectedId;
+  List<MapSite> _zone = const [];
+
+  // «Cerca de ti».
+  bool _listMode = false;
+  bool _showIsland = false;
+  String? _nearbyHighlight;
+
+  // Modo coche.
+  MapDriveController? _drive;
+  bool _suggestOpen = false;
+
+  // Cambio de isla al arrastrar el mapa (solo pestaña).
+  String? _autoIslandKeyInFlight;
+  bool _movingCameraToIsland = false;
+  String? _pendingFlyIslandId;
+
+  bool get _islandMode => !widget.nearby || _showIsland;
+
+  // ── Ciclo de vida ──────────────────────────────────────────────────────
 
   @override
   void initState() {
     super.initState();
-    remoteRepository = HttpRemoteRepository(sharedHttpClient);
-    restaurantsCubit = context.read<RestaurantMapCubit>();
-    presenter = MapSearchPresenter(this, remoteRepository, restaurantsCubit);
-
-    final filtersState = context.read<NewHomeFiltersCubit>().state;
-    islandId = filtersState.islandId;
-
-    presenter.getAllTypes();
-    presenter.getAllMunicipalities(islandId);
-    presenter.getAllCategories();
-    presenter.getAllRestaurants(islandId);
+    WidgetsBinding.instance.addObserver(this);
+    _repo = HttpRemoteRepository(sharedHttpClient);
+    _restaurantsCubit = context.read<RestaurantMapCubit>();
+    _presenter = MapSearchPresenter(this, _repo, _restaurantsCubit);
+    _islandId = context.read<NewHomeFiltersCubit>().state.islandId;
 
     _driving.isDriving.addListener(_onDrivingChanged);
     _driving.shouldSuggest.addListener(_onDriveSuggested);
-    _buildDotIcons();
+    GmFavorites.instance.ensureLoaded();
 
-    // Si abrimos directamente esta pestaña (deep-link / initialIndex), ya
-    // estamos visibles → marcamos como montado y arrancamos sensores.
-    final menu = context.read<MenuCubit>();
-    if (menu.state.selectedIndex == _kMapTabIndex) {
+    _presenter.getAllTypes();
+    // «Cerca de ti» reutiliza los sitios que ya cargó la pestaña.
+    final s = _restaurantsCubit.state;
+    if (s is AllRestaurantMapLoaded &&
+        s.restaurantResponse.restaurants.isNotEmpty) {
+      _setRestaurants(s.restaurantResponse.restaurants, notify: false);
+    }
+    _load(silent: true);
+
+    final onTab =
+        context.read<MenuCubit>().state.selectedIndex == _kMapTabIndex;
+    if (widget.nearby || onTab) {
       _mapMounted = true;
-      _startLiveLocation();
+      _onMapTab = true;
+      _startLocation();
     }
   }
 
-  bool _suggestSheetOpen = false;
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _driving.isDriving.removeListener(_onDrivingChanged);
+    _driving.shouldSuggest.removeListener(_onDriveSuggested);
+    _driving.dispose();
+    _drive?.dispose();
+    _posSub?.cancel();
+    _pins.dispose();
+    _search.dispose();
+    _carousel.dispose();
+    _searchDebounce?.cancel();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Volver de Ajustes con el permiso concedido: arrancar la ubicación.
+    if (state == AppLifecycleState.resumed &&
+        _loc != _Loc.granted &&
+        _onMapTab) {
+      _startLocation(prompt: false);
+    }
+  }
+
+  @override
+  void setTypes(List<Types> types) {
+    if (mounted) setState(() => _types = types);
+  }
+
+  void _onPinReady() {
+    if (mounted) setState(() => _pinVersion++);
+  }
+
+  // ── Datos ──────────────────────────────────────────────────────────────
+
+  Future<void> _load({bool silent = false, bool force = false}) async {
+    if (!silent && mounted) setState(() => _phase = _Phase.loading);
+    try {
+      if (force) {
+        await _presenter.reloadRestaurants(_islandId);
+      } else {
+        await _presenter.getAllRestaurants(_islandId);
+      }
+    } catch (e) {
+      AppLogger.warn('mapa', 'no se pudieron cargar los sitios: $e');
+      if (!mounted) return;
+      if (_phase != _Phase.ready || _restaurants.isEmpty) {
+        setState(() => _phase = _Phase.error);
+      }
+    }
+  }
+
+  void _setRestaurants(List<Restaurant> list, {bool notify = true}) {
+    _restaurants = list;
+    _sites = buildMapSites(list, DateTime.now(),
+        userLat: _userLat, userLon: _userLon);
+    _sitesAt = DateTime.now();
+    _sitesLat = _userLat;
+    _sitesLon = _userLon;
+    _phase = _Phase.ready;
+    if (_selectedId != null && !_sites.any((s) => s.id == _selectedId)) {
+      _selectedId = null;
+    }
+    _drive?.update(sites: _sites);
+    if (notify && mounted) setState(() {});
+    WidgetsBinding.instance.addPostFrameCallback((_) => _refreshBounds());
+  }
+
+  /// Distancias y estados de apertura al día (como mucho cada 30 m o 60 s).
+  void _refreshSitesForLocation({bool force = false}) {
+    if (_restaurants.isEmpty) return;
+    final moved = (_sitesLat == null || _userLat == null)
+        ? double.infinity
+        : Geolocator.distanceBetween(
+            _sitesLat!, _sitesLon!, _userLat!, _userLon!);
+    final stale = DateTime.now().difference(_sitesAt).inSeconds >= 60;
+    if (!force && moved < 30 && !stale) return;
+    _sites = buildMapSites(_restaurants, DateTime.now(),
+        userLat: _userLat, userLon: _userLon);
+    _sitesAt = DateTime.now();
+    _sitesLat = _userLat;
+    _sitesLon = _userLon;
+  }
+
+  List<MapSite> get _filtered => applyMapFilters(_sites, _filters);
+
+  MapSite? _siteById(String? id) {
+    if (id == null) return null;
+    for (final s in _sites) {
+      if (s.id == id) return s;
+    }
+    return null;
+  }
+
+  // ── Ubicación ──────────────────────────────────────────────────────────
+
+  Future<void> _startLocation({bool prompt = true}) async {
+    if (_posSub != null || _startingLocation) return;
+    _startingLocation = true;
+    try {
+      if (!await Geolocator.isLocationServiceEnabled()) {
+        _serviceOff = true;
+        _setDenied();
+        return;
+      }
+      _serviceOff = false;
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied && prompt) {
+        permission = await Geolocator.requestPermission();
+      }
+      _lastPermission = permission;
+      if (permission != LocationPermission.whileInUse &&
+          permission != LocationPermission.always) {
+        _setDenied();
+        return;
+      }
+      if (!mounted) return;
+      setState(() => _loc = _Loc.granted);
+      _posSub = Geolocator.getPositionStream(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          distanceFilter: 5,
+        ),
+      ).listen(_onPosition, onError: (Object e) {
+        AppLogger.warn('mapa', 'flujo de ubicación: $e');
+      });
+      _centerOnUserNow();
+    } catch (e) {
+      AppLogger.warn('mapa', 'no se pudo arrancar la ubicación: $e');
+      _setDenied();
+    } finally {
+      _startingLocation = false;
+    }
+  }
+
+  void _setDenied() {
+    if (!mounted) return;
+    final first = _loc != _Loc.denied;
+    setState(() => _loc = _Loc.denied);
+    // Sin ubicación: la isla entera (también en «Cerca de ti»).
+    if (first) _flyToIsland(_islandId);
+  }
+
+  void _stopLocation() {
+    _posSub?.cancel();
+    _posSub = null;
+    _driving.onPaused();
+  }
+
+  /// Centra ya con la última posición conocida (el primer fix del flujo
+  /// puede tardar varios segundos en iOS).
+  Future<void> _centerOnUserNow() async {
+    try {
+      Position? pos = await Geolocator.getLastKnownPosition();
+      pos ??= await Geolocator.getCurrentPosition(
+        locationSettings:
+            const LocationSettings(accuracy: LocationAccuracy.high),
+      ).timeout(const Duration(seconds: 8));
+      if (!mounted) return;
+      _applyPosition(pos.latitude, pos.longitude);
+    } catch (_) {
+      // El flujo centrará cuando llegue el primer fix.
+    }
+  }
+
+  void _onPosition(Position p) {
+    if (!mounted) return;
+    if (p.heading >= 0 && p.speed > 3.0) _heading = p.heading;
+    _driving.onPosition(p);
+    _applyPosition(p.latitude, p.longitude);
+  }
+
+  void _applyPosition(double lat, double lon) {
+    _userLat = lat;
+    _userLon = lon;
+    final first = _firstFix;
+    _refreshSitesForLocation(force: first);
+    setState(() {
+      if (_showIsland && widget.nearby && first) _showIsland = false;
+    });
+    _drive?.update(lat: lat, lon: lon, heading: _heading, sites: _sites);
+    if (first) {
+      _firstFix = false;
+      if (widget.nearby && !_showIsland) {
+        _fitNearby();
+      } else {
+        _animateTo(LatLng(lat, lon), zoom: 14.5);
+      }
+    }
+  }
+
+  Future<void> _activateLocation() async {
+    HapticFeedback.selectionClick();
+    if (_serviceOff) {
+      await Geolocator.openLocationSettings();
+      return;
+    }
+    if (_lastPermission == LocationPermission.deniedForever) {
+      await Geolocator.openAppSettings();
+      return;
+    }
+    await _startLocation();
+  }
+
+  // ── Cámara ─────────────────────────────────────────────────────────────
+
+  Future<void> _animateTo(LatLng target, {double? zoom}) async {
+    if (!_controller.isCompleted) return;
+    final c = await _controller.future;
+    await c.animateCamera(zoom == null
+        ? CameraUpdate.newLatLng(target)
+        : CameraUpdate.newLatLngZoom(target, zoom));
+  }
+
+  Future<void> _fitBounds(List<(double, double)> pts, {double pad = 64}) async {
+    if (pts.isEmpty || !_controller.isCompleted) return;
+    final c = await _controller.future;
+    if (pts.length == 1) {
+      await c.animateCamera(
+          CameraUpdate.newLatLngZoom(LatLng(pts.first.$1, pts.first.$2), 15));
+      return;
+    }
+    var minLat = 90.0, maxLat = -90.0, minLon = 180.0, maxLon = -180.0;
+    for (final p in pts) {
+      minLat = math.min(minLat, p.$1);
+      maxLat = math.max(maxLat, p.$1);
+      minLon = math.min(minLon, p.$2);
+      maxLon = math.max(maxLon, p.$2);
+    }
+    if ((maxLat - minLat).abs() < 1e-5 && (maxLon - minLon).abs() < 1e-5) {
+      await c.animateCamera(CameraUpdate.newLatLngZoom(
+          LatLng(minLat, minLon), math.min(_zoom + 3, 19)));
+      return;
+    }
+    await c.animateCamera(CameraUpdate.newLatLngBounds(
+        LatLngBounds(
+            southwest: LatLng(minLat, minLon),
+            northeast: LatLng(maxLat, maxLon)),
+        pad));
+  }
+
+  /// Encuadra el círculo de 3 km alrededor del usuario.
+  void _fitNearby() {
+    final lat = _userLat, lon = _userLon;
+    if (lat == null || lon == null) return;
+    const r = kNearbyRadiusKm * 1000;
+    final dLat = r / 111200;
+    final dLon = r / (111320 * math.cos(lat * math.pi / 180));
+    _fitBounds([(lat - dLat, lon - dLon), (lat + dLat, lon + dLon)], pad: 12);
+  }
+
+  Future<void> _refreshBounds() async {
+    if (!_controller.isCompleted || !mounted) return;
+    final c = await _controller.future;
+    LatLngBounds b;
+    try {
+      b = await c.getVisibleRegion();
+    } catch (_) {
+      return;
+    }
+    if (!mounted) return;
+    final box = MapBox(b.southwest.latitude, b.southwest.longitude,
+        b.northeast.latitude, b.northeast.longitude);
+    setState(() {
+      _bounds = box;
+      final z = _pendingZoom;
+      if (z != null) _zoom = z;
+    });
+    if (!widget.nearby) _maybeSwitchIslandFor(box);
+  }
+
+  // ── Selección ──────────────────────────────────────────────────────────
+
+  (double, double) get _refPoint {
+    if (_userLat != null && _userLon != null) return (_userLat!, _userLon!);
+    final b = _bounds;
+    if (b != null) return (b.centerLat, b.centerLon);
+    return (_kDefaultTarget.latitude, _kDefaultTarget.longitude);
+  }
+
+  void _select(MapSite site) {
+    HapticFeedback.selectionClick();
+    final box = _bounds;
+    final pool = box == null ? _filtered : sitesIn(_filtered, box);
+    final zone = [
+      ...pool,
+      if (!pool.any((s) => s.id == site.id)) site,
+    ];
+    final (lat, lon) = _refPoint;
+    setState(() {
+      _selectedId = site.id;
+      _zone = sortByProximity(zone, lat, lon);
+    });
+    _animateTo(LatLng(site.lat, site.lon));
+  }
+
+  void _step(int delta) {
+    final i = _zone.indexWhere((s) => s.id == _selectedId);
+    final next = zoneStep(i, delta, _zone.length);
+    if (next < 0) return;
+    final s = _zone[next];
+    HapticFeedback.selectionClick();
+    setState(() => _selectedId = s.id);
+    _animateTo(LatLng(s.lat, s.lon));
+  }
+
+  void _deselect() {
+    if (_selectedId == null) return;
+    setState(() {
+      _selectedId = null;
+      _zone = const [];
+    });
+  }
+
+  void _highlightNearby(MapSite site, List<MapSite> near) {
+    HapticFeedback.selectionClick();
+    setState(() => _nearbyHighlight = site.id);
+    final i = near.indexWhere((s) => s.id == site.id);
+    if (i >= 0 && _carousel.hasClients) {
+      final w = MapNearbySheet.cardWidth(context) + 10;
+      _carousel.animateTo(
+        math.min(i * w, _carousel.position.maxScrollExtent),
+        duration: const Duration(milliseconds: 320),
+        curve: GmMotion.settle,
+      );
+    }
+  }
+
+  // ── Acciones de sitio ──────────────────────────────────────────────────
+
+  void _openDetail(MapSite s) {
+    Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => RestaurantDetailScreen(id: s.id),
+    ));
+  }
+
+  void _directions(MapSite s) {
+    MapsLauncher.launchCoordinates(
+        s.lat, s.lon, gmDisplayName(s.restaurant.nombre));
+  }
+
+  VoidCallback? _callFor(MapSite s) {
+    final phone = s.restaurant.telefono.replaceAll(RegExp(r'[^\d+]'), '');
+    if (phone.length < 6) return null;
+    return () async {
+      try {
+        // Sin canLaunchUrl: en iOS devuelve false para tel: si el esquema no
+        // está en LSApplicationQueriesSchemes.
+        await launchUrl(Uri(scheme: 'tel', path: phone));
+      } catch (e) {
+        AppLogger.warn('mapa', 'no se pudo llamar: $e');
+      }
+    };
+  }
+
+  // ── Filtros ────────────────────────────────────────────────────────────
+
+  void _toggleOpen() {
+    setState(() {
+      _filters = _filters.copyWith(openNow: !_filters.openNow);
+      _selectedId = null;
+    });
+  }
+
+  void _toggleType(String id) {
+    setState(() {
+      _filters = _filters.toggleType(id);
+      _selectedId = null;
+    });
+  }
+
+  void _onSearchChanged(String v) {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 300), () {
+      if (!mounted) return;
+      setState(() {
+        _filters = _filters.copyWith(query: v);
+        _selectedId = null;
+      });
+      // Si lo buscado no está en pantalla, se encuadra.
+      final matches = _filtered;
+      final box = _bounds;
+      if (v.trim().isNotEmpty &&
+          matches.isNotEmpty &&
+          matches.length <= 40 &&
+          (box == null || sitesIn(matches, box).isEmpty)) {
+        _fitBounds([for (final s in matches) (s.lat, s.lon)]);
+      }
+    });
+  }
+
+  void _clearSearch() {
+    _searchDebounce?.cancel();
+    _search.clear();
+    setState(() => _filters = _filters.copyWith(query: ''));
+  }
+
+  void _clearFilters() {
+    _searchDebounce?.cancel();
+    _search.clear();
+    setState(() {
+      _filters = const MapFilters();
+      _selectedId = null;
+    });
+  }
+
+  ListThemeKind? _singleTypeKind() {
+    if (_filters.typeIds.length != 1) return null;
+    final id = _filters.typeIds.first;
+    for (final t in _types) {
+      if (t.id == id) return listThemeForType(t.id, t.nombre);
+    }
+    return listThemeForType(id, '');
+  }
+
+  // ── Isla ───────────────────────────────────────────────────────────────
+
+  void _onIslandChanged(String id) {
+    if (!mounted || id == _islandId) return;
+    setState(() {
+      _islandId = id;
+      _restaurants = const [];
+      _sites = const [];
+      _selectedId = null;
+      _phase = _Phase.loading;
+    });
+    _load();
+    if (_onMapTab) {
+      _flyToIsland(id);
+    } else {
+      _pendingFlyIslandId = id;
+    }
+  }
+
+  void _showIslandSheet() {
+    IslandPickerSheet.show(
+      context: context,
+      selectedIslandId: context.read<NewHomeFiltersCubit>().state.islandId,
+      onSelect: (island) {
+        final key = (island.key != null && island.key!.isNotEmpty)
+            ? island.key!
+            : islandKeyFromName(island.name);
+        context
+            .read<NewHomeFiltersCubit>()
+            .selectIsland(id: island.id, key: key, label: island.name);
+      },
+    );
+  }
+
+  Island? _islandById(String id) {
+    final st = context.read<IslandsCubit>().state;
+    if (st is! IslandsLoaded) return null;
+    for (final i in st.islands) {
+      if (i.id == id) return i;
+    }
+    return null;
+  }
+
+  Future<void> _flyToIsland(String islandId) async {
+    if (!_controller.isCompleted) return;
+    final island = _islandById(islandId);
+    final key = island == null
+        ? context.read<NewHomeFiltersCubit>().state.islandKey
+        : ((island.key != null && island.key!.isNotEmpty)
+            ? island.key!
+            : islandKeyFromName(island.name));
+    final b = islandBoundsForKey(key);
+    if (b == null) return;
+    _autoIslandKeyInFlight = key.toUpperCase();
+    _movingCameraToIsland = true;
+    try {
+      final c = await _controller.future;
+      await c.animateCamera(CameraUpdate.newLatLngBounds(
+        LatLngBounds(
+          southwest: LatLng(b.minLat, b.minLon),
+          northeast: LatLng(b.maxLat, b.maxLon),
+        ),
+        40,
+      ));
+      // La animación no avisa al terminar: se espera antes de reactivar el
+      // cambio automático de isla.
+      await Future<void>.delayed(const Duration(milliseconds: 900));
+    } catch (_) {
+      // El mapa aún no está listo.
+    } finally {
+      _movingCameraToIsland = false;
+    }
+  }
+
+  /// Si el centro del mapa cae sobre OTRA isla (y el usuario está mirando
+  /// el mapa), se cambia a esa isla. Sobre el mar no se toca nada.
+  void _maybeSwitchIslandFor(MapBox box) {
+    if (!mounted || _drive != null || !_onMapTab || _movingCameraToIsland) {
+      return;
+    }
+    final key = islandKeyAt(box.centerLat, box.centerLon);
+    if (key == null) return;
+    final st = context.read<IslandsCubit>().state;
+    if (st is! IslandsLoaded) return;
+    Island? target;
+    for (final i in st.islands) {
+      final k = (i.key != null && i.key!.isNotEmpty)
+          ? i.key!
+          : islandKeyFromName(i.name);
+      if (k.toUpperCase() == key) {
+        target = i;
+        break;
+      }
+    }
+    if (target == null) return;
+    final filters = context.read<NewHomeFiltersCubit>();
+    if (filters.state.islandId == target.id) {
+      _autoIslandKeyInFlight = null;
+      return;
+    }
+    if (_autoIslandKeyInFlight == key) return;
+    _autoIslandKeyInFlight = key;
+    AppLogger.info('mapa', 'auto-isla → ${target.name} (centro sobre $key)');
+    filters.selectIsland(id: target.id, key: key, label: target.name);
+  }
+
+  // ── Pestaña visible ────────────────────────────────────────────────────
+
+  void _onMenuChanged(MenuState state) {
+    if (widget.nearby) return;
+    final onMap = state.selectedIndex == _kMapTabIndex;
+    _onMapTab = onMap;
+    if (onMap && !_mapMounted) {
+      // Un fotograma de margen para que el platform view pinte las teselas.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && !_mapMounted) setState(() => _mapMounted = true);
+      });
+    }
+    if (onMap && _pendingFlyIslandId != null) {
+      final id = _pendingFlyIslandId!;
+      _pendingFlyIslandId = null;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _flyToIsland(id);
+      });
+    }
+    if (onMap) {
+      // Al volver a la pestaña, horarios y distancias al día.
+      _refreshSitesForLocation();
+      setState(() {});
+      _startLocation();
+    } else {
+      _stopLocation();
+    }
+  }
+
+  // ── Modo coche ─────────────────────────────────────────────────────────
 
   void _onDriveSuggested() {
-    if (!mounted) return;
-    if (!_driving.shouldSuggest.value) return;
-    if (_suggestSheetOpen) return;
-    _suggestSheetOpen = true;
+    if (!mounted || !_driving.shouldSuggest.value || _suggestOpen) return;
+    if (!(ModalRoute.of(context)?.isCurrent ?? true) || !_onMapTab) {
+      _driving.dismissSuggestion(cooldown: const Duration(minutes: 1));
+      return;
+    }
+    _suggestOpen = true;
     HapticFeedback.mediumImpact();
     showModalBottomSheet<void>(
       context: context,
+      useRootNavigator: true,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => _DriveModeSuggestionSheet(
+      builder: (ctx) => MapDriveSuggestionSheet(
         onConfirm: () {
           Navigator.of(ctx).pop();
           _driving.confirmDrive();
@@ -171,3069 +742,618 @@ class MapSearchState extends State<MapSearch> implements MapSearchView {
         },
       ),
     ).whenComplete(() {
-      _suggestSheetOpen = false;
-      // If sheet closed via swipe/back without an explicit choice, treat
-      // it as a dismissal so we don't re-prompt immediately.
-      if (_driving.shouldSuggest.value) {
-        _driving.dismissSuggestion();
-      }
+      _suggestOpen = false;
+      // Cerrada sin elegir: cuenta como «Ahora no».
+      if (_driving.shouldSuggest.value) _driving.dismissSuggestion();
     });
-  }
-
-  Future<void> _buildDotIcons() async {
-    final open = await _buildDotBitmap(const Color.fromRGBO(149, 220, 0, 1));
-    final closed =
-        await _buildDotBitmap(const Color.fromRGBO(226, 120, 120, 1));
-    if (!mounted) return;
-    setState(() {
-      _dotIconOpen = open;
-      _dotIconClosed = closed;
-    });
-  }
-
-  Future<BitmapDescriptor> _buildDotBitmap(Color color) async {
-    const double scale = 3.0;
-    const double size = 22;
-    final recorder = ui.PictureRecorder();
-    final canvas = Canvas(recorder);
-    canvas.scale(scale, scale);
-    final center = const Offset(size / 2, size / 2);
-    // Outer white ring
-    canvas.drawCircle(center, size / 2, Paint()..color = Colors.white);
-    // Colored fill
-    canvas.drawCircle(center, size / 2 - 3, Paint()..color = color);
-    // Inner highlight
-    canvas.drawCircle(
-      center,
-      size / 2 - 7,
-      Paint()..color = Colors.white.withOpacity(0.25),
-    );
-    final pic = recorder.endRecording();
-    final img = await pic.toImage(
-      (size * scale).round(),
-      (size * scale).round(),
-    );
-    final bd = await img.toByteData(format: ui.ImageByteFormat.png);
-    return BitmapDescriptor.bytes(
-      bd!.buffer.asUint8List(),
-      imagePixelRatio: scale,
-    );
-  }
-
-  @override
-  void dispose() {
-    _driving.isDriving.removeListener(_onDrivingChanged);
-    _driving.shouldSuggest.removeListener(_onDriveSuggested);
-    _driving.dispose();
-    _locationSubscription?.cancel();
-    _cardsPageController.dispose();
-    _searchController.dispose();
-    _searchDebounce?.cancel();
-    super.dispose();
-  }
-
-  // ── Visible restaurants ────────────────────────────────────────────────
-  Future<void> _refreshVisible() async {
-    if (!_controller.isCompleted) return;
-    final controller = await _controller.future;
-    final LatLngBounds bounds;
-    try {
-      bounds = await controller.getVisibleRegion();
-    } catch (_) {
-      return;
-    }
-    final inBounds = _allRestaurants.where((r) {
-      if (r.lat == 0.0 && r.lon == 0.0) return false;
-      return bounds.contains(LatLng(r.lat, r.lon));
-    }).toList();
-    final inBoundsIds = inBounds.map((r) => r.id).toSet();
-
-    // Stable order: keep already-shown restaurants in their existing slots
-    // (so swiping cards never reshuffles the carousel under the user's
-    // finger). Newly-visible restaurants are appended sorted by distance.
-    final preserved = _visibleRestaurants
-        .where((r) => inBoundsIds.contains(r.id))
-        .toList(growable: false);
-    final preservedIds = preserved.map((r) => r.id).toSet();
-    final newlyVisible = inBounds
-        .where((r) => !preservedIds.contains(r.id))
-        .toList()
-      ..sort((a, b) => _distanceTo(a).compareTo(_distanceTo(b)));
-
-    // First load (or after a hard reset): no stable order to preserve, so
-    // sort everything by distance from the user.
-    final List<Restaurant> visible;
-    if (preserved.isEmpty) {
-      visible = newlyVisible;
-    } else {
-      visible = [...preserved, ...newlyVisible];
-    }
-
-    // Al arrastrar sobre otra isla, cambiamos de isla y cargamos sus
-    // restaurantes (si no, el mapa se queda sin marcadores en esa isla).
-    _maybeSwitchIslandFor(bounds);
-
-    if (!mounted) return;
-    setState(() {
-      _visibleRestaurants = visible;
-      // La selección solo vive mientras el negocio siga en pantalla. Ya NO
-      // auto-seleccionamos el primero: el sheet aparece al tocar un marker y
-      // se puede cerrar arrastrándolo abajo (deselecciona).
-      if (_selectedRestaurantId != null &&
-          !inBoundsIds.contains(_selectedRestaurantId)) {
-        _selectedRestaurantId = null;
-      }
-    });
-
-    // Sync the PageView only if the selected card actually moved to a
-    // different index in the new list (rare with stable ordering).
-    final idx = _selectedIndex();
-    if (idx >= 0 &&
-        _cardsPageController.hasClients &&
-        (_cardsPageController.page ?? 0).round() != idx) {
-      _suppressNextPageEvent = true;
-      _cardsPageController.animateToPage(
-        idx,
-        duration: const Duration(milliseconds: 220),
-        curve: Curves.easeOut,
-      );
-    }
-  }
-
-  int _selectedIndex() {
-    if (_selectedRestaurantId == null) return -1;
-    return _visibleRestaurants
-        .indexWhere((r) => r.id == _selectedRestaurantId);
-  }
-
-  void _onCardPageChanged(int index) {
-    if (_suppressNextPageEvent) {
-      _suppressNextPageEvent = false;
-      return;
-    }
-    if (index < 0 || index >= _visibleRestaurants.length) return;
-    final r = _visibleRestaurants[index];
-    setState(() => _selectedRestaurantId = r.id);
-    _animateToRestaurant(r);
-  }
-
-  // ── Location ───────────────────────────────────────────────────────────
-  Future<void> _startLiveLocation() async {
-    if (_locationSubscription != null) return;
-    try {
-      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) return;
-
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-        if (permission != LocationPermission.whileInUse &&
-            permission != LocationPermission.always) return;
-      }
-      if (permission == LocationPermission.deniedForever) return;
-
-      _locationSubscription = Geolocator.getPositionStream(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-          distanceFilter: 5,
-        ),
-      ).listen(_onPositionUpdate);
-      // Centra en el usuario YA, sin esperar al primer emit del stream
-      // (que en iOS puede tardar varios segundos en dar el primer fix).
-      _centerOnUserNow();
-    } catch (e) {
-      debugPrint('Error tracking location: $e');
-    }
-  }
-
-  /// Lleva la cámara al usuario de inmediato: última posición conocida
-  /// (instantánea) o, si no hay, una lectura puntual con timeout. Sin esto la
-  /// cámara se queda en el punto por defecto hasta que llega el primer fix.
-  Future<void> _centerOnUserNow() async {
-    try {
-      Position? pos = await Geolocator.getLastKnownPosition();
-      pos ??= await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-        ),
-      ).timeout(const Duration(seconds: 8));
-      if (!mounted) return;
-      setState(() {
-        currentLocation = LatLng(pos!.latitude, pos.longitude);
-        _hasUserLocation = true;
-      });
-      _firstCameraMove = false;
-      await _animateToUser(zoom: 15, tilt: 0, bearing: 0);
-    } catch (_) {
-      // El stream centrará cuando llegue el primer fix.
-    }
-  }
-
-  void _setSensorsActive(bool active) {
-    if (active) {
-      _startLiveLocation();
-    } else {
-      _locationSubscription?.cancel();
-      _locationSubscription = null;
-      _driving.onPaused();
-    }
-  }
-
-  void _onPositionUpdate(Position position) {
-    if (!mounted) return;
-    if (position.heading >= 0 && position.speed > 3.0) {
-      _lastHeading = position.heading;
-    }
-    setState(() {
-      currentLocation = LatLng(position.latitude, position.longitude);
-      _hasUserLocation = true;
-    });
-    _driving.onPosition(position);
-
-    if (_firstCameraMove) {
-      _firstCameraMove = false;
-      _animateToUser(zoom: 14.4746, tilt: 0, bearing: 0);
-    } else if (_driving.isDriving.value) {
-      _animateToUser(
-        zoom: 16,
-        tilt: 55,
-        bearing: _lastHeading,
-        chase: true,
-      );
-    }
-  }
-
-  /// Returns a point `meters` ahead of `origin` along `bearingDeg` (great-
-  /// circle). Used by the chase camera so the user marker sits near the
-  /// bottom of the viewport while the road ahead stays visible.
-  static LatLng _projectAhead(
-      LatLng origin, double bearingDeg, double meters) {
-    const earthR = 6371000.0;
-    final br = bearingDeg * math.pi / 180.0;
-    final dr = meters / earthR;
-    final lat1 = origin.latitude * math.pi / 180.0;
-    final lon1 = origin.longitude * math.pi / 180.0;
-    final lat2 = math.asin(
-      math.sin(lat1) * math.cos(dr) +
-          math.cos(lat1) * math.sin(dr) * math.cos(br),
-    );
-    final lon2 = lon1 +
-        math.atan2(
-          math.sin(br) * math.sin(dr) * math.cos(lat1),
-          math.cos(dr) - math.sin(lat1) * math.sin(lat2),
-        );
-    return LatLng(lat2 * 180.0 / math.pi, lon2 * 180.0 / math.pi);
-  }
-
-  Future<void> _animateToUser({
-    double zoom = 15,
-    double tilt = 0,
-    double bearing = 0,
-    bool chase = false,
-  }) async {
-    final controller = await _controller.future;
-    final target = chase
-        ? _projectAhead(currentLocation, bearing, 240)
-        : currentLocation;
-    controller.animateCamera(CameraUpdate.newCameraPosition(
-      CameraPosition(
-        target: target,
-        zoom: zoom,
-        tilt: tilt,
-        bearing: bearing,
-      ),
-    ));
   }
 
   void _onDrivingChanged() {
     if (!mounted) return;
     HapticFeedback.lightImpact();
-    setState(() {});
     if (_driving.isDriving.value) {
-      _animateToUser(
-        zoom: 16,
-        tilt: 55,
-        bearing: _lastHeading,
-        chase: true,
-      );
+      _enterDrive();
     } else {
-      _animateToUser(zoom: 15, tilt: 0, bearing: 0);
+      _drive?.active.value = false;
     }
   }
 
-  void _exitDriveMode() {
-    _driving.forceExit();
+  /// El modo coche se empuja a pantalla completa en el navegador raíz: así
+  /// tapa la barra de pestañas sin tocar el andamio de las pestañas.
+  void _enterDrive() {
+    if (_drive != null) return;
+    _refreshSitesForLocation(force: true);
+    final drive = MapDriveController()
+      ..update(lat: _userLat, lon: _userLon, heading: _heading, sites: _sites);
+    _drive = drive;
+    setState(() => _selectedId = null);
+    Navigator.of(context, rootNavigator: true)
+        .push(PageRouteBuilder<void>(
+      transitionDuration:
+          Duration(milliseconds: GmMotion.reduced(context) ? 0 : 320),
+      reverseTransitionDuration:
+          Duration(milliseconds: GmMotion.reduced(context) ? 0 : 240),
+      pageBuilder: (_, __, ___) => MapDriveScreen(
+        controller: drive,
+        onExit: _driving.forceExit,
+        onGo: _directions,
+      ),
+      transitionsBuilder: (_, a, __, child) =>
+          FadeTransition(opacity: a, child: child),
+    ))
+        .whenComplete(() {
+      // Cerrada a mano (gesto atrás): también sale del modo coche.
+      if (_driving.isDriving.value) _driving.forceExit();
+      _drive = null;
+      // El controlador se libera tras la animación de salida.
+      Future<void>.delayed(const Duration(milliseconds: 400), drive.dispose);
+      if (mounted) setState(() {});
+    });
   }
 
-  // ── Markers ────────────────────────────────────────────────────────────
-  void _rebuildMarkers(List<Restaurant> restaurants) {
-    final isDriving = _driving.isDriving.value;
-    // Solo son candidatos a label los restaurantes DENTRO del viewport actual
-    // (los que el mapa ya calcula en `_visibleRestaurants` vía
-    // getVisibleRegion). El cap se aplica sobre estos, no sobre la lista global
-    // de la isla — si no, los 24 etiquetados podrían caer todos fuera de
-    // pantalla y lo visible quedaría sin nombres.
-    final visibleIds = _visibleRestaurants.map((e) => e.id).toSet();
-    final Set<Marker> aux = {};
+  // ── Marcadores ─────────────────────────────────────────────────────────
 
-    // Candidatas a etiqueta, en orden de prioridad (el de la lista, que ya
-    // viene ordenada por relevancia/cercanía).
-    final labelCandidates = <LabelCandidate>[];
-    for (final r in restaurants) {
-      if (r.lat == 0.0 && r.lon == 0.0) continue;
-      if (_selectedRestaurantId != r.id &&
-          !isDriving &&
-          _currentZoom >= _kLabelZoomThreshold &&
-          visibleIds.contains(r.id)) {
-        labelCandidates.add(LabelCandidate(
-          id: r.id,
-          lat: r.lat,
-          lon: r.lon,
-          width: _estimatedLabelWidth(r.nombre),
-          height: _kLabelHeight,
+  Set<Marker> _markers(bool dark, List<MapSite> nearList) {
+    final List<MapSite> shown;
+    final String? selected;
+    if (!_islandMode) {
+      shown = _loc == _Loc.granted ? nearList : const [];
+      selected = _nearbyHighlight;
+    } else {
+      shown = _filtered;
+      selected = _selectedId;
+    }
+    final f = _filters;
+    final key = '${identityHashCode(_sites)}|${shown.length}|$selected|'
+        '${f.openNow}|${f.typeIds.join(',')}|${f.query}|$_loc|'
+        '${_zoom.toStringAsFixed(2)}|$dark|$_pinVersion|$_islandMode';
+    if (key == _markersKey) return _markersMemo;
+
+    final out = <Marker>{};
+    final selIndex = shown.indexWhere((s) => s.id == selected);
+    final clusters =
+        mapClusters([for (final s in shown) (s.lat, s.lon)], _zoom, radius: 40);
+    for (final cl in clusters) {
+      final members = [
+        for (final m in cl.members)
+          if (m != selIndex) m
+      ];
+      if (members.isEmpty) continue;
+      if (members.length == 1) {
+        final s = shown[members.first];
+        final b = _pins.pin(
+            s.kind, s.closed ? MapPinVariant.dimmed : MapPinVariant.normal,
+            dark: dark);
+        if (b == null) continue;
+        out.add(Marker(
+          markerId: MarkerId(s.id),
+          position: LatLng(s.lat, s.lon),
+          icon: b.icon,
+          anchor: b.anchor,
+          zIndexInt: s.closed ? 1 : 2,
+          consumeTapEvents: true,
+          onTap: () => _islandMode ? _select(s) : _highlightNearby(s, shown),
+        ));
+        continue;
+      }
+      final b = _pins.cluster(members.length, dark: dark);
+      if (b == null) continue;
+      final pts = [for (final m in members) (shown[m].lat, shown[m].lon)];
+      final lat = pts.map((p) => p.$1).reduce((a, b) => a + b) / pts.length;
+      final lon = pts.map((p) => p.$2).reduce((a, b) => a + b) / pts.length;
+      out.add(Marker(
+        markerId: MarkerId('cluster-${shown[members.first].id}-${pts.length}'),
+        position: LatLng(lat, lon),
+        icon: b.icon,
+        anchor: b.anchor,
+        zIndexInt: 3,
+        consumeTapEvents: true,
+        onTap: () => _fitBounds(pts, pad: 72),
+      ));
+    }
+    if (selIndex >= 0) {
+      final s = shown[selIndex];
+      final b = _pins.pin(s.kind, MapPinVariant.selected, dark: dark);
+      if (b != null) {
+        out.add(Marker(
+          markerId: MarkerId(s.id),
+          position: LatLng(s.lat, s.lon),
+          icon: b.icon,
+          anchor: b.anchor,
+          zIndexInt: 10,
+          consumeTapEvents: true,
+          onTap: () {},
         ));
       }
     }
+    // Las chinchetas aún sin pintar se añaden al llegar (`_pinVersion`).
+    _markersKey = key;
+    _markersMemo = out;
+    return out;
+  }
 
-    // Se etiquetan solo las que NO se pisan en pantalla (antes el tope era por
-    // orden de lista, y dos sitios contiguos acababan con los nombres
-    // superpuestos). Ver label_placement.dart.
-    final labelledIds = selectNonOverlappingLabels(
-      candidates: labelCandidates,
-      zoom: _currentZoom,
-      maxLabels: _kMaxLabelsInViewport,
-    );
-    final totalLabelCandidates = labelCandidates.length;
+  Set<Circle> _nearbyCircles() {
+    if (_islandMode || _userLat == null || _listMode) return const {};
+    return {
+      Circle(
+        circleId: const CircleId('nearby-fill'),
+        center: LatLng(_userLat!, _userLon!),
+        radius: kNearbyRadiusKm * 1000,
+        fillColor: const Color(0x0D0085C4),
+        strokeWidth: 0,
+        strokeColor: Colors.transparent,
+      ),
+    };
+  }
 
-    for (final r in restaurants) {
-      if (r.lat == 0.0 && r.lon == 0.0) continue;
-      final isSelected = _selectedRestaurantId == r.id;
+  /// Aro discontinuo de 3 km (los círculos de Google no admiten trazo
+  /// discontinuo: es una polilínea cerrada).
+  Set<Polyline> _nearbyRing(GmColors gm) {
+    if (_islandMode || _userLat == null || _listMode) return const {};
+    const r = kNearbyRadiusKm * 1000;
+    final lat = _userLat!, lon = _userLon!;
+    final pts = <LatLng>[];
+    for (var i = 0; i <= 72; i++) {
+      final (pLat, pLon) = projectAhead(lat, lon, i * 5.0, r);
+      pts.add(LatLng(pLat, pLon));
+    }
+    return {
+      Polyline(
+        polylineId: const PolylineId('nearby-ring'),
+        points: pts,
+        width: 2,
+        color: gm.label2.withValues(alpha: 0.45 * gm.label2.a),
+        patterns: [PatternItem.dash(10), PatternItem.gap(12)],
+        consumeTapEvents: false,
+      ),
+    };
+  }
 
-      final mode = resolveMarkerRenderMode(
-        zoom: _currentZoom,
-        isSelected: isSelected,
-        isDriving: isDriving,
-        // 0 = tiene sitio para su etiqueta; el cap lo resolvió ya la
-        // de-conflicción espacial de arriba.
-        indexInViewport: labelledIds.contains(r.id) ? 0 : _kMaxLabelsInViewport,
-        viewportCount: totalLabelCandidates,
-        bubbleZoomThreshold: _kBubbleZoomThreshold,
-        labelZoomThreshold: _kLabelZoomThreshold,
-        maxLabelsInViewport: _kMaxLabelsInViewport,
-      );
+  // ── Construcción ───────────────────────────────────────────────────────
 
-      BitmapDescriptor icon;
-      Offset anchor;
+  @override
+  Widget build(BuildContext context) {
+    final gm = GmColors.of(context);
+    Widget body = _mapMounted
+        ? _buildMapScreen(context, gm)
+        : ColoredBox(color: gm.mapLand, child: const SizedBox.expand());
 
-      if (mode == MarkerRenderMode.dot) {
-        icon = (_openNow(r) ? _dotIconOpen : _dotIconClosed) ??
-            BitmapDescriptor.defaultMarkerWithHue(
-              _openNow(r) ? _markerHueOpen : _markerHueClosed,
-            );
-        anchor = const Offset(0.5, 0.5);
-      } else {
-        final key = _markerKey(r, mode);
-        final cached = _markerCache[key];
-        if (cached == null) {
-          _scheduleMarkerBuild(r, mode);
+    body = BlocListener<RestaurantMapCubit, RestaurantMapState>(
+      listener: (_, s) {
+        if (s is AllRestaurantMapLoaded) {
+          _setRestaurants(s.restaurantResponse.restaurants);
         }
-        icon = cached?.bitmap ??
-            (_openNow(r) ? _dotIconOpen : _dotIconClosed) ??
-            BitmapDescriptor.defaultMarkerWithHue(
-              _openNow(r) ? _markerHueOpen : _markerHueClosed,
-            );
-        anchor = cached?.anchor ??
-            (mode == MarkerRenderMode.teardrop
-                ? const Offset(0.5, 1.0)
-                : const Offset(0.5, 0.5));
-      }
+      },
+      child: BlocListener<NewHomeFiltersCubit, NewHomeFiltersState>(
+        listenWhen: (a, b) => a.islandId != b.islandId,
+        listener: (_, s) => _onIslandChanged(s.islandId),
+        child: body,
+      ),
+    );
+    if (!widget.nearby) {
+      body = BlocListener<MenuCubit, MenuState>(
+        listenWhen: (a, b) => a.selectedIndex != b.selectedIndex,
+        listener: (_, s) => _onMenuChanged(s),
+        child: body,
+      );
+    }
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: gm.isDark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark,
+      child: Scaffold(
+        backgroundColor: gm.mapLand,
+        resizeToAvoidBottomInset: false,
+        body: Semantics(
+          identifier: widget.nearby ? 'mapa-nearby-screen' : 'mapa-screen',
+          container: true,
+          child: body,
+        ),
+      ),
+    );
+  }
 
-      aux.add(Marker(
-        markerId: MarkerId(r.id),
-        position: LatLng(r.lat, r.lon),
-        anchor: anchor,
-        icon: icon,
-        zIndexInt: isSelected ? 10 : 0,
-        onTap: () => _onMarkerTapped(r.id),
+  Widget _buildMapScreen(BuildContext context, GmColors gm) {
+    final media = MediaQuery.of(context);
+    final top = media.padding.top;
+    // En la pestaña, el padding inferior ya incluye la barra flotante.
+    final bottom = media.padding.bottom;
+    final near = widget.nearby ? nearbySites(_sites) : const <MapSite>[];
+    final selected = _islandMode ? _siteById(_selectedId) : null;
+    final showSheet = selected != null && _phase == _Phase.ready;
+    final nearbyPhase = _nearbyPhase();
+
+    final double mapTop = top + (widget.nearby ? 64 : 160);
+    final double mapBottom =
+        !_islandMode ? (_listMode ? 0 : 300) : bottom + (showSheet ? 270 : 0);
+
+    final stack = <Widget>[
+      Positioned.fill(
+        child: GoogleMap(
+          initialCameraPosition:
+              const CameraPosition(target: _kDefaultTarget, zoom: 14.5),
+          style: mapStyleFor(gm),
+          markers:
+              _phase == _Phase.ready ? _markers(gm.isDark, near) : const {},
+          circles: _nearbyCircles(),
+          polylines: _nearbyRing(gm),
+          myLocationEnabled: _loc == _Loc.granted,
+          myLocationButtonEnabled: false,
+          zoomControlsEnabled: false,
+          mapToolbarEnabled: false,
+          compassEnabled: false,
+          buildingsEnabled: false,
+          indoorViewEnabled: false,
+          rotateGesturesEnabled: false,
+          tiltGesturesEnabled: false,
+          padding: EdgeInsets.only(top: mapTop, bottom: mapBottom),
+          onMapCreated: (c) {
+            if (!_controller.isCompleted) _controller.complete(c);
+            if (_userLat != null) {
+              widget.nearby && !_showIsland
+                  ? _fitNearby()
+                  : _animateTo(LatLng(_userLat!, _userLon!), zoom: 14.5);
+            } else if (_loc == _Loc.denied && _islandMode) {
+              _flyToIsland(_islandId);
+            }
+            Future<void>.delayed(
+                const Duration(milliseconds: 300), _refreshBounds);
+          },
+          onTap: (_) => _islandMode ? _deselect() : null,
+          onCameraMove: (p) => _pendingZoom = p.zoom,
+          onCameraIdle: _refreshBounds,
+        ),
+      ),
+      // Velo superior (efecto de borde de scroll del tablero).
+      Positioned(
+        left: 0,
+        right: 0,
+        top: 0,
+        height: top + (widget.nearby ? 110 : 150),
+        child: IgnorePointer(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [gm.edgeTop0, gm.edgeTop1, gm.edgeFade0],
+                stops: const [0, 0.48, 1],
+              ),
+            ),
+          ),
+        ),
+      ),
+    ];
+
+    if (widget.nearby) {
+      stack.addAll(_nearbyOverlay(context, gm, near, nearbyPhase, top, bottom));
+    } else {
+      stack.addAll(_tabOverlay(context, gm, top));
+    }
+
+    if (_islandMode && showSheet) {
+      final i = _zone.indexWhere((s) => s.id == selected.id);
+      stack.add(Positioned(
+        left: 8,
+        right: 8,
+        bottom: (widget.nearby ? math.max(bottom, 16) : bottom) + 4,
+        child: _SheetEntrance(
+          child: MapPeekSheet(
+            site: selected,
+            positionLabel: zonePosition(
+                math.max(i, 0), math.max(_zone.length, 1),
+                byDistance: _userLat != null),
+            onPrev: () => _step(-1),
+            onNext: () => _step(1),
+            onClose: _deselect,
+            onOpenDetail: () => _openDetail(selected),
+            onDirections: () => _directions(selected),
+            onCall: _callFor(selected),
+          ),
+        ),
+      ));
+    }
+    return Stack(children: stack);
+  }
+
+  NearbyPhase _nearbyPhase() {
+    if (_phase == _Phase.error) return NearbyPhase.error;
+    if (_loc == _Loc.denied) return NearbyPhase.noLocation;
+    if (_phase == _Phase.loading || _loc == _Loc.unknown || _userLat == null) {
+      return NearbyPhase.loading;
+    }
+    return NearbyPhase.ready;
+  }
+
+  /// Cabecera, chips, accesorio y estados de la pestaña (tablero TabMapa).
+  List<Widget> _tabOverlay(BuildContext context, GmColors gm, double top) {
+    final islandLabel = context.watch<NewHomeFiltersCubit>().state.islandLabel;
+    final filtered = _filtered;
+    final box = _bounds;
+    final zone = box == null ? filtered : sitesIn(filtered, box);
+    final ready = _phase == _Phase.ready;
+    final noLoc = _loc == _Loc.denied;
+    final emptyFilters = ready && _filters.any && box != null && zone.isEmpty;
+    final present = {for (final s in _sites) s.restaurant.type};
+    final chips = mapTypeChips(
+      _types,
+      active: _filters.typeIds,
+      presentTypeIds: _sites.isEmpty ? null : present,
+    );
+
+    final out = <Widget>[
+      Positioned(
+        left: GmSpace.gutter,
+        right: GmSpace.gutter,
+        top: top + 4,
+        child: Row(
+          children: [
+            Expanded(
+              child: MapSearchCapsule(
+                controller: _search,
+                onChanged: _onSearchChanged,
+                onClear: _clearSearch,
+              ),
+            ),
+            const SizedBox(width: 8),
+            MapIslandChip(label: islandLabel, onTap: _showIslandSheet),
+          ],
+        ),
+      ),
+      Positioned(
+        left: 0,
+        right: 0,
+        top: top + 57,
+        child: MapChipRow(
+          skeleton: _phase == _Phase.loading,
+          openNow: _filters.openNow,
+          types: chips,
+          activeTypes: _filters.typeIds,
+          onToggleOpen: _toggleOpen,
+          onToggleType: _toggleType,
+        ),
+      ),
+    ];
+
+    // Fila del accesorio: aviso sin ubicación, cargando o «N abiertos de M».
+    Widget? accessory;
+    if (_phase == _Phase.loading) {
+      accessory = MapLoadingCapsule(text: loadingCopy(islandLabel));
+    } else if (noLoc) {
+      accessory = MapNoLocationBanner(onActivate: _activateLocation);
+    } else if (ready &&
+        _selectedId == null &&
+        !emptyFilters &&
+        zone.isNotEmpty) {
+      accessory = MapInfoPill(
+        identifier: 'mapa-zone-pill',
+        text: zoneSummary(zone),
+        dot: true,
+      );
+    }
+    if (accessory != null) {
+      out.add(Positioned(
+        left: GmSpace.gutter,
+        right: noLoc && _phase != _Phase.loading ? GmSpace.gutter : 72,
+        top: top + 114 + (accessory is MapInfoPill ? 6 : 0),
+        child: Align(alignment: Alignment.centerLeft, child: accessory),
+      ));
+    }
+    if (!noLoc) {
+      out.add(Positioned(
+        right: GmSpace.gutter,
+        top: top + 114,
+        child: MapRoundButton(
+          identifier: 'mapa-center-fab',
+          icon: kMapLocateIcon,
+          label: 'Centrar en mi ubicación',
+          onTap: () {
+            if (_userLat != null) {
+              _animateTo(LatLng(_userLat!, _userLon!), zoom: 15);
+            } else {
+              _startLocation();
+            }
+          },
+        ),
       ));
     }
 
-    if (totalLabelCandidates > labelledIds.length) {
-      debugPrint(
-          'mapa: ${totalLabelCandidates - labelledIds.length} label(s) omitidas por solape/cap (${labelledIds.length}/$totalLabelCandidates pintadas, $_kMaxLabelsInViewport max)');
+    if (_phase == _Phase.error) {
+      out.add(_stateCard(top, _errorCard()));
+    } else if (emptyFilters) {
+      final copy = emptyWithFiltersCopy(
+        filters: _filters,
+        singleKind: _singleTypeKind(),
+        islandMatches: filtered,
+        islandLabel: islandLabel,
+        placeName: gmPlaceName,
+      );
+      out.add(_stateCard(
+        top,
+        MapStateCard(
+          identifier: 'mapa-empty-state',
+          art: copy.kind != null
+              ? MapTypeTile(copy.kind)
+              : const GmSadVolcano(width: 84),
+          title: copy.title,
+          text: copy.text,
+          actions: [
+            if (copy.showAllLabel != null)
+              GmCapsuleButton(
+                identifier: 'mapa-empty-show-all',
+                label: copy.showAllLabel!,
+                onTap: () =>
+                    _fitBounds([for (final s in filtered) (s.lat, s.lon)]),
+              ),
+            copy.showAllLabel != null
+                ? GmSoftCapsuleButton(
+                    identifier: 'mapa-clear-filters',
+                    label: 'Quitar filtros',
+                    onTap: _clearFilters,
+                  )
+                : GmCapsuleButton(
+                    identifier: 'mapa-clear-filters',
+                    label: 'Quitar filtros',
+                    onTap: _clearFilters,
+                  ),
+          ],
+        ),
+      ));
     }
-    _markers = aux;
+    return out;
   }
 
-  /// Alto aproximado de la etiqueta (una línea de nombre) en px lógicos.
-  static const double _kLabelHeight = 18.0;
-
-  /// Ancho aproximado de la etiqueta: dot + hueco + nombre (recortado al mismo
-  /// `maxNameW` que usa el pintado real). Es una estimación deliberada: sirve
-  /// para separar cajas, no para pintar, y evita un TextPainter por marcador en
-  /// cada movimiento de cámara.
-  static double _estimatedLabelWidth(String name) {
-    const double dotAndGap = 18.0;
-    const double perChar = 7.0;
-    const double maxNameW = 150.0;
-    final nameW = math.min(name.length * perChar, maxNameW);
-    return dotAndGap + nameW;
-  }
-
-  void _onCameraMove(CameraPosition position) {
-    final wasDot = _currentZoom < _kBubbleZoomThreshold;
-    final wasLabel = _currentZoom >= _kLabelZoomThreshold;
-    _currentZoom = position.zoom;
-    final isDot = position.zoom < _kBubbleZoomThreshold;
-    final isLabel = position.zoom >= _kLabelZoomThreshold;
-    if ((wasDot != isDot || wasLabel != isLabel) && mounted) {
-      setState(() {});
-    }
-  }
-
-  String _markerKey(Restaurant r, MarkerRenderMode mode) {
-    final modeSuffix = switch (mode) {
-      MarkerRenderMode.dot => 'd',
-      MarkerRenderMode.label => 'l',
-      MarkerRenderMode.teardrop => 't',
-    };
-    return '${r.id}_${_openNow(r) ? 1 : 0}_$modeSuffix';
-  }
-
-  void _scheduleMarkerBuild(Restaurant r, MarkerRenderMode mode) {
-    final key = _markerKey(r, mode);
-    if (_pendingMarkerKeys.contains(key)) return;
-    _pendingMarkerKeys.add(key);
-    _buildBubbleMarker(r, mode).then((entry) {
-      _pendingMarkerKeys.remove(key);
-      if (!mounted) return;
-      _markerCache[key] = entry;
-      setState(() {});
-    }).catchError((e) {
-      _pendingMarkerKeys.remove(key);
-      debugPrint('marker build failed: $e');
-    });
-  }
-
-  Future<({BitmapDescriptor bitmap, Offset anchor})> _buildBubbleMarker(
-      Restaurant r, MarkerRenderMode mode) async {
-    // ── Teardrop (selected) ───────────────────────────────────────────────
-    if (mode == MarkerRenderMode.teardrop) {
-      const double scale = 3.0;
-      const double headR = 16.0;
-      const double tipExtra = 11.0;
-      const double pad = 6.0; // margen para sombra/borde alrededor del teardrop
-      const double gap = 7.0; // separacion teardrop -> nombre
-      const double ratingFont = 13.0;
-      const double nameFont = 13.0;
-      const double border = 2.5;
-      const double maxNameW = 150.0;
-
-      // El seleccionado MANTIENE el color de estado (verde abierto / rojo
-      // cerrado) y el nombre, igual que el marker no seleccionado; el dot se
-      // convierte en un teardrop con la nota dentro para marcar la seleccion.
-      final statusColor = _openNow(r)
-          ? const Color.fromRGBO(149, 220, 0, 1)
-          : const Color.fromRGBO(226, 120, 120, 1);
-
-      // Nombre: relleno tinta + borde blanco (stroke), igual que el no
-      // seleccionado.
-      const nameFill = TextStyle(
-        color: AppColors.ink,
-        fontSize: nameFont,
-        fontFamily: 'SF Pro Display',
-        fontWeight: FontWeight.w700,
-        height: 1.05,
+  Widget _errorCard() => MapStateCard(
+        identifier: 'mapa-error-state',
+        alert: true,
+        art: const GmSadVolcano(width: 100),
+        title: 'No pudimos cargar los sitios',
+        text: 'Revisa tu conexión e inténtalo de nuevo. El mapa sigue aquí.',
+        actions: [
+          GmCapsuleButton(
+            identifier: 'mapa-error-retry',
+            label: 'Reintentar',
+            onTap: () => _load(force: true),
+          ),
+        ],
       );
-      final nameStroke = TextStyle(
-        fontSize: nameFont,
-        fontFamily: 'SF Pro Display',
-        fontWeight: FontWeight.w700,
-        height: 1.05,
-        foreground: Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = border
-          ..strokeJoin = StrokeJoin.round
-          ..color = Colors.white,
+
+  Widget _stateCard(double top, Widget card) => Positioned(
+        left: GmSpace.gutter,
+        right: GmSpace.gutter,
+        top: top + 204,
+        child: GmRise(child: card),
       );
-      final nameFillP = TextPainter(
-        text: TextSpan(text: r.nombre, style: nameFill),
-        textDirection: TextDirection.ltr,
-        maxLines: 2,
-        ellipsis: '…',
-      )..layout(maxWidth: maxNameW);
-      final nameStrokeP = TextPainter(
-        text: TextSpan(text: r.nombre, style: nameStroke),
-        textDirection: TextDirection.ltr,
-        maxLines: 2,
-        ellipsis: '…',
-      )..layout(maxWidth: maxNameW);
 
-      final double cx = pad + headR;
-      final double cy = pad + headR;
-      final double tipY = cy + headR + tipExtra;
-      // La punta (cx, tipY) cae en las coords; el nombre va a la derecha,
-      // centrado con la cabeza.
-      final double bitmapW = pad + headR * 2 + gap + nameFillP.width + pad;
-      final double bitmapH = tipY;
-
-      // Pin = union de circulo (cabeza) + triangulo (punta). La union evita
-      // bordes concavos (el metodo de tangentes daba una "mariposa").
-      final head = Path()
-        ..addOval(Rect.fromCircle(center: Offset(cx, cy), radius: headR));
-      final tri = Path()
-        ..moveTo(cx - headR * 0.78, cy + headR * 0.55)
-        ..lineTo(cx, tipY)
-        ..lineTo(cx + headR * 0.78, cy + headR * 0.55)
-        ..close();
-      final pin = Path.combine(PathOperation.union, head, tri);
-
-      final recorder = ui.PictureRecorder();
-      final canvas = Canvas(recorder);
-      canvas.scale(scale, scale);
-
-      // Sombra del teardrop.
-      canvas.save();
-      canvas.translate(0, 2.5);
-      canvas.drawPath(
-        pin,
-        Paint()
-          ..color = const Color(0x4D000000)
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5),
-      );
-      canvas.restore();
-      // Relleno con color de estado.
-      canvas.drawPath(pin, Paint()..color = statusColor);
-      // Borde blanco.
-      canvas.drawPath(
-        pin,
-        Paint()
-          ..color = Colors.white
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = border
-          ..strokeJoin = StrokeJoin.round,
-      );
-      // Nota blanca centrada en la cabeza.
-      if (r.avgRating > 0) {
-        final ratingPainter = TextPainter(
-          text: TextSpan(
-            text: r.avgRating.toStringAsFixed(1),
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: ratingFont,
-              fontFamily: 'SF Pro Display',
-              fontWeight: FontWeight.w800,
-              letterSpacing: 0.2,
+  /// Barra, lista, hoja y estados de «Cerca de ti» (tablero MapaEmpujado).
+  List<Widget> _nearbyOverlay(BuildContext context, GmColors gm,
+      List<MapSite> near, NearbyPhase phase, double top, double bottom) {
+    final out = <Widget>[];
+    if (_listMode) {
+      out.add(Positioned.fill(
+        child: ColoredBox(
+          color: gm.canvas,
+          child: MapNearbyList(
+            phase: phase,
+            near: near,
+            topInset: top + 64,
+            onOpen: _openDetail,
+            onActivateLocation: _activateLocation,
+            onShowIsland: _showWholeIsland,
+            onRetry: () => _load(force: true),
+          ),
+        ),
+      ));
+      out.add(Positioned(
+        left: 0,
+        right: 0,
+        top: 0,
+        height: top + 60,
+        child: IgnorePointer(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [gm.edgeTop0, gm.edgeTop1, gm.edgeFade0],
+                stops: const [0, 0.7, 1],
+              ),
             ),
           ),
-          textDirection: TextDirection.ltr,
-        )..layout();
-        ratingPainter.paint(
-          canvas,
-          Offset(cx - ratingPainter.width / 2, cy - ratingPainter.height / 2),
-        );
-      }
-
-      // Nombre a la derecha, centrado con la cabeza.
-      final double nameX = pad + headR * 2 + gap;
-      final double nameY = cy - nameFillP.height / 2;
-      nameStrokeP.paint(canvas, Offset(nameX, nameY));
-      nameFillP.paint(canvas, Offset(nameX, nameY));
-
-      final picture = recorder.endRecording();
-      final image = await picture.toImage(
-        (bitmapW * scale).round(),
-        (bitmapH * scale).round(),
-      );
-      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-      return (
-        bitmap: BitmapDescriptor.bytes(
-          byteData!.buffer.asUint8List(),
-          imagePixelRatio: scale,
         ),
-        anchor: Offset(cx / bitmapW, tipY / bitmapH),
-      );
+      ));
     }
-
-    // ── Unselected: dot de estado + nombre con borde blanco ───────────────
-    // El centro del dot cae exactamente en las coords del restaurante
-    // (anchor.x = dotCenterX/bitmapW, anchor.y = 0.5); el nombre se extiende a
-    // la derecha, hasta 2 lineas con ellipsis. Borde blanco con stroke real
-    // (foreground Paint), no la tecnica de copias desplazadas.
-    const double scale = 3.0;
-    const double dotR = 5.0;
-    const double ringR = 7.5; // anillo blanco alrededor del dot
-    const double gap = 6.0;
-    const double fontSize = 12.0;
-    const double vertPad = 3.0;
-    const double maxTextW = 130.0;
-    const double outline = 2.5; // grosor del borde blanco del texto
-
-    final dotColor = _openNow(r)
-        ? const Color.fromRGBO(149, 220, 0, 1)
-        : const Color.fromRGBO(226, 120, 120, 1);
-
-    const double lineHeight = 1.05;
-    const fillStyle = TextStyle(
-      color: AppColors.ink,
-      fontSize: fontSize,
-      fontFamily: 'SF Pro Display',
-      fontWeight: FontWeight.w700,
-      height: lineHeight,
-    );
-    // Borde blanco: mismo glifo con foreground stroke (sin color, son
-    // mutuamente excluyentes en TextStyle).
-    final strokeStyle = TextStyle(
-      fontSize: fontSize,
-      fontFamily: 'SF Pro Display',
-      fontWeight: FontWeight.w700,
-      height: lineHeight,
-      foreground: Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = outline
-        ..strokeJoin = StrokeJoin.round
-        ..color = Colors.white,
-    );
-
-    final fillPainter = TextPainter(
-      text: TextSpan(text: r.nombre, style: fillStyle),
-      textDirection: TextDirection.ltr,
-      maxLines: 2,
-      ellipsis: '…',
-    )..layout(maxWidth: maxTextW);
-    final strokePainter = TextPainter(
-      text: TextSpan(text: r.nombre, style: strokeStyle),
-      textDirection: TextDirection.ltr,
-      maxLines: 2,
-      ellipsis: '…',
-    )..layout(maxWidth: maxTextW);
-
-    final double ringD = ringR * 2;
-    final double textBlockH = fillPainter.height;
-    final double bitmapH = math.max(ringD, textBlockH) + vertPad * 2;
-    final double bitmapW = ringD + gap + fillPainter.width;
-    final double dotCenterX = ringR;
-    final double dotCenterY = bitmapH / 2;
-
-    final recorder = ui.PictureRecorder();
-    final canvas = Canvas(recorder);
-    canvas.scale(scale, scale);
-
-    // Anillo blanco + dot de estado (verde abierto / rojo cerrado).
-    canvas.drawCircle(
-      Offset(dotCenterX, dotCenterY),
-      ringR,
-      Paint()..color = Colors.white,
-    );
-    canvas.drawCircle(
-      Offset(dotCenterX, dotCenterY),
-      dotR,
-      Paint()..color = dotColor,
-    );
-
-    // Nombre: borde blanco debajo, relleno tinta encima.
-    final double textX = ringD + gap;
-    final double textY = (bitmapH - textBlockH) / 2;
-    strokePainter.paint(canvas, Offset(textX, textY));
-    fillPainter.paint(canvas, Offset(textX, textY));
-
-    final picture = recorder.endRecording();
-    final image = await picture.toImage(
-      (bitmapW * scale).ceil(),
-      (bitmapH * scale).ceil(),
-    );
-    final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-    return (
-      bitmap: BitmapDescriptor.bytes(
-        byteData!.buffer.asUint8List(),
-        imagePixelRatio: scale,
+    out.add(Positioned(
+      left: GmSpace.gutter,
+      right: GmSpace.gutter,
+      top: top + 2,
+      child: MapNearbyToolbar(
+        listSelected: _listMode,
+        onBack: () => Navigator.of(context).maybePop(),
+        onMode: (list) => setState(() {
+          _listMode = list;
+          if (list) _selectedId = null;
+        }),
       ),
-      anchor: Offset(dotCenterX / bitmapW, 0.5),
-    );
-  }
+    ));
+    if (_listMode) return out;
 
-  void _onMarkerTapped(String markerId) {
-    final r = _allRestaurants.firstWhere(
-      (e) => e.id == markerId,
-      orElse: () => Restaurant(),
-    );
-    if (r.id.isEmpty) return;
-    setState(() => _selectedRestaurantId = r.id);
-    final idx = _visibleRestaurants.indexWhere((e) => e.id == r.id);
-    if (idx >= 0 && _cardsPageController.hasClients) {
-      _suppressNextPageEvent = true;
-      _cardsPageController.jumpToPage(idx);
-    }
-  }
-
-  Future<void> _animateToRestaurant(Restaurant r) async {
-    final controller = await _controller.future;
-    // Pan only — keep current zoom so marker tap / card swipe doesn't
-    // jump the user closer to the marker.
-    controller.animateCamera(
-      CameraUpdate.newLatLng(LatLng(r.lat, r.lon)),
-    );
-  }
-
-  /// Mueve la selección al restaurante contiguo (prev/next) en la lista
-  /// visible, de forma **cíclica**: tras el último vuelve al primero y al
-  /// revés. Lo usan el peek sheet (flechas + swipe).
-  void _selectAdjacent(int delta) {
-    final n = _visibleRestaurants.length;
-    if (n == 0) return;
-    final cur = _selectedIndex();
-    final base = cur < 0 ? 0 : cur;
-    // El % de Dart con divisor positivo siempre devuelve [0, n) -> wrap en
-    // ambos sentidos sin necesidad de ajustar el negativo.
-    final next = (base + delta) % n;
-    if (next == cur) return;
-    final r = _visibleRestaurants[next];
-    setState(() => _selectedRestaurantId = r.id);
-    _animateToRestaurant(r);
-  }
-
-  // ── Distance / sort ────────────────────────────────────────────────────
-  double _distanceTo(Restaurant r) {
-    if (!_hasUserLocation) return double.infinity;
-    return Geolocator.distanceBetween(
-      currentLocation.latitude,
-      currentLocation.longitude,
-      r.lat,
-      r.lon,
-    );
-  }
-
-  List<Restaurant> _sortedByDistance(List<Restaurant> source) {
-    final list = source
-        .where((r) => r.lat != 0.0 || r.lon != 0.0)
-        .toList(growable: false);
-    if (!_hasUserLocation) return list;
-    final sorted = [...list];
-    sorted.sort((a, b) => _distanceTo(a).compareTo(_distanceTo(b)));
-    return sorted;
-  }
-
-  // ── Build ──────────────────────────────────────────────────────────────
-  @override
-  Widget build(BuildContext context) {
-    return BlocListener<MenuCubit, MenuState>(
-      listenWhen: (prev, curr) => prev.selectedIndex != curr.selectedIndex,
-      listener: (_, state) {
-        final onMap = state.selectedIndex == _kMapTabIndex;
-        _onMapTab = onMap;
-        // Primera vez que el usuario entra al tab Mapa: montamos la
-        // platform view con un frame de delay para evitar tiles en blanco.
-        if (onMap && !_mapMounted) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (!mounted || _mapMounted) return;
-            setState(() => _mapMounted = true);
-          });
-        }
-        // Si cambiaron de isla mientras el mapa estaba oculto, encuadramos
-        // ahora: animar la cámara de un mapa que no se ve no surte efecto, y al
-        // volver el auto-cambio veía la isla ANTERIOR bajo el centro y
-        // revertía la elección del usuario.
-        if (onMap && _pendingFlyIslandId != null) {
-          final pending = _pendingFlyIslandId!;
-          _pendingFlyIslandId = null;
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) _flyToIsland(pending);
-          });
-        }
-        _setSensorsActive(onMap);
-      },
-      child: BlocListener<NewHomeFiltersCubit, NewHomeFiltersState>(
-        listenWhen: (prev, curr) => prev.islandId != curr.islandId,
-        listener: (_, state) => _onIslandChanged(state.islandId),
-        child: _buildScaffold(context),
-      ),
-    );
-  }
-
-  /// Isla cuyo cambio automático ya hemos disparado (evita relanzarlo en cada
-  /// `onCameraIdle` mientras la carga está en vuelo).
-  String? _autoIslandKeyInFlight;
-
-  /// Mientras movemos la cámara nosotros (al elegir isla en el selector), el
-  /// auto-cambio queda MUDO. Si no, la cámara aún está sobre la isla anterior
-  /// cuando salta `onCameraIdle` y revertiría la elección del usuario.
-  bool _movingCameraToIsland = false;
-
-  /// ¿Está el tab Mapa en pantalla? El auto-cambio de isla SOLO puede actuar
-  /// si el usuario está mirando el mapa: si no, cambiar de isla desde el home
-  /// hacía que el mapa (oculto, con la cámara en la isla vieja) revirtiera la
-  /// elección por detrás.
-  bool _onMapTab = false;
-
-  /// Isla que hay que encuadrar en cuanto el mapa vuelva a ser visible.
-  String? _pendingFlyIslandId;
-
-  /// Si el centro del viewport cae sobre OTRA isla, cambia a esa isla.
-  ///
-  /// Solo actúa cuando el centro está dentro de la envolvente de una isla: sobre
-  /// mar abierto no se toca nada, para no dar saltos al arrastrar entre islas.
-  /// En modo conducción no se cambia (sería desconcertante a mitad de ruta).
-  void _maybeSwitchIslandFor(LatLngBounds bounds) {
-    if (!mounted || _driving.isDriving.value) return;
-    if (!_onMapTab) return; // el mapa no está en pantalla: no mandamos
-    if (_movingCameraToIsland) return; // vuelo programático en curso
-
-    final centerLat =
-        (bounds.northeast.latitude + bounds.southwest.latitude) / 2;
-    final centerLon =
-        (bounds.northeast.longitude + bounds.southwest.longitude) / 2;
-
-    final key = islandKeyAt(centerLat, centerLon);
-    if (key == null) return; // mar abierto → sin cambios
-
-    final islandsState = context.read<IslandsCubit>().state;
-    if (islandsState is! IslandsLoaded) return;
-
-    Island? target;
-    for (final i in islandsState.islands) {
-      final iKey = (i.key != null && i.key!.isNotEmpty)
-          ? i.key!
-          : islandKeyFromName(i.name);
-      if (iKey.toUpperCase() == key) {
-        target = i;
-        break;
+    if (_islandMode) {
+      // «Ver toda la isla»: el mapa entero con su hoja de sitio elegido.
+      if (_loc == _Loc.denied) {
+        out.add(Positioned(
+          left: GmSpace.gutter,
+          right: GmSpace.gutter,
+          top: top + 56,
+          child: MapNoLocationBanner(onActivate: _activateLocation),
+        ));
       }
-    }
-    if (target == null) return;
-
-    final filters = context.read<NewHomeFiltersCubit>();
-    if (filters.state.islandId == target.id) {
-      _autoIslandKeyInFlight = null;
-      return;
-    }
-    if (_autoIslandKeyInFlight == key) return; // ya lanzado
-
-    _autoIslandKeyInFlight = key;
-    AppLogger.info('mapa', 'auto-isla → ${target.name} (centro sobre $key)');
-    // Cambia la isla en el cubit: el BlocListener de abajo recarga
-    // restaurantes y municipios, y el chip del mapa se actualiza solo.
-    filters.selectIsland(
-      id: target.id,
-      key: key,
-      label: target.name,
-    );
-  }
-
-  void _onIslandChanged(String newIslandId) {
-    if (!mounted) return;
-    setState(() => islandId = newIslandId);
-    presenter.getAllMunicipalities(newIslandId);
-    presenter.getAllRestaurants(newIslandId);
-    // Y llevamos la cámara a esa isla. Sin esto, al elegir isla en el selector
-    // el mapa se quedaba mirando la anterior y el auto-cambio por cámara
-    // revertía la elección al instante.
-    if (_onMapTab) {
-      _flyToIsland(newIslandId);
-    } else {
-      // Con el mapa oculto la animación no surte efecto: lo dejamos pendiente
-      // para encuadrarlo cuando el usuario vuelva al tab.
-      _pendingFlyIslandId = newIslandId;
-    }
-  }
-
-  /// Encuadra la isla [targetIslandId] en el mapa.
-  Future<void> _flyToIsland(String targetIslandId) async {
-    if (!_controller.isCompleted) return;
-
-    final islandsState = context.read<IslandsCubit>().state;
-    if (islandsState is! IslandsLoaded) return;
-
-    Island? island;
-    for (final i in islandsState.islands) {
-      if (i.id == targetIslandId) {
-        island = i;
-        break;
+      if (_phase == _Phase.loading) {
+        out.add(Positioned(
+          left: GmSpace.gutter,
+          top: top + 56,
+          child: MapLoadingCapsule(
+              text: loadingCopy(
+                  context.watch<NewHomeFiltersCubit>().state.islandLabel)),
+        ));
+      } else if (_phase == _Phase.error) {
+        out.add(_stateCard(top - 60, _errorCard()));
       }
+      return out;
     }
-    if (island == null) return;
 
-    final key = (island.key != null && island.key!.isNotEmpty)
-        ? island.key!
-        : islandKeyFromName(island.name);
-    final bounds = islandBoundsForKey(key);
-    if (bounds == null) return;
-
-    _autoIslandKeyInFlight = key.toUpperCase();
-    _movingCameraToIsland = true;
-    try {
-      final controller = await _controller.future;
-      await controller.animateCamera(
-        CameraUpdate.newLatLngBounds(
-          LatLngBounds(
-            southwest: LatLng(bounds.minLat, bounds.minLon),
-            northeast: LatLng(bounds.maxLat, bounds.maxLon),
-          ),
-          48, // padding en px
+    if (phase == NearbyPhase.ready && near.isNotEmpty) {
+      out.add(Positioned(
+        left: GmSpace.gutter,
+        top: top + 56,
+        child: MapInfoPill(
+          identifier: 'mapa-nearby-range',
+          text: nearbyRangeLabel(near.length),
         ),
-      );
-      // La animación de Google Maps no expone un "onDone": esperamos a que
-      // termine antes de reactivar el auto-cambio.
-      await Future.delayed(const Duration(milliseconds: 900));
-    } catch (_) {
-      // Si el mapa aún no está listo, no bloqueamos el auto-cambio.
-    } finally {
-      if (mounted) _movingCameraToIsland = false;
+      ));
     }
-  }
-
-  void _showIslandSheet(BuildContext context) {
-    IslandPickerSheet.show(
-      context: context,
-      selectedIslandId: context.read<NewHomeFiltersCubit>().state.islandId,
-      onSelect: (island) {
-        final key = (island.key != null && island.key!.isNotEmpty)
-            ? island.key!
-            : islandKeyFromName(island.name);
-        context.read<NewHomeFiltersCubit>().selectIsland(
-              id: island.id,
-              key: key,
-              label: island.name,
-            );
-      },
-    );
-  }
-
-  Widget _buildScaffold(BuildContext context) {
-    if (!_mapMounted) {
-      return Scaffold(
-        backgroundColor: context.brand.base,
-        body: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const CircularProgressIndicator(
-                strokeWidth: 2,
-                color: AppColors.atlanticoClaro,
-              ),
-              const SizedBox(height: 14),
-              Text(
-                'Preparando el mapa…',
-                style: AppTextStyles.muted(size: 12),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-    final isDriving = _driving.isDriving.value;
-
-    return Scaffold(
-      backgroundColor: context.brand.base,
-      body: BlocBuilder<RestaurantMapCubit, RestaurantMapState>(
-        builder: (context, state) {
-          List<Restaurant> restaurants = _allRestaurants;
-          if (state is AllRestaurantMapLoaded) {
-            restaurants = state.restaurantResponse.restaurants;
-          } else if (state is RestaurantFilterMap) {
-            restaurants = state.filtersRestaurants;
-          }
-          restaurants = _applyClientFilters(restaurants);
-          final dataChanged =
-              !identical(_allRestaurants, restaurants) &&
-                  _allRestaurants.length != restaurants.length;
-          _allRestaurants = restaurants;
-          _rebuildMarkers(restaurants);
-
-          if (dataChanged) {
-            WidgetsBinding.instance
-                .addPostFrameCallback((_) => _refreshVisible());
-          }
-
-          final sorted = _sortedByDistance(restaurants);
-          // Altura de la barra flotante (extendBody): los controles inferiores
-          // del mapa se desplazan para no quedar debajo del cristal.
-          final double navPad = MediaQuery.of(context).padding.bottom;
-          final bool hasSheet =
-              _visibleRestaurants.isNotEmpty && _selectedIndex() >= 0;
-          final double mapBottomInset =
-              navPad + (isDriving ? 210 : (hasSheet ? 165 : 0));
-
-          return Stack(
-            fit: StackFit.expand,
-            children: [
-              Positioned.fill(
-                child: GoogleMap(
-                  mapType: MapType.normal,
-                  style: kMapStyleLight,
-                  myLocationEnabled: true,
-                  myLocationButtonEnabled: false,
-                  compassEnabled: false,
-                  zoomControlsEnabled: false,
-                  // Menos detalle: sin siluetas de edificios ni planos interiores.
-                  buildingsEnabled: false,
-                  indoorViewEnabled: false,
-                  padding: EdgeInsets.only(bottom: mapBottomInset),
-                  initialCameraPosition: _initialCamera,
-                  onMapCreated: (controller) {
-                    if (!_controller.isCompleted) {
-                      _controller.complete(controller);
-                    }
-                    // Kick the platform view so tiles render even if the
-                    // map mounted while in a non-visible IndexedStack tab.
-                    // Solo si aún no tenemos al usuario, para no arrancar la
-                    // cámara de su ubicación una vez centrada.
-                    Future.delayed(const Duration(milliseconds: 250), () {
-                      if (!mounted || _hasUserLocation) return;
-                      controller.animateCamera(
-                        CameraUpdate.newCameraPosition(_initialCamera),
-                      );
-                    });
-                  },
-                  onCameraMove: _onCameraMove,
-                  onCameraIdle: _refreshVisible,
-                  markers: _markers,
-                ),
-              ),
-
-              // ── Empty state (loaded, no results, not in drive mode) ────
-              if ((state is AllRestaurantMapLoaded ||
-                      state is RestaurantFilterMap) &&
-                  restaurants.isEmpty &&
-                  !isDriving)
-                Positioned.fill(
-                  child: Align(
-                    alignment: Alignment.center,
-                    child: _buildEmptyState(context),
-                  ),
-                ),
-
-              // ── Header (search + filter chips) ─────────────────────────
-              // In drive mode the search bar is hidden (distraction) and
-              // we show a compact chip row at the top with a "Salir" pill.
-              Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
-                child: _MapHeader(
-                  categories: categories,
-                  selectedCategoryId: _quickCategoryId,
-                  openActive: _quickOpen,
-                  municipalityLabel: context.read<NewHomeFiltersCubit>().state.islandLabel.toUpperCase(),
-                  searchController: _searchController,
-                  onSearchChanged: _onSearchChanged,
-                  onClearSearch: _clearSearch,
-                  onToggleOpen: _toggleOpenFilter,
-                  onToggleCategory: _toggleCategory,
-                  driveMode: isDriving,
-                  onExitDrive: _exitDriveMode,
-                  onIslandTap: () => _showIslandSheet(context),
-                ),
-              ),
-
-              // ── Center-on-user FAB ─────────────────────────────────────
-              Positioned(
-                bottom: navPad + (isDriving ? 114 : 116),
-                right: 16,
-                child: Semantics(
-                  identifier: 'mapa-center-fab',
-                  button: true,
-                  label: 'Centrar en mi ubicación',
-                  child: FloatingActionButton.small(
-                    heroTag: 'centerOnUser',
-                    backgroundColor: context.brand.surface,
-                    onPressed: () => _animateToUser(
-                      zoom: isDriving ? 16 : 15,
-                      tilt: isDriving ? 55 : 0,
-                      bearing: isDriving ? _lastHeading : 0,
-                      chase: isDriving,
-                    ),
-                    child: Icon(Icons.my_location,
-                        color: context.brand.textPrimary, size: 20),
-                  ),
-                ),
-              ),
-
-              // ── "Activar modo coche" shortcut ──────────────────────────
-              // Shown when we detect movement at drive speed but the user is
-              // not in drive mode (dismissed the suggestion or exited by
-              // accident). Tap to enter drive mode immediately.
-              if (!isDriving)
-                Positioned(
-                  bottom: navPad + 116,
-                  left: 16,
-                  child: ValueListenableBuilder<double>(
-                    valueListenable: _driving.currentSpeed,
-                    builder: (context, speed, _) {
-                      final visible = speed > _kEnterDriveSpeed;
-                      return AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 220),
-                        child: visible
-                            ? _EnterDrivePill(
-                                key: const ValueKey('enter-drive'),
-                                onTap: () => _driving.confirmDrive(),
-                              )
-                            : const SizedBox.shrink(
-                                key: ValueKey('enter-drive-empty')),
-                      );
-                    },
-                  ),
-                ),
-
-              // ── Refresh FAB (hidden in drive mode) ────────────────────
-              if (!isDriving)
-                Positioned(
-                  bottom: navPad + 114,
-                  right: 16,
-                  child: Semantics(
-                    identifier: 'mapa-refresh-fab',
-                    button: true,
-                    label: 'Refrescar restaurantes',
-                    child: FloatingActionButton.small(
-                      heroTag: 'refreshMap',
-                      backgroundColor: context.brand.surface,
-                      onPressed: () async {
-                        await remoteRepository.invalidateCache('restaurants:');
-                        restaurantsCubit.refresh();
-                      },
-                      child: Icon(
-                        Icons.refresh_rounded,
-                        color: context.brand.textPrimary,
-                        size: 20,
-                      ),
-                    ),
-                  ),
-                ),
-
-              // ── Bottom: drive-mode pill list OR nearby carousel ────────
-              if (isDriving)
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: navPad,
-                  child: _DriveNearbyStrip(
-                    nearby: sorted.take(10).toList(),
-                    distanceTo: _distanceTo,
-                  ),
-                )
-              else if (_visibleRestaurants.isNotEmpty &&
-                  _selectedIndex() >= 0)
-                // Bottom sheet ergonomia Eater: aparece al TOCAR un marker
-                // (peek -> expandido) con acciones rapidas y prev/next.
-                // Arrastrar hasta abajo lo cierra y deselecciona el negocio.
-                Positioned.fill(
-                  child: Builder(builder: (context) {
-                    final idx = _selectedIndex();
-                    final sel = _visibleRestaurants[idx];
-                    return _MapPeekSheet(
-                      restaurant: sel,
-                      distanceMeters: _distanceTo(sel),
-                      index: idx,
-                      total: _visibleRestaurants.length,
-                      onPrev: () => _selectAdjacent(-1),
-                      onNext: () => _selectAdjacent(1),
-                      onDismiss: () {
-                        if (_selectedRestaurantId != null) {
-                          setState(() => _selectedRestaurantId = null);
-                        }
-                      },
-                      onOpenDetail: () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => RestaurantDetailScreen(id: sel.id),
-                        ),
-                      ),
-                    );
-                  }),
-                ),
-            ],
-          );
-        },
+    out.add(Positioned(
+      left: 0,
+      right: 0,
+      bottom: 0,
+      child: MapNearbySheet(
+        phase: phase,
+        near: near,
+        carousel: _carousel,
+        highlightedId: _nearbyHighlight,
+        onOpen: _openDetail,
+        onActivateLocation: _activateLocation,
+        onShowIsland: _showWholeIsland,
+        onRetry: () => _load(force: true),
       ),
-    );
+    ));
+    return out;
   }
 
-  List<Restaurant> _applyClientFilters(List<Restaurant> source) {
-    if (!_quickOpen && _quickCategoryId == null && _searchText.trim().isEmpty) {
-      return source;
-    }
-    final q = _searchText.trim().toLowerCase();
-    return source.where((r) {
-      if (_quickOpen && !_openNow(r)) return false;
-      if (_quickCategoryId != null &&
-          !r.categoriaRestaurantes.any((c) => c.categoriaId == _quickCategoryId)) {
-        return false;
-      }
-      if (q.isNotEmpty && !r.nombre.toLowerCase().contains(q)) return false;
-      return true;
-    }).toList();
-  }
-
-  void _toggleOpenFilter() {
-    setState(() => _quickOpen = !_quickOpen);
-  }
-
-  void _toggleCategory(String id) {
-    setState(() => _quickCategoryId = _quickCategoryId == id ? null : id);
-  }
-
-  void _onSearchChanged(String value) {
-    _searchDebounce?.cancel();
-    _searchDebounce = Timer(const Duration(milliseconds: 350), () {
-      setState(() => _searchText = value);
-    });
-  }
-
-  void _clearSearch() {
-    _searchDebounce?.cancel();
-    _searchController.clear();
-    setState(() => _searchText = '');
-  }
-
-  void _clearAllQuickFilters() {
-    _searchDebounce?.cancel();
-    _searchController.clear();
+  void _showWholeIsland() {
     setState(() {
-      _quickOpen = false;
-      _quickCategoryId = null;
-      _searchText = '';
+      _showIsland = true;
+      _listMode = false;
+      _nearbyHighlight = null;
     });
-  }
-
-  Widget _buildEmptyState(BuildContext context) {
-    final brand = context.brand;
-    final l10n = AppL10n.of(context);
-    final hasFilters =
-        _quickOpen || _quickCategoryId != null || _searchText.isNotEmpty;
-    return Semantics(
-      identifier: 'mapa-empty-state',
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 320),
-        child: Container(
-          margin: const EdgeInsets.symmetric(horizontal: 20),
-          padding:
-              const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
-          decoration: BoxDecoration(
-            color: brand.surface,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: brand.border),
-            boxShadow: [
-              BoxShadow(
-                color: const Color.fromRGBO(0, 0, 0, 0.15),
-                blurRadius: 20,
-                offset: const Offset(0, 6),
-              ),
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.location_off_outlined,
-                  color: brand.textMuted, size: 48),
-              const SizedBox(height: 16),
-              Text(
-                l10n.mapEmptyTitle,
-                style: TextStyle(
-                  color: brand.textPrimary,
-                  fontFamily: 'SF Pro Display',
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                hasFilters
-                    ? l10n.mapEmptyWithFilters
-                    : l10n.mapEmptyNoFilters,
-                style: TextStyle(
-                  color: brand.textSecondary,
-                  fontFamily: 'SF Pro Display',
-                  fontSize: 13,
-                  height: 1.4,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              if (hasFilters) ...[
-                const SizedBox(height: 20),
-                Semantics(
-                  identifier: 'mapa-clear-filters',
-                  button: true,
-                  child: GestureDetector(
-                    onTap: _clearAllQuickFilters,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 24, vertical: 13),
-                      decoration: BoxDecoration(
-                        color: AppColors.atlantico,
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: Text(
-                        l10n.mapClearFilters,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontFamily: 'SF Pro Display',
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ── MapSearchView ──────────────────────────────────────────────────────
-  @override
-  setCategories(List<ModelCategory> categories) {
-    setState(() => this.categories = categories);
-  }
-
-  @override
-  setMunicipalities(List<Municipality> municipalities) {
-    setState(() => this.municipalities = municipalities);
-  }
-
-  @override
-  setTypes(List<Types> types) {
-    setState(() => this.types = types);
-  }
-
-  @override
-  setIsland(String islandId) {
-    setState(() => this.islandId = islandId);
-    presenter.getAllRestaurants(islandId);
+    _flyToIsland(_islandId);
   }
 }
 
-// ── Driving detector ────────────────────────────────────────────────────
-class _DrivingDetector {
-  final List<double> _samples = [];
-  final ValueNotifier<bool> isDriving = ValueNotifier<bool>(false);
-  // Fires when we detect driving but haven't asked the user yet. The UI
-  // listens and shows a confirmation sheet.
-  final ValueNotifier<bool> shouldSuggest = ValueNotifier<bool>(false);
-  // Live median speed (m/s). Used by the UI to show a "Activar modo coche"
-  // shortcut while moving but outside drive mode (e.g. after the user
-  // dismissed the suggestion or exited drive mode by mistake).
-  final ValueNotifier<double> currentSpeed = ValueNotifier<double>(0);
-  Position? _lastPos;
-  DateTime? _suppressUntil;
-
-  void onPosition(Position p) {
-    // iOS Simulator's `simctl location start` reports CLLocation.speed=0 (or -1)
-    // even while the position is moving, so we compute speed from the
-    // distance/time delta between successive points and keep whichever value
-    // is higher. Real devices keep using the OS-provided speed.
-    double computed = 0;
-    if (_lastPos != null) {
-      final dtMs = p.timestamp
-          .difference(_lastPos!.timestamp)
-          .inMilliseconds;
-      if (dtMs > 0) {
-        final meters = Geolocator.distanceBetween(
-          _lastPos!.latitude,
-          _lastPos!.longitude,
-          p.latitude,
-          p.longitude,
-        );
-        computed = meters / (dtMs / 1000.0);
-      }
-    }
-    final raw = p.speed.isFinite && p.speed > 0 ? p.speed : 0.0;
-    final speed = raw > computed ? raw : computed;
-    _lastPos = p;
-
-    _samples.add(speed);
-    if (_samples.length > _kDriveSampleWindow) {
-      _samples.removeAt(0);
-    }
-    final med = _median(_samples);
-    currentSpeed.value = med;
-
-    if (isDriving.value) {
-      if (med < _kExitDriveSpeed) isDriving.value = false;
-      return;
-    }
-    if (shouldSuggest.value) return; // already asking
-    final cooldownActive = _suppressUntil != null &&
-        DateTime.now().isBefore(_suppressUntil!);
-    if (cooldownActive) return;
-    if (_samples.length >= _kDriveMinSamplesToEnter &&
-        med > _kEnterDriveSpeed) {
-      shouldSuggest.value = true;
-    }
-  }
-
-  void confirmDrive() {
-    shouldSuggest.value = false;
-    isDriving.value = true;
-  }
-
-  void dismissSuggestion(
-      {Duration cooldown = const Duration(minutes: 5)}) {
-    shouldSuggest.value = false;
-    _suppressUntil = DateTime.now().add(cooldown);
-  }
-
-  void forceExit() {
-    _samples.clear();
-    _lastPos = null;
-    _suppressUntil = DateTime.now().add(const Duration(minutes: 5));
-    isDriving.value = false;
-    shouldSuggest.value = false;
-  }
-
-  void onPaused() {
-    _samples.clear();
-    _lastPos = null;
-    currentSpeed.value = 0;
-  }
-
-  void dispose() {
-    isDriving.dispose();
-    shouldSuggest.dispose();
-    currentSpeed.dispose();
-  }
-
-  static double _median(List<double> values) {
-    if (values.isEmpty) return 0;
-    final sorted = [...values]..sort();
-    final mid = sorted.length ~/ 2;
-    if (sorted.length.isOdd) return sorted[mid];
-    return (sorted[mid - 1] + sorted[mid]) / 2.0;
-  }
-}
-
-// ── Drive-mode suggestion sheet ─────────────────────────────────────────
-class _DriveModeSuggestionSheet extends StatelessWidget {
-  final VoidCallback onConfirm;
-  final VoidCallback onDismiss;
-  const _DriveModeSuggestionSheet({
-    Key? key,
-    required this.onConfirm,
-    required this.onDismiss,
-  }) : super(key: key);
+/// La hoja del sitio entra subiendo una vez (asentar, 320 ms); con
+/// «reducir movimiento», quieta.
+class _SheetEntrance extends StatelessWidget {
+  final Widget child;
+  const _SheetEntrance({required this.child});
 
   @override
   Widget build(BuildContext context) {
-    final brand = context.brand;
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-        child: Container(
-          decoration: BoxDecoration(
-            color: brand.surface,
-            borderRadius: BorderRadius.circular(28),
-            border: Border.all(color: brand.border),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.22),
-                blurRadius: 24,
-                offset: const Offset(0, 10),
-              ),
-            ],
-          ),
-          padding: const EdgeInsets.fromLTRB(20, 22, 20, 18),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(
-                  color: AppColors.atlantico.withOpacity(0.14),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.directions_car_filled,
-                  color: AppColors.atlantico,
-                  size: 28,
-                ),
-              ),
-              const SizedBox(height: 14),
-              Text(
-                '¿Vas en el coche?',
-                style: TextStyle(
-                  color: brand.textPrimary,
-                  fontFamily: 'SF Pro Display',
-                  fontSize: 19,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                'Hemos notado que te mueves a buena velocidad. ¿Activamos el modo coche para mostrarte los restaurantes mientras conduces?',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: brand.textSecondary,
-                  fontFamily: 'SF Pro Display',
-                  fontSize: 13,
-                  height: 1.4,
-                ),
-              ),
-              const SizedBox(height: 20),
-              Row(
-                children: [
-                  Expanded(
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: onDismiss,
-                      child: Container(
-                        height: 50,
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          color: Colors.transparent,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                              color: brand.borderStrong, width: 1.2),
-                        ),
-                        child: Text(
-                          'Ahora no',
-                          style: TextStyle(
-                            color: brand.textPrimary,
-                            fontFamily: 'SF Pro Display',
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: onConfirm,
-                      child: Container(
-                        height: 50,
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          color: AppColors.atlantico,
-                          borderRadius: BorderRadius.circular(16),
-                          boxShadow: [
-                            BoxShadow(
-                              color:
-                                  AppColors.atlantico.withOpacity(0.38),
-                              blurRadius: 14,
-                              offset: const Offset(0, 5),
-                            ),
-                          ],
-                        ),
-                        child: const Text(
-                          'Sí, activar',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontFamily: 'SF Pro Display',
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
+    if (GmMotion.reduced(context)) return child;
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 1, end: 0),
+      duration: const Duration(milliseconds: 320),
+      curve: GmMotion.settle,
+      builder: (_, t, c) =>
+          Transform.translate(offset: Offset(0, 40 * t), child: c),
+      child: child,
     );
-  }
-}
-
-// ── Drive-mode bottom strip (compact, large-touch) ──────────────────────
-class _DriveNearbyStrip extends StatefulWidget {
-  final List<Restaurant> nearby; // sorted by distance, nearest first
-  final double Function(Restaurant) distanceTo;
-
-  const _DriveNearbyStrip({
-    Key? key,
-    required this.nearby,
-    required this.distanceTo,
-  }) : super(key: key);
-
-  @override
-  State<_DriveNearbyStrip> createState() => _DriveNearbyStripState();
-}
-
-class _DriveNearbyStripState extends State<_DriveNearbyStrip> {
-  final PageController _pc = PageController();
-  final ScrollController _pillsScroll = ScrollController();
-  int _index = 0;
-
-  @override
-  void didUpdateWidget(covariant _DriveNearbyStrip old) {
-    super.didUpdateWidget(old);
-    if (_index >= widget.nearby.length) {
-      _index = widget.nearby.isEmpty ? 0 : widget.nearby.length - 1;
-      if (_pc.hasClients) {
-        _pc.jumpToPage(_index);
-      }
-    }
-  }
-
-  @override
-  void dispose() {
-    _pc.dispose();
-    _pillsScroll.dispose();
-    super.dispose();
-  }
-
-  void _go(int i) {
-    if (i < 0 || i >= widget.nearby.length) return;
-    _pc.animateToPage(
-      i,
-      duration: const Duration(milliseconds: 240),
-      curve: Curves.easeOut,
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final list = widget.nearby;
-    if (list.isEmpty) return const SizedBox.shrink();
-    final clamped = _index.clamp(0, list.length - 1);
-
-    return Container(
-      padding: const EdgeInsets.fromLTRB(12, 14, 12, 24),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.bottomCenter,
-          end: Alignment.topCenter,
-          colors: [
-            context.brand.base,
-            context.brand.base.withOpacity(0.0),
-          ],
-        ),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Full-width swipeable main card. Paging: swipe horizontally OR
-          // tap a pill below.
-          SizedBox(
-            height: 116,
-            child: PageView.builder(
-              controller: _pc,
-              onPageChanged: (i) => setState(() => _index = i),
-              itemCount: list.length,
-              itemBuilder: (_, i) => _DriveNearestCard(
-                restaurant: list[i],
-                distanceMeters: widget.distanceTo(list[i]),
-                index: i,
-                total: list.length,
-              ),
-            ),
-          ),
-          if (list.length > 1) ...[
-            const SizedBox(height: 10),
-            SizedBox(
-              height: 44,
-              child: ListView.separated(
-                controller: _pillsScroll,
-                scrollDirection: Axis.horizontal,
-                itemBuilder: (_, i) => _DrivePill(
-                  restaurant: list[i],
-                  distanceMeters: widget.distanceTo(list[i]),
-                  active: i == clamped,
-                  onTap: () => _go(i),
-                ),
-                separatorBuilder: (_, __) => const SizedBox(width: 8),
-                itemCount: list.length,
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _DriveNearestCard extends StatelessWidget {
-  final Restaurant restaurant;
-  final double distanceMeters;
-  final int index;
-  final int total;
-  const _DriveNearestCard({
-    Key? key,
-    required this.restaurant,
-    required this.distanceMeters,
-    required this.index,
-    required this.total,
-  }) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    final label = index == 0 ? 'MÁS CERCANO' : '${index + 1} DE $total';
-    final status = _statusFor(restaurant, distanceMeters);
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 2),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: context.brand.elevated,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: context.brand.border, width: 1),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.18),
-            blurRadius: 14,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  label,
-                  style: TextStyle(
-                    color: AppColors.atlantico,
-                    fontFamily: 'SF Pro Display',
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1.1,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  restaurant.nombre,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: context.brand.textPrimary,
-                    fontFamily: 'SF Pro Display',
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '${status.label} · ${_fmtDistance(distanceMeters)} · ${_fmtDriveMinutes(distanceMeters)}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: status.color,
-                    fontFamily: 'SF Pro Display',
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 12),
-          _IrButton(restaurant: restaurant, big: true),
-        ],
-      ),
-    );
-  }
-}
-
-class _DrivePill extends StatelessWidget {
-  final Restaurant restaurant;
-  final double distanceMeters;
-  final bool active;
-  final VoidCallback onTap;
-  const _DrivePill({
-    Key? key,
-    required this.restaurant,
-    required this.distanceMeters,
-    required this.active,
-    required this.onTap,
-  }) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    final status = _statusFor(restaurant, distanceMeters);
-    final unreachable = status.color == _kStatusUrgent;
-    final closingSoon = status.color == _kStatusWarning;
-    // Trailing label: distance, but swap to time-to-close when urgent or
-    // soon so the user gets the most useful info at a glance.
-    final close = _closingTimeNow(restaurant);
-    String trailing;
-    if ((unreachable || closingSoon) && close != null) {
-      trailing = 'cierra ${_fmtClock(close)}';
-    } else {
-      trailing = _fmtDistance(distanceMeters);
-    }
-    return Opacity(
-      opacity: unreachable ? 0.55 : 1.0,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOut,
-          padding: const EdgeInsets.symmetric(horizontal: 14),
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: active
-                ? AppColors.atlantico
-                : context.brand.surface,
-            borderRadius: BorderRadius.circular(22),
-            border: Border.all(
-              color: active
-                  ? AppColors.atlantico
-                  : (closingSoon || unreachable)
-                      ? status.color.withOpacity(0.6)
-                      : context.brand.border,
-              width: (closingSoon || unreachable) && !active ? 1.4 : 1,
-            ),
-            boxShadow: active
-                ? [
-                    BoxShadow(
-                      color: AppColors.atlantico.withOpacity(0.32),
-                      blurRadius: 10,
-                      offset: const Offset(0, 3),
-                    ),
-                  ]
-                : const [],
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 10,
-                height: 10,
-                decoration: BoxDecoration(
-                  color: status.color,
-                  shape: BoxShape.circle,
-                ),
-              ),
-              const SizedBox(width: 10),
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 140),
-                child: Text(
-                  restaurant.nombre.toUpperCase(),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: active ? Colors.white : context.brand.textPrimary,
-                    fontFamily: 'SF Pro Display',
-                    fontSize: 12,
-                    fontWeight: active ? FontWeight.w800 : FontWeight.w700,
-                    letterSpacing: 0.4,
-                    decoration: unreachable
-                        ? TextDecoration.lineThrough
-                        : TextDecoration.none,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Text(
-                trailing,
-                style: TextStyle(
-                  color: active
-                      ? Colors.white
-                      : (closingSoon || unreachable)
-                          ? status.color
-                          : context.brand.textMuted,
-                  fontFamily: 'SF Pro Display',
-                  fontSize: 12,
-                  fontWeight: (closingSoon || unreachable)
-                      ? FontWeight.w700
-                      : FontWeight.w400,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ── PROTOTIPO: bottom sheet ergonomia Eater ─────────────────────────────
-/// Sheet arrastrable (peek -> expandido) que muestra el restaurante
-/// seleccionado. Peek = foto + nombre + estado/distancia; acciones rapidas;
-/// arrastrando arriba revela direccion y la barra prev/next "X / N sitios".
-/// Swipe horizontal y flechas son ciclicos. Tocar abre la ficha completa.
-class _MapPeekSheet extends StatelessWidget {
-  final Restaurant restaurant;
-  final double distanceMeters;
-  final int index;
-  final int total;
-  final VoidCallback onPrev;
-  final VoidCallback onNext;
-  final VoidCallback onOpenDetail;
-  final VoidCallback onDismiss;
-
-  const _MapPeekSheet({
-    Key? key,
-    required this.restaurant,
-    required this.distanceMeters,
-    required this.index,
-    required this.total,
-    required this.onPrev,
-    required this.onNext,
-    required this.onOpenDetail,
-    required this.onDismiss,
-  }) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    final brand = context.brand;
-    final r = restaurant;
-    // Con `extendBody` el body llega hasta el fondo de pantalla y la barra
-    // flotante (glass) tapa la franja inferior. `padding.bottom` ES la altura
-    // de esa barra: compensamos las fracciones para que el alto VISIBLE del
-    // sheet sea el de siempre, y el contenido no quede debajo del cristal.
-    final mq = MediaQuery.of(context);
-    final navPad = mq.padding.bottom;
-    final h = mq.size.height;
-    final peek = ((0.30 * h + navPad) / h).clamp(0.15, 0.6);
-    final expanded = ((0.60 * h + navPad) / h).clamp(peek, 0.9);
-    return NotificationListener<DraggableScrollableNotification>(
-      // Arrastrar hasta abajo del todo = cerrar el sheet y deseleccionar.
-      onNotification: (n) {
-        if (n.extent <= 0.03) onDismiss();
-        return false;
-      },
-      child: DraggableScrollableSheet(
-      initialChildSize: peek,
-      minChildSize: 0.0,
-      maxChildSize: expanded,
-      snap: true,
-      snapSizes: [peek],
-      builder: (context, scrollController) {
-        return GestureDetector(
-          // Swipe horizontal: a la derecha -> siguiente, a la izquierda ->
-          // anterior (ciclico).
-          onHorizontalDragEnd: (details) {
-            final v = details.primaryVelocity ?? 0;
-            if (v > 250) {
-              onNext();
-            } else if (v < -250) {
-              onPrev();
-            }
-          },
-          child: Container(
-            decoration: BoxDecoration(
-              color: brand.surface,
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(22)),
-              border: Border.all(color: brand.border),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.18),
-                  blurRadius: 24,
-                  offset: const Offset(0, -4),
-                ),
-              ],
-            ),
-            clipBehavior: Clip.hardEdge,
-            child: ListView(
-              controller: scrollController,
-              // Bottom: deja sitio para la barra flotante (glass) — sin esto
-              // el final del contenido queda debajo del cristal.
-              padding: EdgeInsets.only(bottom: navPad + 16),
-              children: [
-                // Asa de arrastre
-                Center(
-                  child: Container(
-                    margin: const EdgeInsets.only(top: 8, bottom: 12),
-                    width: 38,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: brand.border,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                ),
-                // Contenido animado: al cambiar de restaurante hace fade +
-                // slide para que se note la transicion.
-                AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 240),
-                  switchInCurve: Curves.easeOutCubic,
-                  switchOutCurve: Curves.easeIn,
-                  transitionBuilder: (child, anim) => FadeTransition(
-                    opacity: anim,
-                    child: SlideTransition(
-                      position: Tween<Offset>(
-                        begin: const Offset(0.08, 0),
-                        end: Offset.zero,
-                      ).animate(anim),
-                      child: child,
-                    ),
-                  ),
-                  child: Column(
-                    key: ValueKey(r.id),
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Peek: thumbnail + nombre + estado/distancia
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: GestureDetector(
-                          onTap: onOpenDetail,
-                          behavior: HitTestBehavior.opaque,
-                          child: Row(
-                            children: [
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(14),
-                                child: SizedBox(
-                                  width: 66,
-                                  height: 66,
-                                  child: Container(
-                                    color: brand.elevated,
-                                    child: r.mainFoto.isNotEmpty
-                                        ? Image.network(
-                                            r.mainFoto,
-                                            fit: BoxFit.cover,
-                                            errorBuilder: (_, __, ___) => Icon(
-                                                Icons.restaurant,
-                                                color: brand.textMuted),
-                                          )
-                                        : Icon(Icons.restaurant,
-                                            color: brand.textMuted),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.start,
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(
-                                      r.nombre.toUpperCase(),
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: AppTextStyles.displaySection(
-                                          size: 15),
-                                    ),
-                                    const SizedBox(height: 5),
-                                    _StatusLine(
-                                      restaurant: r,
-                                      brand: brand,
-                                      distanceMeters: distanceMeters,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Icon(Icons.chevron_right_rounded,
-                                  color: brand.textMuted),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-                      // Acciones rapidas (estilo Eater)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
-                        child: Row(
-                          children: [
-                            _action(
-                                context,
-                                Icons.directions_outlined,
-                                'Cómo llegar',
-                                () => MapsLauncher.launchCoordinates(
-                                    r.lat, r.lon, r.nombre)),
-                            _action(
-                                context,
-                                Icons.ios_share,
-                                'Compartir',
-                                () => Share.share(
-                                    '${r.nombre} · ${r.municipio}')),
-                            _action(context, Icons.info_outline_rounded,
-                                'Ver ficha', onOpenDetail),
-                          ],
-                        ),
-                      ),
-                      Divider(height: 26, color: brand.border),
-                      // Contenido expandido
-                      if (r.direccion.isNotEmpty)
-                        Padding(
-                          padding:
-                              const EdgeInsets.fromLTRB(16, 0, 16, 10),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Icon(Icons.place_outlined,
-                                  size: 16, color: brand.textMuted),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  r.direccion,
-                                  style: AppTextStyles.ui(
-                                      size: 13,
-                                      color: brand.textSecondary),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      const SizedBox(height: 4),
-                      // Navegacion prev/next ("X / N sitios")
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(8, 0, 8, 16),
-                        child: Row(
-                          children: [
-                            IconButton(
-                              onPressed: onPrev,
-                              icon: const Icon(Icons.chevron_left_rounded),
-                              color: AppColors.atlantico,
-                            ),
-                            Expanded(
-                              child: Center(
-                                child: Text(
-                                  '${index + 1} / $total sitios',
-                                  style: AppTextStyles.ui(
-                                    size: 12,
-                                    weight: FontWeight.w700,
-                                    color: brand.textPrimary,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            IconButton(
-                              onPressed: onNext,
-                              icon: const Icon(Icons.chevron_right_rounded),
-                              color: AppColors.atlantico,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-      ),
-    );
-  }
-
-  Widget _action(
-      BuildContext context, IconData icon, String label, VoidCallback onTap) {
-    final brand = context.brand;
-    return Expanded(
-      child: GestureDetector(
-        onTap: onTap,
-        behavior: HitTestBehavior.opaque,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 4),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, color: AppColors.atlantico, size: 22),
-              const SizedBox(height: 5),
-              Text(
-                label,
-                style: AppTextStyles.ui(
-                  size: 11,
-                  weight: FontWeight.w600,
-                  color: brand.textPrimary,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ── Nearby carousel (non-drive) ─────────────────────────────────────────
-/// Floating, full-width landscape card carousel that hovers over the map.
-/// One card visible at a time, swipeable to neighbours.
-class _FloatingCardCarousel extends StatelessWidget {
-  final List<Restaurant> restaurants;
-  final PageController pageController;
-  final ValueChanged<int> onPageChanged;
-  final double Function(Restaurant) distanceTo;
-
-  const _FloatingCardCarousel({
-    Key? key,
-    required this.restaurants,
-    required this.pageController,
-    required this.onPageChanged,
-    required this.distanceTo,
-  }) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return PageView.builder(
-      controller: pageController,
-      onPageChanged: onPageChanged,
-      itemCount: restaurants.length,
-      itemBuilder: (_, i) {
-        final r = restaurants[i];
-        return Semantics(
-          identifier: 'mapa-sheet-card',
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 6),
-            child: _FloatingMapCard(
-              restaurant: r,
-              distanceMeters: distanceTo(r),
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _FloatingMapCard extends StatelessWidget {
-  final Restaurant restaurant;
-  final double distanceMeters;
-
-  const _FloatingMapCard({
-    Key? key,
-    required this.restaurant,
-    required this.distanceMeters,
-  }) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    final brand = context.brand;
-    final r = restaurant;
-    return Semantics(
-      identifier: 'mapa-card-${r.id}',
-      button: true,
-      label: r.nombre,
-      child: GestureDetector(
-        onTap: () => Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => RestaurantDetailScreen(id: r.id),
-          ),
-        ),
-        child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(22),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.22),
-              blurRadius: 24,
-              offset: const Offset(0, 8),
-            ),
-            BoxShadow(
-              color: Colors.black.withOpacity(0.06),
-              blurRadius: 4,
-              offset: const Offset(0, 1),
-            ),
-          ],
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(22),
-          child: BackdropFilter(
-            // Blur fuerte para que el mapa de fondo se vea suavizado.
-            filter: ui.ImageFilter.blur(sigmaX: 30, sigmaY: 30),
-            child: Container(
-              decoration: BoxDecoration(
-                // Doble capa: gradiente translúcido cream → cream-soft con highlight
-                // arriba simulando luz reflejada (efecto frosted real).
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: brand.textPrimary == AppColors.ink
-                      // Light mode (crema)
-                      ? const [
-                          Color(0xCCFFF8E8),
-                          Color(0xB3F2E8D5),
-                        ]
-                      // Dark mode
-                      : const [
-                          Color(0xCC1A2535),
-                          Color(0x99111820),
-                        ],
-                ),
-                borderRadius: BorderRadius.circular(22),
-                border: Border.all(
-                  color: brand.textPrimary == AppColors.ink
-                      ? Colors.white.withOpacity(0.55)
-                      : Colors.white.withOpacity(0.10),
-                  width: 1,
-                ),
-              ),
-              padding: const EdgeInsets.all(10),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  // Thumbnail con rating badge superpuesto
-            SizedBox(
-              width: 92,
-              height: 92,
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(16),
-                    child: Container(
-                      color: brand.elevated,
-                      child: r.mainFoto.isNotEmpty
-                          ? Image.network(
-                              r.mainFoto,
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => Icon(
-                                Icons.image_not_supported,
-                                color: brand.textMuted,
-                              ),
-                            )
-                          : Icon(Icons.restaurant, color: brand.textMuted),
-                    ),
-                  ),
-                  if (r.avgRating > 0)
-                    Positioned(
-                      left: 6,
-                      bottom: 6,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.72),
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.star_rounded,
-                                color: AppColors.sol, size: 12),
-                            const SizedBox(width: 3),
-                            Text(
-                              r.avgRating.toStringAsFixed(1),
-                              style: AppTextStyles.ui(
-                                size: 11,
-                                weight: FontWeight.w700,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 12),
-            // Info
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  // Distance pill
-                  if (distanceMeters.isFinite) ...[
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: AppColors.atlantico.withOpacity(0.10),
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.place_rounded,
-                              color: AppColors.atlantico, size: 12),
-                          const SizedBox(width: 3),
-                          Text(
-                            _fmtDistance(distanceMeters),
-                            style: AppTextStyles.ui(
-                              size: 11,
-                              weight: FontWeight.w700,
-                              color: AppColors.atlantico,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                  ],
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          r.nombre.toUpperCase(),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: AppTextStyles.displayHero(
-                            size: 16,
-                            color: brand.textPrimary,
-                          ),
-                        ),
-                      ),
-                      if (r.avgRating > 0)
-                        Semantics(
-                          identifier: 'mapa-sheet-rating',
-                          child: Padding(
-                            padding: const EdgeInsets.only(left: 6, top: 2),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(Icons.star_rounded,
-                                    color: AppColors.sol, size: 13),
-                                const SizedBox(width: 2),
-                                Text(
-                                  r.avgRating.toStringAsFixed(1),
-                                  style: AppTextStyles.ui(
-                                    size: 13,
-                                    weight: FontWeight.w700,
-                                    color: brand.textPrimary,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  _StatusLine(
-                    restaurant: r,
-                    brand: brand,
-                    distanceMeters: distanceMeters,
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 10),
-            // Botón IR (abre Google Maps con direcciones)
-            GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () => MapsLauncher.launchCoordinates(
-                  r.lat, r.lon, r.nombre),
-              child: Container(
-                width: 64,
-                height: 76,
-                decoration: BoxDecoration(
-                  color: AppColors.atlantico,
-                  borderRadius: BorderRadius.circular(18),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.atlantico.withOpacity(0.35),
-                      blurRadius: 10,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(
-                      Icons.near_me_rounded,
-                      color: Colors.white,
-                      size: 24,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'IR',
-                      style: AppTextStyles.chipLabel(
-                        size: 12,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Línea de estado: "● Abierto hasta 22:30 · Candelaria · 12-22€"
-class _StatusLine extends StatelessWidget {
-  final Restaurant restaurant;
-  final BrandColors brand;
-  final double distanceMeters;
-  const _StatusLine({
-    required this.restaurant,
-    required this.brand,
-    required this.distanceMeters,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final r = restaurant;
-    final status = _statusFor(r, distanceMeters);
-    final priceLabel = (r.minPrice != null && r.maxPrice != null)
-        ? '${r.minPrice}–${r.maxPrice}€'
-        : null;
-
-    final separator = Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 5),
-      child: Text(
-        '·',
-        style: AppTextStyles.ui(
-          size: 11,
-          weight: FontWeight.w700,
-          color: brand.textMuted,
-        ),
-      ),
-    );
-
-    return DefaultTextStyle.merge(
-      style: AppTextStyles.ui(
-        size: 11,
-        weight: FontWeight.w500,
-        color: brand.textSecondary,
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 6,
-            height: 6,
-            decoration: BoxDecoration(
-              color: status.color,
-              shape: BoxShape.circle,
-            ),
-          ),
-          const SizedBox(width: 5),
-          Flexible(
-            child: Text(
-              status.label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: AppTextStyles.ui(
-                size: 11,
-                weight: FontWeight.w700,
-                color: status.color,
-              ),
-            ),
-          ),
-          if (r.municipio.isNotEmpty) ...[
-            separator,
-            Flexible(
-              child: Text(
-                r.municipio,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
-          if (priceLabel != null) ...[
-            separator,
-            Text(
-              priceLabel,
-              style: AppTextStyles.ui(
-                size: 11,
-                weight: FontWeight.w700,
-                color: brand.textSecondary,
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _IrButton extends StatelessWidget {
-  final Restaurant restaurant;
-  final bool big;
-  const _IrButton({Key? key, required this.restaurant, this.big = false})
-      : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    final size = big ? 76.0 : 40.0;
-    final iconSize = big ? 30.0 : 18.0;
-    return GestureDetector(
-      onTap: () => MapsLauncher.launchCoordinates(
-          restaurant.lat, restaurant.lon, restaurant.nombre),
-      child: Container(
-        width: size,
-        height: size,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: AppColors.atlantico,
-          borderRadius: BorderRadius.circular(big ? 20 : 12),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.atlantico.withOpacity(0.35),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Icon(
-          Icons.arrow_outward_rounded,
-          color: Colors.white,
-          size: iconSize,
-        ),
-      ),
-    );
-  }
-}
-
-// ── Format helpers ──────────────────────────────────────────────────────
-String _fmtDistance(double meters) {
-  if (!meters.isFinite) return '--';
-  if (meters < 950) return '${meters.round()} m';
-  return '${(meters / 1000).toStringAsFixed(1)} km';
-}
-
-String _fmtDriveMinutes(double meters) {
-  if (!meters.isFinite) return '--';
-  // 60 km/h ≈ 1000 m/min
-  final mins = (meters / 1000).round();
-  if (mins < 1) return '<1 min';
-  return '$mins min';
-}
-
-int _etaMinutes(double meters) {
-  if (!meters.isFinite) return 0;
-  return (meters / 1000).ceil();
-}
-
-/// Parses `Restaurant.googleHorarios` (multi-line "Lunes: 09:00–22:30"
-/// strings) and returns the closing time of the slot the restaurant is in
-/// right now. Null if the place is closed, has no schedule, or is 24h.
-DateTime? _closingTimeNow(Restaurant r) {
-  final raw = r.googleHorarios;
-  if (raw.isEmpty) return null;
-  final lower = raw.toLowerCase();
-  if (lower == 'cerrado' || lower == 'sin horario') return null;
-  final lines = raw.split('\n');
-  final weekday = DateTime.now().toUtc().weekday - 1;
-  if (weekday < 0 || weekday >= lines.length) return null;
-  final colonIdx = lines[weekday].indexOf(': ');
-  if (colonIdx < 0) return null;
-  final hours = lines[weekday].substring(colonIdx + 2).trim();
-  final hoursLower = hours.toLowerCase();
-  if (hoursLower == 'cerrado') return null;
-  if (hoursLower.contains('24 horas')) return null;
-  final now = DateTime.now();
-  for (final range in hours.split(', ')) {
-    final hh = range.split('–');
-    if (hh.length < 2) continue;
-    final s = hh[0].split(':');
-    final e = hh[1].split(':');
-    if (s.length < 2 || e.length < 2) continue;
-    final start = DateTime(now.year, now.month, now.day,
-        int.tryParse(s[0]) ?? 0, int.tryParse(s[1]) ?? 0);
-    var end = DateTime(now.year, now.month, now.day,
-        int.tryParse(e[0]) ?? 0, int.tryParse(e[1]) ?? 0);
-    // Range crosses midnight (e.g. 19:00–01:00).
-    if (end.isBefore(start)) {
-      end = end.add(const Duration(days: 1));
-    }
-    if (now.isAfter(start) && now.isBefore(end)) return end;
-  }
-  return null;
-}
-
-String _fmtClock(DateTime dt) =>
-    '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
-
-class _RestaurantStatus {
-  final String label;
-  final Color color;
-  const _RestaurantStatus(this.label, this.color);
-}
-
-const Color _kStatusOpen = Color.fromRGBO(149, 220, 0, 1);
-const Color _kStatusClosed = Color.fromRGBO(226, 120, 120, 1);
-const Color _kStatusUnknown = Color(0xFF9A8F80);
-
-/// Abierto ahora con la regla única de la app (horarios_json; si no hay,
-/// el `open` del backend).
-bool _openNow(Restaurant r) => isRestaurantOpenNow(r, DateTime.now());
-const Color _kStatusWarning = Color.fromRGBO(245, 183, 0, 1); // sol
-const Color _kStatusUrgent = Color.fromRGBO(232, 82, 26, 1); // mojo
-
-/// Combines open/closed + closing time + ETA into a single status descriptor.
-/// "Cierra pronto" if the slot ends in <45 min. "Estará cerrado al llegar"
-/// when ETA at ~60 km/h doesn't fit before close (or <10 min remaining).
-_RestaurantStatus _statusFor(Restaurant r, double distanceMeters) {
-  if (!_openNow(r)) {
-    // Sin horario fiable: neutro, nunca «Cerrado».
-    if (restaurantOpenState(r, DateTime.now()).kind == OpenKind.unknown) {
-      return const _RestaurantStatus('Horario sin confirmar', _kStatusUnknown);
-    }
-    return const _RestaurantStatus('Cerrado', _kStatusClosed);
-  }
-  final close = _closingTimeNow(r);
-  if (close == null) {
-    return const _RestaurantStatus('Abierto', _kStatusOpen);
-  }
-  final closesIn = close.difference(DateTime.now()).inMinutes;
-  final eta = _etaMinutes(distanceMeters);
-  final hhmm = _fmtClock(close);
-
-  if (closesIn < 10 || closesIn <= eta) {
-    return _RestaurantStatus(
-        'Estará cerrado al llegar · cierra $hhmm', _kStatusUrgent);
-  }
-  if (closesIn < 45) {
-    return _RestaurantStatus('Cierra pronto · $hhmm', _kStatusWarning);
-  }
-  return _RestaurantStatus('Abierto hasta $hhmm', _kStatusOpen);
-}
-
-// ── Header (search + chips) widget ──────────────────────────────────────
-class _MapHeader extends StatelessWidget {
-  final List<ModelCategory> categories;
-  final String? selectedCategoryId;
-  final bool openActive;
-  final String municipalityLabel;
-  final TextEditingController searchController;
-  final ValueChanged<String> onSearchChanged;
-  final VoidCallback onClearSearch;
-  final VoidCallback onToggleOpen;
-  final ValueChanged<String> onToggleCategory;
-  final bool driveMode;
-  final VoidCallback onExitDrive;
-  final VoidCallback onIslandTap;
-
-  const _MapHeader({
-    Key? key,
-    required this.categories,
-    required this.selectedCategoryId,
-    required this.openActive,
-    required this.municipalityLabel,
-    required this.searchController,
-    required this.onSearchChanged,
-    required this.onClearSearch,
-    required this.onToggleOpen,
-    required this.onToggleCategory,
-    this.driveMode = false,
-    required this.onExitDrive,
-    required this.onIslandTap,
-  }) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    final brand = context.brand;
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            brand.base.withOpacity(0.92),
-            brand.base.withOpacity(0.0),
-          ],
-        ),
-      ),
-      child: SafeArea(
-        bottom: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 8, 12, 16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Search bar (live filter) with municipality chip on the right.
-            // Hidden in drive mode to avoid distracting input.
-            if (!driveMode) Container(
-              height: 52,
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-              decoration: BoxDecoration(
-                color: brand.surface,
-                borderRadius: BorderRadius.circular(28),
-                border: Border.all(color: brand.border),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.18),
-                    blurRadius: 10,
-                    offset: const Offset(0, 3),
-                  ),
-                ],
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.search, color: brand.textMuted, size: 20),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Semantics(
-                      identifier: 'mapa-search-field',
-                      textField: true,
-                      label: 'Buscar restaurantes',
-                      child: TextField(
-                        controller: searchController,
-                        onChanged: onSearchChanged,
-                        textInputAction: TextInputAction.search,
-                        cursorColor: AppColors.atlantico,
-                        style: TextStyle(
-                          color: brand.textPrimary,
-                          fontFamily: 'SF Pro Display',
-                          fontSize: 15,
-                        ),
-                        decoration: InputDecoration(
-                          isDense: true,
-                          border: InputBorder.none,
-                          contentPadding:
-                              const EdgeInsets.symmetric(vertical: 14),
-                          hintText: 'Buscar restaurantes...',
-                          hintStyle: TextStyle(
-                            color: brand.textMuted,
-                            fontFamily: 'SF Pro Display',
-                            fontSize: 15,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  ValueListenableBuilder<TextEditingValue>(
-                    valueListenable: searchController,
-                    builder: (_, v, __) {
-                      if (v.text.isEmpty) return const SizedBox(width: 4);
-                      return GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        onTap: onClearSearch,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 6),
-                          child: Icon(Icons.close_rounded,
-                              color: brand.textMuted, size: 18),
-                        ),
-                      );
-                    },
-                  ),
-                  Semantics(
-                    identifier: 'mapa-island-chip',
-                    button: true,
-                    label: 'Cambiar de isla',
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: onIslandTap,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: Colors.transparent,
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                              color: AppColors.atlantico, width: 1.4),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              municipalityLabel,
-                              style: TextStyle(
-                                color: AppColors.atlantico,
-                                fontFamily: 'SF Pro Display',
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 0.6,
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            Icon(Icons.expand_more,
-                                size: 16, color: AppColors.atlantico),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            if (!driveMode) const SizedBox(height: 12),
-            // Quick filter pills row. In drive mode it sits at the very top
-            // (no search bar above) and is prefixed by a "Salir modo coche"
-            // pill so the user can leave drive mode without hunting for it.
-            SizedBox(
-              height: driveMode ? 44 : 36,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                physics: const BouncingScrollPhysics(),
-                children: [
-                  if (driveMode) ...[
-                    _DriveExitPill(onTap: onExitDrive),
-                    const SizedBox(width: 8),
-                  ],
-                  _QuickPill(
-                    identifier: 'mapa-pill-abierto',
-                    label: 'ABIERTO AHORA',
-                    active: openActive,
-                    onTap: onToggleOpen,
-                    big: driveMode,
-                  ),
-                  for (final c in categories.take(8)) ...[
-                    const SizedBox(width: 8),
-                    _QuickPill(
-                      identifier: 'mapa-pill-${c.id}',
-                      label: c.nombre.toUpperCase(),
-                      active: selectedCategoryId == c.id,
-                      onTap: () => onToggleCategory(c.id),
-                      big: driveMode,
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    ),
-  );
-  }
-}
-
-class _EnterDrivePill extends StatelessWidget {
-  final VoidCallback onTap;
-  const _EnterDrivePill({Key? key, required this.onTap}) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onTap,
-      child: Container(
-        height: 42,
-        padding: const EdgeInsets.symmetric(horizontal: 14),
-        decoration: BoxDecoration(
-          color: AppColors.atlantico,
-          borderRadius: BorderRadius.circular(22),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.atlantico.withOpacity(0.42),
-              blurRadius: 14,
-              offset: const Offset(0, 4),
-            ),
-            BoxShadow(
-              color: Colors.black.withOpacity(0.18),
-              blurRadius: 6,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: const [
-            Icon(Icons.directions_car_filled,
-                color: Colors.white, size: 18),
-            SizedBox(width: 8),
-            Text(
-              'MODO COCHE',
-              style: TextStyle(
-                color: Colors.white,
-                fontFamily: 'SF Pro Display',
-                fontSize: 12,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 0.7,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _DriveExitPill extends StatelessWidget {
-  final VoidCallback onTap;
-  const _DriveExitPill({Key? key, required this.onTap}) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onTap,
-      child: Container(
-        height: 44,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: AppColors.atlantico,
-          borderRadius: BorderRadius.circular(22),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.atlantico.withOpacity(0.35),
-              blurRadius: 10,
-              offset: const Offset(0, 3),
-            ),
-          ],
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: const [
-            Icon(Icons.directions_car_filled,
-                color: Colors.white, size: 18),
-            SizedBox(width: 6),
-            Text(
-              'SALIR MODO COCHE',
-              style: TextStyle(
-                color: Colors.white,
-                fontFamily: 'SF Pro Display',
-                fontSize: 12,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 0.6,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _QuickPill extends StatelessWidget {
-  final String label;
-  final bool active;
-  final VoidCallback onTap;
-  final bool big;
-  final String identifier;
-
-  const _QuickPill({
-    Key? key,
-    required this.label,
-    required this.active,
-    required this.onTap,
-    required this.identifier,
-    this.big = false,
-  }) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    final brand = context.brand;
-    return Semantics(
-      identifier: identifier,
-      button: true,
-      selected: active,
-      label: label,
-      child: GestureDetector(
-        onTap: onTap,
-        child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        curve: Curves.easeInOut,
-        padding: EdgeInsets.symmetric(horizontal: big ? 20 : 18),
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: active ? AppColors.atlantico : brand.surface,
-          borderRadius: BorderRadius.circular(big ? 22 : 22),
-          border: Border.all(
-            color: active ? AppColors.atlantico : brand.border,
-            width: 1.2,
-          ),
-          boxShadow: active
-              ? [
-                  BoxShadow(
-                    color: AppColors.atlantico.withOpacity(0.35),
-                    blurRadius: 8,
-                    offset: const Offset(0, 3),
-                  ),
-                ]
-              : const [],
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: active ? Colors.white : brand.textPrimary,
-            fontFamily: 'SF Pro Display',
-            fontSize: big ? 13 : 12,
-            fontWeight: active ? FontWeight.w800 : FontWeight.w600,
-            letterSpacing: 0.6,
-          ),
-        ),
-      ),
-    ),
-  );
   }
 }
