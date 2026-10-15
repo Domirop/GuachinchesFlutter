@@ -144,14 +144,19 @@ class LocationCubit extends Cubit<LocationState> {
   Future<void> _fetchAndEmitLocation() async {
     emit(LocationLoading());
 
+    // Los límites van en `timeLimit` (y no en `Future.timeout`): al vencer,
+    // geolocator cancela la petición nativa. Con `.timeout` el futuro fallaba
+    // pero el GPS seguía buscando (y en interiores podía no parar nunca, una
+    // petición más en cada vuelta a primer plano).
     // ── Attempt 1: getCurrentPosition ─────────────────────────────────────
     Position? position;
     try {
       position = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
           accuracy: LocationAccuracy.medium,
+          timeLimit: Duration(seconds: 15),
         ),
-      ).timeout(const Duration(seconds: 15));
+      );
     } catch (_) {
       position = null;
     }
@@ -162,8 +167,9 @@ class LocationCubit extends Cubit<LocationState> {
         position = await Geolocator.getPositionStream(
           locationSettings: const LocationSettings(
             accuracy: LocationAccuracy.medium,
+            timeLimit: Duration(seconds: 20),
           ),
-        ).first.timeout(const Duration(seconds: 20));
+        ).first;
       } catch (_) {
         emit(LocationUnavailable());
         return;
