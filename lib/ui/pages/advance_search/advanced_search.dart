@@ -25,6 +25,7 @@ import 'package:guachinches/ui/pages/advance_search/widgets/list_map_view.dart';
 import 'package:guachinches/ui/pages/advance_search/widgets/barraquito_scene.dart';
 import 'package:guachinches/ui/pages/advance_search/widgets/mesa_brindis_scene.dart';
 import 'package:guachinches/ui/pages/advance_search/widgets/search_filter_sheet.dart';
+import 'package:guachinches/ui/pages/advance_search/widgets/type_grid.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/gm_home_extras.dart'
     show GmCloudEdge;
 import 'package:guachinches/ui/pages/new_home/widgets/gm_place_card.dart'
@@ -2269,7 +2270,7 @@ class _ErrorState extends StatelessWidget {
             child: Text('Mientras tanto, explora por tipo',
                 style: GmText.eyebrow(color: gm.label2)),
           ),
-          _TypeGrid(types: types, pool: pool, onPick: onPickType),
+          TypeGrid(types: types, pool: pool, onPick: onPickType),
         ],
       ],
     );
@@ -2452,117 +2453,7 @@ class _BrowseView extends StatelessWidget {
             const SizedBox(height: 26),
             Text('Explorar por tipo', style: GmText.eyebrow(color: gm.label2)),
             const SizedBox(height: 10),
-            _TypeGrid(types: types, pool: pool, onPick: onPickType, inset: 0),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-/// «Explorar por tipo»: loseta con el tinte y el glifo de cada tipo y su
-/// recuento real (si la home ya trajo los sitios).
-class _TypeGrid extends StatelessWidget {
-  final List<Types> types;
-  final List<Restaurant> pool;
-  final ValueChanged<Types> onPick;
-  final double inset;
-
-  const _TypeGrid({
-    required this.types,
-    required this.pool,
-    required this.onPick,
-    this.inset = 16,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final gm = GmColors.of(context);
-    final dark = gm.isDark;
-    final counts = <String, int>{};
-    for (final r in pool) {
-      counts[r.type] = (counts[r.type] ?? 0) + 1;
-    }
-    // Más sitios primero; los que no tienen ninguno, fuera.
-    final list = [...types];
-    if (pool.isNotEmpty) {
-      list.removeWhere((t) => (counts[t.id] ?? 0) == 0);
-      list.sort((a, b) => (counts[b.id] ?? 0).compareTo(counts[a.id] ?? 0));
-    }
-
-    Widget tile(Types t) {
-      final k = listThemeForType(t.id, t.nombre) ?? ListThemeKind.restaurante;
-      final th = kListThemes[k]!;
-      final n = counts[t.id];
-      return Semantics(
-        identifier: 'advanced-search-type-${k.name}',
-        button: true,
-        label: n == null ? th.title : '${th.title}, $n sitios',
-        excludeSemantics: true,
-        child: GmPressable(
-          onTap: () => onPick(t),
-          child: GmCard(
-            radius: 22,
-            child: Padding(
-              padding: const EdgeInsets.all(8),
-              child: Row(
-                children: [
-                  Container(
-                    width: 50,
-                    height: 50,
-                    decoration: BoxDecoration(
-                      color: th.tint(dark),
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    alignment: Alignment.center,
-                    child:
-                        ListThemeGlyph(th.glyph, size: 30, color: th.ink(dark)),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(th.title,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: GmText.cardTitle(color: gm.label)
-                                .copyWith(fontSize: 15, height: 19 / 15)),
-                        if (n != null)
-                          Text(n == 1 ? '1 sitio' : '$n sitios',
-                              style: GmText.meta(color: gm.label2)),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      );
-    }
-
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: inset),
-      child: Column(
-        children: [
-          for (var i = 0; i < list.length; i += 2) ...[
-            if (i > 0) const SizedBox(height: 10),
-            IntrinsicHeight(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Expanded(child: tile(list[i])),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: i + 1 < list.length
-                        ? tile(list[i + 1])
-                        : const SizedBox.shrink(),
-                  ),
-                ],
-              ),
-            ),
+            TypeGrid(types: types, pool: pool, onPick: onPickType, inset: 0),
           ],
         ],
       ),

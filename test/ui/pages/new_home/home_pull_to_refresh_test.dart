@@ -118,6 +118,8 @@ Widget _wrap({required Future<void> Function() onRefresh}) {
           types: const <Types>[],
           municipalities: const <SimpleMunicipality>[],
           nearbyList: const [],
+          topRated: const [],
+          onShowRanking: () {},
           zones: const <Zone>[],
           presenter: _FakePresenter(),
           onZoneSelected: (_) {},

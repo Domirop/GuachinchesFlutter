@@ -111,10 +111,9 @@ class _NewHomeTabScaffoldState extends State<NewHomeTabScaffold> {
       // El contenido se extiende POR DEBAJO de la cápsula flotante: el blur
       // del glass necesita contenido detrás para leerse como iOS 26.
       extendBody: true,
-      body: Column(
+      body: Stack(
         children: [
-          const OfflineBanner(),
-          Expanded(
+          Positioned.fill(
             child: NotificationListener<ScrollNotification>(
               onNotification: _onScroll,
               child: IndexedStack(
@@ -129,6 +128,13 @@ class _NewHomeTabScaffoldState extends State<NewHomeTabScaffold> {
                 ],
               ),
             ),
+          ),
+          // «Sin conexión» flota bajo la barra de estado, sin mover nada.
+          Positioned(
+            left: 16,
+            right: 16,
+            top: MediaQuery.paddingOf(context).top + 6,
+            child: const OfflineBanner(),
           ),
         ],
       ),

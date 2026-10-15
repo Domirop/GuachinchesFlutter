@@ -68,6 +68,7 @@ class _NewHomeScreenState extends State<NewHomeScreen>
   String? _filterZoneId;
   Set<String> _filterZoneMuniIds = const {};
   String? _filterMunicipalityId;
+
   /// Posición del usuario: la única fuente es el [LocationCubit] (un solo
   /// fix de GPS). Se actualiza en cuanto el usuario concede el permiso desde
   /// el aviso, la tarjeta bloqueada o Ajustes.
@@ -201,15 +202,13 @@ class _NewHomeScreenState extends State<NewHomeScreen>
     // — distinto comportamiento del `/findByFilter` que sí lo trae. Ver
     // `.claude/coordination/migration-backend/022-pagination-horarios.md`.
     final now = DateTime.now();
-    final withSchedule = restaurants.where((r) => r.horariosJson != null).length;
-    final openNowCount = restaurants
-        .where((r) => isRestaurantOpenNow(r, now))
-        .length;
-    final opensLaterCount = restaurants
-        .where((r) => opensLaterToday(r.horariosJson, now))
-        .length;
-    final islandLabel =
-        context.read<NewHomeFiltersCubit>().state.islandLabel;
+    final withSchedule =
+        restaurants.where((r) => r.horariosJson != null).length;
+    final openNowCount =
+        restaurants.where((r) => isRestaurantOpenNow(r, now)).length;
+    final opensLaterCount =
+        restaurants.where((r) => opensLaterToday(r.horariosJson, now)).length;
+    final islandLabel = context.read<NewHomeFiltersCubit>().state.islandLabel;
     AppLogger.info(
       'new-home-pool',
       'island=$islandLabel | total=${restaurants.length} '
@@ -249,7 +248,8 @@ class _NewHomeScreenState extends State<NewHomeScreen>
     GlobalMethods().pushPage(
       context,
       TopRatedRankingScreen(
-        restaurants: _islandTopRated,
+        // Ranking completo de la isla (también «Aún con pocas reseñas»).
+        restaurants: const [],
         islandLabel: islandLabel,
       ),
     );
@@ -327,7 +327,9 @@ class _NewHomeScreenState extends State<NewHomeScreen>
     final lon = _userLon;
     if (lat == null || lon == null) return [];
     return _presenter.filterNearby(
-      _filteredPool, lat, lon,
+      _filteredPool,
+      lat,
+      lon,
       types: _types,
     );
   }
@@ -398,8 +400,9 @@ class _NewHomeScreenState extends State<NewHomeScreen>
                         if (zone == null) {
                           context.read<NewHomeFiltersCubit>().clearZone();
                         } else {
-                          context.read<NewHomeFiltersCubit>().selectZone(
-                                key: key!, label: label!);
+                              context
+                                  .read<NewHomeFiltersCubit>()
+                                  .selectZone(key: key!, label: label!);
                         }
                         setState(() => _filterZoneId = zone?.id);
                         _presenter.onZoneChanged(
@@ -413,7 +416,8 @@ class _NewHomeScreenState extends State<NewHomeScreen>
                         // Preferimos `island.key` del backend; si viene null
                         // (modelos legacy o backend antiguo), derivamos por
                         // nombre. Última red de seguridad: TF.
-                        final key = (island.key != null && island.key!.isNotEmpty)
+                            final key =
+                                (island.key != null && island.key!.isNotEmpty)
                             ? island.key!
                             : islandKeyFromName(island.name);
                         // Solo cambiamos el estado: la recarga la dispara el
@@ -427,11 +431,16 @@ class _NewHomeScreenState extends State<NewHomeScreen>
                       },
                       onMunicipalitySelected: (muni) {
                         if (muni == null) {
-                          context.read<NewHomeFiltersCubit>().clearMunicipality();
+                              context
+                                  .read<NewHomeFiltersCubit>()
+                                  .clearMunicipality();
                           setState(() => _filterMunicipalityId = null);
-                          _presenter.onMunicipalityChanged(null, filters.islandId);
+                              _presenter.onMunicipalityChanged(
+                                  null, filters.islandId);
                         } else {
-                          context.read<NewHomeFiltersCubit>().selectMunicipality(
+                              context
+                                  .read<NewHomeFiltersCubit>()
+                                  .selectMunicipality(
                                 id: muni.id, label: muni.nombre);
                           setState(() => _filterMunicipalityId = muni.id);
                           _presenter.onMunicipalityChanged(
@@ -442,12 +451,13 @@ class _NewHomeScreenState extends State<NewHomeScreen>
                       onShowAllNearby: () => Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => const MapSearch(),
+                              builder: (_) => const MapSearch(nearby: true),
                         ),
                       ),
                       onRestaurantTap: _onRestaurantTap,
                       topRated: _islandTopRated,
-                      onShowRanking: () => _openTopRatedRanking(filters.islandLabel),
+                          onShowRanking: () =>
+                              _openTopRatedRanking(filters.islandLabel),
                       onSearchTap: () {
                         GlobalMethods().pushPage(
                           context,
@@ -462,7 +472,10 @@ class _NewHomeScreenState extends State<NewHomeScreen>
                         );
                       },
                       onSearchPreSelected: (
-                          {categories, types, openOnly = false, fromToday = false}) {
+                              {categories,
+                              types,
+                              openOnly = false,
+                              fromToday = false}) {
                         GlobalMethods().pushPage(
                           context,
                           AdvancedSearch(
