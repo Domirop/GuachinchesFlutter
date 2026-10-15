@@ -14,7 +14,6 @@ import 'package:guachinches/ui/pages/premios/premios_home.dart';
 import 'package:guachinches/ui/pages/premios/premios_models.dart';
 import 'package:guachinches/ui/pages/premios/premios_my_votes_page.dart';
 import 'package:guachinches/ui/pages/premios/premios_ranking_page.dart';
-import 'package:guachinches/ui/pages/surveyRanking/surveyRanking.dart';
 import 'package:guachinches/ui/pages/survey_in_app/survey_in_app_page.dart';
 import 'package:guachinches/ui/pages/survey_in_app/survey_vote_presenter.dart';
 
@@ -599,21 +598,9 @@ void main() {
       await t.pumpWidget(const SizedBox());
     });
 
-    testWidgets('SurveyRanking y MyVotedRestaurants abren las pantallas v3',
-        (t) async {
+    testWidgets('MyVotedRestaurants abre la pantalla v3', (t) async {
       phone(t);
       addTearDown(t.view.reset);
-      await t.pumpWidget(app(
-          SurveyRanking(
-            guachinchesTradicionales: const [],
-            guachinchesModernos: const [],
-            isInitialTraditional: true,
-            allRestaurants: const [],
-            onRefresh: () {},
-          ),
-          reduce: true));
-      await t.pump(const Duration(milliseconds: 100));
-      expect(find.byType(PremiosRankingPage), findsOneWidget);
       await t.pumpWidget(app(
           const MyVotedRestaurants(tradicionales: [], modernos: []),
           reduce: true));

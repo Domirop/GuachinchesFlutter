@@ -16,19 +16,6 @@ import 'package:guachinches/ui/theme/gm_tokens.dart';
 import 'package:guachinches/ui/theme/gm_widgets.dart';
 import 'package:http/http.dart' show Client;
 
-/// ¿Anuncia el Inicio la campaña? Solo con la edición del servidor
-/// ([PremiosEdition.showOnHome]): abierta o «Ganadores» (15 días). Para las
-/// entradas del Inicio viejo; el nuevo usa [PremiosHomeSlot].
-bool premiosOnHome([DateTime? now]) =>
-    PremiosEditionStore.instance.current.showOnHome(now ?? DateTime.now());
-
-/// ¿Se puede votar desde el Inicio? Edición del servidor abierta.
-bool premiosVotingOnHome([DateTime? now]) {
-  final n = now ?? DateTime.now();
-  final e = PremiosEditionStore.instance.current;
-  return e.showOnHome(n) && e.phase(n).canVote;
-}
-
 class _CategoriesMeta extends StatelessWidget {
   const _CategoriesMeta();
 
