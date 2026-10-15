@@ -93,6 +93,9 @@ class _VisitDetailPageState extends State<VisitDetailPage>
   final DraggableScrollableController _sheet = DraggableScrollableController();
   final ValueNotifier<double> _extent = ValueNotifier(0);
   bool _sheetOpen = false;
+
+  /// Scroll de dentro de la hoja (lo da el DraggableScrollableSheet).
+  ScrollController? _sheetScroll;
   // Abierta deja a la vista la fila de Cerrar · Sonido · Compartir.
   static const double _sheetMax = 0.85;
 
@@ -308,7 +311,16 @@ class _VisitDetailPageState extends State<VisitDetailPage>
       (_peekHeight(context) / MediaQuery.sizeOf(context).height)
           .clamp(0.05, 0.3);
 
-  void _collapseSheet() => _animateSheet(_peekFraction(context));
+  /// Pliega la hoja del todo: si dentro se había bajado (platos, tarjeta del
+  /// sitio), vuelve arriba; si no, la hoja quedaba plegada pero a medias,
+  /// enseñando la tarjeta en vez de «Desliza para ver los platos».
+  void _collapseSheet() {
+    final inner = _sheetScroll;
+    if (inner != null && inner.hasClients && inner.offset > 0) {
+      inner.jumpTo(0);
+    }
+    _animateSheet(_peekFraction(context));
+  }
 
   void _animateSheet(double to) {
     if (!_sheet.isAttached) return;
@@ -542,41 +554,44 @@ class _VisitDetailPageState extends State<VisitDetailPage>
               minChildSize: peekF,
               maxChildSize: _sheetMax,
               snap: true,
-              builder: (ctx, scroll) => Semantics(
-                identifier: 'visit-detail-sheet',
-                container: true,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: gm.canvas,
-                    borderRadius:
-                        const BorderRadius.vertical(top: Radius.circular(28)),
-                    boxShadow: const [
-                      BoxShadow(
-                          color: Color(0x4D000000),
-                          offset: Offset(0, -8),
-                          blurRadius: 24),
-                    ],
-                  ),
-                  child: ClipRRect(
-                    borderRadius:
-                        const BorderRadius.vertical(top: Radius.circular(28)),
-                    child: CustomScrollView(
-                      controller: scroll,
-                      slivers: [
-                        SliverToBoxAdapter(
-                          child: _SheetHandle(
-                            height: peek,
-                            open: _sheetOpen,
-                            onTap: () =>
-                                _animateSheet(_sheetOpen ? peekF : _sheetMax),
-                          ),
-                        ),
-                        SliverToBoxAdapter(child: _sheetContent(context, v)),
+              builder: (ctx, scroll) {
+                _sheetScroll = scroll;
+                return Semantics(
+                  identifier: 'visit-detail-sheet',
+                  container: true,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: gm.canvas,
+                      borderRadius:
+                          const BorderRadius.vertical(top: Radius.circular(28)),
+                      boxShadow: const [
+                        BoxShadow(
+                            color: Color(0x4D000000),
+                            offset: Offset(0, -8),
+                            blurRadius: 24),
                       ],
                     ),
+                    child: ClipRRect(
+                      borderRadius:
+                          const BorderRadius.vertical(top: Radius.circular(28)),
+                      child: CustomScrollView(
+                        controller: scroll,
+                        slivers: [
+                          SliverToBoxAdapter(
+                            child: _SheetHandle(
+                              height: peek,
+                              open: _sheetOpen,
+                              onTap: () =>
+                                  _animateSheet(_sheetOpen ? peekF : _sheetMax),
+                            ),
+                          ),
+                          SliverToBoxAdapter(child: _sheetContent(context, v)),
+                        ],
+                      ),
+                    ),
                   ),
-                ),
-              ),
+                );
+              },
             ),
           ),
           // Con la hoja abierta el gesto de volver de iOS no puede sacar de
