@@ -81,13 +81,11 @@ String perfilSavedSummary(int count) {
   return count == 1 ? '1 sitio en este móvil' : '$count sitios en este móvil';
 }
 
-/// Versión del pubspec cuando no hay otra fuente (`env_files`).
-const String kPerfilFallbackVersion = '4.6.0';
-
-/// «Dónde Comer Canarias 4.6.0» (sin el número de compilación).
+/// «Dónde Comer Canarias 4.6.0» con la versión instalada (`package_info_plus`,
+/// sin el número de compilación). Si no se ha podido leer, sin versión.
 String perfilVersionLabel(String? version) {
   final v = (version ?? '').split('+').first.trim();
-  return 'Dónde Comer Canarias ${v.isEmpty ? kPerfilFallbackVersion : v}';
+  return v.isEmpty ? 'Dónde Comer Canarias' : 'Dónde Comer Canarias $v';
 }
 
 // ── Eliminación de cuenta ───────────────────────────────────────────────────

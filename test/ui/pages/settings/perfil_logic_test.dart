@@ -65,8 +65,9 @@ void main() {
 
   test('versión del pie sin número de compilación y con respaldo', () {
     expect(perfilVersionLabel('4.7.1+99'), 'Dónde Comer Canarias 4.7.1');
-    expect(perfilVersionLabel(null), 'Dónde Comer Canarias 4.6.0');
-    expect(perfilVersionLabel(' '), 'Dónde Comer Canarias 4.6.0');
+    // Sin versión leída no se inventa ninguna.
+    expect(perfilVersionLabel(null), 'Dónde Comer Canarias');
+    expect(perfilVersionLabel(' '), 'Dónde Comer Canarias');
   });
 
   group('eliminación de cuenta', () {

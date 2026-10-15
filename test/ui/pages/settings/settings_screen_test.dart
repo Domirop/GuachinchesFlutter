@@ -7,6 +7,7 @@ import 'package:guachinches/data/cubit/user/user_state.dart';
 import 'package:guachinches/data/model/user_info.dart';
 import 'package:guachinches/ui/pages/settings/settings_screen.dart';
 import 'package:guachinches/ui/theme/gm_favorites.dart';
+import 'package:guachinches/utils/app_version.dart';
 
 import 'perfil_test_harness.dart';
 
@@ -43,6 +44,10 @@ Future<FakePerfilRepo> _pump(
 }
 
 void main() {
+  // La versión sale de la app instalada (package_info_plus).
+  setUp(() => installedAppVersionForTest = '4.6.0');
+  tearDown(() => installedAppVersionForTest = null);
+
   group('Perfil sin sesión', () {
     testWidgets('entrar con Google o email, guardados, tema y legal',
         (tester) async {
