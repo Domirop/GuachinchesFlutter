@@ -23,11 +23,21 @@ class CardCuratedList extends StatelessWidget {
 
   static const double width = 284;
 
-  /// 6 + 160 + 11 + 22 + 3 + 40 + 7 + 18 + 8 + 6 (texto escalado).
+  /// 6 + 160 + 11 + título 17/22 + 3 + dos líneas 15/20 + 7 + 13/18 + 8 + 6,
+  /// con el texto escalado por el tamaño de texto del sistema.
   static double heightFor(BuildContext context) {
     final t = MediaQuery.textScalerOf(context);
-    return 6 + 160 + 11 + t.scale(22) + 3 + t.scale(20) * 2 + 7 +
-        t.scale(18) + 8 + 6 + 1;
+    return 6 +
+        160 +
+        11 +
+        gmScaledLine(t, 17, 22) +
+        3 +
+        gmScaledLine(t, 15, 20) * 2 +
+        7 +
+        gmScaledLine(t, 13, 18) +
+        8 +
+        6 +
+        1;
   }
 
   /// «RUTA» → «Ruta» (las píldoras van en tipo frase).
@@ -113,7 +123,9 @@ class CardCuratedList extends StatelessWidget {
                       ),
                       const SizedBox(height: 3),
                       SizedBox(
-                        height: MediaQuery.textScalerOf(context).scale(20) * 2,
+                        height: gmScaledLine(
+                                MediaQuery.textScalerOf(context), 15, 20) *
+                            2,
                         child: Text(
                           list.subtitle,
                           maxLines: 2,
@@ -139,8 +151,8 @@ class CardCuratedList extends StatelessWidget {
                         ),
                       ] else
                         SizedBox(
-                            height: 7 +
-                                MediaQuery.textScalerOf(context).scale(18)),
+                            height:
+                                7 + MediaQuery.textScalerOf(context).scale(18)),
                     ],
                   ),
                 ),

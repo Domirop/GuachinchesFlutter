@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/gm_place_card.dart';
 import 'package:guachinches/ui/theme/gm_icons.dart';
@@ -20,11 +22,14 @@ class CardNearbyMinimap extends StatelessWidget {
 
   static const double width = 240;
 
-  /// Alto total: 6 + foto 150 + 10 + 21 + 2 + 19 + 6 + 6 (texto escalado
-  /// con el tamaño de texto del sistema; el carrusel lo limita a 1,3×).
+  /// Alto total: 6 + foto 150 + 10 + nombre 16/21 + 2 + fila meta (14/19 o
+  /// la valoración 14 · 18/13, la más alta) + 6 + 6, con el texto escalado
+  /// por el tamaño de texto del sistema (el carrusel lo limita a 1,3×).
   static double heightFor(BuildContext context) {
     final t = MediaQuery.textScalerOf(context);
-    return 6 + 150 + 10 + t.scale(21) + 2 + t.scale(19) + 6 + 6 + 1;
+    final meta =
+        math.max(gmScaledLine(t, 14, 19), gmScaledLine(t, 14, 14 * 18 / 13));
+    return 6 + 150 + 10 + gmScaledLine(t, 16, 21) + 2 + meta + 6 + 6 + 1;
   }
 
   /// «1834,2 km» no ayuda: por encima de 200 km se oculta el chip.

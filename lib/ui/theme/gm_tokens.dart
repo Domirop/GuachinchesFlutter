@@ -43,7 +43,6 @@ class GmColors {
   final Color edgeFade0;
   final Color edgeFade1;
 
-
   // Ficha de negocio (Sistema §07): cerrado, aviso, mapa claro, avatares.
   final Color closedText;
   final Color warnText;
@@ -189,8 +188,7 @@ class GmColors {
     // 0 10px 24px -10px rgba(90,64,24,.22)
     shadow1: [
       BoxShadow(color: Color(0x0F5A4018), spreadRadius: 1),
-      BoxShadow(
-          color: Color(0x0F5A4018), offset: Offset(0, 1), blurRadius: 2),
+      BoxShadow(color: Color(0x0F5A4018), offset: Offset(0, 1), blurRadius: 2),
       BoxShadow(
           color: Color(0x385A4018),
           offset: Offset(0, 10),
@@ -201,8 +199,7 @@ class GmColors {
     // 0 16px 36px -12px rgba(60,40,10,.34)
     shadow2: [
       BoxShadow(color: Color(0x1A5A4018), spreadRadius: 0.5),
-      BoxShadow(
-          color: Color(0x143C280A), offset: Offset(0, 2), blurRadius: 6),
+      BoxShadow(color: Color(0x143C280A), offset: Offset(0, 2), blurRadius: 6),
       BoxShadow(
           color: Color(0x573C280A),
           offset: Offset(0, 16),
@@ -403,3 +400,10 @@ class GmMotion {
   static bool reduced(BuildContext context) =>
       MediaQuery.maybeDisableAnimationsOf(context) ?? false;
 }
+
+/// Alto de una línea de texto `size/line` con el tamaño de texto del sistema.
+/// En Android el escalado no es lineal (a más tamaño, menos escala): hay que
+/// escalar el tamaño de letra y aplicar la proporción de interlineado, no
+/// escalar el interlineado como si fuera otro tamaño de letra.
+double gmScaledLine(TextScaler t, double size, double line) =>
+    t.scale(size) * line / size;
