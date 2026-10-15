@@ -129,7 +129,7 @@ class _FichaVisitReelsState extends State<FichaVisitReels> {
     if (short) {
       // Solo el short (sin visita analizada): el embed de YouTube de siempre.
       final id = fichaYoutubeId(v);
-      if (id != null) YoutubeEmbedSheet.show(context, videoId: id);
+      if (id != null) YoutubeEmbedSheet.show(context, videoId: id, visit: v);
       return;
     }
     if (selected) {
@@ -166,7 +166,7 @@ class _FichaVisitReelsState extends State<FichaVisitReels> {
     Widget cover(int i) {
       final v = visits[i];
       final isSel = v.id == selected.id;
-      return _ReelCover(
+      return FichaReelCover(
         visit: v,
         index: i,
         selected: isSel,
@@ -330,9 +330,14 @@ class _FichaVisitReelsState extends State<FichaVisitReels> {
 /// Portada 9:16 de una visita (Sistema §07): miniatura a sangre, chips de
 /// cristal con fecha corta y duración, «Les encantó» (solo muy positiva) y
 /// la pila de platos con «+N». La elegida lleva el anillo de historia.
-class _ReelCover extends StatelessWidget {
+///
+/// La usan la ficha (carrusel con selección) y la pestaña Visitas («Lo
+/// último», con [title]/[subtitle] del sitio sobre la portada).
+class FichaReelCover extends StatelessWidget {
   final Visit visit;
   final int index;
+
+  /// Lleva el anillo de historia (en la ficha, además, es la elegida).
   final bool selected;
   final String? venuePhoto;
   final VoidCallback onTap;
@@ -340,13 +345,31 @@ class _ReelCover extends StatelessWidget {
   /// Portada del short del local (sin visita analizada).
   final bool short;
 
-  const _ReelCover({
+  /// Nombre del sitio y municipio sobre la portada (pestaña Visitas).
+  final String? title;
+  final String? subtitle;
+
+  /// Ancla de tests y etiqueta de lector de pantalla (por defecto las de la
+  /// ficha).
+  final String? semanticsIdentifier;
+  final String? semanticsLabel;
+
+  /// `false` si el anillo no indica selección (no se anuncia «seleccionado»).
+  final bool selectable;
+
+  const FichaReelCover({
+    super.key,
     this.short = false,
     required this.visit,
     required this.index,
     required this.selected,
     required this.onTap,
     this.venuePhoto,
+    this.title,
+    this.subtitle,
+    this.semanticsIdentifier,
+    this.semanticsLabel,
+    this.selectable = true,
   });
 
   @override
@@ -424,8 +447,13 @@ class _ReelCover extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     if (loved) FichaLovedSeal(compact: index > 0),
-                    if (loved && stack.photos.isNotEmpty)
-                      const SizedBox(height: 8),
+                    if (title != null) ...[
+                      if (loved) const SizedBox(height: 6),
+                      _CoverTitle(
+                          title: title!, subtitle: subtitle, lead: index == 0),
+                    ],
+                    if ((loved || title != null) && stack.photos.isNotEmpty)
+                      SizedBox(height: title != null ? 6 : 8),
                     if (stack.photos.isNotEmpty)
                       _DishStack(photos: stack.photos, more: stack.more),
                   ],
@@ -438,14 +466,16 @@ class _ReelCover extends StatelessWidget {
     );
 
     return Semantics(
-      identifier: 'restaurant-detail-visit-cover-$index',
+      identifier:
+          semanticsIdentifier ?? 'restaurant-detail-visit-cover-$index',
       button: true,
-      selected: selected,
-      label: short
-          ? 'Ver el short en YouTube'
-          : selected
-              ? 'Ver la visita${longDate == null ? '' : ' del $longDate'}'
-              : 'Elegir la visita${longDate == null ? '' : ' del $longDate'}',
+      selected: selectable ? selected : null,
+      label: semanticsLabel ??
+          (short
+              ? 'Ver el short en YouTube'
+              : selected
+                  ? 'Ver la visita${longDate == null ? '' : ' del $longDate'}'
+                  : 'Elegir la visita${longDate == null ? '' : ' del $longDate'}'),
       excludeSemantics: true,
       child: GmPressable(
         onTap: onTap,
@@ -486,6 +516,50 @@ class _ReelCover extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Nombre del sitio (17/21 en la portada grande, 15/19 en las demás) y
+/// municipio sobre la portada.
+class _CoverTitle extends StatelessWidget {
+  final String title;
+  final String? subtitle;
+  final bool lead;
+  const _CoverTitle({required this.title, this.subtitle, required this.lead});
+
+  @override
+  Widget build(BuildContext context) {
+    final sub = subtitle?.trim() ?? '';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          title,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontSize: lead ? 17 : 15,
+            height: (lead ? 21 : 19) / (lead ? 17 : 15),
+            fontWeight: FontWeight.w700,
+            letterSpacing: -0.3,
+            color: Colors.white,
+          ),
+        ),
+        if (sub.isNotEmpty)
+          Text(
+            sub,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 12,
+              height: 16 / 12,
+              fontWeight: FontWeight.w500,
+              color: Color(0xDBFFFFFF), // .86
+            ),
+          ),
+      ],
     );
   }
 }
@@ -731,7 +805,8 @@ class _OrderedCard extends StatelessWidget {
                 showDishPhotoViewer(context,
                     dishes: photoDishes,
                     initialIndex: idx,
-                    heroPrefix: '${v.id}-ficha');
+                    heroPrefix: '${v.id}-ficha',
+                    visit: v);
               },
             ),
             const SizedBox(height: 8),
@@ -778,12 +853,15 @@ class _OrderedCard extends StatelessWidget {
 class FichaLovedSeal extends StatelessWidget {
   /// Versión ajustada para las portadas pequeñas (132 de ancho).
   final bool compact;
-  const FichaLovedSeal({super.key, this.compact = false});
+
+  /// Alto del sello (24 en portadas; 20 en filas de lista).
+  final double height;
+  const FichaLovedSeal({super.key, this.compact = false, this.height = 24});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 24,
+      height: height,
       padding: EdgeInsets.symmetric(horizontal: compact ? 7 : 9),
       decoration: BoxDecoration(
         color: GmColors.wine,

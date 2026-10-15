@@ -415,10 +415,7 @@ class _DetailError extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  CustomPaint(
-                    size: const Size(110, 77),
-                    painter: _SadVolcano(gm),
-                  ),
+                  const GmSadVolcano(width: 110),
                   const SizedBox(height: 16),
                   Text(
                     'No pudimos cargar el restaurante',
@@ -461,49 +458,6 @@ class _DetailError extends StatelessWidget {
       ),
     );
   }
-}
-
-class _SadVolcano extends CustomPainter {
-  final GmColors gm;
-  _SadVolcano(this.gm);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    canvas.scale(size.width / 100, size.height / 70);
-    final body = Path()
-      ..moveTo(6, 68)
-      ..lineTo(34, 34)
-      ..cubicTo(37, 30.6, 40, 29.9, 42.6, 31.8)
-      ..lineTo(46.9, 34.8)
-      ..cubicTo(50.1, 37, 53.5, 37, 56.7, 34.8)
-      ..lineTo(61, 31.8)
-      ..cubicTo(63.6, 29.9, 66.6, 30.6, 69.6, 34)
-      ..lineTo(94, 68)
-      ..close();
-    canvas.drawPath(body, Paint()..color = gm.volcFill);
-    canvas.drawPath(
-        body,
-        Paint()
-          ..color = gm.sep
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.2);
-    final ink = Paint()..color = gm.volcInk;
-    canvas.drawCircle(const Offset(42.5, 50), 2.8, ink);
-    canvas.drawCircle(const Offset(57.5, 50), 2.8, ink);
-    canvas.drawPath(
-      Path()
-        ..moveTo(45, 59)
-        ..quadraticBezierTo(50, 55.2, 55, 59),
-      Paint()
-        ..color = gm.volcInk
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2.2
-        ..strokeCap = StrokeCap.round,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant _SadVolcano old) => old.gm != gm;
 }
 
 /// Esqueleto con la misma forma que la ficha (Ficha · cargando). Bloques

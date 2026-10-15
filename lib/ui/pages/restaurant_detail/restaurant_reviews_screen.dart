@@ -1,20 +1,31 @@
 import 'package:flutter/material.dart';
-import 'package:guachinches/config/app_text_styles.dart';
-import 'package:guachinches/config/brand_colors.dart';
 import 'package:guachinches/data/model/Review.dart';
 import 'package:guachinches/data/model/restaurant.dart';
+import 'package:guachinches/ui/pages/discover/widgets/gm_pull_down_menu.dart';
+import 'package:guachinches/ui/pages/new_home/widgets/gm_place_card.dart'
+    show gmDisplayName, gmPlaceName;
+import 'package:guachinches/ui/pages/restaurant_detail/review_moderation.dart';
+import 'package:guachinches/ui/pages/restaurant_detail/reviews_logic.dart';
 import 'package:guachinches/ui/pages/restaurant_detail/widgets/rating_summary.dart';
 import 'package:guachinches/ui/pages/restaurant_detail/widgets/review_card.dart';
 import 'package:guachinches/ui/theme/gm_icons.dart';
+import 'package:guachinches/ui/theme/gm_motion.dart';
 import 'package:guachinches/ui/theme/gm_tokens.dart';
 import 'package:guachinches/ui/theme/gm_widgets.dart';
 
-enum _SortOrder { original, bestFirst, worstFirst }
-
+/// «Todas las reseñas» (tablero ResenasTodas): pantalla empujada con Volver
+/// de cristal, «<Sitio> · <Municipio>» + «Reseñas», resumen con la nota y la
+/// distribución, orden en menú de cristal (Relevantes / Mejor puntuadas /
+/// Peor puntuadas) y las reseñas literales con «⋯» (Reportar / Bloquear).
 class RestaurantReviewsScreen extends StatefulWidget {
   final Restaurant restaurant;
+  final ReviewModeration? moderation;
 
-  const RestaurantReviewsScreen({super.key, required this.restaurant});
+  const RestaurantReviewsScreen({
+    super.key,
+    required this.restaurant,
+    this.moderation,
+  });
 
   @override
   State<RestaurantReviewsScreen> createState() =>
@@ -22,191 +33,182 @@ class RestaurantReviewsScreen extends StatefulWidget {
 }
 
 class _RestaurantReviewsScreenState extends State<RestaurantReviewsScreen> {
-  int? _activeFilter;
-  _SortOrder _sortOrder = _SortOrder.original;
+  final ScrollController _scroll = ScrollController();
+  ReviewSort _sort = ReviewSort.relevant;
+  bool _scrolled = false;
 
-  List<Review> get _filtered {
-    final all = widget.restaurant.valoraciones;
-    var list = _activeFilter == null
-        ? List<Review>.of(all)
-        : all
-            .where((r) =>
-                (double.tryParse(r.rating)?.round() ?? 0) == _activeFilter)
-            .toList();
+  ReviewModeration get _mod => widget.moderation ?? ReviewModeration.instance;
 
-    switch (_sortOrder) {
-      case _SortOrder.bestFirst:
-        list.sort((a, b) {
-          final ra = double.tryParse(a.rating) ?? 0;
-          final rb = double.tryParse(b.rating) ?? 0;
-          return rb.compareTo(ra);
-        });
-      case _SortOrder.worstFirst:
-        list.sort((a, b) {
-          final ra = double.tryParse(a.rating) ?? 0;
-          final rb = double.tryParse(b.rating) ?? 0;
-          return ra.compareTo(rb);
-        });
-      case _SortOrder.original:
-        break;
-    }
-
-    return list;
+  @override
+  void initState() {
+    super.initState();
+    _scroll.addListener(_onScroll);
+    // Para no ofrecer «⋯» en la reseña propia.
+    _mod.currentUserId();
   }
 
-  int _countForStar(int star) => widget.restaurant.valoraciones
-      .where((r) => (double.tryParse(r.rating)?.round() ?? 0) == star)
-      .length;
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    final s = _scroll.hasClients && _scroll.offset > 4;
+    if (s != _scrolled) setState(() => _scrolled = s);
+  }
+
+  Future<void> _openSort(BuildContext anchorContext) async {
+    final picked = await showGmPullDownMenu<ReviewSort>(
+      context,
+      anchor: gmAnchorRect(anchorContext),
+      title: 'Ordenar reseñas',
+      width: 260,
+      selected: _sort,
+      identifier: 'restaurant-reviews-sort-menu',
+      items: [
+        for (final s in ReviewSort.values)
+          GmMenuItem(
+            value: s,
+            label: s.label,
+            subtitle: s == ReviewSort.relevant ? s.caption : null,
+            identifier: s.identifier,
+          ),
+      ],
+    );
+    if (picked != null && picked != _sort && mounted) {
+      setState(() => _sort = picked);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final total = widget.restaurant.valoraciones.length;
-    final filtered = _filtered;
-    final brand = context.brand;
     final gm = GmColors.of(context);
+    final media = MediaQuery.of(context);
+    final r = widget.restaurant;
+    final name = gmDisplayName(r.nombre);
 
     return Semantics(
       identifier: 'restaurant-reviews-screen',
       child: Scaffold(
         backgroundColor: gm.canvas,
-        appBar: AppBar(
-          backgroundColor: gm.canvas,
-          surfaceTintColor: Colors.transparent,
-          elevation: 0,
-          scrolledUnderElevation: 0,
-          leadingWidth: 64,
-          leading: Padding(
-            padding: const EdgeInsets.only(left: 16),
-            child: Center(
+        body: Stack(
+          children: [
+            ListenableBuilder(
+              listenable: _mod,
+              builder: (context, _) {
+                final visible = reviewsSorted(
+                  reviewsWithoutBlocked(r.valoraciones, _mod.blockedUserIds),
+                  _sort,
+                );
+                return CustomScrollView(
+                  controller: _scroll,
+                  slivers: [
+                    SliverToBoxAdapter(
+                      child: SizedBox(height: media.padding.top + 60),
+                    ),
+                    SliverToBoxAdapter(
+                      child: GmRise(
+                        trigger: GmTrigger.mount,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: GmSpace.titleInset),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                reviewsEyebrow(name, gmPlaceName(r.municipio)),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: GmText.eyebrow(color: gm.label2),
+                              ),
+                              Semantics(
+                                header: true,
+                                child: Text('Reseñas',
+                                    style: GmText.largeTitle(color: gm.label)),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    if (visible.isEmpty)
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
+                          child: _EmptyCard(
+                            blockedAll: r.valoraciones.isNotEmpty,
+                          ),
+                        ),
+                      )
+                    else ...[
+                      SliverToBoxAdapter(
+                        child: GmRise(
+                          index: 1,
+                          trigger: GmTrigger.mount,
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+                            child: RatingSummary(
+                              restaurant: Restaurant(
+                                id: r.id,
+                                nombre: r.nombre,
+                                valoraciones: visible,
+                                avgRating: r.avgRating,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      SliverToBoxAdapter(
+                        child: GmRise(
+                          index: 2,
+                          trigger: GmTrigger.mount,
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(20, 6, 16, 0),
+                            child: _SortBar(
+                              sort: _sort,
+                              onTap: _openSort,
+                            ),
+                          ),
+                        ),
+                      ),
+                      SliverPadding(
+                        padding: EdgeInsets.fromLTRB(
+                            16, 4, 16, 120 + media.padding.bottom),
+                        sliver: SliverList.separated(
+                          itemCount: visible.length,
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(height: 10),
+                          itemBuilder: (_, i) => GmRise(
+                            index: 3 + i.clamp(0, 4),
+                            trigger: GmTrigger.mount,
+                            child: ReviewCard(
+                              key: ValueKey('review-${visible[i].id}-$i'),
+                              review: visible[i],
+                              index: _avatarIndex(visible[i]),
+                              restaurantName: name,
+                              moderation: widget.moderation,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                );
+              },
+            ),
+            GmTopScrim(visible: _scrolled, extra: 60),
+            Positioned(
+              left: 16,
+              top: media.padding.top + 8,
               child: GmToolbarButton(
                 icon: GmIcons.chevronLeft,
                 iconSize: 20,
                 light: true,
                 semanticLabel: 'Volver',
                 identifier: 'restaurant-reviews-back-button',
-                onTap: () => Navigator.of(context).pop(),
+                onTap: () => Navigator.of(context).maybePop(),
               ),
-            ),
-          ),
-          centerTitle: true,
-          title: Text('Reseñas ($total)',
-              style: GmText.body17(color: gm.label, w: FontWeight.w700)),
-        ),
-        body: Column(
-          children: [
-            SizedBox(
-              height: 48,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                clipBehavior: Clip.none,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                children: [
-                  _buildChip(
-                    identifier: 'restaurant-reviews-filter-chip-all',
-                    label: 'Todas ($total)',
-                    isActive: _activeFilter == null,
-                    onTap: () => setState(() => _activeFilter = null),
-                  ),
-                  for (int star = 5; star >= 1; star--)
-                    _buildChip(
-                      identifier: 'restaurant-reviews-filter-chip-$star',
-                      label: '$star★ (${_countForStar(star)})',
-                      isActive: _activeFilter == star,
-                      onTap: () => setState(() => _activeFilter = star),
-                    ),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(14, 4, 14, 8),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  Semantics(
-                    identifier: 'restaurant-reviews-sort-button',
-                    child: PopupMenuButton<_SortOrder>(
-                      initialValue: _sortOrder,
-                      onSelected: (v) => setState(() => _sortOrder = v),
-                      color: brand.elevated,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            _sortLabel(_sortOrder),
-                            style: GmText.sub(color: gm.label2),
-                          ),
-                          Icon(
-                            Icons.unfold_more_rounded,
-                            size: 16,
-                            color: brand.textMuted,
-                          ),
-                        ],
-                      ),
-                      itemBuilder: (ctx) => [
-                        _menuItem(
-                            'Orden original', _SortOrder.original, brand),
-                        _menuItem(
-                            'Mejor puntuadas', _SortOrder.bestFirst, brand),
-                        _menuItem(
-                            'Peor puntuadas', _SortOrder.worstFirst, brand),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-              child: RatingSummary(restaurant: widget.restaurant),
-            ),
-            Expanded(
-              child: filtered.isEmpty
-                  ? Semantics(
-                      identifier: 'restaurant-reviews-empty-state',
-                      child: Center(
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 32),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.search_off_rounded,
-                                size: 48,
-                                color: brand.textMuted,
-                              ),
-                              const SizedBox(height: 12),
-                              Text(
-                                'No hay reseñas que coincidan con este filtro',
-                                textAlign: TextAlign.center,
-                                style: GmText.body(color: gm.label2),
-                              ),
-                              const SizedBox(height: 16),
-                              TextButton(
-                                onPressed: () =>
-                                    setState(() => _activeFilter = null),
-                                child: Text(
-                                  'Quitar filtros',
-                                  style: GmText.body(
-                                      color: gm.accent, w: FontWeight.w600),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    )
-                  : Semantics(
-                      identifier: 'restaurant-reviews-list',
-                      child: ListView.separated(
-                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-                        itemCount: filtered.length,
-                        separatorBuilder: (_, __) =>
-                            const SizedBox(height: 10),
-                        itemBuilder: (ctx, i) =>
-                            ReviewCard(review: filtered[i], index: i),
-                      ),
-                    ),
             ),
           ],
         ),
@@ -214,59 +216,111 @@ class _RestaurantReviewsScreenState extends State<RestaurantReviewsScreen> {
     );
   }
 
-  Widget _buildChip({
-    required String identifier,
-    required String label,
-    required bool isActive,
-    required VoidCallback onTap,
-  }) {
+  /// Tinte estable por reseña (no cambia al reordenar).
+  int _avatarIndex(Review review) {
+    final i = widget.restaurant.valoraciones.indexOf(review);
+    return i < 0 ? 0 : i;
+  }
+}
+
+/// «Con comentario primero» + botón «Relevantes ⌄» que abre el menú.
+class _SortBar extends StatelessWidget {
+  final ReviewSort sort;
+  final ValueChanged<BuildContext> onTap;
+
+  const _SortBar({required this.sort, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
     final gm = GmColors.of(context);
-    return Padding(
-      padding: const EdgeInsets.only(right: 8),
-      child: Semantics(
-        identifier: identifier,
-        child: GestureDetector(
-          onTap: onTap,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-            decoration: BoxDecoration(
-              color: isActive ? gm.accentSoft : gm.card,
-              borderRadius: BorderRadius.circular(GmRadius.pill),
-              boxShadow: isActive ? null : gm.shadow1,
-            ),
-            child: Text(
-              label,
-              style: GmText.sub(
-                color: isActive ? gm.accent : gm.label,
-                w: isActive ? FontWeight.w700 : FontWeight.w500,
+    return Row(
+      children: [
+        Expanded(
+          child: Text(sort.caption,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: GmText.body(color: gm.label2)),
+        ),
+        Builder(
+          builder: (anchorCtx) => Semantics(
+            identifier: 'restaurant-reviews-sort-button',
+            button: true,
+            label: 'Ordenar reseñas: ${sort.label}',
+            excludeSemantics: true,
+            child: GmPressable(
+              onTap: () => onTap(anchorCtx),
+              child: SizedBox(
+                height: 44,
+                child: Center(
+                  child: Container(
+                    constraints: const BoxConstraints(minHeight: 36),
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    decoration: BoxDecoration(
+                      color: gm.card,
+                      borderRadius: BorderRadius.circular(GmRadius.pill),
+                      boxShadow: gm.shadow1,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        GmIcon(GmIcons.sort, size: 14, color: gm.label),
+                        const SizedBox(width: 6),
+                        Text(sort.label,
+                            style: GmText.sub(
+                                color: gm.label, w: FontWeight.w600)),
+                        const SizedBox(width: 6),
+                        GmIcon(GmIcons.chevronDown, size: 14, color: gm.label),
+                      ],
+                    ),
+                  ),
+                ),
               ),
             ),
           ),
         ),
-      ),
+      ],
     );
   }
+}
 
-  PopupMenuItem<_SortOrder> _menuItem(
-      String label, _SortOrder value, BrandColors brand) {
-    return PopupMenuItem<_SortOrder>(
-      value: value,
-      child: Text(
-        label,
-        style: AppTextStyles.ui(size: 13, color: brand.textPrimary),
+class _EmptyCard extends StatelessWidget {
+  /// Hay reseñas, pero todas son de personas que has bloqueado.
+  final bool blockedAll;
+  const _EmptyCard({required this.blockedAll});
+
+  @override
+  Widget build(BuildContext context) {
+    final gm = GmColors.of(context);
+    return Semantics(
+      identifier: 'restaurant-reviews-empty-state',
+      container: true,
+      child: GmCard(
+        padding: const EdgeInsets.fromLTRB(20, 22, 20, 22),
+        child: SizedBox(
+          width: double.infinity,
+          child: Column(
+            children: [
+              GmIcon(GmIcons.starOutline, size: 34, color: gm.label2),
+              const SizedBox(height: 10),
+              Text(
+                blockedAll
+                    ? 'No quedan reseñas que mostrar'
+                    : 'Todavía no hay reseñas',
+                textAlign: TextAlign.center,
+                style: GmText.poster(color: gm.label),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                blockedAll
+                    ? 'Las que había son de personas que has bloqueado.'
+                    : 'Sé el primero en contar tu experiencia desde la ficha.',
+                textAlign: TextAlign.center,
+                style: GmText.body(color: gm.label2),
+              ),
+            ],
+          ),
+        ),
       ),
     );
-  }
-
-  String _sortLabel(_SortOrder order) {
-    switch (order) {
-      case _SortOrder.original:
-        return 'Orden original';
-      case _SortOrder.bestFirst:
-        return 'Mejor puntuadas';
-      case _SortOrder.worstFirst:
-        return 'Peor puntuadas';
-    }
   }
 }

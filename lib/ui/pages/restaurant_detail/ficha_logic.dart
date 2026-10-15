@@ -672,6 +672,8 @@ List<String> fichaReelThumbs(Visit v, {String? venuePhoto}) {
     if (u != null && u.isNotEmpty && !out.contains(u)) out.add(u);
   }
 
+  // Primero la portada de nuestro S3 (backend migration 044).
+  add(v.posterUrl);
   final id = fichaYoutubeId(v);
   if (id != null) {
     add('https://i.ytimg.com/vi/$id/oardefault.jpg');

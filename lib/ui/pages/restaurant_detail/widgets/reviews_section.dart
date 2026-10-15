@@ -3,7 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:guachinches/data/model/Review.dart';
 import 'package:guachinches/data/model/restaurant.dart';
-import 'package:guachinches/ui/pages/login/login.dart';
+import 'package:guachinches/ui/pages/login/login_logic.dart';
+import 'package:guachinches/ui/pages/login/login_sheet.dart';
 import 'package:guachinches/ui/pages/restaurant_detail/ficha_logic.dart';
 import 'package:guachinches/ui/pages/restaurant_detail/restaurant_reviews_screen.dart';
 import 'package:guachinches/ui/pages/restaurant_detail/widgets/rating_summary.dart';
@@ -63,7 +64,7 @@ class _ReviewsSectionState extends State<ReviewsSection> {
     final userId = _userId ?? await _storage.read(key: 'userId');
     if (!context.mounted) return;
     if (userId == null || userId.isEmpty) {
-      _showAuthSheet(context);
+      await _loginThenWrite(context, initial: initial);
       return;
     }
     final result = await Navigator.of(context).push<bool>(
@@ -80,27 +81,15 @@ class _ReviewsSectionState extends State<ReviewsSection> {
     }
   }
 
-  void _showAuthSheet(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: GmColors.of(context).canvas,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
-      ),
-      builder: (sheetCtx) => _AuthPromptSheet(
-        onLogin: () {
-          Navigator.pop(sheetCtx);
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => const Login(
-                'Inicia sesión para dejar tu reseña.',
-              ),
-            ),
-          );
-        },
-      ),
-    );
+  /// Sin sesión: acceso único con el chip «Para escribir tu reseña»; al
+  /// entrar vuelve aquí y abre el editor con las estrellas pulsadas.
+  Future<void> _loginThenWrite(BuildContext context, {int initial = 0}) async {
+    final ok = await showLoginSheet(context, reason: LoginReason.review);
+    if (!ok || !context.mounted) return;
+    await _loadUserId();
+    if (!context.mounted || _userId == null || _userId!.isEmpty) return;
+    // Si ya la había escrito con esa cuenta, se edita en vez de duplicarla.
+    await _openWriteReview(context, initial: initial, editing: _myReview);
   }
 
   @override
@@ -147,7 +136,11 @@ class _ReviewsSectionState extends State<ReviewsSection> {
               ],
               for (var i = 0; i < visible.length; i++) ...[
                 const SizedBox(height: 10),
-                ReviewCard(review: visible[i], index: i),
+                ReviewCard(
+                  review: visible[i],
+                  index: i,
+                  restaurantName: widget.restaurant.nombre,
+                ),
               ],
               if (fichaShowAllReviews(reviews.length)) ...[
                 const SizedBox(height: 12),
@@ -332,91 +325,6 @@ class _AlreadyReviewedCard extends StatelessWidget {
               child: GmPressable(
                 onTap: onEdit,
                 child: const FichaPillButton(label: 'Editar'),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Hoja «Inicia sesión para dejar tu reseña» con el estilo del sistema:
-/// asa, estrella en disco teñido, título 22/28, cápsula primaria y «Ahora
-/// no» en píldora gris.
-class _AuthPromptSheet extends StatelessWidget {
-  final VoidCallback onLogin;
-
-  const _AuthPromptSheet({required this.onLogin});
-
-  @override
-  Widget build(BuildContext context) {
-    final gm = GmColors.of(context);
-    final bottom = MediaQuery.paddingOf(context).bottom;
-    return Semantics(
-      identifier: 'restaurant-reviews-auth-sheet',
-      container: true,
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(20, 8, 20, 16 + bottom),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Center(
-              child: Container(
-                width: 36,
-                height: 5,
-                decoration: BoxDecoration(
-                  color: gm.sep,
-                  borderRadius: BorderRadius.circular(GmRadius.pill),
-                ),
-              ),
-            ),
-            const SizedBox(height: 22),
-            Center(
-              child: Container(
-                width: 64,
-                height: 64,
-                decoration: const BoxDecoration(
-                  color: Color(0x24C98200),
-                  shape: BoxShape.circle,
-                ),
-                alignment: Alignment.center,
-                child: GmIcon(GmIcons.star, size: 30, color: GmColors.star),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Inicia sesión para dejar tu reseña',
-              textAlign: TextAlign.center,
-              style: GmText.title2(color: gm.label),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'Necesitas una cuenta para puntuar y comentar restaurantes.',
-              textAlign: TextAlign.center,
-              style: GmText.body(color: gm.label2),
-            ),
-            const SizedBox(height: 22),
-            SizedBox(
-              width: double.infinity,
-              child: GmCapsuleButton(
-                label: 'Iniciar sesión',
-                height: 52,
-                fontSize: 17,
-                identifier: 'restaurant-reviews-auth-login',
-                onTap: onLogin,
-              ),
-            ),
-            const SizedBox(height: 10),
-            Center(
-              child: Semantics(
-                identifier: 'restaurant-reviews-auth-dismiss',
-                button: true,
-                child: GmPressable(
-                  onTap: () => Navigator.pop(context),
-                  child: const FichaPillButton(label: 'Ahora no'),
-                ),
               ),
             ),
           ],

@@ -396,6 +396,21 @@ void main() {
       expect(fichaReelThumbs(Visit(id: 'b', restaurantId: 'r'), venuePhoto: 'l.jpg'),
           ['l.jpg']);
     });
+
+    test('miniaturas: la portada de nuestro S3 va primero', () {
+      final v = Visit.fromJson({
+        'id': 'a',
+        'restaurantId': 'r',
+        'youtubeVideo': {
+          'videoId': 'aUTCrn_SmEo',
+          'posterUrl': 'https://louvre.s3.fr-par.scw.cloud/Guachinches/visit-posters/aUTCrn_SmEo.jpg?v=1',
+        },
+      });
+      expect(v.posterUrl, endsWith('visit-posters/aUTCrn_SmEo.jpg?v=1'));
+      expect(fichaReelThumbs(v).first, v.posterUrl);
+      expect(fichaReelThumbs(v)[1],
+          'https://i.ytimg.com/vi/aUTCrn_SmEo/oardefault.jpg');
+    });
   });
 
   group('Short sin visitas', () {
