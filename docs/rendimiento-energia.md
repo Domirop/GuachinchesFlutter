@@ -253,6 +253,7 @@ día), L (varios días). Las líneas son del commit base `66936bb`.
 | 18 | Miniaturas decodificadas a tamaño completo (portadas de listas a 96×96 en la ficha; foto del mapa a 66×66) | Código | `curated_hero_image.dart:33` | Bajo (memoria) | S | Recomendación |
 | 19 | `debugPrint` en cada build de la barra superior del Inicio y en cada rebuild de marcadores (también corre en release) | Código | `top_filter_bar.dart:29` | Bajo | S | **Arreglado** |
 | 20 | Skeleton de Visitas con `Opacity` animado sobre una lista completa (saveLayer de pantalla completa) | Código | `visitas_screen.dart:307` | Bajo | S | Recomendación (`FadeTransition`) |
+| 21 | `GET /video-ingestion/restaurant-videos/published` devolvía ~4 MB **sin comprimir** (337 visitas con `transcript` y `rawLlmResponse`): ~30 s de radio activa en cada arranque (lo piden el Inicio y la pestaña Visitas aunque no se abra) y, con el balanceador lento, el Inicio se quedaba en esqueletos | `curl`: >30 s, sin `Content-Encoding` | backend (migración 048) | Alto (red) | S | **Arreglo de backend en despliegue** (`8df5269`: sin esos campos + gzip). La app ya pide `gzip` (cliente de Dart por defecto): no hace falta tocarla |
 
 ## Arreglos de esta rama
 
