@@ -98,4 +98,30 @@ void main() {
       expect(callCount, 1); // la revalidación
     });
   });
+
+  test('(f) una entrada de caché ilegible se ignora y se va a la red',
+      () async {
+    final storage = InMemoryCacheStorage();
+    cache = HttpCacheStore.withStorage(storage);
+    repo = HttpRemoteRepository(client, cache: cache, backgroundEnabled: false);
+    await storage.put(
+        'categories', '<html>502</html>', DateTime.now().millisecondsSinceEpoch);
+
+    final result = await repo.getAllCategories();
+
+    expect(callCount, 1);
+    expect(result.first.id, 'cat-1');
+    expect(await cache.readStale('categories'), _categoriesJson);
+  });
+
+  test('(g) una respuesta de error no se guarda en caché', () async {
+    final failing = MockClient((request) async {
+      callCount++;
+      return http.Response('<html>502</html>', 502);
+    });
+    repo = HttpRemoteRepository(failing, cache: cache, backgroundEnabled: false);
+
+    await expectLater(repo.getAllCategories(), throwsException);
+    expect(await cache.readStale('categories'), isNull);
+  });
 }

@@ -81,6 +81,14 @@ class HttpRemoteRepository implements RemoteRepository {
        _backgroundEnabled = backgroundEnabled,
        _surveyClient = surveyClient == null ? null : Future.value(surveyClient);
 
+  /// Una respuesta de error no debe acabar en la caché: con la
+  /// revalidación por umbral se serviría varios minutos.
+  static void _ensureOk(Response response) {
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception('HTTP ${response.statusCode}');
+    }
+  }
+
   Future<T> _withSwr<T>(
     String key, {
     required Duration ttl,
@@ -89,8 +97,18 @@ class HttpRemoteRepository implements RemoteRepository {
     Duration revalidateAfter = Duration.zero,
   }) async {
     final hit = await _cache.readFresh(key, maxAge: ttl);
+    T? fromCache;
+    var cacheOk = false;
     if (hit != null) {
-      final cached = hit.body;
+      try {
+        fromCache = parse(hit.body);
+        cacheOk = true;
+      } catch (e) {
+        // Entrada ilegible: se ignora y se va a la red (que la sustituye).
+        AppLogger.warn('http-cache', 'entrada ilegible $key: $e');
+      }
+    }
+    if (hit != null && cacheOk) {
       if (_backgroundEnabled && hit.age >= revalidateAfter) {
         unawaited(
           Future.delayed(Duration.zero, () async {
@@ -102,7 +120,7 @@ class HttpRemoteRepository implements RemoteRepository {
           }),
         );
       }
-      return parse(cached);
+      return fromCache as T;
     }
 
     if (await _isOffline()) {
@@ -213,6 +231,7 @@ class HttpRemoteRepository implements RemoteRepository {
         final response = await _client
             .get(Uri.parse(url))
             .timeout(const Duration(seconds: 15));
+        _ensureOk(response);
         return response.body;
       },
       parse: (body) => RestaurantResponse.fromJson(json.decode(body)),
@@ -301,6 +320,7 @@ class HttpRemoteRepository implements RemoteRepository {
         final response = await _client
             .get(Uri.parse(url))
             .timeout(const Duration(seconds: 15));
+        _ensureOk(response);
         return response.body;
       },
       parse: (body) => Restaurant.fromJson(json.decode(body)),
@@ -343,6 +363,7 @@ class HttpRemoteRepository implements RemoteRepository {
         final response = await _client
             .get(Uri.parse(dotenv.env['ENDPOINT_V2']! + 'categorias'))
             .timeout(const Duration(seconds: 15));
+        _ensureOk(response);
         return response.body;
       },
       parse: (body) {
@@ -365,6 +386,7 @@ class HttpRemoteRepository implements RemoteRepository {
         final response = await _client
             .get(Uri.parse(dotenv.env['ENDPOINT_V1']! + 'municipality'))
             .timeout(const Duration(seconds: 15));
+        _ensureOk(response);
         return response.body;
       },
       parse: (body) {
@@ -664,6 +686,7 @@ class HttpRemoteRepository implements RemoteRepository {
         final response = await _client
             .get(Uri.parse(dotenv.env['ENDPOINT_V2']! + 'types'))
             .timeout(const Duration(seconds: 15));
+        _ensureOk(response);
         return response.body;
       },
       parse: (body) {
