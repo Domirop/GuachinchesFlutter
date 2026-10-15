@@ -2,7 +2,6 @@
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
 import 'package:guachinches/data/cubit/user/user_cubit.dart';
-import 'package:guachinches/data/cubit/user/user_state.dart';
 
 class ValoracionesPresenter{
   ValoracionesView _view;

@@ -1,327 +1,343 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:guachinches/config/app_colors.dart';
-import 'package:guachinches/config/app_text_styles.dart';
-import 'package:guachinches/config/brand_colors.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:guachinches/core/logging/app_logger.dart';
 import 'package:guachinches/data/HttpRemoteRepository.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
 import 'package:guachinches/data/cubit/user/user_cubit.dart';
 import 'package:guachinches/data/cubit/user/user_state.dart';
+import 'package:guachinches/data/model/Review.dart';
+import 'package:guachinches/data/model/restaurant.dart';
 import 'package:guachinches/data/model/user_info.dart';
-import 'package:guachinches/globalMethods.dart';
-import 'package:guachinches/ui/pages/login/login.dart';
-import 'package:guachinches/ui/pages/valoraciones/valoracion_detail_screen.dart';
-import 'package:guachinches/ui/pages/valoraciones/valoraciones_presenter.dart';
-import 'package:http/http.dart';
+import 'package:guachinches/ui/pages/favoritos/favoritos_logic.dart'
+    show favoritosMeta;
+import 'package:guachinches/ui/pages/new_home/widgets/gm_place_card.dart'
+    show GmPhoto, gmDisplayName;
+import 'package:guachinches/ui/pages/restaurant_detail/restaurant_detail_screen.dart';
+import 'package:guachinches/ui/pages/restaurant_detail/widgets/write_review_screen.dart';
+import 'package:guachinches/ui/pages/settings/perfil_logic.dart';
+import 'package:guachinches/ui/pages/settings/settings_screen.dart'
+    show perfilGoToExplore;
+import 'package:guachinches/ui/pages/settings/widgets/perfil_widgets.dart';
+import 'package:guachinches/ui/pages/valoraciones/valoraciones_logic.dart';
+import 'package:guachinches/ui/theme/gm_icons.dart';
+import 'package:guachinches/ui/theme/gm_motion.dart';
+import 'package:guachinches/ui/theme/gm_tokens.dart';
+import 'package:guachinches/ui/theme/gm_widgets.dart';
+import 'package:http/http.dart' as http;
 
+/// Mis reseñas (tablero PerfilMisResenas): las reseñas del usuario con su
+/// nota, resumen arriba y, en cada tarjeta, ir a la ficha o editarla con el
+/// editor de la ficha (precargado). Estados: listo, cargando, vacío, error.
 class ValoracionesPage extends StatefulWidget {
-  const ValoracionesPage({super.key});
+  /// Inyectable para tests; por defecto, el de producción.
+  final RemoteRepository? repository;
+
+  const ValoracionesPage({super.key, this.repository});
 
   @override
   State<ValoracionesPage> createState() => _ValoracionesPageState();
 }
 
-class _ValoracionesPageState extends State<ValoracionesPage>
-    implements ValoracionesView {
-  late RemoteRepository _remoteRepository;
-  late ValoracionesPresenter _presenter;
+enum _Status { loading, ready, error }
+
+class _ValoracionesPageState extends State<ValoracionesPage> {
+  late final RemoteRepository _repo =
+      widget.repository ?? HttpRemoteRepository(http.Client());
+  final _storage = const FlutterSecureStorage();
+
+  _Status _status = _Status.loading;
+  String? _userId;
+  final Map<String, Restaurant> _restaurants = {};
+  final Set<String> _requested = {};
+  bool _scrolled = false;
 
   @override
   void initState() {
     super.initState();
-    _remoteRepository = HttpRemoteRepository(Client());
-    final userCubit = context.read<UserCubit>();
-    _presenter = ValoracionesPresenter(this, _remoteRepository, userCubit);
-    _presenter.isUserLogged();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final brand = context.brand;
-    return Scaffold(
-      backgroundColor: brand.base,
-      appBar: AppBar(
-        backgroundColor: brand.base,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back_rounded, color: brand.textPrimary),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Text(
-          'Mis valoraciones',
-          style: AppTextStyles.displaySection(size: 13),
-        ),
-        centerTitle: true,
-      ),
-      body: BlocBuilder<UserCubit, UserState>(
-        builder: (context, state) {
-          if (state is! UserLoaded) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          final reviews = state.user.valoraciones;
-          if (reviews.isEmpty) {
-            return _EmptyState();
-          }
-          return ListView(
-            physics: const BouncingScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-            children: [
-              _StatsHeader(user: state.user),
-              const SizedBox(height: 14),
-              ...reviews.map(
-                (v) => Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: _ValoracionCard(valoracion: v),
-                ),
-              ),
-            ],
-          );
-        },
-      ),
-    );
-  }
-
-  @override
-  goToLogin() {
-    GlobalMethods()
-        .pushPage(context, Login('Inicia sesión para ver tus valoraciones'));
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────
-
-class _StatsHeader extends StatelessWidget {
-  final UserInfo user;
-
-  const _StatsHeader({required this.user});
-
-  double get _avgGiven {
-    final list = user.valoraciones;
-    if (list.isEmpty) return 0;
-    double sum = 0;
-    int n = 0;
-    for (final v in list) {
-      final r = double.tryParse(v.rating);
-      if (r != null) {
-        sum += r;
-        n++;
-      }
+    final cubit = context.read<UserCubit>();
+    if (cubit.state is UserLoaded) {
+      _status = _Status.ready;
+      _fetchRestaurants((cubit.state as UserLoaded).user.valoraciones);
     }
-    return n == 0 ? 0 : sum / n;
+    _load();
+  }
+
+  void _retry() {
+    setState(() => _status = _Status.loading);
+    _load();
+  }
+
+  Future<void> _load() async {
+    final cubit = context.read<UserCubit>();
+    final hadData = cubit.state is UserLoaded;
+    String? id;
+    try {
+      id = await _storage.read(key: 'userId');
+    } catch (e) {
+      AppLogger.warn('mis-resenas', 'no se pudo leer la sesión: $e');
+    }
+    if (!mounted) return;
+    if (id == null || id.isEmpty) {
+      setState(() => _status = hadData ? _Status.ready : _Status.error);
+      return;
+    }
+    _userId = id;
+    final ok = await cubit.getUserInfo(id);
+    if (!mounted) return;
+    final state = cubit.state;
+    if (state is UserLoaded) {
+      setState(() => _status = _Status.ready);
+      _fetchRestaurants(state.user.valoraciones);
+    } else if (!ok) {
+      setState(() => _status = _Status.error);
+    }
+  }
+
+  /// Fotos, tipo y municipio de cada sitio (el perfil solo trae el nombre).
+  /// Si falla, la tarjeta se pinta igual sin foto.
+  Future<void> _fetchRestaurants(List<Valoraciones> reviews) async {
+    final ids = {
+      for (final v in reviews)
+        if (resenaRestaurantId(v).isNotEmpty) resenaRestaurantId(v)
+    }.where((id) => _requested.add(id)).toList();
+    if (ids.isEmpty) return;
+    await Future.wait(ids.map((id) async {
+      try {
+        final r = await _repo.getRestaurantById(id);
+        r.id = id;
+        if (mounted) setState(() => _restaurants[id] = r);
+      } catch (e) {
+        _requested.remove(id);
+        AppLogger.warn('mis-resenas', 'no se pudo cargar el sitio $id: $e');
+      }
+    }));
+  }
+
+  void _openFicha(String restaurantId) {
+    if (restaurantId.isEmpty) return;
+    Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => RestaurantDetailScreen(id: restaurantId),
+    ));
+  }
+
+  Future<void> _edit(Valoraciones v) async {
+    final id = resenaRestaurantId(v);
+    final restaurant = _restaurants[id] ??
+        Restaurant(id: id, nombre: v.restaurantes?.nombre ?? '');
+    final saved = await Navigator.of(context).push<bool>(MaterialPageRoute(
+      builder: (_) => WriteReviewScreen(
+        restaurant: restaurant,
+        initialRating: perfilStars(v.rating) ?? 0,
+        existingReview: Review(
+          id: v.id,
+          title: v.title,
+          review: v.review,
+          rating: v.rating,
+          valoracionesNegocioId: id,
+          valoracionesUsuarioId: v.valoracionesUsuarioId,
+        ),
+      ),
+    ));
+    if (saved == true && mounted) {
+      final userId = _userId;
+      if (userId != null) await context.read<UserCubit>().getUserInfo(userId);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final brand = context.brand;
-    final total = user.valoraciones.length;
-    final avg = _avgGiven;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-      decoration: BoxDecoration(
-        color: brand.surface,
-        border: Border.all(color: brand.borderStrong),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
+    final gm = GmColors.of(context);
+    final media = MediaQuery.of(context);
+    return Scaffold(
+      backgroundColor: gm.canvas,
+      body: Stack(
         children: [
-          Expanded(
-            child: _Stat(
-              value: '$total',
-              label: total == 1 ? 'reseña' : 'reseñas',
-              icon: Icons.rate_review_rounded,
-              accent: AppColors.atlanticoClaro,
+          Positioned.fill(
+            child: BlocBuilder<UserCubit, UserState>(
+              builder: (context, state) {
+                final reviews = state is UserLoaded
+                    ? state.user.valoraciones
+                    : const <Valoraciones>[];
+                return _scroll(context, reviews);
+              },
             ),
           ),
-          Container(width: 1, height: 36, color: brand.borderStrong),
-          Expanded(
-            child: _Stat(
-              value: avg > 0 ? avg.toStringAsFixed(1) : '—',
-              label: 'media dada',
-              icon: Icons.star_rounded,
-              accent: AppColors.sol,
-            ),
+          GmTopScrim(visible: _scrolled, extra: 60),
+          Positioned(
+            left: GmSpace.gutter,
+            top: media.padding.top + 4,
+            child:
+                const PerfilBackButton(identifier: 'mis-resenas-back-button'),
           ),
         ],
       ),
     );
   }
-}
 
-class _Stat extends StatelessWidget {
-  final String value;
-  final String label;
-  final IconData icon;
-  final Color accent;
-
-  const _Stat({
-    required this.value,
-    required this.label,
-    required this.icon,
-    required this.accent,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final brand = context.brand;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 16, color: accent),
-            const SizedBox(width: 4),
-            Text(
-              value,
-              style: AppTextStyles.displayHero(size: 22),
+  Widget _scroll(BuildContext context, List<Valoraciones> reviews) {
+    final gm = GmColors.of(context);
+    final media = MediaQuery.of(context);
+    final children = <Widget>[
+      const GmRise(
+        trigger: GmTrigger.mount,
+        child: PerfilLargeTitle('Mis reseñas',
+            subtitle: 'Las que has escrito con tu cuenta.'),
+      ),
+    ];
+    switch (_status) {
+      case _Status.loading:
+        children.add(const _Skeleton());
+      case _Status.error:
+        children.addAll([
+          const SizedBox(height: 24),
+          PerfilStateCard(
+            identifier: 'mis-resenas-error',
+            art: const GmSadVolcano(width: 96),
+            title: 'No pudimos cargar tus reseñas',
+            text: 'Revisa tu conexión e inténtalo de nuevo.',
+            action: GmCapsuleButton(
+              label: 'Reintentar',
+              identifier: 'mis-resenas-retry-button',
+              onTap: _retry,
             ),
-          ],
-        ),
-        const SizedBox(height: 2),
-        Text(
-          label,
-          style: AppTextStyles.ui(
-            size: 11,
-            color: brand.textMuted,
           ),
+        ]);
+      case _Status.ready:
+        if (reviews.isEmpty) {
+          children.addAll([
+            const SizedBox(height: 24),
+            PerfilStateCard(
+              identifier: 'mis-resenas-empty',
+              art: const PerfilHappyVolcano(),
+              title: 'Aún no has escrito ninguna reseña',
+              text: 'Cuando reseñes un sitio desde su ficha, la verás aquí y '
+                  'podrás editarla.',
+              action: GmCapsuleButton(
+                label: 'Explorar sitios',
+                identifier: 'mis-resenas-explore-button',
+                onTap: () => perfilGoToExplore(context),
+              ),
+            ),
+          ]);
+        } else {
+          children.addAll([
+            const SizedBox(height: 16),
+            GmRise(
+              index: 1,
+              trigger: GmTrigger.mount,
+              child: _StatsCard(reviews: reviews),
+            ),
+            const SizedBox(height: 14),
+            for (var i = 0; i < reviews.length; i++)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                    GmSpace.gutter, 0, GmSpace.gutter, GmSpace.cardGap),
+                child: GmRise(
+                  index: 2 + i.clamp(0, 4),
+                  trigger: GmTrigger.mount,
+                  child: _ReviewCard(
+                    review: reviews[i],
+                    restaurant: _restaurants[resenaRestaurantId(reviews[i])],
+                    onOpen: () => _openFicha(resenaRestaurantId(reviews[i])),
+                    onEdit: () => _edit(reviews[i]),
+                  ),
+                ),
+              ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 2, 20, 0),
+              child: Text(
+                'Tu nombre de pila se muestra junto a cada reseña en la ficha '
+                'del sitio.',
+                style: GmText.meta(color: gm.label2),
+              ),
+            ),
+          ]);
+        }
+    }
+    return NotificationListener<ScrollNotification>(
+      onNotification: (n) {
+        if (n.depth == 0 && n.metrics.axis == Axis.vertical) {
+          final s = n.metrics.pixels > 4;
+          if (s != _scrolled) setState(() => _scrolled = s);
+        }
+        return false;
+      },
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: EdgeInsets.only(
+          top: media.padding.top + 58,
+          bottom: media.padding.bottom + 40,
         ),
-      ],
+        children: children,
+      ),
     );
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────
+// ── Resumen ─────────────────────────────────────────────────────────────────
 
-class _ValoracionCard extends StatelessWidget {
-  final Valoraciones valoracion;
-
-  const _ValoracionCard({required this.valoracion});
+class _StatsCard extends StatelessWidget {
+  final List<Valoraciones> reviews;
+  const _StatsCard({required this.reviews});
 
   @override
   Widget build(BuildContext context) {
-    final brand = context.brand;
-    final ratingNum = double.tryParse(valoracion.rating)?.round() ?? 0;
-    final restaurantName = valoracion.restaurantes?.nombre ?? 'Restaurante';
-    final hasReview = valoracion.review.trim().isNotEmpty;
-    final hasTitle = valoracion.title.trim().isNotEmpty;
-
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) =>
-                    ValoracionDetailScreen(valoracion: valoracion),
-              ),
-            ),
-        borderRadius: BorderRadius.circular(14),
-        child: Container(
-          padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
-          decoration: BoxDecoration(
-            color: brand.surface,
-            border: Border.all(color: brand.borderStrong),
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Container(
-                    width: 36,
-                    height: 36,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: AppColors.atlantico.withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Icon(
-                      Icons.restaurant_rounded,
-                      size: 18,
-                      color: AppColors.atlanticoClaro,
-                    ),
+    final gm = GmColors.of(context);
+    final n = reviews.length;
+    final avg = perfilAverage(reviews.map((v) => v.rating));
+    const big = TextStyle(
+        fontSize: 22,
+        height: 28 / 22,
+        fontWeight: FontWeight.w800,
+        letterSpacing: -0.4);
+    return Semantics(
+      identifier: 'mis-resenas-stats',
+      container: true,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: GmSpace.gutter),
+        child: GmCard(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          child: IntrinsicHeight(
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('$n', style: big.copyWith(color: gm.label)),
+                      Text(resenasCountCaption(n),
+                          style: GmText.meta(color: gm.label2)),
+                    ],
                   ),
-                  const SizedBox(width: 10),
+                ),
+                if (avg != null) ...[
+                  Container(
+                    width: 1,
+                    margin: const EdgeInsets.symmetric(horizontal: 16),
+                    color: gm.sep,
+                  ),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          restaurantName,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: AppTextStyles.displayHero(size: 16),
-                        ),
-                        const SizedBox(height: 4),
                         Row(
                           children: [
-                            ...List.generate(5, (i) {
-                              return Icon(
-                                i < ratingNum
-                                    ? Icons.star_rounded
-                                    : Icons.star_outline_rounded,
-                                size: 13,
-                                color: AppColors.sol,
-                              );
-                            }),
-                            const SizedBox(width: 6),
-                            Text(
-                              valoracion.rating,
-                              style: AppTextStyles.ui(
-                                size: 11,
-                                weight: FontWeight.w700,
-                                color: brand.textSecondary,
-                              ),
-                            ),
+                            GmIcon(GmIcons.star,
+                                size: 20, color: GmColors.star),
+                            const SizedBox(width: 5),
+                            Text(perfilFormatAvg(avg),
+                                style: big.copyWith(color: gm.label)),
                           ],
                         ),
+                        Text('nota media que das',
+                            style: GmText.meta(color: gm.label2)),
                       ],
                     ),
                   ),
-                  Icon(
-                    Icons.chevron_right_rounded,
-                    color: brand.textMuted,
-                    size: 22,
-                  ),
                 ],
-              ),
-              if (hasTitle || hasReview) ...[
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
-                  decoration: BoxDecoration(
-                    color: brand.elevated,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (hasTitle)
-                        Text(
-                          valoracion.title,
-                          style: AppTextStyles.ui(
-                            size: 13,
-                            weight: FontWeight.w700,
-                            color: brand.textPrimary,
-                          ),
-                        ),
-                      if (hasTitle && hasReview) const SizedBox(height: 4),
-                      if (hasReview)
-                        Text(
-                          valoracion.review,
-                          style: AppTextStyles.editorial(
-                            size: 13,
-                            color: brand.textSecondary,
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
               ],
-            ],
+            ),
           ),
         ),
       ),
@@ -329,47 +345,256 @@ class _ValoracionCard extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────
+// ── Tarjeta de reseña ───────────────────────────────────────────────────────
 
-class _EmptyState extends StatelessWidget {
+class _ReviewCard extends StatelessWidget {
+  final Valoraciones review;
+  final Restaurant? restaurant;
+  final VoidCallback onOpen;
+  final VoidCallback onEdit;
+
+  const _ReviewCard({
+    required this.review,
+    required this.restaurant,
+    required this.onOpen,
+    required this.onEdit,
+  });
+
   @override
   Widget build(BuildContext context) {
-    final brand = context.brand;
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 32),
+    final gm = GmColors.of(context);
+    final v = review;
+    final r = restaurant;
+    final name = gmDisplayName((r?.nombre.isNotEmpty ?? false)
+        ? r!.nombre
+        : v.restaurantes?.nombre ?? '');
+    final meta = r == null ? '' : favoritosMeta(r);
+    final stars = perfilStars(v.rating);
+    final word = resenaWord(stars);
+
+    return Semantics(
+      identifier: 'mis-resenas-card-${v.id}',
+      container: true,
+      child: GmCard(
+        padding: const EdgeInsets.fromLTRB(6, 6, 6, 14),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Container(
-              width: 88,
-              height: 88,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: AppColors.sol.withOpacity(0.15),
-                borderRadius: BorderRadius.circular(24),
-              ),
-              child: const Icon(
-                Icons.star_outline_rounded,
-                size: 38,
-                color: AppColors.sol,
+            GmPressable(
+              onTap: onOpen,
+              pressedScale: 0.98,
+              semanticsIdentifier: 'mis-resenas-open-${v.id}',
+              semanticsLabel: '$name, ver ficha',
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 64),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(4, 4, 10, 4),
+                  child: Row(
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(16),
+                        child: SizedBox(
+                          width: 52,
+                          height: 52,
+                          child: GmPhoto(r?.mainFoto, decodeWidth: 156),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: GmText.body17(
+                                      color: gm.label, w: FontWeight.w600)
+                                  .copyWith(height: 22 / 17),
+                            ),
+                            if (meta.isNotEmpty)
+                              Text(meta,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: GmText.meta(color: gm.label2)),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      GmIcon(GmIcons.chevronRight, size: 14, color: gm.label2),
+                    ],
+                  ),
+                ),
               ),
             ),
-            const SizedBox(height: 18),
-            Text(
-              'Aún no has valorado ningún sitio',
-              textAlign: TextAlign.center,
-              style: AppTextStyles.displayHero(size: 22),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'Cuando dejes una reseña en un restaurante, aparecerá aquí.',
-              textAlign: TextAlign.center,
-              style: AppTextStyles.ui(
-                size: 13,
-                color: brand.textSecondary,
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 6, 12, 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (stars != null)
+                    Semantics(
+                      label: '$stars de 5 estrellas',
+                      excludeSemantics: true,
+                      child: Row(
+                        children: [
+                          for (var i = 0; i < 5; i++)
+                            Padding(
+                              padding: const EdgeInsets.only(right: 2),
+                              child: GmIcon(
+                                i < stars ? GmIcons.star : GmIcons.starOutline,
+                                size: 16,
+                                color: i < stars ? GmColors.star : gm.label2,
+                              ),
+                            ),
+                          const SizedBox(width: 4),
+                          Text(word, style: GmText.eyebrow(color: gm.label2)),
+                        ],
+                      ),
+                    ),
+                  const SizedBox(height: 6),
+                  if (v.title.trim().isNotEmpty)
+                    Text(
+                      v.title.trim(),
+                      style: GmText.body17(color: gm.label, w: FontWeight.w600)
+                          .copyWith(height: 22 / 17),
+                    ),
+                  if (v.review.trim().isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: Text(
+                        v.review.trim(),
+                        style: GmText.body(color: gm.label)
+                            .copyWith(height: 21 / 15),
+                      ),
+                    ),
+                  if (resenaOnlyStars(v))
+                    Text(
+                      'Solo pusiste estrellas. Puedes añadir unas líneas '
+                      'cuando quieras.',
+                      style: GmText.body(color: gm.label2)
+                          .copyWith(height: 21 / 15),
+                    ),
+                  const SizedBox(height: 12),
+                  PerfilSoftButton(
+                    label: resenaActionLabel(v),
+                    identifier: 'mis-resenas-edit-${v.id}',
+                    height: 36,
+                    fontSize: 14,
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    leading:
+                        GmIcon(PerfilIcons.pencil, size: 15, color: gm.accent),
+                    onTap: onEdit,
+                  ),
+                ],
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Cargando ────────────────────────────────────────────────────────────────
+
+class _Skeleton extends StatelessWidget {
+  const _Skeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    Widget card() => Padding(
+          padding: const EdgeInsets.fromLTRB(
+              GmSpace.gutter, 0, GmSpace.gutter, GmSpace.cardGap),
+          child: GmCard(
+            padding: const EdgeInsets.fromLTRB(10, 10, 10, 16),
+            child: LayoutBuilder(
+              builder: (_, c) => Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const PerfilSkeleton(width: 52, height: 52, radius: 16),
+                      const SizedBox(width: 12),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          PerfilSkeleton(width: c.maxWidth * 0.45, height: 16),
+                          const SizedBox(height: 8),
+                          PerfilSkeleton(width: c.maxWidth * 0.55, height: 12),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        PerfilSkeleton(width: c.maxWidth * 0.36, height: 14),
+                        const SizedBox(height: 9),
+                        PerfilSkeleton(width: c.maxWidth * 0.6, height: 16),
+                        const SizedBox(height: 9),
+                        PerfilSkeleton(width: c.maxWidth * 0.88, height: 13),
+                        const SizedBox(height: 9),
+                        PerfilSkeleton(width: c.maxWidth * 0.74, height: 13),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+    return Semantics(
+      identifier: 'mis-resenas-loading',
+      label: 'Cargando tus reseñas',
+      child: ExcludeSemantics(
+        child: Column(
+          children: [
+            const SizedBox(height: 16),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                  GmSpace.gutter, 0, GmSpace.gutter, 14),
+              child: GmCard(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: LayoutBuilder(
+                        builder: (_, c) => Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            PerfilSkeleton(width: c.maxWidth * 0.3, height: 22),
+                            const SizedBox(height: 8),
+                            PerfilSkeleton(width: c.maxWidth * 0.7, height: 12),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 24),
+                    Expanded(
+                      child: LayoutBuilder(
+                        builder: (_, c) => Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            PerfilSkeleton(width: c.maxWidth * 0.4, height: 22),
+                            const SizedBox(height: 8),
+                            PerfilSkeleton(width: c.maxWidth * 0.8, height: 12),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            card(),
+            card(),
+            card(),
           ],
         ),
       ),
