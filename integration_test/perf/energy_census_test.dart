@@ -102,13 +102,29 @@ void main() {
     FlutterError.onError = testOnError;
     _log('arranque', {'ok': true});
 
-    // Se eligen ya el restaurante y la visita: luego la lista temática usa
-    // el mismo RestaurantCubit para filtrar y el estado deja de ser el pool.
+    await _dismissPremiosSheet(tester);
+    // Arranque: datos, imágenes y entradas «una vez».
+    await _wait(const Duration(seconds: 12));
+
+    // Se eligen ya el restaurante y la visita (cuando hayan llegado): luego
+    // la lista temática usa el mismo RestaurantCubit para filtrar y el
+    // estado deja de ser el pool.
     final homeCtx = tester.element(_home);
-    final rState = homeCtx.read<RestaurantCubit>().state;
-    final pool = rState is AllRestaurantLoaded
-        ? rState.restaurantResponse.restaurants
-        : const <Restaurant>[];
+    var pool = const <Restaurant>[];
+    String? visitId;
+    for (var i = 0; i < 40 && (pool.isEmpty || visitId == null); i++) {
+      final rState = homeCtx.read<RestaurantCubit>().state;
+      if (rState is AllRestaurantLoaded) {
+        pool = rState.restaurantResponse.restaurants;
+      }
+      final vState = homeCtx.read<VisitsCubit>().state;
+      if (vState is VisitsLoaded && vState.visits.isNotEmpty) {
+        visitId = vState.visits.first.id;
+      }
+      if (pool.isEmpty || visitId == null) {
+        await _wait(const Duration(milliseconds: 500));
+      }
+    }
     final now = DateTime.now();
     final openId = pool.isEmpty
         ? null
@@ -116,13 +132,6 @@ void main() {
             .firstWhere((r) => isRestaurantOpenNow(r, now),
                 orElse: () => pool.first)
             .id;
-    final vState = homeCtx.read<VisitsCubit>().state;
-    final visitId = vState is VisitsLoaded && vState.visits.isNotEmpty
-        ? vState.visits.first.id
-        : null;
-    await _dismissPremiosSheet(tester);
-    // Arranque: datos, imágenes y entradas «una vez».
-    await _wait(const Duration(seconds: 12));
 
     Future<void> scenario(String name, Future<void> Function() body) async {
       if (_prefixes.isNotEmpty && !_prefixes.any(name.startsWith)) return;
@@ -244,10 +253,11 @@ void main() {
 
     // Reels: la primera visita, como al tocarla en el Inicio o en Visitas.
     await scenario('visita_reels', () async {
-      if (visitId == null) throw StateError('sin visitas');
+      final id = visitId;
+      if (id == null) throw StateError('sin visitas');
       final ctx = tester.element(_home);
       Navigator.of(ctx).push(MaterialPageRoute(
-          builder: (_) => VisitDetailPage(visitId: visitId)));
+          builder: (_) => VisitDetailPage(visitId: id)));
       await _wait(const Duration(seconds: 6));
       await idle('visita_reels');
     });
