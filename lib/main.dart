@@ -326,6 +326,9 @@ class _MyAppState extends State<MyApp> {
           themeMode: themeMode,
           localizationsDelegates: AppL10n.localizationsDelegates,
           supportedLocales: AppL10n.supportedLocales,
+          // La app va entera en español: con el móvil en inglés se mezclaban
+          // las pestañas y el saludo traducidos con el resto en español.
+          locale: const Locale('es', 'ES'),
           home: DccRemoteConfig.instance.maintenanceMode
               ? const MaintenanceScreen()
               : SplashScreen(),
