@@ -87,13 +87,18 @@ class HttpCacheStore {
   HttpCacheStore._() : _storage = _SqliteStorage();
   HttpCacheStore.withStorage(CacheStorage storage) : _storage = storage;
 
-  Future<String?> read(String key, {required Duration maxAge}) async {
+  Future<String?> read(String key, {required Duration maxAge}) async =>
+      (await readFresh(key, maxAge: maxAge))?.body;
+
+  /// Como [read], pero también dice la edad de la entrada.
+  Future<({String body, Duration age})?> readFresh(String key,
+      {required Duration maxAge}) async {
     final row = await _storage.get(key);
     if (row == null) return null;
     final ts = row['ts'] as int;
     final now = DateTime.now().millisecondsSinceEpoch;
     if (ts <= now - maxAge.inMilliseconds) return null;
-    return row['body'] as String;
+    return (body: row['body'] as String, age: Duration(milliseconds: now - ts));
   }
 
   Future<String?> readStale(String key) async {

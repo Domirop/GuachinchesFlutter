@@ -86,10 +86,12 @@ class HttpRemoteRepository implements RemoteRepository {
     required Duration ttl,
     required Future<String> Function() fetchBody,
     required T Function(String body) parse,
+    Duration revalidateAfter = Duration.zero,
   }) async {
-    final cached = await _cache.read(key, maxAge: ttl);
-    if (cached != null) {
-      if (_backgroundEnabled) {
+    final hit = await _cache.readFresh(key, maxAge: ttl);
+    if (hit != null) {
+      final cached = hit.body;
+      if (_backgroundEnabled && hit.age >= revalidateAfter) {
         unawaited(
           Future.delayed(Duration.zero, () async {
             try {
@@ -202,6 +204,7 @@ class HttpRemoteRepository implements RemoteRepository {
     return _withSwr<RestaurantResponse>(
       key,
       ttl: HttpCachePolicy.listTtl,
+      revalidateAfter: HttpCachePolicy.listRevalidateAfter,
       fetchBody: () async {
         final islandQuery = islandId == null ? '' : '&island=$islandId';
         final url =
@@ -335,6 +338,7 @@ class HttpRemoteRepository implements RemoteRepository {
     return _withSwr<List<ModelCategory>>(
       'categories',
       ttl: HttpCachePolicy.referenceTtl,
+      revalidateAfter: HttpCachePolicy.referenceRevalidateAfter,
       fetchBody: () async {
         final response = await _client
             .get(Uri.parse(dotenv.env['ENDPOINT_V2']! + 'categorias'))
@@ -356,6 +360,7 @@ class HttpRemoteRepository implements RemoteRepository {
     return _withSwr<List<Municipality>>(
       'municipalities',
       ttl: HttpCachePolicy.referenceTtl,
+      revalidateAfter: HttpCachePolicy.referenceRevalidateAfter,
       fetchBody: () async {
         final response = await _client
             .get(Uri.parse(dotenv.env['ENDPOINT_V1']! + 'municipality'))
@@ -654,6 +659,7 @@ class HttpRemoteRepository implements RemoteRepository {
     return _withSwr<List<Types>>(
       'types',
       ttl: HttpCachePolicy.referenceTtl,
+      revalidateAfter: HttpCachePolicy.referenceRevalidateAfter,
       fetchBody: () async {
         final response = await _client
             .get(Uri.parse(dotenv.env['ENDPOINT_V2']! + 'types'))
@@ -1354,6 +1360,7 @@ class HttpRemoteRepository implements RemoteRepository {
     return _withSwr<List<Island>>(
       'islands',
       ttl: HttpCachePolicy.referenceTtl,
+      revalidateAfter: HttpCachePolicy.referenceRevalidateAfter,
       fetchBody: () async {
         final url = dotenv.env['ENDPOINT_V2']! + 'islands';
         final response = await _client
