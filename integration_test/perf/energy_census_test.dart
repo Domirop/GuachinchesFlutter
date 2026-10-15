@@ -120,7 +120,7 @@ void main() {
     await scenario('inicio_scroll', () async {
       report['inicio_scroll'] = await _measure(tester, Duration.zero,
           during: () async {
-        final s = find.byType(Scrollable).first;
+        final s = _mainScroll(tester);
         for (var i = 0; i < 4; i++) {
           await tester.fling(s, const Offset(0, -500), 1500);
           await _wait(const Duration(milliseconds: 1200));
@@ -172,7 +172,7 @@ void main() {
     await scenario('lista_tradicional_scroll', () async {
       report['lista_tradicional_scroll'] =
           await _measure(tester, Duration.zero, during: () async {
-        final s = find.byType(Scrollable).last;
+        final s = _mainScroll(tester);
         for (var i = 0; i < 3; i++) {
           await tester.fling(s, const Offset(0, -500), 1500);
           await _wait(const Duration(milliseconds: 1200));
@@ -201,7 +201,7 @@ void main() {
     await scenario('ficha_scroll', () async {
       report['ficha_scroll'] =
           await _measure(tester, Duration.zero, during: () async {
-        final s = find.byType(Scrollable).last;
+        final s = _mainScroll(tester);
         for (var i = 0; i < 3; i++) {
           await tester.fling(s, const Offset(0, -500), 1500);
           await _wait(const Duration(milliseconds: 1200));
@@ -298,6 +298,23 @@ Future<void> _tapId(WidgetTester tester, String id) async {
   final handle = tester.ensureSemantics();
   await tester.tap(find.bySemanticsIdentifier(id), warnIfMissed: false);
   handle.dispose();
+}
+
+/// El scroll vertical más grande de la pantalla de arriba (no las filas
+/// horizontales de chips ni los carruseles).
+Finder _mainScroll(WidgetTester tester) {
+  final vertical = find.byWidgetPredicate((w) =>
+      w is Scrollable &&
+      (w.axisDirection == AxisDirection.down ||
+          w.axisDirection == AxisDirection.up));
+  final candidates = vertical.evaluate().toList()
+    ..sort((a, b) {
+      final sa = a.size ?? Size.zero;
+      final sb = b.size ?? Size.zero;
+      return (sb.width * sb.height).compareTo(sa.width * sa.height);
+    });
+  if (candidates.isEmpty) throw StateError('sin scroll vertical');
+  return find.byElementPredicate((e) => e == candidates.first);
 }
 
 Future<void> _popToHome(WidgetTester tester) async {
