@@ -40,19 +40,41 @@ import 'package:path_provider/path_provider.dart';
 
 const _idle = Duration(seconds: 10);
 
-int _frames = 0;
 final List<FrameTiming> _timings = [];
 
+/// Cuenta los fotogramas que PIDE la app (tickers, setState, repintados).
+///
+/// En un test «vivo» el binding encadena un fotograma tras otro aunque nadie
+/// los pida, así que contar fotogramas dibujados daría siempre el máximo.
+/// Aquí solo cuenta un fotograma si desde el anterior alguien llamó a
+/// [scheduleFrame], que es exactamente lo que, fuera del test, despierta al
+/// motor.
+class _EnergyBinding extends IntegrationTestWidgetsFlutterBinding {
+  int appFrames = 0;
+  bool _requested = false;
+
+  @override
+  void scheduleFrame() {
+    _requested = true;
+    super.scheduleFrame();
+  }
+
+  @override
+  void handleBeginFrame(Duration? rawTimeStamp) {
+    if (_requested) appFrames++;
+    _requested = false;
+    super.handleBeginFrame(rawTimeStamp);
+  }
+}
+
+late final _EnergyBinding _binding;
+
 void main() {
-  final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
-  // Solo se dibuja cuando la app lo pide (como fuera de un test): con
-  // `fullyLive` el binding encadena un fotograma tras otro y los fps en
-  // reposo saldrían siempre al máximo.
-  binding.framePolicy = LiveTestWidgetsFlutterBindingFramePolicy.benchmark;
+  final binding = _binding = _EnergyBinding();
+  binding.framePolicy = LiveTestWidgetsFlutterBindingFramePolicy.fullyLive;
 
   testWidgets('censo de energía por pantalla', (tester) async {
     final report = <String, Object?>{};
-    SchedulerBinding.instance.addPersistentFrameCallback((_) => _frames++);
     SchedulerBinding.instance.addTimingsCallback(_timings.addAll);
 
     await _skipOnboarding();
@@ -270,7 +292,7 @@ Future<void> _popToHome(WidgetTester tester) async {
 /// Mide una ventana: en reposo ([window]) o mientras corre [during].
 Future<Map<String, Object?>> _measure(WidgetTester tester, Duration window,
     {Future<void> Function()? during}) async {
-  final f0 = _frames;
+  final f0 = _binding.appFrames;
   final t0 = _timings.length;
   final sw = Stopwatch()..start();
   if (during != null) {
@@ -282,7 +304,7 @@ Future<Map<String, Object?>> _measure(WidgetTester tester, Duration window,
   // Los FrameTiming llegan en lotes: se da tiempo a que lleguen.
   await _wait(const Duration(milliseconds: 1200));
   final secs = sw.elapsedMilliseconds / 1000;
-  final frames = _frames - f0;
+  final frames = _binding.appFrames - f0;
   final timings = _timings.sublist(t0);
   return {
     'segundos': double.parse(secs.toStringAsFixed(1)),
