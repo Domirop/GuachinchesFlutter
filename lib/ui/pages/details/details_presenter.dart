@@ -21,7 +21,7 @@ class DetailPresenter {
 
   DetailPresenter(this._remoteRepository, this._view);
 
-  isUserLogged() async {
+  Future<String?> isUserLogged() async {
     String? userId = await storage.read(key: "userId");
     AppLogger.info('details-presenter', 'userId: $userId');
     if (userId != null) {
@@ -54,7 +54,14 @@ class DetailPresenter {
       });
     }
     try {
-      String userId = await isUserLogged();
+      final String? userId = await isUserLogged();
+      // Sin sesión no hay bloqueos ni reportes propios que quitar: no se
+      // piden (antes fallaba con un null y ensuciaba el log y Crashlytics).
+      if (userId == null || userId.isEmpty) {
+        _view.setRestaurant(restaurant);
+        await _loadVisit(restaurant);
+        return;
+      }
 
       List<BlockUser> userBlocked =
       await _remoteRepository.getBlockUser(userId);
@@ -87,8 +94,11 @@ class DetailPresenter {
       AppLogger.error('details-presenter', e, st);
     }
     _view.setRestaurant(restaurant);
+    await _loadVisit(restaurant);
+  }
 
-    // Fetch visit data for editorial sections (non-blocking)
+  /// La visita para las secciones editoriales (si falla, sin visita).
+  Future<void> _loadVisit(Restaurant restaurant) async {
     try {
       final visits = await _remoteRepository.getVisitsByRestaurant(restaurant.id);
       _view.setVisit(visits.isNotEmpty ? visits.first : null);
