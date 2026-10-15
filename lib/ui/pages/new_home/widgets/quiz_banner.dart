@@ -5,7 +5,8 @@ import 'package:guachinches/core/analytics/analytics.dart';
 import 'package:guachinches/core/logging/app_logger.dart';
 import 'package:guachinches/data/quiz/quiz_repository.dart';
 import 'package:guachinches/services/app_storage.dart';
-import 'package:guachinches/ui/pages/login/login_screen.dart';
+import 'package:guachinches/ui/pages/login/login_logic.dart';
+import 'package:guachinches/ui/pages/login/login_sheet.dart';
 import 'package:guachinches/ui/pages/quiz/quiz_game_screen.dart';
 import 'package:guachinches/ui/theme/gm_icons.dart';
 import 'package:guachinches/ui/theme/gm_motion.dart';
@@ -20,7 +21,7 @@ import 'package:guachinches/ui/theme/gm_widgets.dart';
 /// Progreso: con sesión y partida activa, la rueda pinta los quesitos
 /// conseguidos y «Llevas N de 7» (`QuizRepository.getActiveSession`). Sin
 /// sesión o sin partida, rueda completa y sin pie.
-/// Gating: con sesión → juego; sin sesión → login existente.
+/// Gating: con sesión → juego; sin sesión → acceso único y, al entrar, juego.
 class QuizBanner extends StatefulWidget {
   /// Inyectable para tests.
   final QuizRepository? repository;
@@ -37,8 +38,11 @@ class QuizBanner extends StatefulWidget {
       );
     } else {
       Analytics.I.logEvent('quiz_login_required');
+      final ok = await showLoginSheet(context, reason: LoginReason.quiz);
+      // Al entrar, directo a la partida (vuelve aquí al salir).
+      if (!ok || !context.mounted) return;
       await Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => const LoginScreen()),
+        MaterialPageRoute(builder: (_) => const QuizGameScreen()),
       );
     }
   }
