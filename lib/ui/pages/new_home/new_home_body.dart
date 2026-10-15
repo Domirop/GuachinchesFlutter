@@ -467,6 +467,9 @@ class _NewHomeBodyState extends State<NewHomeBody> {
           offset: widget.scrollListenable,
           child: Semantics(
             identifier: 'home-hero',
+            // TalkBack: el primer foco caía en el hero sin etiqueta.
+            label: 'Portada de ${filters.islandLabel}',
+            image: true,
             child: ParallaxHero(
               scrollOffset: 0, // posicionamiento manejado por el outer Stack
               hour: widget.hour,
