@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:crypto/crypto.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:guachinches/data/model/survey_v3.dart';
@@ -216,6 +217,18 @@ void main() {
       expect(compareAppVersions('4.10.0', '4.9.9'), greaterThan(0));
       expect(compareAppVersions('4.6.0+94', '4.7.0'), lessThan(0));
       expect(compareAppVersions('4.7', '4.7.0'), 0);
+    });
+
+    test('minAppVersion usa la versión instalada, no GET_IOS_VERSION', () {
+      // `GET_IOS_VERSION = 3.0.0` es el número de la pantalla de arranque;
+      // con él, 4.6.0 de minAppVersion bloquearía a todos los iPhone.
+      dotenv.testLoad(fileInput: 'GET_IOS_VERSION=3.0.0\nGET_ANDROID_VERSION=6.0.0');
+      installedAppVersionForTest = null;
+      expect(currentAppVersion(), isNull);
+      installedAppVersionForTest = '4.6.0';
+      expect(currentAppVersion(), '4.6.0');
+      expect(compareAppVersions(currentAppVersion()!, '4.6.0'), 0);
+      installedAppVersionForTest = null;
     });
   });
 }

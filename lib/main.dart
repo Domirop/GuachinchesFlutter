@@ -7,6 +7,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:guachinches/utils/app_version.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -96,6 +97,7 @@ Future<void> main() async {
   await Future.wait<void>([
     _setupAnalytics(),
     DccRemoteConfig.instance.init(),
+    loadInstalledAppVersion(),
     FirebaseCrashlytics.instance.setCrashlyticsCollectionEnabled(!kDebugMode),
   ]);
 

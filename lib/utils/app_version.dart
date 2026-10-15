@@ -1,6 +1,5 @@
-import 'dart:io' show Platform;
-
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter/foundation.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 /// Compara versiones `mayor.menor.parche` numéricamente (`4.10.0` > `4.9.3`).
 /// Ignora el sufijo de compilación (`+94`) y lo que no sea número. Negativo si
@@ -23,10 +22,24 @@ int compareAppVersions(String a, String b) {
   return 0;
 }
 
-/// Versión de la app según `env_files/*.env` (`GET_IOS_VERSION` /
-/// `GET_ANDROID_VERSION`), la misma que usa la pantalla de arranque.
-String? currentAppVersion() {
-  if (!dotenv.isInitialized) return null;
-  final v = dotenv.env[Platform.isIOS ? 'GET_IOS_VERSION' : 'GET_ANDROID_VERSION'];
-  return v == null || v.trim().isEmpty ? null : v.trim();
+String? _installed;
+
+/// Lee la versión instalada (`CFBundleShortVersionString` en iOS,
+/// `versionName` en Android) una vez al arrancar, antes de `runApp`.
+Future<void> loadInstalledAppVersion() async {
+  try {
+    final v = (await PackageInfo.fromPlatform()).version.trim();
+    _installed = v.isEmpty ? null : v;
+  } catch (_) {
+    _installed = null; // sin versión: el servidor manda (`upgrade_required`)
+  }
 }
+
+/// Versión instalada de la app para `minAppVersion` de la encuesta. `null`
+/// si no se ha podido leer. (No sale de `env_files/*.env`: allí
+/// `GET_IOS_VERSION` es el número que la pantalla de arranque compara con
+/// la base de datos, no la versión de la app.)
+String? currentAppVersion() => _installed;
+
+@visibleForTesting
+set installedAppVersionForTest(String? v) => _installed = v;

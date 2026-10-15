@@ -82,6 +82,7 @@ dependencies:
   cached_network_image: ^3.2.1
   crypto: ^3.0.3
   device_info_plus: ^9.1.0
+  package_info_plus: ^9.0.1
   # Pinned to <6.2.0 (uses GoogleSignIn ~> 7.x) for compatibility with Firebase 10.25
   # which requires GoogleUtilities ~> 7.x. google_sign_in >=6.2 pulls GoogleSignIn 8
   # → AppCheckCore 11 → GoogleUtilities 8 and breaks Firebase pods.
