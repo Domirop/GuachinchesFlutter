@@ -11,6 +11,34 @@ const kAppCheckHeader = 'X-Firebase-AppCheck';
 
 enum SurveyEditionStatus { upcoming, open, closed }
 
+/// Diferencia entre la hora del servidor (cabecera HTTP `Date`, p. ej.
+/// `Thu, 15 Oct 2026 09:41:10 GMT`) y la del móvil al recibirla. Cero si
+/// falta o no se entiende; por debajo de 1 minuto también (la cabecera va en
+/// segundos y el viaje de la respuesta no es un desfase de reloj).
+Duration surveyClockSkew(String? httpDate, DateTime deviceNow) {
+  if (httpDate == null || httpDate.isEmpty) return Duration.zero;
+  final server = _parseHttpDate(httpDate);
+  if (server == null) return Duration.zero;
+  final d = server.difference(deviceNow.toUtc());
+  return d.abs() < const Duration(minutes: 1) ? Duration.zero : d;
+}
+
+const _kHttpMonths = {
+  'Jan': 1, 'Feb': 2, 'Mar': 3, 'Apr': 4, 'May': 5, 'Jun': 6, //
+  'Jul': 7, 'Aug': 8, 'Sep': 9, 'Oct': 10, 'Nov': 11, 'Dec': 12,
+};
+
+/// RFC 7231 IMF-fixdate (`Sun, 06 Nov 1994 08:49:37 GMT`).
+DateTime? _parseHttpDate(String raw) {
+  final m = RegExp(
+    r'^\w{3}, (\d{2}) (\w{3}) (\d{4}) (\d{2}):(\d{2}):(\d{2}) GMT$',
+  ).firstMatch(raw.trim());
+  final month = m == null ? null : _kHttpMonths[m.group(2)];
+  if (m == null || month == null) return null;
+  int g(int i) => int.parse(m.group(i)!);
+  return DateTime.utc(g(3), month, g(1), g(4), g(5), g(6));
+}
+
 @immutable
 class SurveyEdition {
   final int editionId;
@@ -30,6 +58,11 @@ class SurveyEdition {
   final Map<String, String> minAppVersion;
   final List<String> categories;
 
+  /// Hora del servidor menos la del móvil al recibir la respuesta (cabecera
+  /// `Date`): la cuenta atrás y los 15 días de «Ganadores» van con la hora
+  /// del servidor. Cero si no llega.
+  final Duration clockSkew;
+
   const SurveyEdition({
     required this.editionId,
     required this.label,
@@ -40,11 +73,15 @@ class SurveyEdition {
     this.voteScope = 'business',
     this.minAppVersion = const {},
     this.categories = const [],
+    this.clockSkew = Duration.zero,
   });
 
   bool get businessScope => voteScope != 'category_business';
 
-  factory SurveyEdition.fromJson(Map<String, dynamic> j) {
+  factory SurveyEdition.fromJson(
+    Map<String, dynamic> j, {
+    Duration clockSkew = Duration.zero,
+  }) {
     SurveyEditionStatus status;
     switch (j['status']) {
       case 'open':
@@ -68,11 +105,12 @@ class SurveyEdition {
       minAppVersion: min is Map
           ? {
               for (final e in min.entries)
-                if (e.value != null) e.key.toString(): e.value.toString()
+                if (e.value != null) e.key.toString(): e.value.toString(),
             }
           : const {},
+      clockSkew: clockSkew,
       categories: [
-        for (final c in (j['categories'] as List? ?? const [])) c.toString()
+        for (final c in (j['categories'] as List? ?? const [])) c.toString(),
       ],
     );
   }
@@ -87,7 +125,7 @@ SurveyVoted parseSurveyVoted(Object? raw) {
     for (final e in raw.entries)
       e.key.toString(): [
         for (final v in (e.value is List ? e.value as List : const []))
-          v.toString()
+          v.toString(),
       ],
   };
 }
@@ -106,17 +144,19 @@ class SurveyMyVotes {
   final SurveyDeviceStatus status;
   final SurveyVoted voted;
 
-  const SurveyMyVotes(
-      {this.status = SurveyDeviceStatus.fresh, this.voted = const {}});
+  const SurveyMyVotes({
+    this.status = SurveyDeviceStatus.fresh,
+    this.voted = const {},
+  });
 
   factory SurveyMyVotes.fromJson(Map<String, dynamic> j) => SurveyMyVotes(
-        status: switch (j['status']) {
-          'active' => SurveyDeviceStatus.active,
-          'blocked' => SurveyDeviceStatus.blocked,
-          _ => SurveyDeviceStatus.fresh,
-        },
-        voted: parseSurveyVoted(j['voted']),
-      );
+    status: switch (j['status']) {
+      'active' => SurveyDeviceStatus.active,
+      'blocked' => SurveyDeviceStatus.blocked,
+      _ => SurveyDeviceStatus.fresh,
+    },
+    voted: parseSurveyVoted(j['voted']),
+  );
 }
 
 /// Un voto: categoría y `value` (id del restaurante).
@@ -128,7 +168,9 @@ class SurveyVoteSelection {
 
   factory SurveyVoteSelection.fromJson(Map<String, dynamic> j) =>
       SurveyVoteSelection(
-          j['category']?.toString() ?? '', j['value']?.toString() ?? '');
+        j['category']?.toString() ?? '',
+        j['value']?.toString() ?? '',
+      );
 
   Map<String, String> toJson() => {'category': category, 'value': value};
 
@@ -155,7 +197,7 @@ class SurveyVoteReceipt {
       SurveyVoteReceipt(
         accepted: [
           for (final a in (j['accepted'] as List? ?? const []))
-            if (a is Map) SurveyVoteSelection.fromJson(Map.from(a))
+            if (a is Map) SurveyVoteSelection.fromJson(Map.from(a)),
         ],
         voted: parseSurveyVoted(j['voted']),
       );
@@ -170,14 +212,18 @@ class SurveyApiException implements Exception {
   final Map<String, dynamic> details;
   final Duration? retryAfter;
 
-  const SurveyApiException(this.status, this.code,
-      {this.details = const {}, this.retryAfter});
+  const SurveyApiException(
+    this.status,
+    this.code, {
+    this.details = const {},
+    this.retryAfter,
+  });
 
   /// 409 `already_voted_this_business`: opciones ya votadas.
   List<SurveyVoteSelection> get conflicts => [
-        for (final c in (details['conflicts'] as List? ?? const []))
-          if (c is Map) SurveyVoteSelection.fromJson(Map.from(c))
-      ];
+    for (final c in (details['conflicts'] as List? ?? const []))
+      if (c is Map) SurveyVoteSelection.fromJson(Map.from(c)),
+  ];
 
   /// 403 `integrity_failed`: motivo (`app_check_missing`, `app_check_invalid`,
   /// `app_check_replayed`, `app_unrecognized`).
@@ -198,7 +244,8 @@ class SurveyApiException implements Exception {
   Object? get minAppVersion => details['minAppVersion'];
 
   @override
-  String toString() => 'SurveyApiException($status $code'
+  String toString() =>
+      'SurveyApiException($status $code'
       '${reason != null ? ' / $reason' : ''})';
 }
 
@@ -209,8 +256,10 @@ class SurveyApiException implements Exception {
 class SurveyNetworkException implements Exception {
   final bool maybeDelivered;
   final bool untrusted;
-  const SurveyNetworkException(
-      {this.maybeDelivered = false, this.untrusted = false});
+  const SurveyNetworkException({
+    this.maybeDelivered = false,
+    this.untrusted = false,
+  });
 
   @override
   String toString() => untrusted
@@ -252,15 +301,15 @@ class SurveyResultRow {
   });
 
   factory SurveyResultRow.fromJson(Map<String, dynamic> j) => SurveyResultRow(
-        value: j['value']?.toString() ?? '',
-        restaurantId: _str(j['restaurantId']),
-        name: j['name']?.toString() ?? '',
-        municipality: _str(j['municipality']),
-        island: _str(j['island']),
-        photoUrl: _str(j['photoUrl']),
-        votes: _int(j['votes']),
-        rank: _int(j['rank']),
-      );
+    value: j['value']?.toString() ?? '',
+    restaurantId: _str(j['restaurantId']),
+    name: j['name']?.toString() ?? '',
+    municipality: _str(j['municipality']),
+    island: _str(j['island']),
+    photoUrl: _str(j['photoUrl']),
+    votes: _int(j['votes']),
+    rank: _int(j['rank']),
+  );
 }
 
 @immutable
@@ -279,18 +328,18 @@ class SurveyCategoryResults {
     this.results = const [],
   });
 
-  factory SurveyCategoryResults.fromJson(Map<String, dynamic> j) =>
-      SurveyCategoryResults(
-        category: j['category']?.toString() ?? '',
-        label: j['label']?.toString() ?? '',
-        totalVotes: _int(j['totalVotes']),
-        candidatesWithVotes: _int(j['candidatesWithVotes']),
-        results: [
-          for (final r
-              in (j['results'] is List ? j['results'] as List : const []))
-            if (r is Map) SurveyResultRow.fromJson(Map<String, dynamic>.from(r))
-        ],
-      );
+  factory SurveyCategoryResults.fromJson(
+    Map<String, dynamic> j,
+  ) => SurveyCategoryResults(
+    category: j['category']?.toString() ?? '',
+    label: j['label']?.toString() ?? '',
+    totalVotes: _int(j['totalVotes']),
+    candidatesWithVotes: _int(j['candidatesWithVotes']),
+    results: [
+      for (final r in (j['results'] is List ? j['results'] as List : const []))
+        if (r is Map) SurveyResultRow.fromJson(Map<String, dynamic>.from(r)),
+    ],
+  );
 }
 
 /// Respuesta de `GET /surveys/v3/editions/:id/results`. Con [hidden] (modo
@@ -332,7 +381,7 @@ class SurveyEditionResults {
           for (final c
               in (j['categories'] is List ? j['categories'] as List : const []))
             if (c is Map)
-              SurveyCategoryResults.fromJson(Map<String, dynamic>.from(c))
+              SurveyCategoryResults.fromJson(Map<String, dynamic>.from(c)),
         ],
       );
 }

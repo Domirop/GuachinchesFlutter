@@ -2,9 +2,6 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:guachinches/core/logging/app_logger.dart';
-import 'package:guachinches/core/remote_config/dcc_remote_config.dart';
 import 'package:guachinches/data/HttpRemoteRepository.dart';
 import 'package:guachinches/ui/pages/premios/premios_controllers.dart';
 import 'package:guachinches/ui/pages/premios/premios_entry_page.dart';
@@ -19,22 +16,17 @@ import 'package:guachinches/ui/theme/gm_tokens.dart';
 import 'package:guachinches/ui/theme/gm_widgets.dart';
 import 'package:http/http.dart' show Client;
 
-/// ¿Se enseña la campaña en el Inicio? Remote Config `show_premios`
-/// (apagado por defecto); en debug se fuerza con `ENABLE_PREMIOS=true` en
-/// `env_files/debug.env`. Las pantallas de la encuesta no dependen de esto:
-/// solo el módulo y la hoja del Inicio y las entradas del Inicio viejo.
-bool premiosHomeEnabled() {
-  if (dotenv.isInitialized &&
-      (dotenv.env['ENABLE_PREMIOS'] ?? '').toLowerCase() == 'true') {
-    return true;
-  }
-  try {
-    return DccRemoteConfig.instance.showPremios;
-  } catch (e) {
-    // Sin Firebase (tests): campaña apagada.
-    AppLogger.warn('premios', 'remote config no disponible: $e');
-    return false;
-  }
+/// ¿Anuncia el Inicio la campaña? Solo con la edición del servidor
+/// ([PremiosEdition.showOnHome]): abierta o «Ganadores» (15 días). Para las
+/// entradas del Inicio viejo; el nuevo usa [PremiosHomeSlot].
+bool premiosOnHome([DateTime? now]) =>
+    PremiosEditionStore.instance.current.showOnHome(now ?? DateTime.now());
+
+/// ¿Se puede votar desde el Inicio? Edición del servidor abierta.
+bool premiosVotingOnHome([DateTime? now]) {
+  final n = now ?? DateTime.now();
+  final e = PremiosEditionStore.instance.current;
+  return e.showOnHome(n) && e.phase(n).canVote;
 }
 
 class _CategoriesMeta extends StatelessWidget {
@@ -914,17 +906,21 @@ class _MineRow extends StatelessWidget {
 // ── Hueco en el Inicio ─────────────────────────────────────────────────────
 
 /// El hueco de la campaña en el Inicio, encima de «Hoy»: decide la hoja y
-/// el módulo. Mientras la hoja está abierta no pinta el módulo; al cerrarla
-/// entra con GmRise. Incluye su propio margen superior (40) cuando se ve.
-/// La hoja solo sale sin votar; «ya votó» sale de la caché de `my-votes`
-/// ([PremiosVotedStore]) para no activar App Check al arrancar.
+/// la card. La campaña la decide solo el servidor (`editions/current`, ver
+/// [PremiosEdition.showOnHome]): abierta → card y hoja; cerrada hace 15
+/// días o menos → «Ganadores»; `upcoming`, más tarde, 404 o error → nada.
+/// Pinta en cuanto lee la caché de la edición, sin esperar a la red; la
+/// hoja espera a que el servidor la confirme. Mientras la hoja está abierta
+/// no pinta la card; al cerrarla entra con GmRise. Incluye su propio margen
+/// superior (40) cuando se ve. La hoja solo sale sin votar; «ya votó» sale
+/// de la caché de `my-votes` ([PremiosVotedStore]): el Inicio no activa
+/// App Check al arrancar.
 class PremiosHomeSlot extends StatefulWidget {
   /// Inyectables para tests.
-  final bool? enabled;
   final DateTime Function()? clock;
   final PremiosRankingController? ranking;
 
-  const PremiosHomeSlot({super.key, this.enabled, this.clock, this.ranking});
+  const PremiosHomeSlot({super.key, this.clock, this.ranking});
 
   static final _refreshTick = ValueNotifier<int>(0);
 
@@ -935,8 +931,8 @@ class PremiosHomeSlot extends StatefulWidget {
   State<PremiosHomeSlot> createState() => _PremiosHomeSlotState();
 }
 
-class _PremiosHomeSlotState extends State<PremiosHomeSlot> {
-  bool _enabled = false;
+class _PremiosHomeSlotState extends State<PremiosHomeSlot>
+    with WidgetsBindingObserver {
   bool _ready = false;
   bool _sheetOpen = false;
   int _rise = 0;
@@ -949,8 +945,7 @@ class _PremiosHomeSlotState extends State<PremiosHomeSlot> {
   @override
   void initState() {
     super.initState();
-    _enabled = widget.enabled ?? premiosHomeEnabled();
-    if (!_enabled) return;
+    WidgetsBinding.instance.addObserver(this);
     PremiosEditionStore.instance.ensureLoaded();
     PremiosEditionStore.instance.addListener(_onChange);
     PremiosVotedStore.instance.addListener(_onChange);
@@ -958,13 +953,22 @@ class _PremiosHomeSlotState extends State<PremiosHomeSlot> {
     _init();
   }
 
-  void _onPull() {
-    PremiosEditionStore.instance.refresh(HttpRemoteRepository(Client()));
+  Future<void> _onPull() async {
+    await PremiosEditionStore.instance.refresh(HttpRemoteRepository(Client()));
     _ranking?.refresh();
+  }
+
+  /// Al volver a la app, la edición se pide otra vez si la caché caducó.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) return;
+    PremiosEditionStore.instance
+        .refreshIfStale(HttpRemoteRepository(Client()), DateTime.now());
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     PremiosEditionStore.instance.removeListener(_onChange);
     PremiosVotedStore.instance.removeListener(_onChange);
     PremiosHomeSlot._refreshTick.removeListener(_onPull);
@@ -975,6 +979,7 @@ class _PremiosHomeSlotState extends State<PremiosHomeSlot> {
 
   void _onChange() {
     if (!mounted) return;
+    PremiosVotedStore.instance.forEdition(_edition.id);
     setState(() {});
     _ensureRanking();
     _maybeSheet();
@@ -982,8 +987,10 @@ class _PremiosHomeSlotState extends State<PremiosHomeSlot> {
 
   Future<void> _init() async {
     await PremiosVotedStore.instance.ensureLoaded();
-    await PremiosEditionStore.instance.loading;
+    // Solo la caché (rápido): el servidor llega después y manda.
+    await PremiosEditionStore.instance.cacheRead;
     if (!mounted) return;
+    PremiosVotedStore.instance.forEdition(_edition.id);
     setState(() => _ready = true);
     _ensureRanking();
     _maybeSheet();
@@ -1000,6 +1007,8 @@ class _PremiosHomeSlotState extends State<PremiosHomeSlot> {
 
   Future<void> _maybeSheet() async {
     if (!_ready || PremiosHomeStore.sheetShownThisSession) return;
+    // La hoja no sale con la caché: espera a que el servidor la confirme.
+    if (!PremiosEditionStore.instance.fromServer) return;
     final phase = _edition.phase(_now);
     if (!phase.counting) return;
     PremiosHomeStore.sheetShownThisSession = true;
@@ -1046,7 +1055,7 @@ class _PremiosHomeSlotState extends State<PremiosHomeSlot> {
 
   @override
   Widget build(BuildContext context) {
-    if (!_enabled || !_ready || _sheetOpen) return const SizedBox.shrink();
+    if (!_ready || _sheetOpen) return const SizedBox.shrink();
     final edition = _edition;
     final now = _now;
     // Sin fecha, antes de abrir o pasados 15 días del cierre: nada.

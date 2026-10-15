@@ -216,14 +216,27 @@ void main() {
     });
 
     test('la edición del contrato v3 (editions/current)', () {
-      final e = PremiosEdition.fromApi({
-        'votingStartsAt': '2027-02-01T00:00:00Z',
-        'votingEndsAt': '2027-03-20T23:59:00Z',
-      });
-      expect(e.phase(DateTime.utc(2027, 1, 15)), PremiosPhase.upcoming);
-      expect(e.phase(DateTime.utc(2027, 1, 15)).canVote, isFalse);
-      expect(e.phase(DateTime.utc(2027, 3, 1)), PremiosPhase.open);
+      // Respuesta real de producción (edición 3).
+      final e = PremiosEdition.fromSurvey(SurveyEdition.fromJson({
+        'editionId': 3,
+        'label': 'Premios Donde Comer Canarias 2027',
+        'status': 'open',
+        'votingStartsAt': '2026-10-15T09:38:47.696Z',
+        'votingEndsAt': '2027-03-20T23:59:59.000Z',
+        'integrityPolicy': 'attested',
+        'voteScope': 'business',
+        'minAppVersion': {'ios': '4.6.0', 'android': '4.6.0'},
+        'categories': [
+          'Mejor-Guachinche-Moderno',
+          'Mejor-Guachinche-Tradicional'
+        ],
+      }));
+      expect(e.id, 3);
+      expect(e.year, 2027);
+      expect(e.phase(DateTime.utc(2026, 10, 15, 10)), PremiosPhase.open);
+      expect(e.showOnHome(DateTime.utc(2026, 10, 15, 10)), isTrue);
       expect(e.votingEndsAt!.isUtc, isTrue);
+      expect(PremiosEdition.fromJson(e.toJson()), e);
     });
 
     test('la hoja solo si se vota, no votó ni la descartó en 7 días', () {

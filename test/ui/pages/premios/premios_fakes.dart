@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:guachinches/data/model/survey_v3.dart';
 import 'package:guachinches/ui/pages/premios/premios_controllers.dart';
 import 'package:guachinches/ui/pages/premios/premios_models.dart';
 
@@ -45,6 +46,21 @@ class FakeRanking extends PremiosRankingController {
   @override
   Future<void> refresh() async {}
 }
+
+/// Edición del servidor (`editions/current`) para los tests.
+PremiosEdition serverEdition({
+  SurveyEditionStatus status = SurveyEditionStatus.open,
+  DateTime? end,
+  int id = 2,
+  String label = 'Premios Donde Comer Canarias 2026',
+}) =>
+    PremiosEdition(
+      id: id,
+      status: status,
+      label: label,
+      votingStartsAt: DateTime.utc(2026, 2, 1),
+      votingEndsAt: end ?? DateTime.utc(2026, 3, 20, 23, 59),
+    );
 
 PremiosRankEntry entry(String name, int votes, int rank,
         {bool tied = false, bool mine = false, String muni = 'La Orotava'}) =>

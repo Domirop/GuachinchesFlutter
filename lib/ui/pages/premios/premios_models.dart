@@ -1,10 +1,11 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:guachinches/core/logging/app_logger.dart';
-import 'package:guachinches/core/remote_config/dcc_remote_config.dart';
 import 'package:guachinches/data/HttpRemoteRepository.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
 import 'package:guachinches/data/model/survey_v3.dart';
+import 'package:guachinches/services/app_storage.dart';
 import 'package:http/http.dart' show Client;
 import 'package:guachinches/ui/pages/new_home/widgets/gm_place_card.dart'
     show gmPlaceName;
@@ -705,35 +706,43 @@ const _kMonths = [
 ];
 
 /// Una edición de los premios: estado, apertura y cierre de la votación.
-/// Sale de `GET /surveys/v3/editions/current` ([PremiosEdition.fromSurvey]):
-/// el estado (`upcoming`/`open`/`closed`) lo calcula el servidor con su hora
-/// y manda sobre el reloj del móvil; las fechas (UTC) dan la cuenta atrás.
-/// Si la API no responde, respaldo de Remote Config (`premios_closes_at`).
+/// Sale solo de `GET /surveys/v3/editions/current`
+/// ([PremiosEdition.fromSurvey]): el estado (`upcoming`/`open`/`closed`) lo
+/// calcula el servidor con su hora y manda sobre el reloj del móvil; las
+/// fechas (UTC) dan la cuenta atrás, con la hora del servidor ([skew]). Sin
+/// respuesta (404 o red) no hay edición: [PremiosEdition.none].
 @immutable
 class PremiosEdition {
   final DateTime? votingStartsAt;
   final DateTime? votingEndsAt;
 
-  /// Estado según el servidor (`null` en el respaldo sin API).
+  /// Estado según el servidor (`null` sin edición).
   final SurveyEditionStatus? status;
 
-  /// `editionId` de la API v3 (`null` en el respaldo).
+  /// `editionId` de la API v3 (`null` sin edición).
   final int? id;
 
-  /// `label` de la API v3 («Premios 2027»; vacío en el respaldo).
+  /// `label` de la API v3 («Premios Donde Comer Canarias 2027»).
   final String label;
+
+  /// Hora del servidor menos la del móvil (cabecera `Date` de la respuesta).
+  final Duration skew;
 
   PremiosEdition(
       {DateTime? votingStartsAt,
       DateTime? votingEndsAt,
       this.status,
       this.id,
-      this.label = ''})
+      this.label = '',
+      this.skew = Duration.zero})
       : votingStartsAt = votingStartsAt?.toUtc(),
         votingEndsAt = votingEndsAt?.toUtc();
 
-  /// Año de la edición: el del `label` si lo trae y, si no, el del cierre
-  /// (API o Remote Config). Sin edición, `null`: nunca un año inventado.
+  /// [now] del móvil llevado a la hora del servidor.
+  DateTime _server(DateTime now) => now.toUtc().add(skew);
+
+  /// Año de la edición: el del `label` si lo trae y, si no, el del cierre.
+  /// Sin edición, `null`: nunca un año inventado.
   int? get year {
     final m = RegExp(r'(?<!\d)(20\d\d)(?!\d)').firstMatch(label);
     if (m != null) return int.parse(m.group(1)!);
@@ -761,37 +770,58 @@ class PremiosEdition {
         status: e.status,
         id: e.editionId,
         label: e.label,
+        skew: e.clockSkew,
       );
 
-  /// `{"label": …, "votingStartsAt": "…Z", "votingEndsAt": "…Z", "status": …}` de
-  /// `GET /surveys/v3/editions/current`.
-  factory PremiosEdition.fromApi(Map<String, dynamic> json) {
+  /// La caché local de `editions/current` ([toJson]). `null` si no se
+  /// entiende.
+  static PremiosEdition? fromJson(Object? json) {
+    if (json is! Map) return null;
     DateTime? d(Object? v) =>
         v is String ? DateTime.tryParse(v)?.toUtc() : null;
+    final status = switch (json['status']) {
+      'open' => SurveyEditionStatus.open,
+      'upcoming' => SurveyEditionStatus.upcoming,
+      'closed' => SurveyEditionStatus.closed,
+      _ => null,
+    };
+    final id = json['editionId'];
+    if (status == null || id is! num) return null;
+    final skew = json['skewMs'];
     return PremiosEdition(
       votingStartsAt: d(json['votingStartsAt']),
       votingEndsAt: d(json['votingEndsAt']),
-      status: switch (json['status']) {
-        'open' => SurveyEditionStatus.open,
-        'upcoming' => SurveyEditionStatus.upcoming,
-        'closed' => SurveyEditionStatus.closed,
-        _ => null,
-      },
+      status: status,
+      id: id.toInt(),
       label: json['label']?.toString() ?? '',
+      skew: Duration(milliseconds: skew is num ? skew.toInt() : 0),
     );
   }
+
+  Map<String, Object?> toJson() => {
+        'editionId': id,
+        'label': label,
+        'status': status?.name,
+        'votingStartsAt': votingStartsAt?.toIso8601String(),
+        'votingEndsAt': votingEndsAt?.toIso8601String(),
+        'skewMs': skew.inMilliseconds,
+      };
 
   /// Días que el Inicio sigue enseñando a los ganadores tras el cierre.
   static const winnersFor = Duration(days: 15);
 
-  /// ¿Se anuncia la campaña en el Inicio? Abierta, o cerrada hace menos de
-  /// [winnersFor].
+  /// ¿Se anuncia la campaña en el Inicio? Solo con edición del servidor:
+  /// abierta (card y hoja) o cerrada hace [winnersFor] o menos
+  /// («Ganadores»). `upcoming`, más de 15 días cerrada o sin edición (404,
+  /// red): nada. `upcoming` no se anuncia porque aún no se puede votar ni
+  /// hay ranking; las pantallas de la encuesta ya enseñan «Abre el …».
   bool showOnHome(DateTime now) {
+    if (status == null) return false;
     final p = phase(now);
     if (p.counting) return true;
     if (p != PremiosPhase.closed) return false;
     final end = votingEndsAt;
-    return end != null && now.toUtc().difference(end) < winnersFor;
+    return end != null && _server(now).difference(end) <= winnersFor;
   }
 
   bool get known => votingEndsAt != null;
@@ -813,7 +843,7 @@ class PremiosEdition {
           ? PremiosPhase.open
           : PremiosPhase.unknown;
     }
-    final n = now.toUtc();
+    final n = _server(now);
     final start = votingStartsAt;
     if (status == null) {
       if (start != null && n.isBefore(start)) return PremiosPhase.upcoming;
@@ -831,7 +861,7 @@ class PremiosEdition {
   int daysLeft(DateTime now) {
     final end = votingEndsAt;
     if (end == null) return 0;
-    final n = now.toUtc();
+    final n = _server(now);
     final a = DateTime.utc(n.year, n.month, n.day);
     final b = DateTime.utc(end.year, end.month, end.day);
     return b.difference(a).inDays;
@@ -843,7 +873,7 @@ class PremiosEdition {
     if (end == null) return (0, 'días');
     if (phase(now) == PremiosPhase.lastDay) {
       final h =
-          (end.difference(now.toUtc()).inMinutes / 60).ceil().clamp(1, 24);
+          (end.difference(_server(now)).inMinutes / 60).ceil().clamp(1, 24);
       return (h, h == 1 ? 'hora' : 'horas');
     }
     final d = daysLeft(now).clamp(0, 9999);
@@ -887,76 +917,132 @@ class PremiosEdition {
       Object.hash(votingStartsAt, votingEndsAt, status, id, label);
 }
 
-/// La edición en curso, compartida por las pantallas. Arranca vacía (estado
-/// neutro); [PremiosEditionStore.loadFromRemoteConfig] la rellena y el
-/// repositorio v3 la sustituirá por la de la API.
+/// La edición en curso, compartida por las pantallas. Solo la decide el
+/// servidor (`GET /surveys/v3/editions/current`, público: sin App Check ni
+/// identidad). Para no hacer esperar al Inicio, la última respuesta queda en
+/// caché local con un TTL corto ([cacheTtl]) y se enseña mientras llega la
+/// del servidor, que siempre manda: 404 o error → sin edición.
 class PremiosEditionStore extends ValueNotifier<PremiosEdition> {
   PremiosEditionStore._() : super(PremiosEdition.none);
 
   static final PremiosEditionStore instance = PremiosEditionStore._();
 
+  /// Vida de la caché de `editions/current`.
+  static const cacheTtl = Duration(hours: 1);
+  static const _kCache = 'premiosEditionCache';
+
   PremiosEdition get current => value;
 
   bool _loaded = false;
+  bool _fromServer = false;
+  DateTime? _fetchedAt;
   Future<void>? _loading;
+  Future<void>? _cached;
 
-  /// Las pantallas lo llaman al abrirse: una vez por sesión pide la edición
-  /// a la API (sin token, sin identidad) y, si falla, usa el respaldo.
+  /// ¿La edición ya la ha confirmado el servidor en este arranque? (La hoja
+  /// del Inicio no sale con la caché.)
+  bool get fromServer => _fromServer;
+
+  /// Al abrir la app (Inicio) y las pantallas de la encuesta: una vez por
+  /// sesión lee la caché y pide la edición al servidor.
   void ensureLoaded([RemoteRepository? repository]) {
     if (_loaded) return;
     _loaded = true;
-    _loading = refresh(repository ?? HttpRemoteRepository(Client()));
+    _cached = _readCache();
+    _loading = _cached!
+        .then((_) => refresh(repository ?? HttpRemoteRepository(Client())));
   }
 
-  /// Espera a la carga en curso (tests y pull-to-refresh).
+  /// La caché ya leída (rápido): el Inicio pinta con ella sin esperar.
+  Future<void> get cacheRead => _cached ?? Future.value();
+
+  /// Espera a la respuesta del servidor (tests y pull-to-refresh).
   Future<void> get loading => _loading ?? Future.value();
 
-  /// `GET /surveys/v3/editions/current`; si no responde, Remote Config.
+  /// Al volver la app a primer plano: pide otra vez la edición si la última
+  /// respuesta tiene más de [cacheTtl].
+  Future<void> refreshIfStale(RemoteRepository repository, DateTime now) {
+    final at = _fetchedAt;
+    if (at != null && now.difference(at) < cacheTtl) {
+      return Future.value();
+    }
+    _loaded = true;
+    return _loading = refresh(repository);
+  }
+
+  /// `GET /surveys/v3/editions/current`. 404 o error: sin edición.
   Future<void> refresh(RemoteRepository repository) async {
+    _fetchedAt = DateTime.now();
     try {
       final e = await repository.getCurrentSurveyEdition();
+      _fromServer = true;
       value = PremiosEdition.fromSurvey(e);
+      _writeCache(value);
     } on SurveyApiException catch (e) {
-      // `edition_not_found`: no hay edición protegida → sin campaña.
+      // `edition_not_found`: no hay edición → sin campaña.
       AppLogger.warn('premios', 'edición: ${e.code}');
-      _fallback();
+      _fromServer = true;
+      value = PremiosEdition.none;
+      if (e.status == 404) _clearCache();
     } catch (e) {
       AppLogger.warn('premios', 'edición no disponible: ${e.runtimeType}');
-      _fallback();
+      value = PremiosEdition.none;
     }
   }
 
   /// La edición que trae el presenter de la votación (misma fuente).
   void publish(SurveyEdition edition) {
     _loaded = true;
+    _fromServer = true;
     value = PremiosEdition.fromSurvey(edition);
+    _writeCache(value);
   }
 
-  void _fallback() {
-    DateTime? closes;
+  Future<void> _readCache() async {
     try {
-      closes = DccRemoteConfig.instance.premiosClosesAt;
+      final raw = await AppStorage.instance.read(key: _kCache);
+      if (raw == null || raw.isEmpty || _fromServer) return;
+      final m = json.decode(raw);
+      final at = m is Map ? DateTime.tryParse('${m['at']}') : null;
+      final e = m is Map ? PremiosEdition.fromJson(m['edition']) : null;
+      if (at == null || e == null) return;
+      final age = DateTime.now().toUtc().difference(at);
+      if (age.isNegative || age > cacheTtl) return;
+      value = e;
     } catch (e) {
-      // Sin Firebase (tests): sin fecha → estado neutro.
-      AppLogger.warn('premios', 'remote config no disponible: $e');
+      AppLogger.warn('premios', 'leer edición en caché: ${e.runtimeType}');
     }
-    if (value.status == null) loadFromRemoteConfig(closes);
+  }
+
+  Future<void> _writeCache(PremiosEdition e) async {
+    try {
+      await AppStorage.instance.write(
+          key: _kCache,
+          value: json.encode({
+            'at': DateTime.now().toUtc().toIso8601String(),
+            'edition': e.toJson(),
+          }));
+    } catch (e) {
+      AppLogger.warn('premios', 'guardar edición: ${e.runtimeType}');
+    }
+  }
+
+  Future<void> _clearCache() async {
+    try {
+      await AppStorage.instance.delete(key: _kCache);
+    } catch (e) {
+      AppLogger.warn('premios', 'borrar edición: ${e.runtimeType}');
+    }
   }
 
   @visibleForTesting
   void reset() {
     _loaded = false;
+    _fromServer = false;
+    _fetchedAt = null;
     _loading = null;
+    _cached = null;
     value = PremiosEdition.none;
-  }
-
-  /// Respaldo: [closesAt] de Remote Config `premios_closes_at` (ISO UTC). En
-  /// debug, `PREMIOS_CLOSES_AT` en `env_files/debug.env` manda.
-  void loadFromRemoteConfig(DateTime? closesAt) {
-    final raw = dotenv.isInitialized ? dotenv.env['PREMIOS_CLOSES_AT'] : null;
-    final debug = raw == null ? null : DateTime.tryParse(raw.trim());
-    _loaded = true;
-    value = PremiosEdition(votingEndsAt: debug ?? closesAt);
   }
 
   /// Para tests y la galería de desarrollo.

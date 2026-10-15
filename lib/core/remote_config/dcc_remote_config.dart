@@ -74,8 +74,6 @@ class DccRemoteConfig {
       'show_weather_chip': true,
       'min_supported_build': 1,
       'maintenance_mode': false,
-      'show_premios': false,
-      'premios_closes_at': '',
     });
     try {
       await _bridge.fetchAndActivate();
@@ -88,17 +86,4 @@ class DccRemoteConfig {
   bool get showWeatherChip => _bridge.getBool('show_weather_chip');
   int get minSupportedBuild => _bridge.getInt('min_supported_build');
   bool get maintenanceMode => _bridge.getBool('maintenance_mode');
-
-  /// Campaña de la encuesta «Premios Donde Comer Canarias» en el Inicio
-  /// (tarjeta y hoja al abrir). Apagada por defecto.
-  bool get showPremios => _bridge.getBool('show_premios');
-
-  /// Cierre de la votación de los premios (ISO 8601 en UTC, p. ej.
-  /// `2027-03-20T23:59:00Z`). `null` si no está configurado o no se entiende:
-  /// entonces la campaña no se da por cerrada (estado neutro).
-  DateTime? get premiosClosesAt {
-    final raw = _bridge.getString('premios_closes_at').trim();
-    if (raw.isEmpty) return null;
-    return DateTime.tryParse(raw)?.toUtc();
-  }
 }

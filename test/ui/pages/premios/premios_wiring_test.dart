@@ -1,10 +1,12 @@
+import 'dart:convert';
+import 'dart:io';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:guachinches/core/remote_config/dcc_remote_config.dart';
 import 'package:guachinches/data/model/survey_v3.dart';
+import 'package:guachinches/services/app_storage.dart';
 import 'package:guachinches/ui/pages/myVotedRestaurants/myVotedRestaurants.dart';
 import 'package:guachinches/ui/pages/premios/premios_controllers.dart';
 import 'package:guachinches/ui/pages/premios/premios_entry_page.dart';
@@ -19,25 +21,6 @@ import 'package:guachinches/ui/pages/survey_in_app/survey_vote_presenter.dart';
 import '../../../survey_v3/survey_fakes.dart';
 import 'premios_fakes.dart';
 
-class _Rc implements RemoteConfigBridge {
-  final Map<String, Object> values;
-  _Rc(this.values);
-  @override
-  Future<void> configure(
-      {required Duration fetchTimeout,
-      required Duration minimumFetchInterval}) async {}
-  @override
-  Future<void> setDefaults(Map<String, dynamic> defaults) async {}
-  @override
-  Future<bool> fetchAndActivate() async => true;
-  @override
-  bool getBool(String key) => values[key] as bool? ?? false;
-  @override
-  int getInt(String key) => values[key] as int? ?? 0;
-  @override
-  String getString(String key) => values[key] as String? ?? '';
-}
-
 void main() {
   setUp(() {
     FlutterSecureStorage.setMockInitialValues({});
@@ -46,7 +29,6 @@ void main() {
     PremiosVotedStore.instance.reset();
   });
   tearDown(() {
-    DccRemoteConfig.testOverride = null;
     PremiosEditionStore.instance.reset();
   });
 
@@ -199,54 +181,172 @@ void main() {
       expect(e.phase(DateTime.utc(2027, 3, 25)), PremiosPhase.lastDay);
     });
 
-    test('sin API ni Remote Config: no sale «cerrada»', () async {
-      DccRemoteConfig.testOverride = DccRemoteConfig.test(_Rc({}));
+    test('sin respuesta (red): sin edición y sin campaña', () async {
       final repo = FakeSurveyRepo()
         ..editionSteps.add(() => throw const SurveyNetworkException());
       await PremiosEditionStore.instance.refresh(repo);
       final e = PremiosEditionStore.instance.current;
-      expect(e.known, isFalse);
+      expect(e.status, isNull);
+      expect(e.showOnHome(DateTime.utc(2027, 3, 8)), isFalse);
       expect(e.phase(DateTime.utc(2099)), isNot(PremiosPhase.closed));
     });
 
-    test('sin API: respaldo de Remote Config (ISO UTC)', () async {
-      DccRemoteConfig.testOverride = DccRemoteConfig.test(
-          _Rc({'premios_closes_at': '2027-03-20T23:59:00Z'}));
+    test('404 edition_not_found: sin edición', () async {
+      PremiosEditionStore.instance.set(serverEdition());
       final repo = FakeSurveyRepo()
-        ..editionSteps.add(() => throw const SurveyNetworkException());
+        ..editionSteps.add(
+            () => throw const SurveyApiException(404, 'edition_not_found'));
       await PremiosEditionStore.instance.refresh(repo);
-      final e = PremiosEditionStore.instance.current;
-      expect(e.votingEndsAt, DateTime.utc(2027, 3, 20, 23, 59));
-      expect(e.phase(DateTime.utc(2027, 3, 21)), PremiosPhase.closed);
+      expect(PremiosEditionStore.instance.current, PremiosEdition.none);
     });
 
-    test('fecha mal escrita → sin fecha', () {
-      DccRemoteConfig.testOverride =
-          DccRemoteConfig.test(_Rc({'premios_closes_at': 'mañana'}));
-      expect(DccRemoteConfig.instance.premiosClosesAt, isNull);
+    test('caché: pinta con la última respuesta y el servidor manda', () async {
+      final fresh = DateTime.now().toUtc().toIso8601String();
+      FlutterSecureStorage.setMockInitialValues({
+        'premiosEditionCache': jsonEncode({
+          'at': fresh,
+          'edition': serverEdition(id: 3, label: 'Premios 2027').toJson(),
+        }),
+      });
+      final repo = FakeSurveyRepo()
+        ..editionSteps.add(
+            () => throw const SurveyApiException(404, 'edition_not_found'));
+      final store = PremiosEditionStore.instance..ensureLoaded(repo);
+      await store.cacheRead;
+      expect(store.current.id, 3);
+      expect(store.fromServer, isFalse);
+      await store.loading;
+      expect(store.current, PremiosEdition.none);
+      expect(store.fromServer, isTrue);
+    });
+
+    test('caché caducada (TTL): no cuenta', () async {
+      final old = DateTime.now()
+          .toUtc()
+          .subtract(PremiosEditionStore.cacheTtl + const Duration(minutes: 1));
+      FlutterSecureStorage.setMockInitialValues({
+        'premiosEditionCache': jsonEncode({
+          'at': old.toIso8601String(),
+          'edition': serverEdition(id: 3).toJson(),
+        }),
+      });
+      final repo = FakeSurveyRepo()
+        ..editionSteps.add(() => throw const SurveyNetworkException());
+      final store = PremiosEditionStore.instance..ensureLoaded(repo);
+      await store.cacheRead;
+      expect(store.current.id, isNull);
+    });
+
+    test('la respuesta del servidor queda en caché', () async {
+      final repo = FakeSurveyRepo()
+        ..currentEdition = SurveyEdition(
+            editionId: 3,
+            label: 'Premios 2027',
+            status: SurveyEditionStatus.open,
+            votingEndsAt: DateTime.utc(2027, 3, 20, 23, 59, 59));
+      await PremiosEditionStore.instance.refresh(repo);
+      await Future<void>.delayed(Duration.zero);
+      final raw = await AppStorage.instance.read(key: 'premiosEditionCache');
+      final cached = PremiosEdition.fromJson(
+          (jsonDecode(raw!) as Map<String, dynamic>)['edition']);
+      expect(cached, PremiosEditionStore.instance.current);
+      expect(cached!.year, 2027);
+    });
+
+    test('al volver a la app: solo pide otra vez con la caché caducada',
+        () async {
+      final repo = FakeSurveyRepo();
+      final store = PremiosEditionStore.instance;
+      await store.refresh(repo);
+      expect(repo.editionCalls, 1);
+      await store.refreshIfStale(repo, DateTime.now());
+      expect(repo.editionCalls, 1);
+      await store.refreshIfStale(
+          repo, DateTime.now().add(PremiosEditionStore.cacheTtl));
+      expect(repo.editionCalls, 2);
+    });
+
+    test('hora del servidor: cabecera Date y desfase', () {
+      final now = DateTime.utc(2026, 10, 15, 9, 41, 10);
+      expect(
+          surveyClockSkew('Thu, 15 Oct 2026 09:41:10 GMT', now), Duration.zero);
+      expect(surveyClockSkew('Thu, 15 Oct 2026 11:41:10 GMT', now),
+          const Duration(hours: 2));
+      expect(surveyClockSkew('ayer', now), Duration.zero);
+      expect(surveyClockSkew(null, now), Duration.zero);
+      // Móvil con el reloj 2 días atrasado: el servidor dice que ya han
+      // pasado 16 días del cierre, aunque el móvil cuente 14.
+      final end = DateTime.utc(2026, 3, 20, 23, 59);
+      final e = PremiosEdition(
+          id: 2,
+          status: SurveyEditionStatus.closed,
+          votingEndsAt: end,
+          skew: const Duration(days: 2));
+      expect(e.showOnHome(end.add(const Duration(days: 14))), isFalse);
+      expect(
+          PremiosEdition(
+                  id: 2, status: SurveyEditionStatus.closed, votingEndsAt: end)
+              .showOnHome(end.add(const Duration(days: 14))),
+          isTrue);
+    });
+
+    test('no queda Remote Config para los premios', () {
+      final hits = <String>[];
+      for (final f in Directory('lib').listSync(recursive: true)) {
+        if (f is! File || !f.path.endsWith('.dart')) continue;
+        final src = f.readAsStringSync();
+        for (final k in const [
+          'show_premios',
+          'premios_closes_at',
+          'showPremios',
+          'premiosClosesAt',
+          'ENABLE_PREMIOS',
+          'PREMIOS_CLOSES_AT',
+          'premiosHomeEnabled',
+        ]) {
+          if (RegExp('\\b$k\\b').hasMatch(src)) hits.add('${f.path}: $k');
+        }
+      }
+      for (final env in Directory('env_files').listSync()) {
+        if (env is File && env.readAsStringSync().contains('PREMIOS')) {
+          hits.add(env.path);
+        }
+      }
+      expect(hits, isEmpty);
     });
   });
 
   group('Inicio', () {
-    testWidgets('PremiosHomeSlot apagado no pinta nada', (t) async {
-      await t.pumpWidget(
-          app(const Scaffold(body: PremiosHomeSlot(enabled: false))));
-      await t.pump();
+    Future<void> pumpBare(WidgetTester t, {DateTime? now}) async {
+      PremiosHomeStore.sheetShownThisSession = true;
+      await t.pumpWidget(app(Scaffold(
+          body: PremiosHomeSlot(
+              ranking: FakeRanking(const PremiosRankingState()),
+              clock: () => now ?? DateTime.utc(2026, 3, 8)))));
+      for (var i = 0; i < 5; i++) {
+        await t.pump(const Duration(milliseconds: 50));
+      }
+    }
+
+    testWidgets('sin edición del servidor (404 o red): no pinta nada',
+        (t) async {
+      final repo = FakeSurveyRepo()
+        ..editionSteps.add(
+            () => throw const SurveyApiException(404, 'edition_not_found'));
+      PremiosEditionStore.instance.ensureLoaded(repo);
+      await t.runAsync(() => PremiosEditionStore.instance.loading);
+      await pumpBare(t);
       expect(find.byType(PremiosWineCard), findsNothing);
       expect(t.getSize(find.byType(PremiosHomeSlot)), Size.zero);
     });
 
-    testWidgets('encendido pero sin fecha de cierre: tampoco', (t) async {
-      PremiosEditionStore.instance.loadFromRemoteConfig(null);
-      await t.pumpWidget(app(Scaffold(
-          body: PremiosHomeSlot(
-              enabled: true,
-              ranking: FakeRanking(const PremiosRankingState())))));
-      for (var i = 0; i < 5; i++) {
-        await t.pump(const Duration(milliseconds: 50));
-      }
+    testWidgets('upcoming: nada en el Inicio (aún no se vota)', (t) async {
+      PremiosEditionStore.instance.set(serverEdition(
+          status: SurveyEditionStatus.upcoming,
+          end: DateTime.utc(2026, 5, 20)));
+      await pumpBare(t);
       expect(find.byType(PremiosWineCard), findsNothing);
-      expect(find.text('Ganadores 2026'), findsNothing);
+      expect(t.getSize(find.byType(PremiosHomeSlot)), Size.zero);
     });
 
     PremiosRankingState rk({bool mine = false}) => PremiosRankingState(
@@ -268,7 +368,6 @@ void main() {
           Scaffold(
               body: SingleChildScrollView(
                   child: PremiosHomeSlot(
-                      enabled: true,
                       ranking: FakeRanking(r),
                       clock: () => now ?? DateTime.utc(2026, 3, 8)))),
           reduce: true));
@@ -280,8 +379,7 @@ void main() {
     testWidgets('abierta y sin votar: card compacta con podio 2·1·2',
         (t) async {
       addTearDown(t.view.reset);
-      PremiosEditionStore.instance
-          .loadFromRemoteConfig(DateTime.utc(2026, 3, 20, 23, 59));
+      PremiosEditionStore.instance.set(serverEdition());
       await pumpSlot(t, rk());
       expect(find.byType(PremiosWineCard), findsOneWidget);
       expect(find.byType(PodioPremios), findsOneWidget);
@@ -299,9 +397,8 @@ void main() {
 
     testWidgets('ya votó (my-votes en caché): «Tu voto · 4.º»', (t) async {
       addTearDown(t.view.reset);
-      PremiosEditionStore.instance
-          .loadFromRemoteConfig(DateTime.utc(2026, 3, 20, 23, 59));
-      PremiosVotedStore.instance.update({
+      PremiosEditionStore.instance.set(serverEdition());
+      PremiosVotedStore.instance.update(edition: 2, {
         PremiosCategory.tradicional.apiName: {'Guachinche Casa Pepe'}
       });
       await pumpSlot(t, rk(mine: true));
@@ -312,17 +409,39 @@ void main() {
       await t.pumpWidget(const SizedBox());
     });
 
-    testWidgets('cerrada: «Ganadores 2026» 15 días y luego nada', (t) async {
+    testWidgets('cerrada hace 10 días: «Ganadores 2026»', (t) async {
       addTearDown(t.view.reset);
+      final end = DateTime.utc(2026, 3, 20, 23, 59);
       PremiosEditionStore.instance
-          .loadFromRemoteConfig(DateTime.utc(2026, 3, 20, 23, 59));
-      await pumpSlot(t, rk(), now: DateTime.utc(2026, 3, 25));
+          .set(serverEdition(status: SurveyEditionStatus.closed, end: end));
+      await pumpSlot(t, rk(), now: end.add(const Duration(days: 10)));
       expect(find.text('Ganadores 2026'), findsOneWidget);
       expect(find.text('Ver el ranking completo'), findsOneWidget);
       expect(find.text('Mis votos'), findsOneWidget);
       expect(find.text('Votación cerrada'), findsOneWidget);
-      await pumpSlot(t, rk(), now: DateTime.utc(2026, 4, 10));
+      await t.pumpWidget(const SizedBox());
+    });
+
+    testWidgets('cerrada hace 20 días: nada', (t) async {
+      addTearDown(t.view.reset);
+      final end = DateTime.utc(2026, 3, 20, 23, 59);
+      PremiosEditionStore.instance
+          .set(serverEdition(status: SurveyEditionStatus.closed, end: end));
+      await pumpSlot(t, rk(), now: end.add(const Duration(days: 20)));
       expect(find.byType(PremiosWineCard), findsNothing);
+      expect(find.text('Ganadores 2026'), findsNothing);
+      await t.pumpWidget(const SizedBox());
+    });
+
+    testWidgets('lo votado en otra edición no cuenta', (t) async {
+      addTearDown(t.view.reset);
+      PremiosVotedStore.instance.update(edition: 1, {
+        PremiosCategory.tradicional.apiName: {'Guachinche Casa Pepe'}
+      });
+      PremiosEditionStore.instance.set(serverEdition(id: 3));
+      await pumpSlot(t, rk());
+      expect(PremiosVotedStore.instance.hasVoted, isFalse);
+      expect(find.text('¿Cuál es tu favorito?'), findsOneWidget);
       await t.pumpWidget(const SizedBox());
     });
   });
@@ -415,13 +534,11 @@ void main() {
     Future<void> pump(WidgetTester t, PremiosRankingState r) async {
       phone(t);
       PremiosHomeStore.sheetShownThisSession = true;
-      PremiosEditionStore.instance
-          .loadFromRemoteConfig(DateTime.utc(2026, 3, 20, 23, 59));
+      PremiosEditionStore.instance.set(serverEdition());
       await t.pumpWidget(app(
           Scaffold(
               body: SingleChildScrollView(
                   child: PremiosHomeSlot(
-                      enabled: true,
                       ranking: FakeRanking(r),
                       clock: () => DateTime.utc(2026, 3, 8)))),
           reduce: true));

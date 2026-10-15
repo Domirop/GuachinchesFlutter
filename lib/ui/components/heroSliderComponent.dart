@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:guachinches/data/model/fotoBanner.dart';
 import 'package:guachinches/globalMethods.dart';
 import 'package:guachinches/ui/pages/premios/premios_home.dart';
+import 'package:guachinches/ui/pages/premios/premios_models.dart';
 import 'package:guachinches/ui/pages/survey_in_app/survey_in_app_page.dart';
 import 'package:guachinches/ui/pages/surveyRanking/surveyRanking.dart';
 
@@ -26,16 +27,34 @@ class _HeroSliderComponentState extends State<HeroSliderComponent> {
   @override
   void initState() {
     super.initState();
+    // La campaña la decide el servidor (`editions/current`).
+    PremiosEditionStore.instance.ensureLoaded();
+    PremiosEditionStore.instance.addListener(_onEdition);
+    _build();
+  }
+
+  @override
+  void dispose() {
+    PremiosEditionStore.instance.removeListener(_onEdition);
+    super.dispose();
+  }
+
+  void _onEdition() {
+    if (!mounted) return;
+    setState(_build);
+  }
+
+  void _build() {
     banners = List.from(widget.banners);
 
-    // Banner de la encuesta: solo con la campaña encendida (`show_premios`).
-    if (premiosHomeEnabled()) {
+    // Banner «Vota aquí»: solo con la votación abierta en el servidor.
+    if (premiosVotingOnHome()) {
       banners.insert(
         0,
         FotoBanner(
           id: "encuesta",
           fotoUrl:
-          'https://louvre.s3.fr-par.scw.cloud/Guachinches/banners/logo4.png',
+              'https://louvre.s3.fr-par.scw.cloud/Guachinches/banners/logo4.png',
         ),
       );
     }
@@ -50,7 +69,8 @@ class _HeroSliderComponentState extends State<HeroSliderComponent> {
             onTap: () {
               if (item.id == "encuesta") {
                 Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => SurveyInAppPage(onVoted: widget.onVoted)),
+                  MaterialPageRoute(
+                      builder: (_) => SurveyInAppPage(onVoted: widget.onVoted)),
                 );
               }
             },
@@ -72,7 +92,6 @@ class _HeroSliderComponentState extends State<HeroSliderComponent> {
                     ),
                   ),
                 ),
-
                 Container(
                   width: screenWidth,
                   height: screenHeight * 0.55,
@@ -92,9 +111,7 @@ class _HeroSliderComponentState extends State<HeroSliderComponent> {
                   left: 0,
                   right: 0,
                   child: Text(
-                    item.id == "encuesta"
-                        ? "Premios Donde Comer Canarias"
-                        : "",
+                    item.id == "encuesta" ? "Premios Donde Comer Canarias" : "",
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: Colors.white,
@@ -113,7 +130,9 @@ class _HeroSliderComponentState extends State<HeroSliderComponent> {
                       child: GestureDetector(
                         behavior: HitTestBehavior.opaque,
                         onTap: () => Navigator.of(context).push(
-                          MaterialPageRoute(builder: (_) => SurveyInAppPage(onVoted: widget.onVoted)),
+                          MaterialPageRoute(
+                              builder: (_) =>
+                                  SurveyInAppPage(onVoted: widget.onVoted)),
                         ),
                         child: Container(
                           padding: EdgeInsets.symmetric(

@@ -192,7 +192,7 @@ class V3PremiosFlowController extends PremiosFlowController {
     // Lo ya votado viene del servidor (`my-votes` y el recibo del voto):
     // queda en caché para el Inicio y el Ranking.
     if (s.stage == SurveyVoteStage.ready || s.stage == SurveyVoteStage.sent) {
-      PremiosVotedStore.instance.update(s.voted);
+      PremiosVotedStore.instance.update(s.voted, edition: s.edition?.editionId);
     }
     final justSent =
         s.stage == SurveyVoteStage.sent && _lastStage != SurveyVoteStage.sent;
@@ -230,8 +230,9 @@ class V3PremiosFlowController extends PremiosFlowController {
 
 /// Lo que este móvil ya votó en la edición, por categoría (`value`s). La
 /// fuente es el servidor (`POST …/my-votes` y el recibo de `…/votes`, a
-/// través del presenter v3); aquí queda en caché para que el Inicio no
-/// tenga que activar App Check al arrancar.
+/// través del presenter v3); aquí queda en caché, con su `editionId`, para
+/// que el Inicio no tenga que activar App Check al arrancar. Lo de otra
+/// edición no cuenta ([forEdition]).
 class PremiosVotedStore
     extends ValueNotifier<Map<PremiosCategory, Set<String>>> {
   PremiosVotedStore._() : super(const {});
@@ -241,6 +242,9 @@ class PremiosVotedStore
   static const _kCache = 'premiosVotedCache';
   bool _loaded = false;
   bool _fromServer = false;
+
+  /// Edición de lo votado (`null` si no se sabe).
+  int? _edition;
 
   bool get hasVoted => value.values.any((s) => s.isNotEmpty);
 
@@ -254,8 +258,14 @@ class PremiosVotedStore
       final raw = await AppStorage.instance.read(key: _kCache);
       // Lo que haya llegado del servidor mientras tanto manda.
       if (raw == null || raw.isEmpty || _fromServer) return;
-      final m = json.decode(raw);
-      if (m is! Map) return;
+      final decoded = json.decode(raw);
+      if (decoded is! Map) return;
+      // `{"edition": 3, "voted": {...}}`; el formato viejo (sin edición) no
+      // sirve: no se sabe de qué edición es.
+      final ed = decoded['edition'];
+      final m = decoded['voted'];
+      if (ed is! num || m is! Map) return;
+      _edition = ed.toInt();
       value = {
         for (final e in m.entries)
           if (premiosCategoryOf(e.key.toString()) case final cat?)
@@ -269,16 +279,26 @@ class PremiosVotedStore
     }
   }
 
-  /// Datos del servidor (`state.voted` del presenter).
-  void update(Map<String, Set<String>> voted) {
+  /// Datos del servidor (`state.voted` del presenter) de la edición
+  /// [edition].
+  void update(Map<String, Set<String>> voted, {int? edition}) {
     _loaded = true;
     _fromServer = true;
     final next = {
       for (final e in voted.entries)
         if (premiosCategoryOf(e.key) case final cat?) cat: {...e.value},
     };
-    if (mapEquals(_flat(next), _flat(value))) return;
+    if (edition == _edition && mapEquals(_flat(next), _flat(value))) return;
+    _edition = edition;
     value = next;
+    _persist();
+  }
+
+  /// La edición en curso es [edition]: lo votado en otra no cuenta.
+  void forEdition(int? edition) {
+    if (edition == null || edition == _edition || value.isEmpty) return;
+    _edition = edition;
+    value = const {};
     _persist();
   }
 
@@ -292,7 +312,7 @@ class PremiosVotedStore
       await p.load();
       final s = p.state;
       if (s.stage == SurveyVoteStage.ready || s.stage == SurveyVoteStage.sent) {
-        update(s.voted);
+        update(s.voted, edition: s.edition?.editionId);
       }
       if (s.edition != null) PremiosEditionStore.instance.publish(s.edition!);
     } finally {
@@ -310,7 +330,10 @@ class PremiosVotedStore
       await AppStorage.instance.write(
         key: _kCache,
         value: json.encode({
-          for (final e in value.entries) e.key.apiName: e.value.toList(),
+          'edition': _edition,
+          'voted': {
+            for (final e in value.entries) e.key.apiName: e.value.toList(),
+          },
         }),
       );
     } catch (e) {
@@ -322,6 +345,7 @@ class PremiosVotedStore
   void reset() {
     _loaded = false;
     _fromServer = false;
+    _edition = null;
     value = const {};
   }
 }
@@ -387,13 +411,9 @@ class PremiosResultsController extends PremiosRankingController {
       final store = PremiosEditionStore.instance;
       store.ensureLoaded(_repository);
       await store.loading;
-      var id = store.current.id;
-      if (id == null) {
-        // Respaldo sin API: se intenta una vez más la edición en curso.
-        final e = await _repository.getCurrentSurveyEdition();
-        store.publish(e);
-        id = e.editionId;
-      }
+      final id = store.current.id;
+      // Sin edición del servidor (404, red): no hay ranking que pedir.
+      if (id == null) throw const SurveyApiException(404, 'edition_not_found');
       final r = _results = await _repository.getSurveyEditionResults(id);
       _set(_build(r));
     } catch (e) {

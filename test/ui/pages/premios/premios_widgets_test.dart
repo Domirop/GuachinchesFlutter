@@ -20,8 +20,7 @@ Future<void> _settle(WidgetTester t) async {
 PremiosCandidate _c(String v, String n) => PremiosCandidate(value: v, name: n);
 
 void main() {
-  setUp(() => PremiosEditionStore.instance
-      .loadFromRemoteConfig(DateTime.utc(2026, 3, 20, 23, 59)));
+  setUp(() => PremiosEditionStore.instance.set(serverEdition()));
   tearDown(() => PremiosEditionStore.instance.reset());
 
   testWidgets('ranking: empates 7·6·6·5 → podio 1, 2, 2 y lista desde el 4',

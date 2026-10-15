@@ -40,10 +40,8 @@ import 'package:guachinches/ui/components/categories/category_pill_chip.dart';
 import 'package:guachinches/ui/components/section_header.dart';
 import 'package:guachinches/ui/components/heroSliderComponent.dart';
 import 'package:guachinches/ui/components/nearby_section.dart';
-import 'package:guachinches/ui/components/rankingList.dart';
-import 'package:guachinches/ui/components/survey_banner/survey_banner.dart';
-import 'package:guachinches/ui/components/survey_popup/survey_popup.dart';
 import 'package:guachinches/ui/pages/premios/premios_home.dart';
+import 'package:guachinches/ui/pages/premios/premios_models.dart';
 import 'package:guachinches/ui/components/visit/visit_list.dart';
 import 'package:guachinches/ui/pages/advance_search/advanced_search.dart';
 import 'package:guachinches/ui/pages/changeIsland/change_island.dart';
@@ -185,11 +183,8 @@ class _HomeState extends State<Home> with WidgetsBindingObserver implements Home
     presenter.getSurveyRestaurants();
     context.read<LocationCubit>().requestLocation();
 
-    // Premios Donde Comer Canarias 2026 — popup pausado.
-    // SurveyPopup.showIfNeeded(
-    //   context,
-    //   onVoted: () => presenter.getSurveyResults(allSurveyRestaurants),
-    // );
+    // Premios: la campaña la decide el servidor (`editions/current`).
+    PremiosEditionStore.instance.ensureLoaded();
 
     // Escucha el desplazamiento del scroll para cambiar el fondo de la app bar
     _scrollController.addListener(() {
@@ -398,15 +393,17 @@ class _HomeState extends State<Home> with WidgetsBindingObserver implements Home
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Premios Donde Comer Canarias 2026 — banner inline pausado.
-                  // SurveyBanner(
-                  //   onVoted: () => presenter.getSurveyResults(allSurveyRestaurants),
-                  // ),
-                  if (premiosHomeEnabled() &&
-                      surveyRanking != null &&
-                      (surveyGuachinchesTradicionales.isNotEmpty ||
-                          surveyGuachinchesModernos.isNotEmpty))
-                    _buildSurveyResultsPreview(),
+                  // Ranking de los premios: solo con la campaña en el
+                  // servidor (abierta o «Ganadores»).
+                  ValueListenableBuilder<PremiosEdition>(
+                    valueListenable: PremiosEditionStore.instance,
+                    builder: (context, _, __) => premiosOnHome() &&
+                            surveyRanking != null &&
+                            (surveyGuachinchesTradicionales.isNotEmpty ||
+                                surveyGuachinchesModernos.isNotEmpty)
+                        ? _buildSurveyResultsPreview()
+                        : const SizedBox.shrink(),
+                  ),
 
                   // ── Quick-action filter chips ────────────────────────────
                   _buildQuickFilterChips(),
