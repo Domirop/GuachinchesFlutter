@@ -27,15 +27,18 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:guachinches/data/cubit/new_home/new_home_filters_cubit.dart';
+import 'package:guachinches/data/cubit/new_home/visits_cubit.dart';
 import 'package:guachinches/data/cubit/restaurants/basic/restaurant_cubit.dart';
 import 'package:guachinches/data/cubit/restaurants/basic/restaurant_state.dart';
 import 'package:guachinches/data/model/Types.dart';
+import 'package:guachinches/data/model/restaurant.dart';
 import 'package:guachinches/main.dart' as app;
 import 'package:guachinches/ui/pages/advance_search/advanced_search.dart';
 import 'package:guachinches/ui/pages/new_home/new_home_screen.dart';
 import 'package:guachinches/ui/pages/premios/premios_entry_page.dart';
 import 'package:guachinches/ui/pages/premios/premios_ranking_page.dart';
 import 'package:guachinches/ui/pages/restaurant_detail/restaurant_detail_screen.dart';
+import 'package:guachinches/ui/pages/visit/visit_screen.dart';
 import 'package:guachinches/utils/open_state.dart';
 import 'package:guachinches/utils/contextual_pool.dart';
 import 'package:integration_test/integration_test.dart';
@@ -43,9 +46,10 @@ import 'package:path_provider/path_provider.dart';
 
 const _idle = Duration(seconds: 10);
 
-/// Solo los escenarios cuyo nombre empieza así
-/// (`--dart-define=PERF_ONLY=ficha`). Vacío: todos.
+/// Solo los escenarios cuyo nombre empieza por alguno de estos prefijos
+/// (`--dart-define=PERF_ONLY=ficha,visita`). Vacío: todos.
 const _only = String.fromEnvironment('PERF_ONLY');
+final _prefixes = _only.split(',').where((p) => p.isNotEmpty).toList();
 
 /// El Inicio, aunque haya otra pantalla encima (entonces está «offstage»).
 final _home = find.byType(NewHomeScreen, skipOffstage: false);
@@ -97,12 +101,31 @@ void main() {
         tester, find.byType(NewHomeScreen), const Duration(minutes: 4));
     FlutterError.onError = testOnError;
     _log('arranque', {'ok': true});
+
+    // Se eligen ya el restaurante y la visita: luego la lista temática usa
+    // el mismo RestaurantCubit para filtrar y el estado deja de ser el pool.
+    final homeCtx = tester.element(_home);
+    final rState = homeCtx.read<RestaurantCubit>().state;
+    final pool = rState is AllRestaurantLoaded
+        ? rState.restaurantResponse.restaurants
+        : const <Restaurant>[];
+    final now = DateTime.now();
+    final openId = pool.isEmpty
+        ? null
+        : pool
+            .firstWhere((r) => isRestaurantOpenNow(r, now),
+                orElse: () => pool.first)
+            .id;
+    final vState = homeCtx.read<VisitsCubit>().state;
+    final visitId = vState is VisitsLoaded && vState.visits.isNotEmpty
+        ? vState.visits.first.id
+        : null;
     await _dismissPremiosSheet(tester);
     // Arranque: datos, imágenes y entradas «una vez».
     await _wait(const Duration(seconds: 12));
 
     Future<void> scenario(String name, Future<void> Function() body) async {
-      if (_only.isNotEmpty && !name.startsWith(_only)) return;
+      if (_prefixes.isNotEmpty && !_prefixes.any(name.startsWith)) return;
       try {
         await body();
       } catch (e) {
@@ -186,15 +209,10 @@ void main() {
     // Ficha de un restaurante abierto ahora (cabecera con el punto vivo),
     // como al tocarlo desde el Inicio.
     await scenario('ficha_reposo', () async {
+      if (openId == null) throw StateError('sin restaurantes');
       final ctx = tester.element(_home);
-      final state = ctx.read<RestaurantCubit>().state;
-      if (state is! AllRestaurantLoaded) throw StateError('sin restaurantes');
-      final pool = state.restaurantResponse.restaurants;
-      final now = DateTime.now();
-      final r = pool.firstWhere((r) => isRestaurantOpenNow(r, now),
-          orElse: () => pool.first);
       Navigator.of(ctx).push(MaterialPageRoute(
-          builder: (_) => RestaurantDetailScreen(id: r.id)));
+          builder: (_) => RestaurantDetailScreen(id: openId)));
       await _wait(const Duration(seconds: 6));
       await idle('ficha_reposo');
     });
@@ -224,19 +242,16 @@ void main() {
       await _popToHome(tester);
     }
 
-    // Reels de visitas: primera visita de la pestaña Visitas.
+    // Reels: la primera visita, como al tocarla en el Inicio o en Visitas.
     await scenario('visita_reels', () async {
-      await _tapId(tester, 'tab-visitas');
-      await _wait(const Duration(seconds: 3));
-      final handle = tester.ensureSemantics();
-      final card = find.byWidgetPredicate((w) =>
-          w is Semantics &&
-          (w.properties.identifier ?? '').startsWith('discover-visit-card-'));
-      await tester.tap(card.first, warnIfMissed: false);
-      handle.dispose();
+      if (visitId == null) throw StateError('sin visitas');
+      final ctx = tester.element(_home);
+      Navigator.of(ctx).push(MaterialPageRoute(
+          builder: (_) => VisitDetailPage(visitId: visitId)));
       await _wait(const Duration(seconds: 6));
       await idle('visita_reels');
     });
+    await _popToHome(tester);
 
     binding.reportData = report;
   }, timeout: const Timeout(Duration(minutes: 15)));
