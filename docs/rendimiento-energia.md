@@ -1,6 +1,6 @@
 # Rendimiento y energía: por qué se calienta la app
 
-Rama `perf/energia`, sobre `feature/rediseno-ios27` (`66936bb`). Fecha: 15-10-2026.
+Rama `perf/energia`, rebasada sobre `feature/rediseno-ios27` (`874bdab`). Medición inicial sobre `66936bb`; segunda tanda sobre `874bdab` (ver «Tras el rebase»). Fecha: 15-10-2026.
 
 ## Resumen
 
@@ -182,6 +182,50 @@ Ventanas de 10 s.
 - Con 120 Hz (iPhone 15 Pro Max), cada fila con 67 fps aquí es **hasta el
   doble** de trabajo de GPU allí: propuesta 1.
 
+## Tras el rebase sobre `874bdab`
+
+`feature/rediseno-ios27` avanzó mientras tanto (`874bdab`: rediseño de listas,
+login, quiz, mapa, descubrir…). La rama se ha rebasado encima; el único
+conflicto real fue `map_search.dart`, reescrito en `fd99f86`: el mapa nuevo
+mantenía los mismos problemas de GPS (punto azul en cualquier pestaña, flujo
+de alta precisión con otra ruta encima o en segundo plano, `.timeout`) y el
+arreglo se ha vuelto a aplicar sobre él.
+
+Segunda tanda, mismo simulador y arnés (fps pedidos por la app; la CPU de
+esta tanda no se usa: el Mac estaba cargado por otras sesiones y el reposo
+de Perfil marcó 20 % en una pasada y 8 % en otra):
+
+
+
+- **Se mantiene la mejora** donde importa: Inicio bajado 67 → 18 fps y lista
+  temática bajada 67 → 0,6 fps.
+- En `874bdab` el mapa nuevo ya no deja un spinner girando escondido
+  (Listas 0,7 fps también sin la rama); `TickerMode` en todas las pestañas
+  sigue cubriendo cualquier otro bucle de una pestaña oculta.
+- **Ficha y Reels no se pudieron repetir** sobre `874bdab`: durante esas
+  pasadas `GET /video-ingestion/restaurant-videos/published` dejó de
+  responder (más de 30 s también con `curl`) y el Inicio se quedaba en
+  esqueletos, **igual con `874bdab` sin cambios** (control). Valen las cifras
+  de la primera tanda.
+
+### Hallazgos del QA en Android (Pixel 9 Pro, `d533a2e`)
+
+| QA | Qué es | En esta rama |
+|---|---|---|
+| I1 | ~60 fps continuos en reposo hasta abrir Mapa (24 % de un núcleo en Perfil): el spinner «Preparando el mapa…» girando oculto | Cubierto: `TickerMode` en las cinco pestañas (y `874bdab` ya no lo tiene). |
+| I2 | Nubes del hero animando con el Inicio desplazado y tiempo nublado (36–41 % de CPU) | Cubierto: pausa con el hero fuera de la vista, y cada nube se pinta una vez (sin ~90 pasadas de desenfoque por fotograma). Con el hero visible siguen moviéndose (propuesta 3). |
+| I3 | Tirones al estirar en la cima del Inicio (18–28 % de fotogramas lentos; 93 % con varios *pull-to-refresh*) | En parte. Al estirar, `ParallaxHeroSlot` cambia el **alto** del hero en cada fotograma, que se vuelve a maquetar y pintar entero (sombras de texto con blur 16, chip de cristal σ18, capa de tiempo); en el scroll normal solo cambia `top` y no se repinta. Las nubes ya no cuestan ~90 desenfoques por fotograma. El arreglo estructural (hero de alto fijo y estirar solo la foto con un `Transform`) cambia cómo se ve el estirado: propuesta 7, a medir en dispositivo. |
+| Reels | Picos de 350–500 ms al cambiar de vídeo | Sin medir en dispositivo real (el emulador decodifica por software). |
+
+### Robustez de la caché
+
+Al revisar el rebase apareció un riesgo del umbral de revalidación: los
+`fetchBody` guardaban en caché **cualquier** respuesta, también un 502; antes
+la revalidación de cada acierto lo curaba en la siguiente petición, con el
+umbral se habría servido minutos. Ahora una respuesta que no es 2xx no se
+guarda y una entrada ilegible se ignora y se va a la red (commit
+`fix(red): no cachear respuestas de error…`, con dos tests).
+
 ## Hallazgos priorizados
 
 Impacto: energía y calor (alto / medio / bajo). Esfuerzo: S (horas), M (un
@@ -224,14 +268,15 @@ Commits pequeños en `perf/energia`, sin cambios visibles:
 | `perf(red): no revalidar la caché en cada acierto` | Revalidación en segundo plano solo si la entrada tiene más de 5 min (listas) o 30 min (referencia). Fichas, como antes. |
 | `perf(home): log de la barra superior solo en debug` | `debugPrint` tras `kDebugMode`. |
 | `perf(home): las nubes del hero se pintan una vez y solo se mueven` | Cada nube se rasteriza una vez con margen para el halo. Comparada con la original píxel a píxel: diferencia máxima 4/255 por canal. |
+| `fix(red): no cachear respuestas de error y saltar entradas ilegibles` | Una respuesta no 2xx no se guarda; una entrada de caché ilegible va a la red. |
 | `test(perf): …` | Censo de energía (`integration_test/perf/`, `test_driver/perf_driver.dart`). |
 
-Tests nuevos (`test/ui/energy/energy_tickers_test.dart` y dos casos en
+Tests nuevos (`test/ui/energy/energy_tickers_test.dart` y cuatro casos en
 `test/data/http_remote_repository_cache_test.dart`): bucle fuera y dentro de
 pantalla, reducir movimiento, estrellas sin fotogramas, pestañas ocultas con
 los tickers apagados y caché sin revalidar un acierto reciente. **Fallan con
 el código original y pasan con los arreglos.** El resto de la suite queda
-igual: los 12 tests que fallan en `HEAD` ya fallaban en `66936bb`.
+igual: tras el rebase fallan 4 tests y los 4 ya fallaban en `874bdab`.
 
 ## Propuestas pendientes de decisión
 
@@ -262,6 +307,10 @@ Ordenadas por impacto:
    del mapa tardaría lo que tarda hoy la carga.
 6. **AdMob**: inicializarlo solo si alguna pantalla va a mostrar anuncios. El
    rediseño no muestra ninguno.
+7. **Estirado del hero (I3 del QA)**: dar al hero un alto fijo y estirar solo
+   la foto con un `Transform`, en vez de cambiar el alto de todo el bloque en
+   cada fotograma. Cambia ligeramente cómo se ve el estirado; medir antes y
+   después en un dispositivo.
 
 ## Otras recomendaciones
 
