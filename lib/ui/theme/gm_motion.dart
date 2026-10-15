@@ -174,7 +174,10 @@ class GmRise extends StatelessWidget {
 }
 
 /// Bucle infinito (solo nubes y punto vivo). Respeta reducir movimiento y
-/// TickerMode (se para en pestañas ocultas / rutas tapadas).
+/// TickerMode (se para en pestañas ocultas / rutas tapadas), y además se
+/// para mientras está fuera de la pantalla dentro de un scroll vertical:
+/// un `SliverToBoxAdapter` no desmonta a su hijo al salir de la vista y el
+/// bucle seguiría pidiendo un fotograma de pantalla completa en cada vsync.
 class GmLoop extends StatefulWidget {
   final Duration period;
   final bool reverse;
@@ -197,13 +200,43 @@ class _GmLoopState extends State<GmLoop> with SingleTickerProviderStateMixin {
   late final AnimationController _c =
       AnimationController(vsync: this, duration: widget.period);
   bool _reduced = false;
+  bool _onScreen = true;
+  ScrollPosition? _pos;
+
+  /// Para los tests: ¿está corriendo el bucle?
+  @visibleForTesting
+  bool get isRunning => _c.isAnimating;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     _reduced = GmMotion.reduced(context);
-    if (_reduced) {
-      _c.stop();
+    final pos = Scrollable.maybeOf(context, axis: Axis.vertical)?.position;
+    if (pos != _pos) {
+      _pos?.removeListener(_checkOnScreen);
+      _pos = pos;
+      _pos?.addListener(_checkOnScreen);
+      WidgetsBinding.instance.addPostFrameCallback((_) => _checkOnScreen());
+    }
+    _sync();
+  }
+
+  void _checkOnScreen() {
+    if (!mounted) return;
+    final ro = context.findRenderObject();
+    if (ro is! RenderBox || !ro.attached || !ro.hasSize) return;
+    final top = ro.localToGlobal(Offset.zero).dy;
+    final screenH = MediaQuery.sizeOf(context).height;
+    final onScreen = top < screenH && top + ro.size.height > 0;
+    if (onScreen != _onScreen) {
+      _onScreen = onScreen;
+      _sync();
+    }
+  }
+
+  void _sync() {
+    if (_reduced || !_onScreen) {
+      if (_c.isAnimating) _c.stop();
     } else if (!_c.isAnimating) {
       _c.repeat();
     }
@@ -211,6 +244,7 @@ class _GmLoopState extends State<GmLoop> with SingleTickerProviderStateMixin {
 
   @override
   void dispose() {
+    _pos?.removeListener(_checkOnScreen);
     _c.dispose();
     super.dispose();
   }

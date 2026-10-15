@@ -61,14 +61,19 @@ class GmCloudEdge extends StatelessWidget {
                 GmLoop(
                   period: GmMotion.billowB,
                   reverse: true,
-                  child: Stack(clipBehavior: Clip.none, children: [b]),
+                  // El boundary va DENTRO del desplazamiento: así la
+                  // capa del SVG se graba una vez y cada fotograma solo
+                  // mueve la capa (antes se volvía a grabar entera).
+                  child: RepaintBoundary(
+                      child: Stack(clipBehavior: Clip.none, children: [b])),
                   builder: (_, t, c) => Transform.translate(
                       offset: Offset(-w * t, 0), child: c),
                 ),
                 // billow-a: 46 s.
                 GmLoop(
                   period: GmMotion.billowA,
-                  child: Stack(clipBehavior: Clip.none, children: [a]),
+                  child: RepaintBoundary(
+                      child: Stack(clipBehavior: Clip.none, children: [a])),
                   builder: (_, t, c) => Transform.translate(
                       offset: Offset(-w * t, 0), child: c),
                 ),
