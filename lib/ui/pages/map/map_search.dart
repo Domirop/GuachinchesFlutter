@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:guachinches/core/app_route_observer.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -65,7 +66,7 @@ enum _Phase { loading, ready, error }
 enum _Loc { unknown, granted, denied }
 
 class MapSearchState extends State<MapSearch>
-    with WidgetsBindingObserver
+    with WidgetsBindingObserver, RouteAware
     implements MapSearchView {
   static const int _kMapTabIndex = 2;
   static const LatLng _kDefaultTarget = LatLng(28.4528, -16.4478);
@@ -105,6 +106,13 @@ class MapSearchState extends State<MapSearch>
   // Mapa.
   bool _mapMounted = false;
   bool _onMapTab = false;
+
+  // El GPS (flujo de alta precisión + punto azul nativo) solo con el mapa a
+  // la vista: se apaga con otra pantalla encima (p. ej. la ficha abierta
+  // desde el mapa) y con la app en segundo plano.
+  bool _covered = false;
+  bool _appActive = true;
+  bool get _sensorsOn => _onMapTab && !_covered && _appActive;
   double _zoom = 14.5;
   double? _pendingZoom;
   MapBox? _bounds;
@@ -166,8 +174,40 @@ class MapSearchState extends State<MapSearch>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    if (route is PageRoute) appRouteObserver.subscribe(this, route);
+  }
+
+  @override
+  void didPushNext() {
+    _covered = true;
+    _syncSensors();
+  }
+
+  @override
+  void didPopNext() {
+    _covered = false;
+    _syncSensors();
+  }
+
+  /// Enciende o apaga el GPS según [_sensorsOn]. Reanudar no mueve la
+  /// cámara (solo el primer fix la centra).
+  void _syncSensors() {
+    if (!mounted) return;
+    if (_sensorsOn) {
+      _startLocation(prompt: false);
+    } else {
+      _stopLocation();
+    }
+    setState(() {});
+  }
+
+  @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    appRouteObserver.unsubscribe(this);
     _driving.isDriving.removeListener(_onDrivingChanged);
     _driving.shouldSuggest.removeListener(_onDriveSuggested);
     _driving.dispose();
@@ -182,12 +222,12 @@ class MapSearchState extends State<MapSearch>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    // Volver de Ajustes con el permiso concedido: arrancar la ubicación.
-    if (state == AppLifecycleState.resumed &&
-        _loc != _Loc.granted &&
-        _onMapTab) {
-      _startLocation(prompt: false);
-    }
+    final active = state == AppLifecycleState.resumed;
+    if (active == _appActive) return;
+    _appActive = active;
+    // Al volver (también de Ajustes con el permiso recién concedido) se
+    // reanuda la ubicación si el mapa está a la vista.
+    _syncSensors();
   }
 
   @override
@@ -320,10 +360,14 @@ class MapSearchState extends State<MapSearch>
   Future<void> _centerOnUserNow() async {
     try {
       Position? pos = await Geolocator.getLastKnownPosition();
+      // `timeLimit` (y no `Future.timeout`): al vencer, geolocator cancela
+      // la petición nativa; con `.timeout` el GPS seguía buscando.
       pos ??= await Geolocator.getCurrentPosition(
-        locationSettings:
-            const LocationSettings(accuracy: LocationAccuracy.high),
-      ).timeout(const Duration(seconds: 8));
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 8),
+        ),
+      );
       if (!mounted) return;
       _applyPosition(pos.latitude, pos.longitude);
     } catch (_) {
@@ -710,9 +754,11 @@ class MapSearchState extends State<MapSearch>
       // Al volver a la pestaña, horarios y distancias al día.
       _refreshSitesForLocation();
       setState(() {});
-      _startLocation();
+      if (_sensorsOn) _startLocation();
     } else {
       _stopLocation();
+      // Sin pintar el punto azul el mapa nativo suelta el GPS.
+      setState(() {});
     }
   }
 
@@ -975,7 +1021,7 @@ class MapSearchState extends State<MapSearch>
               _phase == _Phase.ready ? _markers(gm.isDark, near) : const {},
           circles: _nearbyCircles(),
           polylines: _nearbyRing(gm),
-          myLocationEnabled: _loc == _Loc.granted,
+          myLocationEnabled: _loc == _Loc.granted && _sensorsOn,
           myLocationButtonEnabled: false,
           zoomControlsEnabled: false,
           mapToolbarEnabled: false,
