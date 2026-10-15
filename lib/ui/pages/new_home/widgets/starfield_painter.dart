@@ -1,6 +1,5 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
 
 class Star {
   double x, y, r, phase, speed;
@@ -33,7 +32,6 @@ class StarfieldPainter extends CustomPainter {
     if (opacity <= 0) return;
     final paint = Paint();
     for (final star in stars) {
-      star.phase += star.speed;
       final alpha = (opacity * (0.4 + 0.6 * sin(star.phase))).clamp(0.0, 1.0);
       paint.color = Colors.white.withOpacity(alpha);
       canvas.drawCircle(Offset(star.x, star.y), star.r, paint);
@@ -45,7 +43,10 @@ class StarfieldPainter extends CustomPainter {
       old.opacity != opacity;
 }
 
-/// Widget con Ticker propio. Pausa automáticamente con TickerMode.
+/// Cielo de estrellas del hero de noche. Es estático: el painter solo se
+/// vuelve a pintar si cambia la opacidad (la hora), así que un Ticker que
+/// reconstruyera en cada vsync no movería nada y forzaría un fotograma de
+/// pantalla completa 120 veces por segundo.
 class StarfieldWidget extends StatefulWidget {
   final double opacity;
   final Size heroSize;
@@ -60,9 +61,7 @@ class StarfieldWidget extends StatefulWidget {
   State<StarfieldWidget> createState() => _StarfieldWidgetState();
 }
 
-class _StarfieldWidgetState extends State<StarfieldWidget>
-    with SingleTickerProviderStateMixin {
-  late final Ticker _ticker;
+class _StarfieldWidgetState extends State<StarfieldWidget> {
   late final List<Star> _stars;
   final _rng = Random(42); // semilla fija para consistencia
 
@@ -73,15 +72,6 @@ class _StarfieldWidgetState extends State<StarfieldWidget>
       80,
       (_) => Star.random(widget.heroSize, _rng),
     );
-    _ticker = createTicker((_) {
-      if (mounted) setState(() {});
-    })..start();
-  }
-
-  @override
-  void dispose() {
-    _ticker.dispose();
-    super.dispose();
   }
 
   @override
