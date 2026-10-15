@@ -27,18 +27,25 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:guachinches/data/cubit/new_home/new_home_filters_cubit.dart';
+import 'package:guachinches/data/cubit/restaurants/basic/restaurant_cubit.dart';
+import 'package:guachinches/data/cubit/restaurants/basic/restaurant_state.dart';
 import 'package:guachinches/data/model/Types.dart';
 import 'package:guachinches/main.dart' as app;
 import 'package:guachinches/ui/pages/advance_search/advanced_search.dart';
 import 'package:guachinches/ui/pages/new_home/new_home_screen.dart';
-import 'package:guachinches/ui/pages/new_home/widgets/gm_place_card.dart';
 import 'package:guachinches/ui/pages/premios/premios_entry_page.dart';
 import 'package:guachinches/ui/pages/premios/premios_ranking_page.dart';
+import 'package:guachinches/ui/pages/restaurant_detail/restaurant_detail_screen.dart';
+import 'package:guachinches/utils/open_state.dart';
 import 'package:guachinches/utils/contextual_pool.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:path_provider/path_provider.dart';
 
 const _idle = Duration(seconds: 10);
+
+/// Solo los escenarios cuyo nombre empieza así
+/// (`--dart-define=PERF_ONLY=ficha`). Vacío: todos.
+const _only = String.fromEnvironment('PERF_ONLY');
 
 /// El Inicio, aunque haya otra pantalla encima (entonces está «offstage»).
 final _home = find.byType(NewHomeScreen, skipOffstage: false);
@@ -95,6 +102,7 @@ void main() {
     await _wait(const Duration(seconds: 12));
 
     Future<void> scenario(String name, Future<void> Function() body) async {
+      if (_only.isNotEmpty && !name.startsWith(_only)) return;
       try {
         await body();
       } catch (e) {
@@ -175,13 +183,19 @@ void main() {
         () => idle('lista_tradicional_reposo_scrolleado'));
     await _popToHome(tester);
 
-    // Ficha: la primera tarjeta de restaurante del Inicio.
+    // Ficha de un restaurante abierto ahora (cabecera con el punto vivo),
+    // como al tocarlo desde el Inicio.
     await scenario('ficha_reposo', () async {
-      final card = find.byType(GmPlaceCard).first;
-      await tester.ensureVisible(card);
-      await _wait(const Duration(seconds: 1));
-      await tester.tap(card, warnIfMissed: false);
-      await _wait(const Duration(seconds: 5));
+      final ctx = tester.element(_home);
+      final state = ctx.read<RestaurantCubit>().state;
+      if (state is! AllRestaurantLoaded) throw StateError('sin restaurantes');
+      final pool = state.restaurantResponse.restaurants;
+      final now = DateTime.now();
+      final r = pool.firstWhere((r) => isRestaurantOpenNow(r, now),
+          orElse: () => pool.first);
+      Navigator.of(ctx).push(MaterialPageRoute(
+          builder: (_) => RestaurantDetailScreen(id: r.id)));
+      await _wait(const Duration(seconds: 6));
       await idle('ficha_reposo');
     });
     await scenario('ficha_scroll', () async {
