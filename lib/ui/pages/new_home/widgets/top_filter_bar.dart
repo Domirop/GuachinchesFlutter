@@ -1,4 +1,5 @@
 import 'dart:ui';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:guachinches/config/app_colors.dart';
 import 'package:guachinches/config/brand_colors.dart';
@@ -25,10 +26,13 @@ class TopFilterBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // ignore: avoid_print
-    debugPrint(
-      '[TopFilterBar] build zone=$zoneLabel temp=${weather.tempC} cond=${weather.condition}',
-    );
+    // Solo en debug: en release `debugPrint` también escribe en el log del
+    // sistema, y esto corre en cada build de la home.
+    if (kDebugMode) {
+      debugPrint(
+        '[TopFilterBar] build zone=$zoneLabel temp=${weather.tempC} cond=${weather.condition}',
+      );
+    }
     return Padding(
       padding: EdgeInsets.only(
         top: MediaQuery.of(context).padding.top + 8,
