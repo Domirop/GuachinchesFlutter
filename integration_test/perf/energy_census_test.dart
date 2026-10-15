@@ -40,6 +40,9 @@ import 'package:path_provider/path_provider.dart';
 
 const _idle = Duration(seconds: 10);
 
+/// El Inicio, aunque haya otra pantalla encima (entonces está «offstage»).
+final _home = find.byType(NewHomeScreen, skipOffstage: false);
+
 final List<FrameTiming> _timings = [];
 
 /// Cuenta los fotogramas que PIDE la app (tickers, setState, repintados).
@@ -140,7 +143,7 @@ void main() {
 
     // Lista temática con cabecera animada (mesa con brindis).
     await scenario('lista_tradicional_reposo', () async {
-      final ctx = tester.element(find.byType(NewHomeScreen));
+      final ctx = tester.element(_home);
       final islandId = ctx.read<NewHomeFiltersCubit>().state.islandId;
       final tipo = Types(
           id: RestaurantTypeIds.guachinchesTradicionales,
@@ -199,7 +202,7 @@ void main() {
       ('encuesta_ranking_reposo', const PremiosRankingPage()),
     ]) {
       await scenario(name, () async {
-        final ctx = tester.element(find.byType(NewHomeScreen));
+        final ctx = tester.element(_home);
         Navigator.of(ctx).push(MaterialPageRoute(builder: (_) => page));
         await _wait(const Duration(seconds: 5));
         await idle(name);
@@ -284,7 +287,7 @@ Future<void> _tapId(WidgetTester tester, String id) async {
 }
 
 Future<void> _popToHome(WidgetTester tester) async {
-  final ctx = tester.element(find.byType(NewHomeScreen));
+  final ctx = tester.element(_home);
   Navigator.of(ctx).popUntil((r) => r.isFirst);
   await _wait(const Duration(seconds: 2));
 }
