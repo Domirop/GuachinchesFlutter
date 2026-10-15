@@ -509,6 +509,10 @@ class _AdvancedSearchState extends State<AdvancedSearch> {
     ];
   }
 
+  /// Los sitios del pool por id (la visita trae el sitio sin categorías).
+  Map<String, Restaurant> get _poolById =>
+      {for (final r in widget.pool) r.id: r};
+
   /// Sitios que solo coinciden por plato (de las visitas), sin los que ya
   /// están en [server].
   List<Restaurant> _dishResults(
@@ -519,6 +523,11 @@ class _AdvancedSearchState extends State<AdvancedSearch> {
     final dishLocal = LocalFilters(
         municipalityKeys: local.municipalityKeys, openOnly: local.openOnly);
     final types = f.typeIds.toSet();
+    // Categorías y servicios elegidos (terraza, aparcamiento…): los que
+    // llegan por plato también han de tenerlos. Si no, la cabecera decía
+    // «0 resultados» y debajo salían sitios que no cumplían el filtro.
+    final cats = f.categoryIds.toSet();
+    final full = cats.isEmpty ? const <String, Restaurant>{} : _poolById;
     final seen = <String>{};
     final out = <Restaurant>[];
     for (final v in _allVisits) {
@@ -527,6 +536,12 @@ class _AdvancedSearchState extends State<AdvancedSearch> {
       if (ids.contains(v.restaurantId) || !seen.add(v.restaurantId)) continue;
       // Con tipo elegido, los que llegan por plato también han de serlo.
       if (types.isNotEmpty && !types.contains(_typeIdOf(r))) continue;
+      if (cats.isNotEmpty &&
+          !(full[r.id] ?? r)
+              .categoriaRestaurantes
+              .any((c) => cats.contains(c.categoriaId))) {
+        continue;
+      }
       if (listMatches(r, dishLocal, now)) out.add(r);
     }
     return out;
