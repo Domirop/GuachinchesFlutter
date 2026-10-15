@@ -1,6 +1,6 @@
 # Rendimiento y energía: por qué se calienta la app
 
-Rama `perf/energia`, rebasada sobre `feature/rediseno-ios27` (`874bdab`). Medición inicial sobre `66936bb`; segunda tanda sobre `874bdab` (ver «Tras el rebase»). Fecha: 15-10-2026.
+Rama `perf/energia`, rebasada sobre `feature/rediseno-ios27` (`4fc58c7`). Medición inicial sobre `66936bb`; segunda tanda sobre `874bdab` (ver «Tras el rebase»). Fecha: 15-10-2026.
 
 ## Resumen
 
@@ -202,11 +202,22 @@ de Perfil marcó 20 % en una pasada y 8 % en otra):
 - En `874bdab` el mapa nuevo ya no deja un spinner girando escondido
   (Listas 0,7 fps también sin la rama); `TickerMode` en todas las pestañas
   sigue cubriendo cualquier otro bucle de una pestaña oculta.
-- **Ficha y Reels no se pudieron repetir** sobre `874bdab`: durante esas
-  pasadas `GET /video-ingestion/restaurant-videos/published` dejó de
-  responder (más de 30 s también con `curl`) y el Inicio se quedaba en
-  esqueletos, **igual con `874bdab` sin cambios** (control). Valen las cifras
-  de la primera tanda.
+- **Ficha y Reels** no se pudieron repetir en esa tanda: `GET
+  /video-ingestion/restaurant-videos/published` dejó de responder (más de
+  30 s también con `curl`) y el Inicio se quedaba en esqueletos, **igual con
+  `874bdab` sin cambios** (control). Causa: devolvía ~4 MB sin comprimir
+  (`transcript` y `rawLlmResponse` de 337 visitas). Con la migración 048 de
+  backend (`8df5269`: sin esos campos + gzip) responde **503 KB en ~1 s**.
+  Repetidas entonces sobre `4fc58c7` (rama rebasada otra vez):
+
+| Escenario | fps `4fc58c7` | fps rama | Quién pide fotogramas `4fc58c7` → rama |
+|---|---|---|---|
+| `ficha_reposo` | 67.3 | 67.2 | GmLoop → GmLoop (onda del punto «abierto», a la vista) |
+| `ficha_scroll` | 72.4 | 55.6 | GmLoop → — (la onda se para al salir de la vista) |
+| `visita_reels` | 12 | 11.5 | — → — (ritmo del vídeo) |
+
+  La ficha de un sitio abierto sigue dibujando en reposo por la onda del
+  punto vivo, que está a la vista: es la propuesta 3.
 
 ### Hallazgos del QA en Android (Pixel 9 Pro, `d533a2e`)
 
@@ -253,7 +264,7 @@ día), L (varios días). Las líneas son del commit base `66936bb`.
 | 18 | Miniaturas decodificadas a tamaño completo (portadas de listas a 96×96 en la ficha; foto del mapa a 66×66) | Código | `curated_hero_image.dart:33` | Bajo (memoria) | S | Recomendación |
 | 19 | `debugPrint` en cada build de la barra superior del Inicio y en cada rebuild de marcadores (también corre en release) | Código | `top_filter_bar.dart:29` | Bajo | S | **Arreglado** |
 | 20 | Skeleton de Visitas con `Opacity` animado sobre una lista completa (saveLayer de pantalla completa) | Código | `visitas_screen.dart:307` | Bajo | S | Recomendación (`FadeTransition`) |
-| 21 | `GET /video-ingestion/restaurant-videos/published` devolvía ~4 MB **sin comprimir** (337 visitas con `transcript` y `rawLlmResponse`): ~30 s de radio activa en cada arranque (lo piden el Inicio y la pestaña Visitas aunque no se abra) y, con el balanceador lento, el Inicio se quedaba en esqueletos | `curl`: >30 s, sin `Content-Encoding` | backend (migración 048) | Alto (red) | S | **Arreglo de backend en despliegue** (`8df5269`: sin esos campos + gzip). La app ya pide `gzip` (cliente de Dart por defecto): no hace falta tocarla |
+| 21 | `GET /video-ingestion/restaurant-videos/published` devolvía ~4 MB **sin comprimir** (337 visitas con `transcript` y `rawLlmResponse`): ~30 s de radio activa en cada arranque (lo piden el Inicio y la pestaña Visitas aunque no se abra) y, con el balanceador lento, el Inicio se quedaba en esqueletos | `curl`: >30 s, sin `Content-Encoding` | backend (migración 048) | Alto (red) | S | **Arreglado en backend** (`8df5269`, migración 048: sin esos campos + gzip): 503 KB en ~1 s. La app ya pedía `gzip` (cliente de Dart por defecto): no hizo falta tocarla |
 
 ## Arreglos de esta rama
 
@@ -277,7 +288,7 @@ Tests nuevos (`test/ui/energy/energy_tickers_test.dart` y cuatro casos en
 pantalla, reducir movimiento, estrellas sin fotogramas, pestañas ocultas con
 los tickers apagados y caché sin revalidar un acierto reciente. **Fallan con
 el código original y pasan con los arreglos.** El resto de la suite queda
-igual: tras el rebase fallan 4 tests y los 4 ya fallaban en `874bdab`.
+igual: tras el rebase fallan 4 tests y los 4 ya fallaban en `4fc58c7`.
 
 ## Propuestas pendientes de decisión
 
