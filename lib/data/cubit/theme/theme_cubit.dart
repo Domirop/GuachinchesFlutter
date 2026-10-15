@@ -16,7 +16,7 @@ class ThemeCubit extends Cubit<ThemeMode> {
     emit(mode);
     await AppStorage.instance.write(
       key: _storageKey,
-      value: mode == ThemeMode.light ? 'light' : 'dark',
+      value: mode.name, // 'light' | 'dark' | 'system'
     );
   }
 
@@ -27,7 +27,11 @@ class ThemeCubit extends Cubit<ThemeMode> {
   static Future<ThemeMode> hydrate() async {
     try {
       final stored = await AppStorage.instance.read(key: _storageKey);
-      final mode = stored == 'dark' ? ThemeMode.dark : ThemeMode.light;
+      final mode = switch (stored) {
+        'dark' => ThemeMode.dark,
+        'system' => ThemeMode.system,
+        _ => ThemeMode.light,
+      };
       _syncTextStyleDefaults(mode);
       return mode;
     } catch (_) {
@@ -37,7 +41,15 @@ class ThemeCubit extends Cubit<ThemeMode> {
   }
 
   static void _syncTextStyleDefaults(ThemeMode mode) {
-    AppTextStyles.defaultTextColor =
-        mode == ThemeMode.light ? AppColors.ink : AppColors.crema;
+    final dark = switch (mode) {
+      ThemeMode.dark => true,
+      ThemeMode.light => false,
+      // «Sistema»: el brillo del sistema al aplicarlo (las pantallas nuevas
+      // usan GmColors.of(context) y siguen el cambio en vivo).
+      ThemeMode.system => WidgetsBinding
+              .instance.platformDispatcher.platformBrightness ==
+          Brightness.dark,
+    };
+    AppTextStyles.defaultTextColor = dark ? AppColors.crema : AppColors.ink;
   }
 }

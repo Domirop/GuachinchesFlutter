@@ -8,10 +8,6 @@ import 'package:guachinches/data/cubit/onboarding/onboarding_state.dart';
 import 'package:guachinches/data/cubit/user/user_cubit.dart';
 import 'package:guachinches/data/cubit/user/user_state.dart';
 import 'package:guachinches/data/model/version.dart';
-import 'package:guachinches/ui/pages/map/map_search.dart';
-import 'package:guachinches/ui/pages/listas/listas_screen.dart';
-import 'package:guachinches/ui/pages/new_home/new_home_screen.dart';
-import 'package:guachinches/ui/pages/discover/discover_screen.dart';
 import 'package:guachinches/ui/pages/settings/settings_screen.dart';
 import 'package:guachinches/utils/app_version.dart';
 
@@ -46,9 +42,6 @@ class SplashScreenPresenter {
 
 
   Future<List<Widget>> _buildScreens() async {
-    // SettingsScreen manages its own state via UserCubit —
-    // shows logged-in view, not-logged-in view, and loading/error states.
-    const Widget profileTab = SettingsScreen();
     try {
       String? userId = await storage.read(key: "userId");
       if (userId != null && userId.isNotEmpty) {
@@ -59,13 +52,8 @@ class SplashScreenPresenter {
         }
       }
     } catch (_) {}
-    return [
-      const NewHomeScreen(),
-      const ListasScreen(),
-      MapSearch(),
-      const DiscoverScreen(),
-      profileTab,
-    ];
+    // Las 5 pestañas de siempre; Perfil = SettingsScreen (con o sin sesión).
+    return buildMainTabScreens();
   }
 
   mainFunction() async {
