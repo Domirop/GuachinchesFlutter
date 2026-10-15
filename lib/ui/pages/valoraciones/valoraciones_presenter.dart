@@ -1,13 +1,13 @@
 
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
 import 'package:guachinches/data/cubit/user/user_cubit.dart';
+import 'package:guachinches/services/app_storage.dart';
 
 class ValoracionesPresenter{
   ValoracionesView _view;
   RemoteRepository _remoteRepository;
   UserCubit _userCubit;
-  final storage = new FlutterSecureStorage();
+  final storage = AppStorage.instance;
 
   ValoracionesPresenter(this._view, this._remoteRepository, this._userCubit);
 

@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'package:guachinches/core/analytics/analytics.dart';
 import 'package:guachinches/core/logging/app_logger.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
 import 'package:guachinches/data/local/sql_lite_local_repository.dart';
 import 'package:guachinches/data/model/Review.dart';
@@ -12,11 +11,12 @@ import 'package:guachinches/data/model/report_review.dart';
 import 'package:guachinches/data/model/restaurant.dart';
 import 'package:video_compress/video_compress.dart';
 import 'package:http/http.dart' as http;
+import 'package:guachinches/services/app_storage.dart';
 
 class DetailPresenter {
   RemoteRepository _remoteRepository;
   DetailView _view;
-  final storage = new FlutterSecureStorage();
+  final storage = AppStorage.instance;
   SqlLiteLocalRepository sqlLiteLocalRepository = SqlLiteLocalRepository();
 
   DetailPresenter(this._remoteRepository, this._view);

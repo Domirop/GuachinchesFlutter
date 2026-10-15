@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:bottom_sheet/bottom_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:guachinches/data/HttpRemoteRepository.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
@@ -28,6 +27,7 @@ import 'package:guachinches/ui/pages/details/details.dart';
 import 'package:guachinches/ui/pages/map/map_search.dart';
 import 'package:guachinches/ui/pages/search_page/search_page_presenter.dart';
 import 'package:http/http.dart';
+import 'package:guachinches/services/app_storage.dart';
 
 class SearchPage extends StatefulWidget {
   String? userId;
@@ -63,7 +63,7 @@ class _SearchPageState extends State<SearchPage>
   List<String> categoriesId = [];
   List<String> typesId = [];
   String textValue = "";
-  final storage = new FlutterSecureStorage();
+  final storage = AppStorage.instance;
   Island island = new Island('', '', '');
   late Widget tab1;
   late Widget tab2;

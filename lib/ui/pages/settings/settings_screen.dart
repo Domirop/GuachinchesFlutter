@@ -5,7 +5,6 @@ import 'package:flutter/foundation.dart'
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:guachinches/core/logging/app_logger.dart';
 import 'package:guachinches/data/HttpRemoteRepository.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
@@ -43,6 +42,7 @@ import 'package:guachinches/ui/theme/gm_tokens.dart';
 import 'package:guachinches/ui/theme/gm_widgets.dart';
 import 'package:guachinches/utils/app_version.dart';
 import 'package:http/http.dart';
+import 'package:guachinches/services/app_storage.dart';
 
 /// Pestaña Perfil (tablero TabPerfil). Raíz de la pestaña 4: sin «Volver».
 ///
@@ -89,7 +89,7 @@ class _SettingsScreenState extends State<SettingsScreen>
   late final RemoteRepository _repo =
       widget.repository ?? HttpRemoteRepository(Client());
   late final GmFavorites _favorites = widget.favorites ?? GmFavorites.instance;
-  final _storage = const FlutterSecureStorage();
+  final _storage = AppStorage.instance;
   final _sessionStore = const SessionProfileStore();
   final _deletionStore = const AccountDeletionStore();
 

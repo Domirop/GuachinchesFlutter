@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:guachinches/config/app_colors.dart';
 import 'package:guachinches/data/cubit/onboarding/onboarding_cubit.dart';
 import 'package:guachinches/config/app_text_styles.dart';
@@ -24,6 +23,7 @@ import 'package:guachinches/ui/pages/profile/profile_presenter.dart';
 import 'package:guachinches/ui/pages/splash_screen/splash_screen.dart';
 import 'package:guachinches/ui/pages/valoraciones/valoraciones.dart';
 import 'package:http/http.dart';
+import 'package:guachinches/services/app_storage.dart';
 
 class Profilev2 extends StatefulWidget {
   const Profilev2({super.key});
@@ -36,7 +36,7 @@ class _Profilev2State extends State<Profilev2> implements ProfileView {
   late RemoteRepository remoteRepository;
   late ProfilePresenter _presenter;
   final _localRepo = SqlLiteLocalRepository();
-  final _storage = const FlutterSecureStorage();
+  final _storage = AppStorage.instance;
   int _favCount = 0;
 
   @override

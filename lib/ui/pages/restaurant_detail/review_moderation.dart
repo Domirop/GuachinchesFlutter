@@ -1,12 +1,12 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:guachinches/core/logging/app_logger.dart';
 import 'package:guachinches/data/HttpRemoteRepository.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
 import 'package:guachinches/ui/pages/restaurant_detail/reviews_logic.dart';
 import 'package:http/http.dart' as http;
+import 'package:guachinches/services/app_storage.dart';
 
 /// Moderación de reseñas en el cliente (normas UGC de la App Store):
 /// reportar (se oculta al momento, con «Deshacer») y bloquear a quien
@@ -38,7 +38,7 @@ class ReviewModeration extends ChangeNotifier {
   final Future<String?> Function() _readUserId;
   final Duration sendDelay;
 
-  static const _storage = FlutterSecureStorage();
+  static const _storage = AppStorage.instance;
   static Future<String?> _secureUserId() => _storage.read(key: 'userId');
 
   final Set<String> _hidden = {};

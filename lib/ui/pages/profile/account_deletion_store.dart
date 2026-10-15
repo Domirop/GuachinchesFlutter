@@ -1,5 +1,6 @@
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:guachinches/core/logging/app_logger.dart';
+import 'package:guachinches/services/app_storage.dart';
 
 /// Fecha de eliminación programada, guardada en el móvil.
 ///
@@ -11,7 +12,7 @@ class AccountDeletionStore {
   final FlutterSecureStorage _storage;
 
   const AccountDeletionStore(
-      {FlutterSecureStorage storage = const FlutterSecureStorage()})
+      {FlutterSecureStorage storage = AppStorage.instance})
       : _storage = storage;
 
   static String keyFor(String userId) => 'account_deletion_at_$userId';

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:guachinches/data/model/Review.dart';
 import 'package:guachinches/data/model/restaurant.dart';
 import 'package:guachinches/ui/pages/login/login_logic.dart';
@@ -14,6 +13,7 @@ import 'package:guachinches/ui/theme/gm_icons.dart';
 import 'package:guachinches/ui/theme/gm_motion.dart';
 import 'package:guachinches/ui/theme/gm_tokens.dart';
 import 'package:guachinches/ui/theme/gm_widgets.dart';
+import 'package:guachinches/services/app_storage.dart';
 
 /// «Reseñas (N)» de la ficha (tablero FichaCompleta): resumen con la nota y
 /// la distribución, tarjeta «Comparte tu experiencia» con estrellas que se
@@ -35,7 +35,7 @@ class ReviewsSection extends StatefulWidget {
 }
 
 class _ReviewsSectionState extends State<ReviewsSection> {
-  static const _storage = FlutterSecureStorage();
+  static const _storage = AppStorage.instance;
   String? _userId;
 
   @override

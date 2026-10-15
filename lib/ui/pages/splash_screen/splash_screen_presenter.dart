@@ -1,6 +1,5 @@
 import 'dart:io';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
 import 'package:flutter/material.dart';
 import 'package:guachinches/data/cubit/onboarding/onboarding_cubit.dart';
@@ -10,6 +9,7 @@ import 'package:guachinches/data/cubit/user/user_state.dart';
 import 'package:guachinches/data/model/version.dart';
 import 'package:guachinches/ui/pages/settings/settings_screen.dart';
 import 'package:guachinches/utils/app_version.dart';
+import 'package:guachinches/services/app_storage.dart';
 
 class SplashScreenPresenter {
   final SplashScreenView _view;
@@ -18,7 +18,7 @@ class SplashScreenPresenter {
 
   final UserCubit _userCubit;
   final OnboardingCubit _onboardingCubit;
-  final storage = FlutterSecureStorage();
+  final storage = AppStorage.instance;
 
   SplashScreenPresenter(
     this._view,

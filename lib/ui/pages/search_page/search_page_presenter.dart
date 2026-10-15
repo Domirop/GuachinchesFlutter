@@ -1,4 +1,3 @@
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
 import 'package:guachinches/data/cubit/cupones/cupones_cubit.dart';
 import 'package:guachinches/data/cubit/restaurants/basic/restaurant_cubit.dart';
@@ -7,6 +6,7 @@ import 'package:guachinches/data/model/Municipality.dart';
 import 'package:guachinches/data/model/Types.dart';
 import 'package:guachinches/data/model/restaurant.dart';
 import 'package:guachinches/data/model/restaurant_response.dart';
+import 'package:guachinches/services/app_storage.dart';
 
 class SearchPagePresenter {
   final SearchPageView _view;
@@ -14,7 +14,7 @@ class SearchPagePresenter {
   CuponesCubit _cuponesCubit;
   final RemoteRepository _remoteRepository;
 
-  final storage = new FlutterSecureStorage();
+  final storage = AppStorage.instance;
 
   SearchPagePresenter(this._view, this._restaurantCubit, this._cuponesCubit,
       this._remoteRepository);

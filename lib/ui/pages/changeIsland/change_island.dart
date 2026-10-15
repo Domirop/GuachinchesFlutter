@@ -1,11 +1,11 @@
 import 'package:carousel_slider/carousel_slider.dart' as cs;
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:guachinches/data/defaultData/allIsland.dart';
 import 'package:guachinches/data/model/Island.dart';
 import 'package:guachinches/globalMethods.dart';
 import 'package:guachinches/ui/pages/splash_screen/splash_screen.dart';
+import 'package:guachinches/services/app_storage.dart';
 
 class ChangeIsland extends StatefulWidget {
   const ChangeIsland({super.key});
@@ -16,7 +16,7 @@ class ChangeIsland extends StatefulWidget {
 
 class _ChangeIslandState extends State<ChangeIsland> {
   final List<Island> islandSlider = AllIsland().allIsland;
-  final storage = FlutterSecureStorage();
+  final storage = AppStorage.instance;
 
   late final List<Widget> imageSliders;
   int _current = 0;

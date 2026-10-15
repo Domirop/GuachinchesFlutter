@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:guachinches/config/app_colors.dart';
 import 'package:guachinches/data/HttpRemoteRepository.dart';
 import 'package:guachinches/data/model/Review.dart';
@@ -13,6 +12,7 @@ import 'package:guachinches/ui/theme/gm_tokens.dart';
 import 'package:guachinches/ui/theme/gm_widgets.dart';
 import 'package:guachinches/utils/restaurant_type_label.dart';
 import 'package:http/http.dart' as http;
+import 'package:guachinches/services/app_storage.dart';
 
 /// Escribir (o editar) una reseña — tablero FichaResena.
 ///
@@ -53,7 +53,7 @@ class WriteReviewScreen extends StatefulWidget {
 class _WriteReviewScreenState extends State<WriteReviewScreen> {
   final _titleCtrl = TextEditingController();
   final _reviewCtrl = TextEditingController();
-  final _storage = const FlutterSecureStorage();
+  final _storage = AppStorage.instance;
   late final HttpRemoteRepository _repo =
       HttpRemoteRepository(http.Client());
 

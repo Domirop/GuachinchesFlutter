@@ -1,14 +1,14 @@
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
 import 'package:guachinches/data/cubit/user/user_cubit.dart';
 import 'package:guachinches/data/local/restaurant_sql_lite.dart';
 import 'package:guachinches/data/local/sql_lite_local_repository.dart';
 import 'package:guachinches/data/model/Cupones.dart';
 import 'package:guachinches/data/model/restaurant.dart';
+import 'package:guachinches/services/app_storage.dart';
 
 class ProfilePresenter{
   final ProfileView _view;
-  final storage = new FlutterSecureStorage();
+  final storage = AppStorage.instance;
   UserCubit _userCubit;
   RemoteRepository _remoteRepository;
   SqlLiteLocalRepository sqlLiteLocalRepository = SqlLiteLocalRepository();

@@ -11,7 +11,6 @@ import 'package:guachinches/utils/app_version.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:guachinches/data/HttpRemoteRepository.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
@@ -55,7 +54,7 @@ import 'package:guachinches/core/analytics/firebase_analytics_service.dart';
 import 'package:guachinches/core/analytics/posthog_analytics_service.dart';
 import 'package:posthog_flutter/posthog_flutter.dart';
 import 'ui/pages/splash_screen/splash_screen.dart';
-
+import 'package:guachinches/services/app_storage.dart';
 
 const bool _kReleaseMode = const bool.fromEnvironment("dart.vm.product");
 
@@ -70,6 +69,8 @@ Future<void> main() async {
   final String file =
       _kReleaseMode == true ? 'env_files/release.env' : 'env_files/debug.env';
   await dotenv.load(fileName: file);
+  // Antes de cualquier lectura del secure storage (tema, onboarding, sesión).
+  await AppStorage.migrateLegacy();
   // Firebase es prerequisito de analytics, Crashlytics y Remote Config.
   await Firebase.initializeApp();
 
@@ -144,7 +145,7 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   final _appLinks = AppLinks();
-  final storage = new FlutterSecureStorage();
+  final storage = AppStorage.instance;
   final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
   @override
@@ -214,11 +215,6 @@ class _MyAppState extends State<MyApp> {
   //   }
   // }
 
-
-
-
-
-
   @override
   Widget build(BuildContext context) {
     RemoteRepository remoteRepository = HttpRemoteRepository(Client());
@@ -247,7 +243,7 @@ class _MyAppState extends State<MyApp> {
         ),
         BlocProvider(
           create: ((context) => BannersCubit(remoteRepository)),
-        ) ,
+        ),
         BlocProvider(
           create: ((context) => MenuCubit()),
         ),
@@ -258,10 +254,12 @@ class _MyAppState extends State<MyApp> {
           create: ((context) => NewHomeFiltersCubit()),
         ),
         BlocProvider(
-          create: ((context) => WeatherCubit(HttpWeatherService(remoteRepository))),
+          create: ((context) =>
+              WeatherCubit(HttpWeatherService(remoteRepository))),
         ),
         BlocProvider(
-          create: ((context) => ZoneWeatherCubit(HttpWeatherService(remoteRepository))),
+          create: ((context) =>
+              ZoneWeatherCubit(HttpWeatherService(remoteRepository))),
         ),
         BlocProvider(
           create: ((context) => CuratedListsCubit(remoteRepository)),
@@ -280,7 +278,8 @@ class _MyAppState extends State<MyApp> {
           create: ((context) => DishSearchCubit(context.read<VisitsCubit>())),
         ),
         BlocProvider(
-          create: ((context) => UserVisitsCubit(remoteRepository, cache: HttpCacheStore.instance)),
+          create: ((context) => UserVisitsCubit(remoteRepository,
+              cache: HttpCacheStore.instance)),
         ),
         BlocProvider(
           create: ((context) => ThemeCubit(widget.initialThemeMode)),

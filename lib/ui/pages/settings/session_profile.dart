@@ -1,6 +1,7 @@
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:guachinches/core/logging/app_logger.dart';
 import 'package:guachinches/ui/pages/settings/perfil_logic.dart';
+import 'package:guachinches/services/app_storage.dart';
 
 /// Lo que el móvil sabe de la sesión sin preguntar al backend.
 ///
@@ -28,7 +29,7 @@ class SessionProfileStore {
   final FlutterSecureStorage _storage;
 
   const SessionProfileStore(
-      {FlutterSecureStorage storage = const FlutterSecureStorage()})
+      {FlutterSecureStorage storage = AppStorage.instance})
       : _storage = storage;
 
   /// Se llama al iniciar sesión (login con email, Google o Apple).

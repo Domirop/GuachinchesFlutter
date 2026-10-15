@@ -3,6 +3,7 @@ import 'package:guachinches/core/analytics/analytics.dart';
 import 'package:guachinches/core/logging/app_logger.dart';
 import 'package:guachinches/data/cubit/user/user_cubit.dart';
 import 'package:guachinches/ui/pages/settings/session_profile.dart';
+import 'package:guachinches/services/app_storage.dart';
 
 /// Presenter de la pestaña Perfil (tablero TabPerfil).
 class SettingsPresenter {
@@ -14,7 +15,7 @@ class SettingsPresenter {
   SettingsPresenter(
     this._view,
     this._userCubit, {
-    FlutterSecureStorage storage = const FlutterSecureStorage(),
+    FlutterSecureStorage storage = AppStorage.instance,
     SessionProfileStore session = const SessionProfileStore(),
   })  : _storage = storage,
         _session = session;

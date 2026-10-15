@@ -14,6 +14,7 @@ import 'package:guachinches/ui/pages/profile/account_deletion_store.dart';
 import 'package:guachinches/ui/pages/settings/perfil_logic.dart';
 import 'package:guachinches/ui/pages/settings/session_profile.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
+import 'package:guachinches/services/app_storage.dart';
 
 /// Lo que el acceso necesita del mundo exterior. [LoginPresenter] es la
 /// implementación real; las pruebas usan una falsa.
@@ -46,7 +47,7 @@ class LoginPresenter implements LoginAuth {
   LoginPresenter(
     this._remoteRepository,
     this._userCubit, {
-    FlutterSecureStorage storage = const FlutterSecureStorage(),
+    FlutterSecureStorage storage = AppStorage.instance,
     SessionProfileStore session = const SessionProfileStore(),
     AccountDeletionStore deletion = const AccountDeletionStore(),
   })  : _storage = storage,

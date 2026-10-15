@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:guachinches/core/logging/app_logger.dart';
 import 'package:guachinches/data/HttpRemoteRepository.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
@@ -25,6 +24,7 @@ import 'package:guachinches/ui/theme/gm_motion.dart';
 import 'package:guachinches/ui/theme/gm_tokens.dart';
 import 'package:guachinches/ui/theme/gm_widgets.dart';
 import 'package:http/http.dart' as http;
+import 'package:guachinches/services/app_storage.dart';
 
 /// Mis reseñas (tablero PerfilMisResenas): las reseñas del usuario con su
 /// nota, resumen arriba y, en cada tarjeta, ir a la ficha o editarla con el
@@ -44,7 +44,7 @@ enum _Status { loading, ready, error }
 class _ValoracionesPageState extends State<ValoracionesPage> {
   late final RemoteRepository _repo =
       widget.repository ?? HttpRemoteRepository(http.Client());
-  final _storage = const FlutterSecureStorage();
+  final _storage = AppStorage.instance;
 
   _Status _status = _Status.loading;
   String? _userId;

@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:uuid/uuid.dart';
+import 'package:guachinches/services/app_storage.dart';
 
 /// Piezas de la identidad del móvil y de App Check para la encuesta
 /// (ENCUESTA-SEGURIDAD.md, «Plan elegido: App Check»).
@@ -65,8 +66,8 @@ class SurveyLocalId {
   static bool isValid(String h) => _hex64.hasMatch(h);
 
   /// El cálculo del cliente (fixture compartida con `identity.ts` del backend).
-  static String hashOf(List<int> secret) => sha256
-      .convert([...utf8.encode('gm-survey-id:'), ...secret]).toString();
+  static String hashOf(List<int> secret) =>
+      sha256.convert([...utf8.encode('gm-survey-id:'), ...secret]).toString();
 
   @override
   String toString() => 'SurveyLocalId(<redactado>, created: $created)';
@@ -103,7 +104,12 @@ class KeychainLocalIdSource implements LocalIdSource {
   Future<SurveyLocalId>? _pending;
 
   KeychainLocalIdSource({FlutterSecureStorage? storage, Random? random})
-      : _storage = storage ?? const FlutterSecureStorage(iOptions: iosOptions),
+      // Android: el mismo almacén cifrado que AppStorage. Con la configuración
+      // por defecto el plugin movía la identidad al cifrado en cada arranque y
+      // aquí no se encontraba: salía una identidad nueva cada vez.
+      : _storage = storage ??
+            const FlutterSecureStorage(
+                iOptions: iosOptions, aOptions: AppStorage.androidOptions),
         _random = random ?? Random.secure();
 
   /// Dos llamadas a la vez (primer arranque) comparten la misma lectura y la
@@ -230,7 +236,8 @@ class FirebaseAppCheckTokenSource implements AppCheckTokenSource {
     await appCheck.activate(
       androidProvider:
           debugProvider ? AndroidProvider.debug : AndroidProvider.playIntegrity,
-      appleProvider: debugProvider ? AppleProvider.debug : AppleProvider.appAttest,
+      appleProvider:
+          debugProvider ? AppleProvider.debug : AppleProvider.appAttest,
     );
     // Solo se usan tokens de uso limitado: sin refresco en segundo plano.
     await appCheck.setTokenAutoRefreshEnabled(false);
@@ -313,8 +320,8 @@ class FirebaseAppCheckTokenSource implements AppCheckTokenSource {
 /// en segundos para que también se pruebe la frescura (> 120 s → `stale`). En
 /// release la constante es `false` y este código se elimina al compilar.
 class FakeAppCheckTokenSource implements AppCheckTokenSource {
-  static const enabled = kDebugMode &&
-      String.fromEnvironment('SURVEY_INTEGRITY') == 'fake';
+  static const enabled =
+      kDebugMode && String.fromEnvironment('SURVEY_INTEGRITY') == 'fake';
 
   final String appId;
   final DateTime Function() _now;
