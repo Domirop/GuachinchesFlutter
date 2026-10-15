@@ -1,25 +1,32 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:guachinches/config/app_colors.dart';
-import 'package:guachinches/config/app_text_styles.dart';
-import 'package:guachinches/config/brand_colors.dart';
 import 'package:guachinches/data/HttpRemoteRepository.dart';
 import 'package:guachinches/data/cubit/curated_list_detail/curated_list_detail_cubit.dart';
-import 'package:guachinches/data/cubit/location/location_cubit.dart';
-import 'package:guachinches/data/cubit/location/location_state.dart';
+import 'package:guachinches/data/cubit/new_home/islands_cubit.dart';
+import 'package:guachinches/data/cubit/new_home/visits_cubit.dart';
 import 'package:guachinches/data/http_client.dart';
+import 'package:guachinches/data/model/Visit.dart';
 import 'package:guachinches/data/model/curated_list.dart';
 import 'package:guachinches/globalMethods.dart';
-import 'package:guachinches/utils/distance_utils.dart';
-import 'package:share_plus/share_plus.dart' show SharePlus, ShareParams;
-import 'package:guachinches/ui/components/pinned_top_bar.dart';
-import 'package:guachinches/ui/components/shimmer_box.dart';
-import 'package:guachinches/ui/pages/curated_list_detail/widgets/curated_list_item_card.dart';
+import 'package:guachinches/ui/components/vignettes/list_vignette.dart';
+import 'package:guachinches/ui/pages/advance_search/list_theme.dart';
+import 'package:guachinches/ui/pages/curated_list_detail/curated_list_logic.dart';
+import 'package:guachinches/ui/pages/curated_list_detail/widgets/curated_list_header.dart';
+import 'package:guachinches/ui/pages/curated_list_detail/widgets/curated_place_card.dart';
+import 'package:guachinches/ui/pages/new_home/widgets/gm_place_card.dart'
+    show gmDisplayName;
 import 'package:guachinches/ui/pages/restaurant_detail/restaurant_detail_screen.dart';
+import 'package:guachinches/ui/theme/gm_icons.dart';
+import 'package:guachinches/ui/theme/gm_motion.dart';
+import 'package:guachinches/ui/theme/gm_tokens.dart';
+import 'package:guachinches/ui/theme/gm_widgets.dart';
+import 'package:share_plus/share_plus.dart' show SharePlus, ShareParams;
 
-enum _SortMode { byPosition, alphabetical }
-
+/// Lista curada de Jonay y Joana (tableros «Lista curada, bocadillos de
+/// cochino», «japoneses» y «ocasiones especiales»): cabecera con la banda
+/// del tema y su viñeta animada, hoja con buscador, zonas y orden, y rejilla
+/// de 2 columnas con la portada del vídeo de cada sitio.
 class CuratedListDetailScreen extends StatelessWidget {
   final CuratedList list;
 
@@ -31,52 +38,7 @@ class CuratedListDetailScreen extends StatelessWidget {
       create: (_) => CuratedListDetailCubit(
         HttpRemoteRepository(sharedHttpClient),
       )..load(list.id),
-      child: _LightTheme(child: _CuratedListDetailView(list: list)),
-    );
-  }
-}
-
-/// Forces light tokens for this screen regardless of global theme.
-class _LightTheme extends StatefulWidget {
-  final Widget child;
-  const _LightTheme({required this.child});
-
-  @override
-  State<_LightTheme> createState() => _LightThemeState();
-}
-
-class _LightThemeState extends State<_LightTheme> {
-  Color? _previousDefault;
-
-  @override
-  void initState() {
-    super.initState();
-    _previousDefault = AppTextStyles.defaultTextColor;
-    AppTextStyles.defaultTextColor = AppColors.ink;
-  }
-
-  @override
-  void dispose() {
-    if (_previousDefault != null) {
-      AppTextStyles.defaultTextColor = _previousDefault!;
-    }
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final base = Theme.of(context);
-    return Theme(
-      data: base.copyWith(
-        extensions: <ThemeExtension<dynamic>>[BrandColors.light],
-      ),
-      child: AnnotatedRegion<SystemUiOverlayStyle>(
-        value: SystemUiOverlayStyle.dark.copyWith(
-          statusBarColor: Colors.transparent,
-          systemNavigationBarColor: AppColors.crema,
-        ),
-        child: widget.child,
-      ),
+      child: _CuratedListDetailView(list: list),
     );
   }
 }
@@ -90,765 +52,465 @@ class _CuratedListDetailView extends StatefulWidget {
 }
 
 class _CuratedListDetailViewState extends State<_CuratedListDetailView> {
+  final _search = TextEditingController();
   String _query = '';
-  String? _municipio; // null = todos
-  _SortMode _sort = _SortMode.byPosition;
+  String? _zone;
+  CuratedSort _sort = CuratedSort.byRank;
+
+  /// La viñeta de la cabecera solo corre mientras se ve.
+  final ValueNotifier<bool> _sceneVisible = ValueNotifier(true);
+
+  @override
+  void dispose() {
+    _search.dispose();
+    _sceneVisible.dispose();
+    super.dispose();
+  }
+
+  String? _islandName(String? islandId) {
+    if (islandId == null) return null;
+    final s = context.watch<IslandsCubit>().state;
+    if (s is! IslandsLoaded) return null;
+    for (final i in s.islands) {
+      if (i.id == islandId) return i.name;
+    }
+    return null;
+  }
+
+  void _clearFilters() {
+    _search.clear();
+    setState(() {
+      _query = '';
+      _zone = null;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    final list = widget.list;
-    return Scaffold(
-      backgroundColor: AppColors.crema,
-      body: BlocBuilder<CuratedListDetailCubit, CuratedListDetailState>(
-        builder: (context, state) {
-          if (state is CuratedListDetailLoaded) {
-            return _buildLoaded(context, state.detail);
-          }
-          if (state is CuratedListDetailFailure) {
-            return _ErrorView(
-              message: state.message,
-              onRetry: () =>
-                  context.read<CuratedListDetailCubit>().load(list.id),
-            );
-          }
-          return _LoadingView(list: list);
+    final gm = GmColors.of(context);
+    final state = context.watch<CuratedListDetailCubit>().state;
+    final visitsState = context.watch<VisitsCubit>().state;
+    final visits =
+        visitsState is VisitsLoaded ? visitsState.visits : const <Visit>[];
+
+    final CuratedList info =
+        state is CuratedListDetailLoaded ? state.detail : widget.list;
+    final vignette = listVignetteFor('${info.id} ${info.title}');
+    final theme = kListThemes[curatedThemeKind(vignette)]!;
+    final count = state is CuratedListDetailLoaded
+        ? state.detail.items.length
+        : info.count;
+
+    final slivers = <Widget>[
+      SliverToBoxAdapter(
+        child: CuratedListHeader(
+          theme: theme,
+          vignette: vignette,
+          eyebrow: curatedHeaderEyebrow(
+              info.eyebrow, count, _islandName(info.islandId)),
+          title: gmDisplayName(info.title),
+          subtitle: info.subtitle.trim(),
+          sceneVisible: _sceneVisible,
+          onBack: () => Navigator.of(context).maybePop(),
+          onShare: () => SharePlus.instance.share(
+            ShareParams(text: '${info.title} en ¿Dónde Comer Canarias?'),
+          ),
+        ),
+      ),
+      ..._body(context, state, visits),
+      SliverToBoxAdapter(
+        child: SizedBox(height: MediaQuery.paddingOf(context).bottom + 32),
+      ),
+    ];
+
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: gm.isDark
+          ? SystemUiOverlayStyle.light
+          : SystemUiOverlayStyle.dark
+              .copyWith(statusBarColor: Colors.transparent),
+      child: Scaffold(
+        backgroundColor: gm.canvas,
+        body: Semantics(
+          identifier: 'curated-list-content',
+          child: NotificationListener<ScrollNotification>(
+            onNotification: (n) {
+              if (n.depth == 0) _sceneVisible.value = n.metrics.pixels < 260;
+              return false;
+            },
+            child: CustomScrollView(slivers: slivers),
+          ),
+        ),
+      ),
+    );
+  }
+
+  List<Widget> _body(
+      BuildContext context, CuratedListDetailState state, List<Visit> visits) {
+    if (state is CuratedListDetailFailure) {
+      return [
+        SliverToBoxAdapter(
+          child: _StateCard(
+            identifier: 'curated-list-error',
+            title: 'No pudimos cargar la lista',
+            text: 'Revisa tu conexión e inténtalo de nuevo.',
+            action: 'Reintentar',
+            onAction: () =>
+                context.read<CuratedListDetailCubit>().load(widget.list.id),
+          ),
+        ),
+      ];
+    }
+    if (state is! CuratedListDetailLoaded) {
+      return [
+        const SliverToBoxAdapter(child: SizedBox(height: 74)),
+        const SliverToBoxAdapter(child: _SectionSkeleton()),
+        _grid(List.generate(4, (_) => const CuratedPlaceSkeleton())),
+      ];
+    }
+
+    final places = curatedPlaces(state.detail.items, visits);
+    final zones = curatedZones(places);
+    final shown =
+        filterCuratedPlaces(places, query: _query, zone: _zone, sort: _sort);
+    final filtering = _query.trim().isNotEmpty || _zone != null;
+
+    return [
+      SliverToBoxAdapter(
+        child: GmRise(
+          index: 1,
+          child: _SearchField(
+            controller: _search,
+            onChanged: (v) => setState(() => _query = v),
+          ),
+        ),
+      ),
+      if (zones.isNotEmpty)
+        SliverToBoxAdapter(
+          child: GmRise(
+            index: 1,
+            child: _ZoneChips(
+              zones: zones,
+              selected: _zone,
+              onSelected: (z) => setState(() => _zone = z),
+            ),
+          ),
+        ),
+      SliverToBoxAdapter(
+        child: GmRise(
+          index: 2,
+          child: _SectionHead(
+            eyebrow: filtering
+                ? '${shown.length} de ${places.length}'
+                : '${places.length} en total',
+            sort: _sort,
+            onSort: () => setState(() => _sort = _sort == CuratedSort.byRank
+                ? CuratedSort.alphabetical
+                : CuratedSort.byRank),
+          ),
+        ),
+      ),
+      if (shown.isEmpty)
+        SliverToBoxAdapter(
+          child: _StateCard(
+            identifier: 'curated-list-empty',
+            title: _query.trim().isNotEmpty
+                ? 'Ningún sitio con «${_query.trim()}»'
+                : 'Ningún sitio en esa zona',
+            text: 'Quita el filtro y vuelven todos.',
+            action: 'Ver todos',
+            onAction: _clearFilters,
+          ),
+        )
+      else
+        _grid([
+          for (final (i, p) in shown.indexed)
+            GmRise(
+              index: 2 + (i ~/ 2).clamp(0, 4),
+              child: CuratedPlaceCard(
+                place: p,
+                onTap: () => GlobalMethods().pushPage(
+                    context, RestaurantDetailScreen(id: p.restaurantId)),
+              ),
+            ),
+        ]),
+    ];
+  }
+
+  /// Rejilla de 2 columnas (filas con alto natural: el texto puede crecer).
+  Widget _grid(List<Widget> cards) {
+    return SliverPadding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+      sliver: SliverList.separated(
+        itemCount: (cards.length + 1) ~/ 2,
+        separatorBuilder: (_, __) => const SizedBox(height: 12),
+        itemBuilder: (_, row) {
+          final a = cards[row * 2];
+          final b = row * 2 + 1 < cards.length ? cards[row * 2 + 1] : null;
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(child: a),
+              const SizedBox(width: 12),
+              Expanded(child: b ?? const SizedBox.shrink()),
+            ],
+          );
         },
       ),
     );
   }
-
-  Widget _buildLoaded(BuildContext context, CuratedListDetail detail) {
-    final municipalities = _municipalitiesFrom(detail);
-    final filtered = _applyFilters(detail);
-    // Puesto 1-based sobre la lista completa (el backend numera desde 0 en
-    // unas listas y desde 1 en otras), estable aunque se filtre.
-    final ranks = <String, int>{
-      for (final e in ([...detail.items]
-            ..sort((a, b) => a.position.compareTo(b.position)))
-          .indexed)
-        e.$2.restaurantId: e.$1 + 1,
-    };
-
-    // Ubicación del usuario (si la concedió) para mostrar la distancia a cada
-    // negocio. `watch` re-renderiza la lista cuando llega el primer fix GPS.
-    final locState = context.watch<LocationCubit>().state;
-    final double? userLat =
-        locState is LocationLoaded ? locState.latitude : null;
-    final double? userLon =
-        locState is LocationLoaded ? locState.longitude : null;
-
-    return Semantics(
-      identifier: 'curated-list-content',
-      child: Stack(
-        children: [
-          CustomScrollView(
-      slivers: [
-        _Hero(detail: detail),
-        SliverToBoxAdapter(
-          child: _ToolBar(
-            query: _query,
-            onQuery: (v) => setState(() => _query = v),
-            municipalities: municipalities,
-            municipio: _municipio,
-            onMunicipio: (v) => setState(() => _municipio = v),
-            sort: _sort,
-            onSort: (v) => setState(() => _sort = v),
-            visible: filtered.length,
-            total: detail.items.length,
-            accent: detail.accent,
-          ),
-        ),
-        if (filtered.isEmpty)
-          const SliverFillRemaining(
-            hasScrollBody: false,
-            child: _EmptyView(),
-          )
-        else
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(14, 4, 14, 32),
-            sliver: SliverList.separated(
-              itemCount: filtered.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 14),
-              itemBuilder: (_, i) {
-                final item = filtered[i];
-                return CuratedListItemCard(
-                  item: item,
-                  accent: detail.accent,
-                  fallbackEyebrow: detail.eyebrow,
-                  distanceLabel: _distanceLabelFor(item, userLat, userLon),
-                  rank: ranks[item.restaurantId],
-                  onTap: () => _openRestaurant(item.restaurantId),
-                );
-              },
-            ),
-          ),
-      ],
-          ),
-          // Barra superior anclada: vuelve y comparte fijos al hacer scroll.
-          PinnedTopBar(
-            variant: PinnedBarVariant.lightSolid,
-            onBack: () => Navigator.of(context).maybePop(),
-            backIdentifier: 'curated-list-back-button',
-            actions: [
-              PinnedCircleButton(
-                icon: Icons.ios_share_rounded,
-                variant: PinnedBarVariant.lightSolid,
-                identifier: 'curated-list-share-button',
-                onTap: () => SharePlus.instance.share(
-                  ShareParams(
-                    text: '${detail.title} en ¿Dónde Comer Canarias?',
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _openRestaurant(String id) {
-    GlobalMethods().pushPage(context, RestaurantDetailScreen(id: id));
-  }
-
-  /// Distancia formateada del usuario al negocio. `null` si no hay ubicación
-  /// o el negocio no trae coordenadas válidas (lat/lon en 0,0).
-  String? _distanceLabelFor(
-    CuratedListItem item,
-    double? userLat,
-    double? userLon,
-  ) {
-    if (userLat == null || userLon == null) return null;
-    final r = item.restaurant;
-    if (r == null || r.lat == null || r.lon == null) return null;
-    final meters = haversineDistanceMeters(userLat, userLon, r.lat!, r.lon!);
-    return formatDistance(meters);
-  }
-
-  List<String> _municipalitiesFrom(CuratedListDetail detail) {
-    final set = <String>{};
-    for (final it in detail.items) {
-      final m = it.restaurant?.municipio;
-      if (m != null && m.trim().isNotEmpty) set.add(m.trim());
-    }
-    final list = set.toList()..sort();
-    return list;
-  }
-
-  List<CuratedListItem> _applyFilters(CuratedListDetail detail) {
-    final q = _query.trim().toLowerCase();
-    Iterable<CuratedListItem> it = detail.items;
-
-    if (q.isNotEmpty) {
-      it = it.where((e) {
-        final r = e.restaurant;
-        final name = (r?.nombre ?? '').toLowerCase();
-        final municipio = (r?.municipio ?? '').toLowerCase();
-        final note = (e.note ?? '').toLowerCase();
-        return name.contains(q) ||
-            municipio.contains(q) ||
-            note.contains(q);
-      });
-    }
-    if (_municipio != null) {
-      it = it.where((e) =>
-          (e.restaurant?.municipio ?? '').trim() == _municipio);
-    }
-
-    final result = it.toList();
-    switch (_sort) {
-      case _SortMode.byPosition:
-        result.sort((a, b) => a.position.compareTo(b.position));
-        break;
-      case _SortMode.alphabetical:
-        result.sort((a, b) => (a.restaurant?.nombre ?? '')
-            .toLowerCase()
-            .compareTo((b.restaurant?.nombre ?? '').toLowerCase()));
-        break;
-    }
-    return result;
-  }
 }
 
-// ─── Hero (Sliver) ─────────────────────────────────────────────
-
-class _Hero extends StatelessWidget {
-  final CuratedListDetail detail;
-  const _Hero({required this.detail});
-
-  @override
-  Widget build(BuildContext context) {
-    final topInset = MediaQuery.of(context).padding.top;
-    return SliverToBoxAdapter(
-      child: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              detail.accent.withOpacity(0.32),
-              detail.accent.withOpacity(0.10),
-              AppColors.crema,
-            ],
-            stops: const [0, 0.55, 1],
-          ),
-        ),
-        // Deja hueco arriba para la barra anclada (back + share flotantes).
-        padding: EdgeInsets.fromLTRB(20, topInset + 58, 20, 20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Eyebrow + count pills
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                if (detail.eyebrow.isNotEmpty)
-                  _Pill(
-                    label: detail.eyebrow.toUpperCase(),
-                    bg: AppColors.ink.withOpacity(0.85),
-                    fg: AppColors.crema,
-                  ),
-                _Pill(
-                  label: '${detail.count} sitios',
-                  bg: AppColors.cremaSoft,
-                  fg: AppColors.ink,
-                  border: AppColors.borderCreamMd,
-                ),
-              ],
-            ),
-            const SizedBox(height: 14),
-            // Title
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Expanded(
-                  child: Text(
-                    detail.title.toUpperCase(),
-                    style: AppTextStyles.displayHero(
-                      size: 32,
-                      color: AppColors.ink,
-                    ).copyWith(height: 1.0),
-                  ),
-                ),
-                if (detail.heroEmoji != null)
-                  Padding(
-                    padding: const EdgeInsets.only(left: 10),
-                    child: Text(
-                      detail.heroEmoji!,
-                      style: const TextStyle(fontSize: 56),
-                    ),
-                  ),
-              ],
-            ),
-            if (detail.subtitle.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              Text(
-                detail.subtitle,
-                style: AppTextStyles.editorial(
-                  size: 14,
-                  color: AppColors.inkSoft,
-                ),
-              ),
-            ],
-            const SizedBox(height: 14),
-            Row(
-              children: [
-                Icon(Icons.location_on_outlined,
-                    size: 14, color: AppColors.inkMuted),
-                const SizedBox(width: 4),
-                Text(
-                  detail.location,
-                  style: AppTextStyles.ui(
-                    size: 12,
-                    weight: FontWeight.w500,
-                    color: AppColors.inkMuted,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _IconChip extends StatelessWidget {
-  final IconData icon;
-  final VoidCallback onTap;
-  final String? identifier;
-  const _IconChip({required this.icon, required this.onTap, this.identifier});
-
-  @override
-  Widget build(BuildContext context) {
-    final gesture = GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          color: AppColors.cremaSoft.withOpacity(0.85),
-          shape: BoxShape.circle,
-          border: Border.all(color: AppColors.borderCreamMd),
-        ),
-        child: Icon(icon, size: 18, color: AppColors.ink),
-      ),
-    );
-    if (identifier != null) {
-      return Semantics(identifier: identifier!, button: true, child: gesture);
-    }
-    return gesture;
-  }
-}
-
-class _Pill extends StatelessWidget {
-  final String label;
-  final Color bg;
-  final Color fg;
-  final Color? border;
-
-  const _Pill({
-    required this.label,
-    required this.bg,
-    required this.fg,
-    this.border,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(999),
-        border: border != null ? Border.all(color: border!) : null,
-      ),
-      child: Text(
-        label,
-        style: AppTextStyles.eyebrow(size: 10, color: fg),
-      ),
-    );
-  }
-}
-
-// ─── ToolBar (search + filters + sort + count) ─────────────────
-
-class _ToolBar extends StatelessWidget {
-  final String query;
-  final ValueChanged<String> onQuery;
-  final List<String> municipalities;
-  final String? municipio;
-  final ValueChanged<String?> onMunicipio;
-  final _SortMode sort;
-  final ValueChanged<_SortMode> onSort;
-  final int visible;
-  final int total;
-  final Color accent;
-
-  const _ToolBar({
-    required this.query,
-    required this.onQuery,
-    required this.municipalities,
-    required this.municipio,
-    required this.onMunicipio,
-    required this.sort,
-    required this.onSort,
-    required this.visible,
-    required this.total,
-    required this.accent,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final hasFilter = query.isNotEmpty || municipio != null;
-
-    return Container(
-      padding: const EdgeInsets.fromLTRB(14, 6, 14, 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _SearchField(value: query, onChanged: onQuery),
-          const SizedBox(height: 10),
-          SizedBox(
-            height: 34,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              children: [
-                _FilterChip(
-                  label: 'Todos',
-                  active: municipio == null,
-                  onTap: () => onMunicipio(null),
-                  accent: accent,
-                ),
-                const SizedBox(width: 8),
-                ...municipalities.map((m) => Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: _FilterChip(
-                        label: m,
-                        active: municipio == m,
-                        onTap: () => onMunicipio(m),
-                        accent: accent,
-                      ),
-                    )),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Text(
-                hasFilter
-                    ? '$visible de $total resultados'
-                    : '$total sitios',
-                style: AppTextStyles.ui(
-                  size: 12,
-                  weight: FontWeight.w600,
-                  color: AppColors.inkSoft,
-                ),
-              ),
-              const Spacer(),
-              _SortToggle(value: sort, onChanged: onSort, accent: accent),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SearchField extends StatefulWidget {
-  final String value;
+class _SearchField extends StatelessWidget {
+  final TextEditingController controller;
   final ValueChanged<String> onChanged;
-
-  const _SearchField({required this.value, required this.onChanged});
-
-  @override
-  State<_SearchField> createState() => _SearchFieldState();
-}
-
-class _SearchFieldState extends State<_SearchField> {
-  late final TextEditingController _ctrl =
-      TextEditingController(text: widget.value);
-
-  @override
-  void didUpdateWidget(covariant _SearchField old) {
-    super.didUpdateWidget(old);
-    if (widget.value != _ctrl.text) {
-      _ctrl.value = TextEditingValue(
-        text: widget.value,
-        selection: TextSelection.collapsed(offset: widget.value.length),
-      );
-    }
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
+  const _SearchField({required this.controller, required this.onChanged});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 44,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(
-        color: AppColors.cremaSoft,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.borderCream),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.search_rounded, size: 18, color: AppColors.inkMuted),
-          const SizedBox(width: 8),
-          Expanded(
-            child: TextField(
-              controller: _ctrl,
-              onChanged: widget.onChanged,
-              cursorColor: AppColors.atlantico,
-              style: AppTextStyles.ui(size: 14, color: AppColors.ink),
-              decoration: InputDecoration(
-                isCollapsed: true,
-                border: InputBorder.none,
-                hintText: 'Busca por nombre, zona o nota…',
-                hintStyle: AppTextStyles.ui(
-                  size: 14,
-                  color: AppColors.inkMuted,
+    final gm = GmColors.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+      child: Container(
+        height: 48,
+        decoration: BoxDecoration(
+          color: gm.card,
+          borderRadius: BorderRadius.circular(GmRadius.pill),
+          boxShadow: gm.shadow1,
+        ),
+        child: Row(
+          children: [
+            const SizedBox(width: 15),
+            GmIcon(GmIcons.search, size: 18, color: gm.label2),
+            const SizedBox(width: 9),
+            Expanded(
+              child: Semantics(
+                identifier: 'curated-list-search-field',
+                child: TextField(
+                  controller: controller,
+                  onChanged: onChanged,
+                  textInputAction: TextInputAction.search,
+                  style: GmText.body17(color: gm.label),
+                  cursorColor: gm.accent,
+                  decoration: InputDecoration(
+                    isCollapsed: true,
+                    border: InputBorder.none,
+                    hintText: 'Nombre, zona, plato…',
+                    hintStyle: GmText.body17(color: gm.label2),
+                  ),
                 ),
               ),
             ),
-          ),
-          if (widget.value.isNotEmpty)
-            GestureDetector(
-              onTap: () => widget.onChanged(''),
-              child: Icon(Icons.close_rounded,
-                  size: 18, color: AppColors.inkMuted),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _FilterChip extends StatelessWidget {
-  final String label;
-  final bool active;
-  final VoidCallback onTap;
-  final Color accent;
-
-  const _FilterChip({
-    required this.label,
-    required this.active,
-    required this.onTap,
-    required this.accent,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 160),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(
-          color: active ? AppColors.ink : AppColors.cremaSoft,
-          borderRadius: BorderRadius.circular(999),
-          border: Border.all(
-            color: active ? AppColors.ink : AppColors.borderCreamMd,
-          ),
-        ),
-        alignment: Alignment.center,
-        child: Text(
-          label,
-          style: AppTextStyles.ui(
-            size: 12,
-            weight: FontWeight.w600,
-            color: active ? AppColors.crema : AppColors.inkSoft,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _SortToggle extends StatelessWidget {
-  final _SortMode value;
-  final ValueChanged<_SortMode> onChanged;
-  final Color accent;
-
-  const _SortToggle({
-    required this.value,
-    required this.onChanged,
-    required this.accent,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => onChanged(
-        value == _SortMode.byPosition
-            ? _SortMode.alphabetical
-            : _SortMode.byPosition,
-      ),
-      child: Row(
-        children: [
-          Icon(
-            value == _SortMode.byPosition
-                ? Icons.format_list_numbered_rounded
-                : Icons.sort_by_alpha_rounded,
-            size: 16,
-            color: AppColors.atlantico,
-          ),
-          const SizedBox(width: 6),
-          Text(
-            value == _SortMode.byPosition ? 'Por puesto' : 'Alfabético',
-            style: AppTextStyles.ui(
-              size: 12,
-              weight: FontWeight.w600,
-              color: AppColors.atlantico,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ─── States: loading / empty / error ───────────────────────────
-
-class _LoadingView extends StatelessWidget {
-  final CuratedList list;
-  const _LoadingView({required this.list});
-
-  @override
-  Widget build(BuildContext context) {
-    return CustomScrollView(
-      slivers: [
-        _Hero(
-          detail: CuratedListDetail(
-            id: list.id,
-            eyebrow: list.eyebrow,
-            title: list.title,
-            subtitle: list.subtitle,
-            heroAsset: list.heroAsset,
-            heroEmoji: list.heroEmoji,
-            count: list.count,
-            location: list.location,
-            accent: list.accent,
-            islandId: list.islandId,
-            position: list.position,
-            enabled: list.enabled,
-            items: const [],
-          ),
-        ),
-        SliverPadding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          sliver: SliverList(
-            delegate: SliverChildBuilderDelegate(
-              (context, index) => Semantics(
-                identifier: 'curated-list-skeleton',
-                child: Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      ShimmerBox(width: 96, height: 96, radius: 12),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            ShimmerBox(width: double.infinity, height: 16, radius: 4),
-                            const SizedBox(height: 8),
-                            ShimmerBox(width: 160, height: 13, radius: 4),
-                            const SizedBox(height: 6),
-                            ShimmerBox(width: 100, height: 13, radius: 4),
-                          ],
+            ValueListenableBuilder<TextEditingValue>(
+              valueListenable: controller,
+              builder: (_, v, __) => v.text.isEmpty
+                  ? const SizedBox(width: 16)
+                  : GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () {
+                        controller.clear();
+                        onChanged('');
+                      },
+                      child: Semantics(
+                        button: true,
+                        label: 'Borrar búsqueda',
+                        child: SizedBox(
+                          width: 44,
+                          height: 48,
+                          child: Center(
+                            child: GmIcon(GmIcons.xSmall,
+                                size: 16, color: gm.label2),
+                          ),
                         ),
                       ),
-                    ],
-                  ),
-                ),
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ZoneChips extends StatelessWidget {
+  final List<String> zones;
+  final String? selected;
+  final ValueChanged<String?> onSelected;
+  const _ZoneChips(
+      {required this.zones, required this.selected, required this.onSelected});
+
+  @override
+  Widget build(BuildContext context) {
+    final gm = GmColors.of(context);
+    Widget chip(String label, String? value) {
+      final on = selected == value;
+      return Semantics(
+        button: true,
+        selected: on,
+        identifier: 'curated-list-zone-${value ?? 'todas'}',
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => onSelected(on && value != null ? null : value),
+          child: Padding(
+            // 34 visibles, 44 de toque.
+            padding: const EdgeInsets.symmetric(vertical: 5),
+            child: Container(
+              height: 34,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: on ? gm.accentSoft : gm.fill,
+                borderRadius: BorderRadius.circular(GmRadius.pill),
               ),
-              childCount: 4,
+              child: Text(label,
+                  style: GmText.sub(
+                      color: on ? gm.accent : gm.label, w: FontWeight.w600)),
             ),
           ),
         ),
-      ],
-    );
-  }
-}
+      );
+    }
 
-class _EmptyView extends StatelessWidget {
-  const _EmptyView();
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      identifier: 'curated-list-empty',
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.search_off_rounded,
-                size: 48, color: AppColors.inkMuted),
-            const SizedBox(height: 12),
-            Text(
-              'Sin resultados',
-              style: AppTextStyles.displayHero(
-                size: 22,
-                color: AppColors.ink,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'Prueba a quitar algún filtro o cambiar la búsqueda.',
-              textAlign: TextAlign.center,
-              style: AppTextStyles.editorial(
-                size: 13,
-                color: AppColors.inkSoft,
-              ),
-            ),
-          ],
-        ),
+    return SizedBox(
+      height: 54,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+        itemCount: zones.length + 1,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (_, i) => i == 0
+            ? chip('Todas las zonas', null)
+            : chip(zones[i - 1], zones[i - 1]),
       ),
     );
   }
 }
 
-class _ErrorView extends StatelessWidget {
-  final String message;
-  final VoidCallback onRetry;
-
-  const _ErrorView({required this.message, required this.onRetry});
+class _SectionHead extends StatelessWidget {
+  final String eyebrow;
+  final CuratedSort sort;
+  final VoidCallback onSort;
+  const _SectionHead(
+      {required this.eyebrow, required this.sort, required this.onSort});
 
   @override
   Widget build(BuildContext context) {
-    return Semantics(
-      identifier: 'curated-list-error',
-      child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Align(
-                alignment: Alignment.topLeft,
-                child: _IconChip(
-                  icon: Icons.arrow_back_rounded,
-                  onTap: () => Navigator.of(context).maybePop(),
-                  identifier: 'curated-list-error-back',
-                ),
-              ),
-            const Spacer(),
-            Icon(Icons.cloud_off_rounded,
-                size: 48, color: AppColors.inkMuted),
-            const SizedBox(height: 12),
-            Text(
-              'No pudimos cargar la lista',
-              style: AppTextStyles.displayHero(
-                size: 22,
-                color: AppColors.ink,
-              ),
+    final gm = GmColors.of(context);
+    final label =
+        sort == CuratedSort.byRank ? 'Orden de la guía' : 'De la A a la Z';
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 22, 16, 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                GmEyebrow(text: eyebrow),
+                const SizedBox(height: 2),
+                Text('Los sitios', style: GmText.title2(color: gm.label)),
+              ],
             ),
-            const SizedBox(height: 6),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              maxLines: 3,
-              overflow: TextOverflow.ellipsis,
-              style: AppTextStyles.editorial(
-                size: 12,
-                color: AppColors.inkMuted,
-              ),
-            ),
-            const SizedBox(height: 18),
-            GestureDetector(
-              onTap: onRetry,
+          ),
+          GmPressable(
+            semanticsIdentifier: 'curated-list-sort',
+            semanticsLabel: 'Ordenar: $label',
+            onTap: onSort,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
               child: Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 18, vertical: 12),
+                height: 36,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
                 decoration: BoxDecoration(
-                  color: AppColors.atlantico,
-                  borderRadius: BorderRadius.circular(999),
+                  color: gm.card,
+                  borderRadius: BorderRadius.circular(GmRadius.pill),
+                  boxShadow: gm.shadow1,
                 ),
-                child: Text(
-                  'Reintentar',
-                  style: AppTextStyles.ui(
-                    size: 13,
-                    weight: FontWeight.w700,
-                    color: Colors.white,
-                  ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    GmIcon(GmIcons.sort, size: 14, color: gm.label),
+                    const SizedBox(width: 6),
+                    Text(label,
+                        style: GmText.sub(color: gm.label, w: FontWeight.w600)),
+                  ],
                 ),
               ),
             ),
-            const Spacer(),
-          ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SectionSkeleton extends StatelessWidget {
+  const _SectionSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    final gm = GmColors.of(context);
+    Widget bar(double w, double h) => Container(
+          width: w,
+          height: h,
+          decoration: BoxDecoration(
+            color: gm.fill,
+            borderRadius: BorderRadius.circular(6),
+          ),
+        );
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
+      child: Semantics(
+        identifier: 'curated-list-loading',
+        label: 'Cargando la lista',
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [bar(90, 12), const SizedBox(height: 10), bar(140, 22)],
         ),
       ),
-    ),
+    );
+  }
+}
+
+class _StateCard extends StatelessWidget {
+  final String identifier;
+  final String title;
+  final String text;
+  final String action;
+  final VoidCallback onAction;
+  const _StateCard({
+    required this.identifier,
+    required this.title,
+    required this.text,
+    required this.action,
+    required this.onAction,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final gm = GmColors.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
+      child: Semantics(
+        identifier: identifier,
+        child: GmCard(
+          padding: const EdgeInsets.fromLTRB(20, 22, 20, 18),
+          child: Column(
+            children: [
+              Text(title,
+                  textAlign: TextAlign.center,
+                  style: GmText.title2(color: gm.label)
+                      .copyWith(fontSize: 20, height: 25 / 20)),
+              const SizedBox(height: 6),
+              Text(text,
+                  textAlign: TextAlign.center,
+                  style: GmText.body(color: gm.label2)),
+              const SizedBox(height: 14),
+              GmCapsuleButton(label: action, onTap: onAction),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
