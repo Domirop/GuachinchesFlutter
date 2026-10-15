@@ -24,7 +24,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:guachinches/data/cubit/new_home/new_home_filters_cubit.dart';
 import 'package:guachinches/data/cubit/new_home/visits_cubit.dart';
@@ -33,6 +32,7 @@ import 'package:guachinches/data/cubit/restaurants/basic/restaurant_state.dart';
 import 'package:guachinches/data/model/Types.dart';
 import 'package:guachinches/data/model/restaurant.dart';
 import 'package:guachinches/main.dart' as app;
+import 'package:guachinches/services/app_storage.dart';
 import 'package:guachinches/ui/pages/advance_search/advanced_search.dart';
 import 'package:guachinches/ui/pages/new_home/new_home_screen.dart';
 import 'package:guachinches/ui/pages/premios/premios_entry_page.dart';
@@ -274,7 +274,8 @@ Future<void> _skipOnboarding() async {
   await dir.create(recursive: true);
   final marker = File('${dir.path}/.dcc_installed_v1');
   if (!await marker.exists()) await marker.create();
-  const storage = FlutterSecureStorage();
+  // El mismo almacén que lee la app (en Android no es el de por defecto).
+  const storage = AppStorage.instance;
   for (final k in const [
     'onBoardingFinished',
     'prefLocationAsked',
