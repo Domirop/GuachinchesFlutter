@@ -106,57 +106,66 @@ class _NewHomeTabScaffoldState extends State<NewHomeTabScaffold> {
           _PlaceholderTab('Perfil'),
         ];
 
-    return Scaffold(
-      backgroundColor: _index == 0 ? gm.canvas : brand.base,
-      // El contenido se extiende POR DEBAJO de la cápsula flotante: el blur
-      // del glass necesita contenido detrás para leerse como iOS 26.
-      extendBody: true,
-      body: Stack(
-        children: [
-          Positioned.fill(
-            child: NotificationListener<ScrollNotification>(
-              onNotification: _onScroll,
-              child: IndexedStack(
-                index: _index,
-                children: [
-                  for (var i = 0; i < screens.length; i++)
-                    // Las animaciones de una pestaña (nubes, punto vivo,
-                    // shimmer, escenas) se paran mientras no está visible:
-                    // el IndexedStack mantiene montadas las cinco.
-                    TickerMode(enabled: _index == i, child: screens[i]),
-                ],
+    // Estilo base de la barra de estado de las pestañas: sin él se quedaba
+    // el último aplicado (blanco al volver de la encuesta, casi invisible
+    // sobre el lienzo). Las pantallas que lo necesitan (mapa…) lo cambian.
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: gm.isDark
+          ? SystemUiOverlayStyle.light
+          : SystemUiOverlayStyle.dark
+              .copyWith(statusBarColor: Colors.transparent),
+      child: Scaffold(
+        backgroundColor: _index == 0 ? gm.canvas : brand.base,
+        // El contenido se extiende POR DEBAJO de la cápsula flotante: el blur
+        // del glass necesita contenido detrás para leerse como iOS 26.
+        extendBody: true,
+        body: Stack(
+          children: [
+            Positioned.fill(
+              child: NotificationListener<ScrollNotification>(
+                onNotification: _onScroll,
+                child: IndexedStack(
+                  index: _index,
+                  children: [
+                    for (var i = 0; i < screens.length; i++)
+                      // Las animaciones de una pestaña (nubes, punto vivo,
+                      // shimmer, escenas) se paran mientras no está visible:
+                      // el IndexedStack mantiene montadas las cinco.
+                      TickerMode(enabled: _index == i, child: screens[i]),
+                  ],
+                ),
               ),
             ),
-          ),
-          // «Sin conexión» flota bajo la barra de estado, sin mover nada.
-          Positioned(
-            left: 16,
-            right: 16,
-            top: MediaQuery.paddingOf(context).top + 6,
-            child: const OfflineBanner(),
-          ),
-        ],
-      ),
-      bottomNavigationBar: ValueListenableBuilder<GmTabAccessoryData?>(
-        valueListenable: gmTabAccessory,
-        builder: (_, __, ___) => _FloatingGlassNavBar(
-          index: _index,
-          onTap: _onTap,
-          minimized: _minimized && _index == 0,
-          showEdgeFade: _index == 0,
-          onExpand: () => setState(() => _minimized = false),
-          items: [
-            _NavItem('tab-explora', l10n.tabExplora, GmIcons.tabExplora,
-                GmIcons.tabExploraOn),
-            _NavItem('tab-listas', l10n.tabListas, GmIcons.tabListas,
-                GmIcons.tabListas),
-            _NavItem(
-                'tab-mapa', l10n.tabMapa, GmIcons.tabMapa, GmIcons.tabMapa),
-            _NavItem('tab-visitas', l10n.tabVisitas, GmIcons.tabVisitas,
-                GmIcons.tabVisitas),
-            _NavItem('tab-perfil', l10n.tabPerfil, GmIcons.tabPerfil,
-                GmIcons.tabPerfil),
+            // «Sin conexión» flota bajo la barra de estado, sin mover nada.
+            Positioned(
+              left: 16,
+              right: 16,
+              top: MediaQuery.paddingOf(context).top + 6,
+              child: const OfflineBanner(),
+            ),
           ],
+        ),
+        bottomNavigationBar: ValueListenableBuilder<GmTabAccessoryData?>(
+          valueListenable: gmTabAccessory,
+          builder: (_, __, ___) => _FloatingGlassNavBar(
+            index: _index,
+            onTap: _onTap,
+            minimized: _minimized && _index == 0,
+            showEdgeFade: _index == 0,
+            onExpand: () => setState(() => _minimized = false),
+            items: [
+              _NavItem('tab-explora', l10n.tabExplora, GmIcons.tabExplora,
+                  GmIcons.tabExploraOn),
+              _NavItem('tab-listas', l10n.tabListas, GmIcons.tabListas,
+                  GmIcons.tabListas),
+              _NavItem(
+                  'tab-mapa', l10n.tabMapa, GmIcons.tabMapa, GmIcons.tabMapa),
+              _NavItem('tab-visitas', l10n.tabVisitas, GmIcons.tabVisitas,
+                  GmIcons.tabVisitas),
+              _NavItem('tab-perfil', l10n.tabPerfil, GmIcons.tabPerfil,
+                  GmIcons.tabPerfil),
+            ],
+          ),
         ),
       ),
     );
