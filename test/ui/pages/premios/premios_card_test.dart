@@ -82,35 +82,34 @@ void main() {
     expect(find.text('Muestra'), findsNothing);
     // Card compacta: ≈ 344 de alto en «sin votar» (antes 588; el tablero
     // cuenta además la etiqueta «Muestra» de la línea de estado).
-    // Con Ahem el título baja a dos líneas (+25); con SF cabe en una.
-    final titleLines = t
-            .renderObject<RenderParagraph>(find.text('¿Cuál es tu favorito?'))
-            .size
-            .height /
-        25;
-    expect(t.getSize(card()).height - (titleLines.round() - 1) * 25,
-        closeTo(344, 4));
+    // Con Ahem (fuente de los tests, muy ancha) el título no cabe junto al
+    // enlace: baja de línea y el enlace a su fila (+26). Con SF cabe en una.
+    final titleRect = t.getRect(find.text('¿Cuál es tu favorito?'));
+    final linkRect = t.getRect(find.text('Ver el ranking'));
+    final extra = (titleRect.height - 25) +
+        (linkRect.top >= titleRect.bottom - 1 ? 26 : 0);
+    expect(t.getSize(card()).height - extra, closeTo(344, 4));
     await t.tap(find.text('Votar ahora'));
     await t.tap(find.text('Ver el ranking'));
     expect(taps, ['vote', 'ranking']);
   });
 
-  testWidgets('título largo: baja a dos líneas sin cortarse ni desbordar',
+  testWidgets('título largo: baja de línea sin cortarse ni desbordar',
       (t) async {
-    // QA multidispositivo (I4): con texto grande se cortaba en «¿Cuá…». La
-    // fuente de los tests (Ahem) es tan ancha que el título no cabe en una
-    // línea junto a «Ver el ranking»: tiene que bajar a dos y la cabecera
-    // dejarle sitio.
+    // QA multidispositivo (I4): con texto grande se cortaba en «¿Cuá…». Con
+    // Ahem (muy ancha) no cabe en dos líneas junto a «Ver el ranking»: el
+    // título ocupa todo el ancho y el enlace baja a su fila.
     await pumpCard(t);
     expect(t.takeException(), isNull);
     final title = find.text('¿Cuál es tu favorito?');
-    expect(t.widget<Text>(title).maxLines, 2);
-    final line = t.renderObject<RenderParagraph>(title);
-    expect(line.size.height, closeTo(50, 1)); // 2 × 25
+    final p = t.renderObject<RenderParagraph>(title);
+    expect(p.didExceedMaxLines, isFalse, reason: 'título cortado');
     final eyebrow = t.getRect(find.text('Premios Donde Comer Canarias 2026'));
     final seg = t.getRect(find.byType(PremiosSegmented));
-    expect(t.getRect(title).bottom, lessThanOrEqualTo(seg.top));
+    final link = t.getRect(find.text('Ver el ranking'));
     expect(t.getRect(title).top, greaterThanOrEqualTo(eyebrow.bottom));
+    expect(t.getRect(title).bottom, lessThanOrEqualTo(link.top + 1));
+    expect(link.bottom, lessThanOrEqualTo(seg.top));
   });
 
   testWidgets('enlace y segmentado con área táctil de 44', (t) async {

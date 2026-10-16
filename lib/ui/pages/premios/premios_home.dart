@@ -545,18 +545,24 @@ class _Header extends StatelessWidget {
         2 +
         16;
     return LayoutBuilder(builder: (context, c) {
-      final lines = (TextPainter(
-        text: TextSpan(text: title, style: titleStyle),
-        textScaler: ts,
-        maxLines: 2,
-        textDirection: TextDirection.ltr,
-      )..layout(maxWidth: math.max(0.0, c.maxWidth - linkW - 12)))
+      TextPainter measure(double w, int maxLines) => TextPainter(
+            text: TextSpan(text: title, style: titleStyle),
+            textScaler: ts,
+            maxLines: maxLines,
+            textDirection: TextDirection.ltr,
+          )..layout(maxWidth: math.max(0.0, w));
+      // Al lado del enlace en una o dos líneas; si ni así cabe (texto muy
+      // grande), el título ocupa todo el ancho y el enlace baja a su fila.
+      final beside = measure(c.maxWidth - linkW - 12, 2);
+      final stacked = beside.didExceedMaxLines;
+      final lines = (stacked ? measure(c.maxWidth, 3) : beside)
           .computeLineMetrics()
           .length
-          .clamp(1, 2);
+          .clamp(1, stacked ? 3 : 2);
       final titleBox = titleH * lines;
+      final linkRow = stacked ? ts.scale(18) + 8 : 0.0;
       // Área del enlace: 44 de alto, de la mitad del antetítulo al segmentado.
-      final total = eyebrowH + 4 + titleBox + 4;
+      final total = eyebrowH + 4 + titleBox + linkRow + 4;
       return SizedBox(
         height: total,
         child: Stack(
@@ -568,8 +574,16 @@ class _Header extends StatelessWidget {
               top: eyebrowH + 4,
               height: titleBox,
               child: Padding(
-                padding: EdgeInsets.only(right: linkW + 12),
-                child: titleText,
+                padding: EdgeInsets.only(right: stacked ? 0 : linkW + 12),
+                child: stacked
+                    ? Semantics(
+                        header: true,
+                        child: Text(title,
+                            maxLines: 3,
+                            overflow: TextOverflow.ellipsis,
+                            style: titleStyle),
+                      )
+                    : titleText,
               ),
             ),
             Positioned(
@@ -586,8 +600,8 @@ class _Header extends StatelessWidget {
                   behavior: HitTestBehavior.opaque,
                   onTap: onLink,
                   child: Padding(
-                    padding:
-                        EdgeInsets.only(left: 10, top: 0, bottom: 4, right: 2),
+                    padding: const EdgeInsets.only(
+                        left: 10, top: 0, bottom: 4, right: 2),
                     child: Align(
                         alignment: Alignment.bottomRight, child: linkLabel),
                   ),
