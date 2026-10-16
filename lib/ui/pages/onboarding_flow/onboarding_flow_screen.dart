@@ -276,47 +276,66 @@ class _StepWelcome extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // En pantallas pequeñas (4", texto grande) el contenido hace scroll y
+    // «Empezar» queda siempre fijo y visible abajo; en las grandes se reparte
+    // con los Spacer como siempre.
+    final content = Column(
+      children: [
+        const Spacer(flex: 1),
+        const _PostcardStack(),
+        const Spacer(flex: 1),
+        Text(
+          'VISITADO POR\nGUACHINCHESMODERNOS',
+          textAlign: TextAlign.center,
+          style: AppTextStyles.eyebrow(
+            size: 11,
+            color: AppColors.inkMuted,
+          ),
+        ),
+        const SizedBox(height: 14),
+        Text(
+          '¿DÓNDE\nCOMEMOS\nHOY?',
+          textAlign: TextAlign.center,
+          style: AppTextStyles.displayHero(size: 56, color: AppColors.ink),
+        ),
+        const SizedBox(height: 18),
+        Text(
+          '"La guía gastronómica de Canarias por la gente que de verdad come en Canarias."',
+          textAlign: TextAlign.center,
+          style: AppTextStyles.editorial(
+            size: 14,
+            color: AppColors.inkSoft,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          '— Jonay y Joana',
+          textAlign: TextAlign.center,
+          style: AppTextStyles.ui(
+            size: 11,
+            weight: FontWeight.w600,
+            color: AppColors.inkMuted,
+          ),
+        ),
+        const Spacer(flex: 2),
+      ],
+    );
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
       child: Column(
         children: [
-          const Spacer(flex: 1),
-          const _PostcardStack(),
-          const Spacer(flex: 1),
-          Text(
-            'VISITADO POR\nGUACHINCHESMODERNOS',
-            textAlign: TextAlign.center,
-            style: AppTextStyles.eyebrow(
-              size: 11,
-              color: AppColors.inkMuted,
+          Expanded(
+            child: LayoutBuilder(
+              builder: (context, c) => SingleChildScrollView(
+                key: const ValueKey('onboarding-welcome-scroll'),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minHeight: c.maxHeight),
+                  child: IntrinsicHeight(child: content),
+                ),
+              ),
             ),
           ),
-          const SizedBox(height: 14),
-          Text(
-            '¿DÓNDE\nCOMEMOS\nHOY?',
-            textAlign: TextAlign.center,
-            style: AppTextStyles.displayHero(size: 56, color: AppColors.ink),
-          ),
-          const SizedBox(height: 18),
-          Text(
-            '"La guía gastronómica de Canarias por la gente que de verdad come en Canarias."',
-            textAlign: TextAlign.center,
-            style: AppTextStyles.editorial(
-              size: 14,
-              color: AppColors.inkSoft,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            '— Jonay y Joana',
-            textAlign: TextAlign.center,
-            style: AppTextStyles.ui(
-              size: 11,
-              weight: FontWeight.w600,
-              color: AppColors.inkMuted,
-            ),
-          ),
-          const Spacer(flex: 2),
+          const SizedBox(height: 12),
           _PrimaryButton(
             label: 'EMPEZAR',
             onTap: onStart,
@@ -332,6 +351,7 @@ class _StepWelcome extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 child: Text(
                   'Ya tengo cuenta · Iniciar sesión',
+                  textAlign: TextAlign.center,
                   style: AppTextStyles.ui(
                     size: 13,
                     weight: FontWeight.w600,

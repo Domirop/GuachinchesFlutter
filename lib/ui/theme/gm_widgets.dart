@@ -511,14 +511,17 @@ class GmSoftCapsuleButton extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 if (leading != null) ...[leading!, const SizedBox(width: 7)],
-                Text(
-                  label,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: fontSize,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: -0.2,
-                    color: enabled ? gm.accent : gm.label2,
+                // Flexible: con texto grande parte en dos líneas.
+                Flexible(
+                  child: Text(
+                    label,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: fontSize,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: -0.2,
+                      color: enabled ? gm.accent : gm.label2,
+                    ),
                   ),
                 ),
               ],
