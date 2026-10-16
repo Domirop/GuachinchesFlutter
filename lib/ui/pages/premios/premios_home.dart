@@ -507,17 +507,18 @@ class _Header extends StatelessWidget {
         ],
       ),
     );
+    const titleStyle = TextStyle(
+        fontSize: 20,
+        height: 25 / 20,
+        fontWeight: FontWeight.w700,
+        letterSpacing: -0.4,
+        color: GmColors.creamHi);
+    // Con texto grande o pantallas estrechas el título baja a dos líneas en
+    // vez de cortarse («¿Cuá…»).
     final titleText = Semantics(
       header: true,
       child: Text(title,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-              fontSize: 20,
-              height: 25 / 20,
-              fontWeight: FontWeight.w700,
-              letterSpacing: -0.4,
-              color: GmColors.creamHi)),
+          maxLines: 2, overflow: TextOverflow.ellipsis, style: titleStyle),
     );
     const linkStyle = TextStyle(
         fontSize: 14,
@@ -543,48 +544,60 @@ class _Header extends StatelessWidget {
             .width +
         2 +
         16;
-    // Área del enlace: 44 de alto, de la mitad del antetítulo al segmentado.
-    final total = eyebrowH + 4 + titleH + 4;
-    return SizedBox(
-      height: total,
-      child: Stack(
-        children: [
-          Positioned(left: 0, right: 0, top: 0, child: eyebrowRow),
-          Positioned(
-            left: 0,
-            right: 0,
-            top: eyebrowH + 4,
-            height: titleH,
-            child: Padding(
-              padding: EdgeInsets.only(right: linkW + 12),
-              child: titleText,
+    return LayoutBuilder(builder: (context, c) {
+      final lines = (TextPainter(
+        text: TextSpan(text: title, style: titleStyle),
+        textScaler: ts,
+        maxLines: 2,
+        textDirection: TextDirection.ltr,
+      )..layout(maxWidth: math.max(0.0, c.maxWidth - linkW - 12)))
+          .computeLineMetrics()
+          .length
+          .clamp(1, 2);
+      final titleBox = titleH * lines;
+      // Área del enlace: 44 de alto, de la mitad del antetítulo al segmentado.
+      final total = eyebrowH + 4 + titleBox + 4;
+      return SizedBox(
+        height: total,
+        child: Stack(
+          children: [
+            Positioned(left: 0, right: 0, top: 0, child: eyebrowRow),
+            Positioned(
+              left: 0,
+              right: 0,
+              top: eyebrowH + 4,
+              height: titleBox,
+              child: Padding(
+                padding: EdgeInsets.only(right: linkW + 12),
+                child: titleText,
+              ),
             ),
-          ),
-          Positioned(
-            right: 0,
-            top: math.max(0.0, total - 44),
-            bottom: 0,
-            child: Semantics(
-              identifier: 'home-premios-link',
-              button: true,
-              label: link,
-              excludeSemantics: true,
-              onTap: onLink,
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
+            Positioned(
+              right: 0,
+              top: math.max(0.0, total - 44),
+              bottom: 0,
+              child: Semantics(
+                identifier: 'home-premios-link',
+                button: true,
+                label: link,
+                excludeSemantics: true,
                 onTap: onLink,
-                child: Padding(
-                  padding:
-                      EdgeInsets.only(left: 10, top: 0, bottom: 4, right: 2),
-                  child:
-                      Align(alignment: Alignment.bottomRight, child: linkLabel),
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: onLink,
+                  child: Padding(
+                    padding:
+                        EdgeInsets.only(left: 10, top: 0, bottom: 4, right: 2),
+                    child: Align(
+                        alignment: Alignment.bottomRight, child: linkLabel),
+                  ),
                 ),
               ),
             ),
-          ),
-        ],
-      ),
-    );
+          ],
+        ),
+      );
+    });
   }
 }
 
