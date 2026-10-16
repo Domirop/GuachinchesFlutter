@@ -293,10 +293,15 @@ class _StepWelcome extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 14),
-        Text(
-          '¿DÓNDE\nCOMEMOS\nHOY?',
-          textAlign: TextAlign.center,
-          style: AppTextStyles.displayHero(size: 56, color: AppColors.ink),
+        // En pantallas estrechas el titular se encoge en vez de partir
+        // «COMEMO/S».
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            '¿DÓNDE\nCOMEMOS\nHOY?',
+            textAlign: TextAlign.center,
+            style: AppTextStyles.displayHero(size: 56, color: AppColors.ink),
+          ),
         ),
         const SizedBox(height: 18),
         Text(

@@ -99,6 +99,13 @@ void main() {
         expect(tester.takeException(), isNull);
         _onScreen(tester, _byId('onboarding-welcome-start'));
         _onScreen(tester, _byId('onboarding-welcome-login'));
+        // El titular no parte palabras: cada línea cabe entera en su ancho.
+        final title = find.text('¿DÓNDE\nCOMEMOS\nHOY?');
+        final fitted =
+            find.ancestor(of: title, matching: find.byType(FittedBox));
+        expect(fitted, findsOneWidget);
+        expect(tester.getSize(title).width,
+            greaterThanOrEqualTo(tester.getSize(fitted).width - 0.5));
         // El titular se alcanza con scroll.
         await tester.drag(
             find.byKey(const ValueKey('onboarding-welcome-scroll')),
