@@ -56,7 +56,7 @@ class SplashScreenPresenter {
     return buildMainTabScreens();
   }
 
-  mainFunction() async {
+  Future<void> mainFunction() async {
     final screens = await _buildScreens();
     _view.goToMenu(screens);
   }
@@ -91,17 +91,22 @@ class SplashScreenPresenter {
     if (check) {
       _view.goToUpdateScreen();
     } else {
-      if (_onboardingCubit.state is OnboardingInitial) {
-        await _onboardingCubit.hydrate();
-      }
-      if (_onboardingCubit.isFinished) {
-        // Premios Donde Comer Canarias 2026 — pausado.
-        // Restaurar leyendo surveyShown del cubit y llamando a
-        // goToSurveyOnboarding() cuando sea false, como antes.
-        mainFunction();
-      } else {
-        _view.goToOnBoarding();
-      }
+      await continueAfterVersion();
+    }
+  }
+
+  /// Tras comprobar la versión (o sin comprobarla, si el arranque se alarga
+  /// y salta el watchdog del splash): onboarding si no está hecho; si no, la
+  /// app. El watchdog también pasa por aquí: antes iba directo al Inicio y un
+  /// usuario nuevo con mala red se quedaba sin onboarding.
+  Future<void> continueAfterVersion() async {
+    if (_onboardingCubit.state is OnboardingInitial) {
+      await _onboardingCubit.hydrate();
+    }
+    if (_onboardingCubit.isFinished) {
+      await mainFunction();
+    } else {
+      _view.goToOnBoarding();
     }
   }
 }
