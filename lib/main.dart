@@ -54,6 +54,7 @@ import 'package:guachinches/core/analytics/firebase_analytics_service.dart';
 import 'package:guachinches/core/analytics/posthog_analytics_service.dart';
 import 'package:posthog_flutter/posthog_flutter.dart';
 import 'ui/pages/splash_screen/splash_screen.dart';
+import 'package:guachinches/core/logging/app_logger.dart';
 import 'package:guachinches/services/app_storage.dart';
 
 const bool _kReleaseMode = const bool.fromEnvironment("dart.vm.product");
@@ -63,6 +64,7 @@ bool get enableNewHome =>
     (dotenv.env['ENABLE_NEW_HOME'] ?? 'false').toLowerCase() == 'true';
 
 Future<void> main() async {
+  final startup = Stopwatch()..start();
   WidgetsFlutterBinding.ensureInitialized();
   debugPaintBaselinesEnabled = false;
 
@@ -95,12 +97,20 @@ Future<void> main() async {
 
   // El resto del bootstrap es independiente entre sí → en paralelo en vez de
   // 4 awaits en cadena. Ahorra ~300-500 ms en arranque frío.
+  // Nada de red antes del primer frame: Remote Config arranca con sus valores
+  // por defecto locales y descarga en segundo plano; y por si algún paso se
+  // cuelga (Firebase Installations en el primer arranque), el conjunto tiene
+  // un tope: lo que no haya terminado sigue en segundo plano.
   await Future.wait<void>([
     _setupAnalytics(),
     DccRemoteConfig.instance.init(),
     loadInstalledAppVersion(),
     FirebaseCrashlytics.instance.setCrashlyticsCollectionEnabled(!kDebugMode),
-  ]);
+  ]).timeout(const Duration(seconds: 4), onTimeout: () {
+    debugPrint('arranque: bootstrap > 4 s, sigue en segundo plano');
+    return const [];
+  });
+  unawaited(DccRemoteConfig.instance.fetchInBackground());
 
   // AdMob NO bloquea el primer frame: los banners cargan más tarde. Diferido.
   unawaited(MobileAds.instance.initialize());
@@ -112,6 +122,10 @@ Future<void> main() async {
 
   final initialThemeMode = await themeFuture;
   runApp(MyApp(initialThemeMode: initialThemeMode));
+  // Tiempo hasta el primer frame (Crashlytics en release): el arranque no
+  // debe depender de la red.
+  WidgetsBinding.instance.addPostFrameCallback((_) => AppLogger.info(
+      'arranque', 'primer frame en ${startup.elapsedMilliseconds} ms'));
 }
 
 /// Configura la analítica desacoplada: Firebase Analytics siempre; PostHog solo
