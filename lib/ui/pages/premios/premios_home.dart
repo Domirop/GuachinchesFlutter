@@ -22,18 +22,24 @@ class _CategoriesMeta extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final st = GmText.eyebrow(color: PremiosColors.cream82);
-    return Row(
-      children: [
-        const PremiosCopa(size: 14, ink: PremiosColors.creamInk),
-        const SizedBox(width: 6),
-        Text('Tradicional', style: st),
-        const SizedBox(width: 8),
-        Text('·', style: st.copyWith(color: PremiosColors.creamDim)),
-        const SizedBox(width: 8),
-        const PremiosMantel(size: 12),
-        const SizedBox(width: 6),
-        Text('Moderno', style: st),
-      ],
+    // Se encoge antes que desbordar (4" con texto grande).
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      alignment: Alignment.centerLeft,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const PremiosCopa(size: 14, ink: PremiosColors.creamInk),
+          const SizedBox(width: 6),
+          Text('Tradicional', style: st),
+          const SizedBox(width: 8),
+          Text('·', style: st.copyWith(color: PremiosColors.creamDim)),
+          const SizedBox(width: 8),
+          const PremiosMantel(size: 12),
+          const SizedBox(width: 6),
+          Text('Moderno', style: st),
+        ],
+      ),
     );
   }
 }
@@ -97,10 +103,14 @@ class PremiosSheet extends StatelessWidget {
         ),
       ),
     );
+    final mq = MediaQuery.of(context);
     return Semantics(
       identifier: 'home-premios-sheet',
       container: true,
       child: Container(
+        // Nunca por debajo de la barra de estado.
+        constraints:
+            BoxConstraints(maxHeight: mq.size.height - mq.padding.top - 12),
         decoration: BoxDecoration(
           color: gm.canvas,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
@@ -114,66 +124,73 @@ class PremiosSheet extends StatelessWidget {
         // Como el tablero: 40 hasta el borde (por encima del indicador).
         padding: EdgeInsets.fromLTRB(
             16, 8, 16, math.max(40, MediaQuery.paddingOf(context).bottom + 6)),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Center(
-              child: Container(
-                width: 36,
-                height: 5,
-                decoration: BoxDecoration(
-                  color: PremiosColors.sepStrong(gm),
-                  borderRadius: BorderRadius.circular(GmRadius.pill),
-                ),
-              ),
-            ),
-            const SizedBox(height: 14),
-            panel,
-            const SizedBox(height: 16),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('¿Cuál es tu guachinche favorito?',
-                      style: GmText.largeTitle(color: gm.label).copyWith(
-                          fontSize: 28, height: 34 / 28, letterSpacing: -0.6)),
-                  const SizedBox(height: 6),
-                  Text('Vota y decide quiénes merecen los premios de este año.',
-                      style: GmText.body17(color: gm.label2)),
-                ],
-              ),
-            ),
-            const SizedBox(height: 18),
-            GmCapsuleButton(
-              label: 'Votar ahora',
-              identifier: 'home-premios-sheet-vote',
-              height: 52,
-              fontSize: 17,
-              onTap: () => Navigator.of(context).pop(true),
-            ),
-            const SizedBox(height: 4),
-            Center(
-              child: Semantics(
-                identifier: 'home-premios-sheet-not-now',
-                button: true,
-                child: GmPressable(
-                  onTap: () => Navigator.of(context).pop(false),
-                  child: Container(
-                    constraints: const BoxConstraints(minHeight: 44),
-                    padding: const EdgeInsets.symmetric(horizontal: 14),
-                    alignment: Alignment.center,
-                    child: Text('Ahora no',
-                        style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: gm.accent)),
+        // En pantallas pequeñas con texto grande la hoja no cabe: hace
+        // scroll y «Ahora no» siempre se alcanza.
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: PremiosColors.sepStrong(gm),
+                    borderRadius: BorderRadius.circular(GmRadius.pill),
                   ),
                 ),
               ),
-            ),
-          ],
+              const SizedBox(height: 14),
+              panel,
+              const SizedBox(height: 16),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('¿Cuál es tu guachinche favorito?',
+                        style: GmText.largeTitle(color: gm.label).copyWith(
+                            fontSize: 28,
+                            height: 34 / 28,
+                            letterSpacing: -0.6)),
+                    const SizedBox(height: 6),
+                    Text(
+                        'Vota y decide quiénes merecen los premios de este año.',
+                        style: GmText.body17(color: gm.label2)),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 18),
+              GmCapsuleButton(
+                label: 'Votar ahora',
+                identifier: 'home-premios-sheet-vote',
+                height: 52,
+                fontSize: 17,
+                onTap: () => Navigator.of(context).pop(true),
+              ),
+              const SizedBox(height: 4),
+              Center(
+                child: Semantics(
+                  identifier: 'home-premios-sheet-not-now',
+                  button: true,
+                  child: GmPressable(
+                    onTap: () => Navigator.of(context).pop(false),
+                    child: Container(
+                      constraints: const BoxConstraints(minHeight: 44),
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                      alignment: Alignment.center,
+                      child: Text('Ahora no',
+                          style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: gm.accent)),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

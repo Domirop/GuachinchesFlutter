@@ -112,6 +112,31 @@ void main() {
     expect(link.bottom, lessThanOrEqualTo(seg.top));
   });
 
+  testWidgets('hoja de Premios en 4" con texto al 1,3: «Ahora no» alcanzable',
+      (t) async {
+    t.view.physicalSize = const Size(320 * 1.5, 533 * 1.5);
+    t.view.devicePixelRatio = 1.5;
+    addTearDown(t.view.reset);
+    await t.pumpWidget(MaterialApp(
+      builder: (ctx, c) => MediaQuery(
+        data: MediaQuery.of(ctx).copyWith(
+            textScaler: const TextScaler.linear(1.3), disableAnimations: true),
+        child: c!,
+      ),
+      home: const Scaffold(
+          body:
+              Align(alignment: Alignment.bottomCenter, child: PremiosSheet())),
+    ));
+    await t.pump(const Duration(milliseconds: 300));
+    expect(t.takeException(), isNull);
+    final notNow = find.bySemanticsIdentifier('home-premios-sheet-not-now');
+    await t.scrollUntilVisible(notNow, 100,
+        scrollable: find.descendant(
+            of: find.bySemanticsIdentifier('home-premios-sheet'),
+            matching: find.byType(Scrollable)));
+    expect(t.getRect(notNow).bottom, lessThanOrEqualTo(533));
+  });
+
   testWidgets('enlace y segmentado con área táctil de 44', (t) async {
     await pumpCard(t);
     expect(t.getSize(find.bySemanticsIdentifier('home-premios-link')).height,
