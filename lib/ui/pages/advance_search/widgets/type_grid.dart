@@ -49,6 +49,8 @@ class TypeGrid extends StatelessWidget {
     final gm = GmColors.of(context);
     final dark = gm.isDark;
     final list = typeGridEntries(types, pool);
+    final titleStyle = GmText.cardTitle(color: gm.label)
+        .copyWith(fontSize: 15, height: 19 / 15);
 
     Widget tile((Types, int?) entry) {
       final (t, n) = entry;
@@ -87,8 +89,7 @@ class TypeGrid extends StatelessWidget {
                         Text(th.title,
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
-                            style: GmText.cardTitle(color: gm.label)
-                                .copyWith(fontSize: 15, height: 19 / 15)),
+                            style: titleStyle),
                         if (n != null)
                           Text(n == 1 ? '1 sitio' : '$n sitios',
                               style: GmText.meta(color: gm.label2)),
@@ -103,29 +104,67 @@ class TypeGrid extends StatelessWidget {
       );
     }
 
+    final ts = MediaQuery.textScalerOf(context);
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: inset),
-      child: Column(
-        children: [
-          for (var i = 0; i < list.length; i += 2) ...[
-            if (i > 0) const SizedBox(height: 10),
-            IntrinsicHeight(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Expanded(child: tile(list[i])),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: i + 1 < list.length
-                        ? tile(list[i + 1])
-                        : const SizedBox.shrink(),
+      child: LayoutBuilder(builder: (context, c) {
+        // Dos columnas solo si la palabra más larga cabe entera en la loseta;
+        // si no (pantallas de 4", texto grande), una: antes se partía
+        // «Restaura/ntes».
+        final textW = (c.maxWidth - 10) / 2 - 8 * 2 - 50 - 10;
+        final cols = typeGridColumns(
+            [
+              for (final e in list)
+                kListThemes[listThemeForType(e.$1.id, e.$1.nombre) ??
+                        ListThemeKind.restaurante]!
+                    .title
+            ],
+            textW,
+            (w) => (TextPainter(
+                  text: TextSpan(text: w, style: titleStyle),
+                  textScaler: ts,
+                  maxLines: 1,
+                  textDirection: TextDirection.ltr,
+                )..layout())
+                    .width);
+        return Column(
+          children: [
+            for (var i = 0; i < list.length; i += cols) ...[
+              if (i > 0) const SizedBox(height: 10),
+              if (cols == 1)
+                tile(list[i])
+              else
+                IntrinsicHeight(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Expanded(child: tile(list[i])),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: i + 1 < list.length
+                            ? tile(list[i + 1])
+                            : const SizedBox.shrink(),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-            ),
+                ),
+            ],
           ],
-        ],
-      ),
+        );
+      }),
     );
   }
+}
+
+/// Columnas de la rejilla «Por tipo»: 2 si la palabra más larga de los
+/// títulos cabe en [textWidth] (medida con [measure]); si no, 1.
+@visibleForTesting
+int typeGridColumns(List<String> titles, double textWidth,
+    double Function(String word) measure) {
+  for (final t in titles) {
+    for (final w in t.split(RegExp(r'[\s/]+'))) {
+      if (w.isNotEmpty && measure(w) > textWidth) return 1;
+    }
+  }
+  return 2;
 }
