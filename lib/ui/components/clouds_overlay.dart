@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:guachinches/ui/theme/gm_tokens.dart';
 
 /// Margen alrededor de cada nube rasterizada: el desenfoque más ancho
 /// (σ 22) se extiende ~3σ fuera de la caja de la nube.
@@ -41,8 +42,11 @@ class _CloudsOverlayState extends State<CloudsOverlay>
   @override
   void initState() {
     super.initState();
-    _ctrl = AnimationController(vsync: this, duration: widget.baseDuration)
-      ..repeat();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: widget.baseDuration,
+      animationBehavior: AnimationBehavior.preserve,
+    );
     final rng = math.Random(42);
     _clouds = List.generate(widget.count, (i) {
       return _Cloud(
@@ -53,6 +57,18 @@ class _CloudsOverlayState extends State<CloudsOverlay>
         opacity: 0.55 + rng.nextDouble() * 0.45,
       );
     });
+  }
+
+  /// Con movimiento reducido no hay bucle (con las animaciones del sistema
+  /// quitadas el controlador se aceleraba sin parar); si no, gira a su ritmo.
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (GmMotion.reduced(context)) {
+      _ctrl.stop();
+    } else if (!_ctrl.isAnimating) {
+      _ctrl.repeat();
+    }
   }
 
   @override

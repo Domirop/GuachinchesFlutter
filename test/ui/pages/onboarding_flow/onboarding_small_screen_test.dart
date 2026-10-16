@@ -157,4 +157,23 @@ void main() {
       });
     });
   }
+
+  // Con las animaciones del sistema quitadas («Quitar animaciones»), el bucle
+  // de postales pasaba a ~160 ms por postal sin parar.
+  testWidgets('movimiento reducido: las postales no avanzan solas en 10 s',
+      (tester) async {
+    await _pump(tester, const OnboardingFlow(), 1.0);
+    expect(find.text('TENERIFE'), findsOneWidget);
+    expect(find.text('FUERTEVENTURA'), findsNothing);
+    for (var i = 0; i < 20; i++) {
+      await tester.pump(const Duration(milliseconds: 500));
+    }
+    expect(find.text('FUERTEVENTURA'), findsNothing);
+    expect(tester.hasRunningAnimations, isFalse);
+    // Al tocar, cambia de postal al momento.
+    await tester.tap(find.text('TENERIFE'));
+    await tester.pump();
+    expect(find.text('TENERIFE'), findsNothing);
+    expect(find.text('FUERTEVENTURA'), findsOneWidget);
+  });
 }

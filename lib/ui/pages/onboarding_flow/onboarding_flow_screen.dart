@@ -15,6 +15,7 @@ import 'package:guachinches/data/model/Category.dart';
 import 'package:guachinches/data/model/Island.dart';
 import 'package:guachinches/data/model/restaurant.dart';
 import 'package:guachinches/globalMethods.dart';
+import 'package:guachinches/ui/theme/gm_tokens.dart';
 import 'package:guachinches/data/newsletter/newsletter_consent_service.dart';
 import 'package:guachinches/ui/pages/login/login_logic.dart';
 import 'package:guachinches/ui/pages/login/login_presenter.dart';
@@ -414,26 +415,39 @@ class _PostcardStackState extends State<_PostcardStack>
   static const double _swipeStart =
       0.62; // primer 62% = reposo; resto = barrido
 
+  /// Con movimiento reducido no hay avance automático (antes, con las
+  /// animaciones del sistema quitadas, el bucle pasaba a ~160 ms por postal):
+  /// la pila queda quieta y cambia al tocarla, sin barrido.
+  bool _reduced = false;
+
   @override
   void initState() {
     super.initState();
     _ctrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 3200),
-    )
-      ..addStatusListener((s) {
+      // El bucle no se acelera aunque el sistema acorte las animaciones.
+      animationBehavior: AnimationBehavior.preserve,
+    )..addStatusListener((s) {
         if (s == AnimationStatus.completed && mounted) {
           setState(() => _index = (_index + 1) % _kPostcards.length);
-          _ctrl.forward(from: 0);
+          if (_reduced) {
+            _ctrl.value = 0;
+          } else {
+            _ctrl.forward(from: 0);
+          }
         }
-      })
-      ..forward();
+      });
   }
 
   /// Tap sobre la pila: salta el reposo y baraja la postal de arriba ya.
   void _advanceNow() {
+    HapticFeedback.selectionClick();
+    if (_reduced) {
+      setState(() => _index = (_index + 1) % _kPostcards.length);
+      return;
+    }
     if (_ctrl.value < _swipeStart) {
-      HapticFeedback.selectionClick();
       _ctrl.forward(from: _swipeStart);
     }
   }
@@ -441,6 +455,13 @@ class _PostcardStackState extends State<_PostcardStack>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    _reduced = GmMotion.reduced(context);
+    if (_reduced) {
+      _ctrl.stop();
+      _ctrl.value = 0;
+    } else if (!_ctrl.isAnimating) {
+      _ctrl.forward();
+    }
     // Precarga para que la primera postal no aparezca en blanco.
     for (final pc in _kPostcards) {
       precacheImage(AssetImage(pc.asset), context);

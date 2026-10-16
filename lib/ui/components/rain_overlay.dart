@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:guachinches/ui/theme/gm_tokens.dart';
 
 /// Overlay decorativo de lluvia. Pensado para colocarse dentro de un
 /// `Stack` con `Clip.hardEdge` (igual que `CloudsOverlay`) para que los
@@ -38,7 +39,8 @@ class _RainOverlayState extends State<RainOverlay>
     _ctrl = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 2),
-    )..repeat();
+      animationBehavior: AnimationBehavior.preserve,
+    );
     final rng = math.Random(7);
     _drops = List.generate(widget.density, (i) {
       return _Drop(
@@ -50,6 +52,18 @@ class _RainOverlayState extends State<RainOverlay>
         opacity: 0.55 + rng.nextDouble() * 0.45,
       );
     });
+  }
+
+  /// Con movimiento reducido no hay bucle (con las animaciones del sistema
+  /// quitadas el controlador se aceleraba sin parar); si no, gira a su ritmo.
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (GmMotion.reduced(context)) {
+      _ctrl.stop();
+    } else if (!_ctrl.isAnimating) {
+      _ctrl.repeat();
+    }
   }
 
   @override
