@@ -59,6 +59,21 @@ class LoginPresenter implements LoginAuth {
   static const _googleIosClientId =
       '138481024291-hmgnpru6pf1v5mlk7cdlh39ac2srgthc.apps.googleusercontent.com';
 
+  /// Android: cliente web (`client_type` 3) de `android/app/google-services.json`
+  /// (proyecto Firebase 218112446669). Se pasa como `serverClientId` para que
+  /// el `aud` del `idToken` sea este, estable y conocido, y no el que el
+  /// plugin elija por su cuenta. El backend debe aceptarlo como audiencia.
+  /// Si cambia `google-services.json`, cambiar también aquí.
+  static const googleAndroidServerClientId =
+      '218112446669-bqq4kc8o1fidn7t72hg609mgnlm0v0uj.apps.googleusercontent.com';
+
+  /// `GoogleSignIn` por plataforma: iOS con su cliente propio (ya funciona,
+  /// no se toca); Android con [googleAndroidServerClientId].
+  @visibleForTesting
+  static GoogleSignIn googleSignInFor({required bool iOS}) => iOS
+      ? GoogleSignIn(clientId: _googleIosClientId)
+      : GoogleSignIn(serverClientId: googleAndroidServerClientId);
+
   @override
   bool get appleAvailable => defaultTargetPlatform == TargetPlatform.iOS;
 
@@ -100,9 +115,7 @@ class LoginPresenter implements LoginAuth {
 
   Future<LoginOutcome> _loginWithGoogle() async {
     try {
-      final googleSignIn = GoogleSignIn(
-        clientId: Platform.isIOS ? _googleIosClientId : null,
-      );
+      final googleSignIn = googleSignInFor(iOS: Platform.isIOS);
       final account = await googleSignIn.signIn();
       if (account == null) return LoginOutcome.cancelled;
       final auth = await account.authentication;
