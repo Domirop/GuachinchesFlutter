@@ -7,6 +7,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:guachinches/data/model/survey_v3.dart';
 import 'package:guachinches/services/app_storage.dart';
+import 'package:guachinches/services/survey_integrity/survey_integrity.dart';
 import 'package:guachinches/ui/pages/myVotedRestaurants/myVotedRestaurants.dart';
 import 'package:guachinches/ui/pages/premios/premios_controllers.dart';
 import 'package:guachinches/ui/pages/premios/premios_entry_page.dart';
@@ -610,6 +611,50 @@ void main() {
       expect(find.byType(PremiosMyVotesPage), findsOneWidget);
       // Sin red en el test: estado de error, nunca un spinner infinito.
       expect(find.byType(CircularProgressIndicator), findsNothing);
+      await t.pumpWidget(const SizedBox());
+    });
+
+    test('my-votes: con App Check fallando, sync falla (nunca «ok»)',
+        () async {
+      final appCheck = FakeAppCheck()
+        ..tokenErrors.addAll(List.filled(
+            5, const SurveyIntegrityException(SurveyIntegrityError.failed)));
+      final p = SurveyVotePresenter(
+        repository: FakeSurveyRepo(),
+        identity: identity(appCheck: appCheck),
+        appVersion: '4.7.0',
+        clock: () => DateTime.utc(2027, 2, 10, 12),
+        sleep: (_) async {},
+        random: Random(1),
+      );
+      await PremiosVotedStore.instance.refreshFromServer(presenter: p);
+      expect(PremiosVotedStore.instance.sync.value, PremiosVotedSync.failed);
+      expect(PremiosVotedStore.instance.syncError,
+          PremiosErrorKind.deviceUnverified);
+      expect(PremiosVotedStore.instance.hasVoted, isFalse);
+      p.dispose();
+    });
+
+    testWidgets(
+        'Mis votos: si my-votes falla, error con «Reintentar» y nunca '
+        '«Aún no has votado»', (t) async {
+      phone(t);
+      addTearDown(t.view.reset);
+      await t.pumpWidget(app(
+          PremiosMyVotesPage(
+            controller: FakeRanking(const PremiosRankingState(
+                load: PremiosLoad.ready, tradicional: [])),
+          ),
+          reduce: true));
+      // Sin red en el test: la consulta real falla.
+      for (var i = 0; i < 10; i++) {
+        await t.pump(const Duration(milliseconds: 100));
+      }
+      expect(PremiosVotedStore.instance.sync.value, PremiosVotedSync.failed);
+      expect(find.bySemanticsIdentifier('premios-my-votes-sync-error'),
+          findsOneWidget);
+      expect(find.text('Reintentar'), findsOneWidget);
+      expect(find.textContaining('Aún no has votado'), findsNothing);
       await t.pumpWidget(const SizedBox());
     });
 

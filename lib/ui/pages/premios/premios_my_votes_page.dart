@@ -73,8 +73,11 @@ class _PremiosMyVotesPageState extends State<PremiosMyVotesPage> {
       child: Scaffold(
         backgroundColor: gm.canvas,
         body: ListenableBuilder(
-          listenable:
-              Listenable.merge([controller, PremiosVotedStore.instance]),
+          listenable: Listenable.merge([
+            controller,
+            PremiosVotedStore.instance,
+            PremiosVotedStore.instance.sync,
+          ]),
           builder: (context, _) {
             final s = controller.state;
             final sections = [
@@ -82,6 +85,14 @@ class _PremiosMyVotesPageState extends State<PremiosMyVotesPage> {
                 (c, s.of(c).where((e) => e.mine).toList()),
             ].where((x) => x.$2.isNotEmpty).toList();
             final has = sections.isNotEmpty;
+            final voted = PremiosVotedStore.instance;
+            // «Aún no has votado» solo si el servidor lo ha confirmado: si la
+            // consulta falló (App Check, red…), el error con «Reintentar».
+            final syncing = widget.refreshVoted &&
+                (voted.sync.value == PremiosVotedSync.loading ||
+                    voted.sync.value == PremiosVotedSync.idle);
+            final syncFailed = widget.refreshVoted &&
+                voted.sync.value == PremiosVotedSync.failed;
             return Stack(
               children: [
                 Positioned.fill(
@@ -129,9 +140,10 @@ class _PremiosMyVotesPageState extends State<PremiosMyVotesPage> {
                           action: 'Reintentar',
                           onAction: controller.refresh,
                         )
-                      else if (s.hidden && _myCount() > 0)
-                        // Ranking oculto hasta el cierre: sin puestos que
-                        // enseñar, pero lo votado sí cuenta.
+                      else if ((s.hidden || !has) && _myCount() > 0)
+                        // Ranking oculto hasta el cierre (o aún sin esos
+                        // sitios): sin puestos que enseñar, pero lo votado
+                        // sí cuenta.
                         GmRise(
                           index: 1,
                           trigger: GmTrigger.mount,
@@ -144,6 +156,24 @@ class _PremiosMyVotesPageState extends State<PremiosMyVotesPage> {
                                 : 'Has votado ${_myCount()} sitios desde este '
                                     'móvil. Sus puestos se verán al cierre.',
                           ),
+                        )
+                      else if (!has && _myCount() == 0 && syncFailed)
+                        PremiosStateCard(
+                          identifier: 'premios-my-votes-sync-error',
+                          sad: true,
+                          title: 'No pudimos cargar tus votos',
+                          text: premiosErrorCopy(
+                                  voted.syncError ?? PremiosErrorKind.server,
+                                  store: premiosStoreName())
+                              .message,
+                          action: 'Reintentar',
+                          onAction: () => voted.refreshFromServer(),
+                        )
+                      else if (!has && _myCount() == 0 && syncing)
+                        const SizedBox(
+                          height: 200,
+                          child: Center(
+                              child: CircularProgressIndicator.adaptive()),
                         )
                       else if (!has)
                         const GmRise(

@@ -233,6 +233,9 @@ class V3PremiosFlowController extends PremiosFlowController {
 /// través del presenter v3); aquí queda en caché, con su `editionId`, para
 /// que el Inicio no tenga que activar App Check al arrancar. Lo de otra
 /// edición no cuenta ([forEdition]).
+/// Estado de la consulta de `my-votes` ([PremiosVotedStore.sync]).
+enum PremiosVotedSync { idle, loading, ok, failed }
+
 class PremiosVotedStore
     extends ValueNotifier<Map<PremiosCategory, Set<String>>> {
   PremiosVotedStore._() : super(const {});
@@ -302,10 +305,20 @@ class PremiosVotedStore
     _persist();
   }
 
+  /// Cómo fue la última consulta de `my-votes` al servidor. «Mis votos» solo
+  /// puede decir «Aún no has votado» si el servidor lo ha confirmado
+  /// ([PremiosVotedSync.ok]); si falló (App Check, red…), enseña el error.
+  final ValueNotifier<PremiosVotedSync> sync =
+      ValueNotifier(PremiosVotedSync.idle);
+
+  /// Error de la última consulta (con [PremiosVotedSync.failed]).
+  PremiosErrorKind? syncError;
+
   /// Pide `my-votes` al servidor a través del presenter (activa App Check:
   /// solo desde pantallas de la encuesta, nunca al arrancar). Si falla, se
-  /// queda la caché.
+  /// queda la caché y [sync] pasa a [PremiosVotedSync.failed].
   Future<void> refreshFromServer({SurveyVotePresenter? presenter}) async {
+    sync.value = PremiosVotedSync.loading;
     final p = presenter ??
         SurveyVotePresenter.platform(HttpRemoteRepository(Client()));
     try {
@@ -313,8 +326,17 @@ class PremiosVotedStore
       final s = p.state;
       if (s.stage == SurveyVoteStage.ready || s.stage == SurveyVoteStage.sent) {
         update(s.voted, edition: s.edition?.editionId);
+        syncError = null;
+        sync.value = PremiosVotedSync.ok;
+      } else {
+        syncError = premiosErrorKindOf(s.failure) ?? PremiosErrorKind.server;
+        sync.value = PremiosVotedSync.failed;
       }
       if (s.edition != null) PremiosEditionStore.instance.publish(s.edition!);
+    } catch (e) {
+      AppLogger.warn('premios', 'my-votes: ${e.runtimeType}');
+      syncError = PremiosErrorKind.network;
+      sync.value = PremiosVotedSync.failed;
     } finally {
       if (presenter == null) p.dispose();
     }
@@ -346,6 +368,8 @@ class PremiosVotedStore
     _loaded = false;
     _fromServer = false;
     _edition = null;
+    syncError = null;
+    sync.value = PremiosVotedSync.idle;
     value = const {};
   }
 }
