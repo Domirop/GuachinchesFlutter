@@ -143,12 +143,44 @@ class _PremiosWineStatusBarState extends State<PremiosWineStatusBar> {
 
   @override
   Widget build(BuildContext context) {
-    final dark = GmColors.of(context).isDark;
+    final gm = GmColors.of(context);
+    final dark = gm.isDark;
+    final top = MediaQuery.paddingOf(context).top;
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: _overCanvas && !dark
           ? SystemUiOverlayStyle.dark
           : SystemUiOverlayStyle.light,
-      child: widget.child,
+      // Sobre el lienzo, un velo bajo la barra de estado: sin él el texto
+      // pasaba por debajo del reloj (iPhone SE).
+      child: Stack(
+        children: [
+          widget.child,
+          Positioned(
+            left: 0,
+            right: 0,
+            top: 0,
+            height: top + 12,
+            child: IgnorePointer(
+              child: AnimatedOpacity(
+                opacity: _overCanvas ? 1 : 0,
+                duration:
+                    Duration(milliseconds: GmMotion.reduced(context) ? 0 : 160),
+                child: DecoratedBox(
+                  key: const ValueKey('premios-status-scrim'),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [gm.canvas, gm.canvas, gm.canvas.withAlpha(0)],
+                      stops: [0, top / (top + 12), 1],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

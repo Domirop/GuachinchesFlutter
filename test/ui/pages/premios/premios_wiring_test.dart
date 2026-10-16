@@ -599,6 +599,31 @@ void main() {
       await t.pumpWidget(const SizedBox());
     });
 
+    testWidgets(
+        'Entrada: al bajar, un velo de lienzo bajo la barra de estado '
+        '(iPhone SE)', (t) async {
+      t.view.physicalSize = const Size(375 * 2, 667 * 2);
+      t.view.devicePixelRatio = 2;
+      addTearDown(t.view.reset);
+      PremiosEditionStore.instance.set(serverEdition());
+      await t.pumpWidget(app(
+          PremiosEntryPage(
+              controller: FakeFlow(const PremiosFlowState(
+                  load: PremiosLoad.ready))),
+          reduce: true));
+      await t.pump(const Duration(milliseconds: 200));
+      double scrim() => t
+          .widget<AnimatedOpacity>(find.ancestor(
+              of: find.byKey(const ValueKey('premios-status-scrim')),
+              matching: find.byType(AnimatedOpacity)))
+          .opacity;
+      expect(scrim(), 0);
+      await t.drag(find.byType(CustomScrollView), const Offset(0, -600));
+      await t.pump(const Duration(milliseconds: 300));
+      expect(scrim(), 1);
+      await t.pumpWidget(const SizedBox());
+    });
+
     testWidgets('MyVotedRestaurants abre la pantalla v3', (t) async {
       phone(t);
       addTearDown(t.view.reset);
