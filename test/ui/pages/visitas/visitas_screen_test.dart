@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:guachinches/l10n/app_localizations.dart';
 import 'package:guachinches/config/app_theme.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
 import 'package:guachinches/data/cubit/menu/menu_cubit.dart';
@@ -41,6 +43,9 @@ Widget _wrap(UserVisitsState initialState) {
     ],
     child: MaterialApp(
       theme: appDarkTheme,
+      localizationsDelegates: AppL10n.localizationsDelegates,
+      supportedLocales: AppL10n.supportedLocales,
+      locale: const Locale('es', 'ES'),
       home: const VisitasScreen(),
     ),
   );
@@ -54,6 +59,7 @@ UserVisit _visit(String id) => UserVisit(
     );
 
 void main() {
+  setUp(() => FlutterSecureStorage.setMockInitialValues({'userId': 'test-user'}));
   group('VisitasScreen', () {
     testWidgets(
         '(a) UserVisitsEmpty shows empty text and visitas-empty-cta',
