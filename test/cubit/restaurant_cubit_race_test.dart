@@ -25,6 +25,17 @@ class _FakeRemoteRepo extends Fake implements RemoteRepository {
     return _queue.removeAt(0);
   }
 
+  // La búsqueda avanzada usa la variante que lanza en error.
+  @override
+  Future<List<Restaurant>> getFilterRestaurantsChecked(
+    String categorias,
+    String municipalities,
+    String types,
+    String nombre,
+    String islandId,
+  ) =>
+      getFilterRestaurants(categorias, municipalities, types, nombre, islandId);
+
   @override
   Future<RestaurantResponse> getAllRestaurants(int number,
       [String islandId = '']) async {

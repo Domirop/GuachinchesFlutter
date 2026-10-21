@@ -1,6 +1,12 @@
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:guachinches/ui/theme/gm_tokens.dart';
+
+/// Margen alrededor de cada nube rasterizada: el desenfoque más ancho
+/// (σ 22) se extiende ~3σ fuera de la caja de la nube.
+const double _kBlurPad = 70;
 
 /// Overlay decorativo de nubes blancas que se desplazan lentamente.
 /// Pensado para ponerse dentro de un `Stack` que cubra solo la zona del
@@ -26,11 +32,21 @@ class _CloudsOverlayState extends State<CloudsOverlay>
   late final AnimationController _ctrl;
   late final List<_Cloud> _clouds;
 
+  /// Cada nube se pinta UNA vez a imagen (a la densidad de la pantalla) y en
+  /// cada fotograma solo se mueve. Antes eran ~15 formas con MaskFilter.blur
+  /// por nube y fotograma: con Impeller no hay caché de raster, así que eran
+  /// decenas de pasadas de desenfoque en la GPU 60–120 veces por segundo.
+  final Map<int, ui.Image> _sprites = {};
+  double _spritesDpr = 0;
+
   @override
   void initState() {
     super.initState();
-    _ctrl = AnimationController(vsync: this, duration: widget.baseDuration)
-      ..repeat();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: widget.baseDuration,
+      animationBehavior: AnimationBehavior.preserve,
+    );
     final rng = math.Random(42);
     _clouds = List.generate(widget.count, (i) {
       return _Cloud(
@@ -43,14 +59,43 @@ class _CloudsOverlayState extends State<CloudsOverlay>
     });
   }
 
+  /// Con movimiento reducido no hay bucle (con las animaciones del sistema
+  /// quitadas el controlador se aceleraba sin parar); si no, gira a su ritmo.
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (GmMotion.reduced(context)) {
+      _ctrl.stop();
+    } else if (!_ctrl.isAnimating) {
+      _ctrl.repeat();
+    }
+  }
+
   @override
   void dispose() {
     _ctrl.dispose();
+    _disposeSprites();
     super.dispose();
+  }
+
+  void _disposeSprites() {
+    for (final img in _sprites.values) {
+      img.dispose();
+    }
+    _sprites.clear();
+  }
+
+  ui.Image _sprite(int i, double dpr) {
+    if (dpr != _spritesDpr) {
+      _disposeSprites();
+      _spritesDpr = dpr;
+    }
+    return _sprites[i] ??= _rasterizeCloud(_clouds[i].size, dpr);
   }
 
   @override
   Widget build(BuildContext context) {
+    final dpr = MediaQuery.devicePixelRatioOf(context);
     return ClipRect(
       child: LayoutBuilder(
         builder: (_, c) {
@@ -61,9 +106,10 @@ class _CloudsOverlayState extends State<CloudsOverlay>
             builder: (_, __) {
               return Stack(
                 children: [
-                  for (final cloud in _clouds)
+                  for (var i = 0; i < _clouds.length; i++)
                     _CloudView(
-                      cloud: cloud,
+                      cloud: _clouds[i],
+                      sprite: _sprite(i, dpr),
                       width: w,
                       height: h,
                       progress: _ctrl.value,
@@ -92,10 +138,29 @@ class _Cloud {
     required this.offsetFrac,
     required this.opacity,
   });
+
+  Size get size => Size(180 * scale, 70 * scale);
+}
+
+/// Pinta [_CloudShape] en una imagen con [_kBlurPad] de margen.
+ui.Image _rasterizeCloud(Size size, double dpr) {
+  final recorder = ui.PictureRecorder();
+  final canvas = Canvas(recorder)
+    ..scale(dpr)
+    ..translate(_kBlurPad, _kBlurPad);
+  _CloudShape().paint(canvas, size);
+  final picture = recorder.endRecording();
+  final image = picture.toImageSync(
+    ((size.width + 2 * _kBlurPad) * dpr).ceil(),
+    ((size.height + 2 * _kBlurPad) * dpr).ceil(),
+  );
+  picture.dispose();
+  return image;
 }
 
 class _CloudView extends StatelessWidget {
   final _Cloud cloud;
+  final ui.Image sprite;
   final double width;
   final double height;
   final double progress;
@@ -103,6 +168,7 @@ class _CloudView extends StatelessWidget {
 
   const _CloudView({
     required this.cloud,
+    required this.sprite,
     required this.width,
     required this.height,
     required this.progress,
@@ -118,28 +184,17 @@ class _CloudView extends StatelessWidget {
     final dx = width - (width + cloudWidth) * t;
     final dy = cloud.yFrac * (height - cloudHeight);
     return Positioned(
-      left: dx,
-      top: dy,
+      left: dx - _kBlurPad,
+      top: dy - _kBlurPad,
+      width: cloudWidth + 2 * _kBlurPad,
+      height: cloudHeight + 2 * _kBlurPad,
       child: IgnorePointer(
         child: Opacity(
           opacity: (baseOpacity * cloud.opacity).clamp(0.0, 1.0),
-          child: SizedBox(
-            width: cloudWidth,
-            height: cloudHeight,
-            child: const RepaintBoundary(child: _CloudPainter()),
-          ),
+          child: RawImage(image: sprite, fit: BoxFit.fill),
         ),
       ),
     );
-  }
-}
-
-class _CloudPainter extends StatelessWidget {
-  const _CloudPainter();
-
-  @override
-  Widget build(BuildContext context) {
-    return CustomPaint(painter: _CloudShape());
   }
 }
 

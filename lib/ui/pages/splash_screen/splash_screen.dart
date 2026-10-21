@@ -39,14 +39,15 @@ class _SplashScreenState extends State<SplashScreen>
         this, remoteRepository, userCubit, onboardingCubit);
     presenter.getUserInfo();
 
-    // Watchdog: si en 12s no se ha navegado, forzamos el flujo principal
-    // para evitar que el splash quede colgado por una respuesta del
+    // Watchdog: si en 12s no se ha navegado, seguimos sin la comprobación de
+    // versión (onboarding o app) para evitar que el splash quede colgado por una respuesta del
     // backend que no llega. El presenter ya tiene timeouts en getVersion,
     // pero esto cubre cualquier futuro await sin timeout en la cadena.
     _watchdog = Timer(const Duration(seconds: 12), () {
       if (_navigated || !mounted) return;
-      AppLogger.warn('splash', 'watchdog_fired forcing_main_function');
-      presenter.mainFunction();
+      AppLogger.warn('splash', 'watchdog_fired skipping_version_check');
+      // Sin la comprobación de versión, pero respetando el onboarding.
+      presenter.continueAfterVersion();
     });
 
     super.initState();

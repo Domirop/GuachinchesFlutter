@@ -1,0 +1,264 @@
+import 'package:flutter_test/flutter_test.dart';
+import 'package:guachinches/data/model/restaurant.dart';
+import 'package:guachinches/data/model/survey_v3.dart';
+import 'package:guachinches/ui/components/SurveyResults/SurveyResults.dart';
+import 'package:guachinches/ui/pages/premios/premios_controllers.dart';
+import 'package:guachinches/ui/pages/survey_in_app/survey_vote_presenter.dart';
+import 'package:guachinches/ui/pages/premios/premios_models.dart';
+
+void main() {
+  group('buscador', () {
+    test('sin tildes ni mayúsculas en los dos lados', () {
+      expect(
+          premiosNormalize('  Guachinche  Casa JOSÉ '), 'guachinche casa jose');
+      expect(premiosNormalize('Señorío Güímar'), 'senorio guimar');
+      // Diacríticos combinados (texto en NFD).
+      expect(premiosNormalize('Jose\u0301 Gu\u0308i\u0301mar'), 'jose guimar');
+      final list = [
+        PremiosCandidate.fromApi('1', 'GUACHINCHE CASA JOSE (El Tejadito)'),
+        PremiosCandidate.fromApi('2', 'Bodega Zacatín'),
+        PremiosCandidate.fromApi(
+            '3', 'GUACHINCHE SALON EL CUBANO (Santa Úrsula)'),
+      ];
+      expect(premiosFilter(list, 'josé').map((c) => c.value), ['1']);
+      expect(premiosFilter(list, 'zacatin').map((c) => c.value), ['2']);
+      expect(premiosFilter(list, 'URSULA').map((c) => c.value), ['3']);
+      expect(premiosFilter(list, 'tasca del puerto'), isEmpty);
+      expect(premiosFilter(list, '   '), hasLength(3));
+    });
+
+    test('los nombres en mayúsculas se pintan en tipo título', () {
+      String n(String s) => PremiosCandidate.fromApi('x', s).name;
+      expect(n('GUACHINCHE LA BREVERA'), 'Guachinche La Brevera');
+      expect(n('GUACHINCHE LA CUADRA (Los Realejos)'),
+          'Guachinche La Cuadra (Los Realejos)');
+      expect(n('BODEGON DE LA ERA'), 'Bodegon de la Era');
+      expect(n('GUACHINCHE "El Borgoñón" de Sandra'),
+          'Guachinche «El Borgoñón» de Sandra');
+      expect(n('Guachinche Casa Francis'), 'Guachinche Casa Francis');
+      expect(n('BAR BBQ'), 'Bar BBQ');
+    });
+  });
+
+  group('ranking', () {
+    test('puestos compartidos: 7·6·6·5 → 1,2,2,4 y 4·4·3 → 1,1,3', () {
+      expect(premiosCompetitionRanks([7, 6, 6, 5]), [1, 2, 2, 4]);
+      expect(premiosCompetitionRanks([4, 4, 3]), [1, 1, 3]);
+      expect(premiosCompetitionRanks([]), isEmpty);
+    });
+
+    test('SurveyResult viejo: una opción sin restaurante no tumba nada', () {
+      final r = [Restaurant(id: 'a', nombre: 'BODEGA ZACATIN')];
+      final missing = SurveyResult.fromJsonWithRestaurants(
+          {'option': 'zz', 'votes': '6'}, r);
+      expect(missing.restaurant, isNull);
+    });
+
+    test('resultados v3: parseo con nulos, números en texto y oculto', () {
+      final res = SurveyEditionResults.fromJson({
+        'editionId': '2',
+        'status': 'open',
+        'generatedAt': '2027-03-01T10:00:00Z',
+        'hidden': false,
+        'categories': [
+          {
+            'category': 'Mejor-Guachinche-Tradicional',
+            'label': 'Tradicional',
+            'totalVotes': 9,
+            'candidatesWithVotes': 3,
+            'results': [
+              {
+                'value': 'a',
+                'restaurantId': null,
+                'name': 'BODEGA ZACATIN',
+                'municipality': 'LA OROTAVA',
+                'island': null,
+                'photoUrl': null,
+                'votes': '7',
+                'rank': 1
+              },
+              {'value': 'b', 'name': 'Casa Pepe', 'votes': 2, 'rank': 2},
+              {
+                'value': 'c',
+                'name': '',
+                'municipality': '',
+                'votes': 0,
+                'rank': 3
+              },
+            ]
+          },
+          'basura',
+        ],
+      });
+      expect(res.editionId, 2);
+      expect(res.status, SurveyEditionStatus.open);
+      expect(res.hidden, isFalse);
+      final t = res.category('Mejor-Guachinche-Tradicional')!;
+      expect(t.totalVotes, 9);
+      expect(t.results.first.votes, 7);
+      expect(t.results.first.restaurantId, isNull);
+      expect(t.results.first.photoUrl, isNull);
+      expect(t.results.last.municipality, isNull);
+      expect(res.category('Mejor-Guachinche-Moderno'), isNull);
+
+      final hidden = SurveyEditionResults.fromJson(
+          {'editionId': 2, 'status': 'open', 'hidden': true, 'categories': []});
+      expect(hidden.hidden, isTrue);
+      expect(SurveyEditionResults.fromJson({}).hidden, isFalse);
+    });
+
+    test('filas → ranking: puesto del servidor, empates, sin ceros, nulos', () {
+      const rows = [
+        SurveyResultRow(value: 'z', name: 'Zeta', votes: 4, rank: 2),
+        SurveyResultRow(
+            value: 'a',
+            name: 'BODEGA ZACATIN',
+            municipality: 'LA OROTAVA',
+            photoUrl: 'https://x/a.jpg',
+            votes: 7,
+            rank: 1),
+        SurveyResultRow(value: 'b', name: 'Alfa', votes: 4, rank: 2),
+        SurveyResultRow(value: 'c', name: 'Cero', votes: 0, rank: 4),
+        SurveyResultRow(value: 'd', name: '  ', votes: 1, rank: 4),
+      ];
+      final e = premiosRankFromRows(rows, isMine: (v) => v == 'b');
+      expect(e.map((x) => x.id).toList(), ['a', 'z', 'b', 'd']);
+      expect(e.map((x) => (x.rank, x.tied)).toList(),
+          [(1, false), (2, true), (2, true), (4, false)]);
+      expect(e.first.name, 'Bodega Zacatin');
+      expect(e.first.municipio, 'La Orotava');
+      expect(e.first.photoUrl, 'https://x/a.jpg');
+      expect(e[1].municipio, isEmpty);
+      expect(e[1].photoUrl, isNull);
+      expect(e.last.name, kPremiosMissingName);
+      expect(e.where((x) => x.mine).single.id, 'b');
+      // Sin puesto del servidor: competición en el cliente.
+      final f = premiosRankFromRows(const [
+        SurveyResultRow(value: 'a', name: 'A', votes: 3, rank: 0),
+        SurveyResultRow(value: 'b', name: 'B', votes: 5, rank: 0),
+        SurveyResultRow(value: 'c', name: 'C', votes: 3, rank: 0),
+      ]);
+      expect(f.map((x) => x.rank).toList(), [1, 2, 2]);
+    });
+
+    test('nombre con paréntesis aparte y votos en singular', () {
+      expect(premiosSplitName('Bodega Zacatín (Guachinche El Churrasco)'),
+          ('Bodega Zacatín', '(Guachinche El Churrasco)'));
+      expect(premiosSplitName('Casa Pepe'), ('Casa Pepe', ''));
+      expect(premiosVotes(1), '1 voto');
+      expect(premiosVotes(6), '6 votos');
+    });
+  });
+
+  group('errores del presenter actual', () {
+    test('fallos del presenter v3 → avisos y bloqueos', () {
+      expect(premiosErrorKindOf(const SurveyAlreadyVoted([])),
+          PremiosErrorKind.alreadyVoted);
+      expect(
+          premiosErrorKindOf(const SurveyIntegrityFailed('integrity_failed')),
+          PremiosErrorKind.deviceUnverified);
+      expect(premiosErrorKindOf(const SurveyVerificationUnavailable()),
+          PremiosErrorKind.verificationUnavailable);
+      expect(premiosErrorKindOf(const SurveyInvalidOption()),
+          PremiosErrorKind.invalidOption);
+      expect(premiosErrorKindOf(const SurveyInsecureConnection()),
+          PremiosErrorKind.insecureConnection);
+      expect(premiosErrorKindOf(const SurveyVotingUnavailable()),
+          PremiosErrorKind.votingUnavailable);
+      expect(
+          premiosErrorCopy(PremiosErrorKind.votingUnavailable).retry, isFalse);
+      expect(premiosErrorCopy(PremiosErrorKind.insecureConnection).title,
+          'No podemos conectar de forma segura');
+      expect(premiosErrorKindOf(const SurveyDeviceBlocked()), isNull);
+      expect(
+          premiosGateOf(SurveyVoteStage.unsupported), PremiosGate.unsupported);
+      expect(premiosGateOf(SurveyVoteStage.upcoming), PremiosGate.upcoming);
+      expect(premiosGateOf(SurveyVoteStage.ready), isNull);
+    });
+
+    test('el copy nunca enseña la excepción y 403/429 tienen el suyo', () {
+      for (final k in PremiosErrorKind.values) {
+        final c = premiosErrorCopy(k);
+        expect('${c.title} ${c.message}', isNot(contains('Exception')));
+      }
+      expect(premiosErrorCopy(PremiosErrorKind.deviceUnverified).title,
+          'No hemos podido comprobar este\u00A0móvil');
+      // QA Android: si falla Play Integrity, «actualiza la app» no ayuda.
+      final android = premiosErrorCopy(PremiosErrorKind.deviceUnverified,
+          store: 'Google Play');
+      expect(android.message, contains('Google Play esté al día'));
+      expect(android.message, isNot(contains('Actualiza la app')));
+      expect(
+          premiosErrorCopy(PremiosErrorKind.deviceUnverified,
+                  store: 'la App Store')
+              .message,
+          contains('la hora del móvil en automático'));
+      expect(
+          premiosErrorCopy(PremiosErrorKind.alreadyVoted, rowFlagged: true)
+              .title,
+          'Ese ya tenía tu voto');
+    });
+  });
+
+  group('cuenta atrás y hoja del Inicio', () {
+    final ed = PremiosEdition(votingEndsAt: DateTime.utc(2026, 3, 20, 23, 59));
+    test('días; el último día, horas; después, cerrada (todo en UTC)', () {
+      expect(ed.countdown(DateTime.utc(2026, 3, 8, 10)), (12, 'días'));
+      expect(ed.remainingLabel(DateTime.utc(2026, 3, 19, 10)), 'Queda 1 día');
+      expect(ed.phase(DateTime.utc(2026, 3, 20, 15)), PremiosPhase.lastDay);
+      expect(ed.countdown(DateTime.utc(2026, 3, 20, 15)), (9, 'horas'));
+      expect(ed.phase(DateTime.utc(2026, 3, 21)), PremiosPhase.closed);
+      expect(ed.untilLabel, 'Se vota hasta el 20 de marzo');
+    });
+
+    test('el cambio de hora no resta un día (fechas UTC)', () {
+      // 29 de marzo de 2026: en Canarias se adelanta la hora.
+      final e = PremiosEdition(votingEndsAt: DateTime.utc(2026, 4, 1, 22, 59));
+      expect(e.daysLeft(DateTime.utc(2026, 3, 28, 23, 30)), 4);
+      expect(e.daysLeft(DateTime.utc(2026, 3, 29, 0, 30)), 3);
+    });
+
+    test('sin fecha: estado neutro, nunca «cerrada»', () {
+      final none = PremiosEdition.none;
+      expect(none.phase(DateTime.utc(2030)), PremiosPhase.unknown);
+      expect(none.phase(DateTime.utc(2030)).canVote, isTrue);
+      expect(none.untilLabel, isEmpty);
+    });
+
+    test('la edición del contrato v3 (editions/current)', () {
+      // Respuesta real de producción (edición 3).
+      final e = PremiosEdition.fromSurvey(SurveyEdition.fromJson({
+        'editionId': 3,
+        'label': 'Premios Donde Comer Canarias 2027',
+        'status': 'open',
+        'votingStartsAt': '2026-10-15T09:38:47.696Z',
+        'votingEndsAt': '2027-03-20T23:59:59.000Z',
+        'integrityPolicy': 'attested',
+        'voteScope': 'business',
+        'minAppVersion': {'ios': '4.6.0', 'android': '4.6.0'},
+        'categories': [
+          'Mejor-Guachinche-Moderno',
+          'Mejor-Guachinche-Tradicional'
+        ],
+      }));
+      expect(e.id, 3);
+      expect(e.year, 2027);
+      expect(e.phase(DateTime.utc(2026, 10, 15, 10)), PremiosPhase.open);
+      expect(e.showOnHome(DateTime.utc(2026, 10, 15, 10)), isTrue);
+      expect(e.votingEndsAt!.isUtc, isTrue);
+      expect(PremiosEdition.fromJson(e.toJson()), e);
+    });
+
+    test('la hoja solo si se vota, no votó ni la descartó en 7 días', () {
+      final now = DateTime.utc(2026, 3, 10);
+      bool show(PremiosPhase p, bool v, DateTime? d) =>
+          premiosShouldShowSheet(phase: p, voted: v, dismissedAt: d, now: now);
+      expect(show(PremiosPhase.open, false, null), isTrue);
+      expect(show(PremiosPhase.open, true, null), isFalse);
+      expect(show(PremiosPhase.closed, false, null), isFalse);
+      expect(show(PremiosPhase.unknown, false, null), isFalse);
+      expect(show(PremiosPhase.open, false, DateTime.utc(2026, 3, 6)), isFalse);
+      expect(show(PremiosPhase.open, false, DateTime.utc(2026, 3, 2)), isTrue);
+    });
+  });
+}

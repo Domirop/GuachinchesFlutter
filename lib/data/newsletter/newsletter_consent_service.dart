@@ -2,6 +2,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:guachinches/core/analytics/analytics.dart';
 import 'package:guachinches/core/analytics/analytics_events.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
+import 'package:guachinches/services/app_storage.dart';
 
 /// Versión del texto de consentimiento mostrado al usuario. DEBE coincidir con
 /// el `consentTextVersion` que se envía al backend (prueba RGPD, migration 029).
@@ -23,7 +24,7 @@ class NewsletterConsentService {
 
   NewsletterConsentService(
     this._repo, {
-    FlutterSecureStorage storage = const FlutterSecureStorage(),
+    FlutterSecureStorage storage = AppStorage.instance,
   }) : _storage = storage;
 
   /// True si ya se le preguntó al usuario (para no repetir el prompt).

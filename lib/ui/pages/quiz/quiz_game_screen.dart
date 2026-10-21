@@ -1,533 +1,267 @@
-import 'dart:async';
-import 'dart:ui';
-
-import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:guachinches/config/app_colors.dart';
-import 'package:guachinches/config/app_shapes.dart';
-import 'package:guachinches/config/app_text_styles.dart';
-import 'package:guachinches/config/brand_colors.dart';
+import 'package:guachinches/core/analytics/analytics.dart';
 import 'package:guachinches/data/cubit/quiz/quiz_game_cubit.dart';
 import 'package:guachinches/data/cubit/quiz/quiz_game_state.dart';
 import 'package:guachinches/data/quiz/quiz_repository.dart';
 import 'package:guachinches/ui/pages/quiz/quiz_sound.dart';
-import 'package:guachinches/ui/pages/quiz/widgets/quiz_glass.dart';
-import 'package:guachinches/ui/pages/quiz/widgets/quiz_home_view.dart';
-import 'package:guachinches/ui/pages/quiz/widgets/quiz_question_view.dart';
+import 'package:guachinches/ui/pages/quiz/widgets/quiz_glyphs.dart';
+import 'package:guachinches/ui/pages/quiz/widgets/quiz_lobby_view.dart';
+import 'package:guachinches/ui/pages/quiz/widgets/quiz_play_view.dart';
 import 'package:guachinches/ui/pages/quiz/widgets/quiz_result_view.dart';
-import 'package:guachinches/ui/pages/quiz/widgets/quiz_wheel_view.dart';
+import 'package:guachinches/ui/pages/quiz/widgets/quiz_sheets.dart';
+import 'package:guachinches/ui/pages/quiz/widgets/quiz_ui.dart';
+import 'package:guachinches/ui/theme/gm_icons.dart';
+import 'package:guachinches/ui/theme/gm_tokens.dart';
+import 'package:guachinches/ui/theme/gm_widgets.dart';
+import 'package:share_plus/share_plus.dart' show SharePlus, ShareParams;
 
-/// Pantalla inmersiva del juego "¿Cuánto sabes de Canarias?". Aloja el
-/// [QuizGameCubit] y conmuta el cuerpo según la fase. Fondo dark de 4 capas.
+/// Juego «¿Cuánto sabes de Canarias?» / «Conquista Canarias» a pantalla
+/// completa (rediseño iOS 27, tableros `QuizInicio`, `QuizPartida`,
+/// `QuizResultado`, `QuizHojas`). Aloja el [QuizGameCubit] y conmuta la vista
+/// según la fase. Sin intro forzada: el lobby pinta su esqueleto mientras
+/// carga y el pito herreño suena solo la primera vez.
 class QuizGameScreen extends StatelessWidget {
-  const QuizGameScreen({super.key});
+  /// Inyectables para tests.
+  final QuizRepository? repository;
+  final QuizAudio? audio;
+
+  const QuizGameScreen({super.key, this.repository, this.audio});
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (_) => QuizGameCubit(QuizRepository())..loadLobby(),
-      child: const _QuizGameScaffold(),
+      create: (_) => QuizGameCubit(repository ?? QuizRepository())..loadLobby(),
+      child: _QuizGameScaffold(audio: audio),
     );
   }
 }
 
 class _QuizGameScaffold extends StatefulWidget {
-  const _QuizGameScaffold();
+  final QuizAudio? audio;
+  const _QuizGameScaffold({this.audio});
 
   @override
   State<_QuizGameScaffold> createState() => _QuizGameScaffoldState();
 }
 
 class _QuizGameScaffoldState extends State<_QuizGameScaffold> {
-  final QuizSound _sound = QuizSound();
-  Timer? _revealTimer;
+  late final QuizAudio _audio = widget.audio ?? QuizSound();
 
-  // Intro de carga (~7 s) al entrar al juego: imagen + pito herreño de fondo
-  // mientras se cargan las peticiones (loadLobby corre en paralelo).
-  final AudioPlayer _intro = AudioPlayer();
-  Timer? _introTimer;
-  bool _showIntro = true;
+  /// Hoja abierta (salir / nueva): la ruleta no abre la pregunta hasta que se
+  /// cierre, para que el reloj no corra a escondidas.
+  bool _sheetOpen = false;
+  bool _pendingSettle = false;
 
   @override
   void initState() {
     super.initState();
-    _startIntro();
-  }
-
-  Future<void> _startIntro() async {
-    try {
-      await _intro.setReleaseMode(ReleaseMode.stop);
-      await _intro.play(AssetSource('audio/pito-herreno-intro.mp3'));
-    } catch (_) {/* silencio si no se puede reproducir */}
-    _introTimer = Timer(const Duration(seconds: 10), _endIntro);
-  }
-
-  void _endIntro() {
-    if (!mounted) return;
-    setState(() => _showIntro = false);
-    _intro.stop();
+    _audio.introIfFirstTime();
   }
 
   @override
   void dispose() {
-    _introTimer?.cancel();
-    _intro.dispose();
-    _revealTimer?.cancel();
-    _sound.dispose();
+    _audio.dispose();
     super.dispose();
   }
 
-  /// Al entrar en reveal: suena acierto/fallo y, tras ~2.2 s, pasa de turno.
+  bool _inGame(QuizPhase p) =>
+      p == QuizPhase.spinning ||
+      p == QuizPhase.question ||
+      p == QuizPhase.revealing;
+
   void _onPhase(BuildContext context, QuizGameState state) {
     if (state.phase == QuizPhase.revealing) {
-      (state.result?.isCorrect ?? false) ? _sound.correct() : _sound.fail();
-      _revealTimer?.cancel();
-      _revealTimer = Timer(const Duration(milliseconds: 2200), () {
-        if (mounted) context.read<QuizGameCubit>().continueAfterReveal();
-      });
+      (state.result?.isCorrect ?? false) ? _audio.correct() : _audio.fail();
     }
   }
 
+  void _onSettled(QuizGameCubit cubit) {
+    if (_sheetOpen) {
+      _pendingSettle = true;
+      return;
+    }
+    cubit.onSpinSettled();
+  }
+
+  Future<void> _confirmExit(BuildContext context) async {
+    if (_sheetOpen) return;
+    final cubit = context.read<QuizGameCubit>();
+    final st = cubit.state;
+    final timing = st.phase == QuizPhase.question && st.selectedIndex == null;
+    if (timing) cubit.pauseTimer();
+    _sheetOpen = true;
+    final choice = await showQuizExitSheet(
+      context,
+      session: st.session,
+      clockPaused: timing,
+    );
+    _sheetOpen = false;
+    if (!mounted) return;
+    switch (choice) {
+      case QuizExitChoice.leave:
+        _pendingSettle = false;
+        cubit.leaveToLobby();
+      case QuizExitChoice.abandon:
+        _pendingSettle = false;
+        Analytics.I.logEvent('quiz_abandon');
+        cubit.abandonAndLeave();
+      case QuizExitChoice.keepPlaying:
+      case null:
+        cubit.resumeTimer();
+        if (_pendingSettle) {
+          _pendingSettle = false;
+          cubit.onSpinSettled();
+        }
+    }
+  }
+
+  Future<void> _onNew(BuildContext context) async {
+    final cubit = context.read<QuizGameCubit>();
+    final active = cubit.state.activeSession;
+    if (active == null || !active.isActive) {
+      cubit.startGame();
+      return;
+    }
+    _sheetOpen = true;
+    final choice = await showQuizNewGameSheet(context, active);
+    _sheetOpen = false;
+    if (!mounted) return;
+    switch (choice) {
+      case QuizNewGameChoice.startNew:
+        cubit.startNewGame();
+      case QuizNewGameChoice.resume:
+        cubit.resumeGame(active);
+      case null:
+        break;
+    }
+  }
+
+  void _share(String text) {
+    Analytics.I.logEvent('quiz_share');
+    SharePlus.instance.share(ShareParams(text: text));
+  }
+
   @override
   Widget build(BuildContext context) {
-    if (_showIntro) return const _QuizIntroLoading();
-    return Scaffold(
-      backgroundColor: context.brand.base,
-      body: Container(
-        decoration: quizBackground(context),
-        child: BlocConsumer<QuizGameCubit, QuizGameState>(
-          listenWhen: (p, c) => p.phase != c.phase,
-          listener: _onPhase,
-          builder: (context, state) {
-            final cubit = context.read<QuizGameCubit>();
-            switch (state.phase) {
-              case QuizPhase.idle:
-              case QuizPhase.loading:
-                return QuizHomeView(
-                  state: state,
-                  onPlay: cubit.startGame,
-                  onResume: cubit.resumeGame,
-                  onClose: () => Navigator.of(context).maybePop(),
-                  onHowTo: () => _showRules(context),
-                  onLoadRanking: cubit.loadRanking,
-                );
-              case QuizPhase.error:
-                return _ErrorView(
-                  message: state.error ?? 'Algo salió mal',
-                  onRetry: cubit.loadLobby,
-                  onClose: () => Navigator.of(context).maybePop(),
-                );
-              case QuizPhase.spinning:
-                return QuizWheelView(
-                  categories: state.categories,
-                  landed: state.landed,
-                  lives: state.lives,
-                  score: state.score,
-                  owned: state.wedges.toSet(),
-                  onNeedSpin: cubit.spin,
-                  onSettled: cubit.onSpinSettled,
-                  onExit: () => _confirmExit(context, cubit),
-                );
-              case QuizPhase.question:
-              case QuizPhase.revealing:
-                final q = state.question;
-                if (q == null) return const SizedBox.shrink();
-                return QuizQuestionView(
-                  question: q,
-                  categories: state.categories,
-                  owned: state.wedges.toSet(),
-                  secondsLeft: state.secondsLeft,
-                  secondsTotal: state.secondsTotal,
-                  lives: state.lives,
-                  score: state.score,
-                  revealing: state.phase == QuizPhase.revealing,
-                  selectedIndex: state.selectedIndex,
-                  result: state.result,
-                  onAnswer: cubit.answer,
-                  onExit: () => _confirmExit(context, cubit),
-                );
-              case QuizPhase.won:
-              case QuizPhase.lost:
-                return QuizResultView(
-                  state: state,
-                  onPlayAgain: cubit.restart,
-                  onClose: () => Navigator.of(context).maybePop(),
-                  onConquer: cubit.conquer,
-                );
+    final gm = GmColors.of(context);
+    final reduced = GmMotion.reduced(context);
+    return BlocConsumer<QuizGameCubit, QuizGameState>(
+      listenWhen: (p, c) => p.phase != c.phase,
+      listener: _onPhase,
+      builder: (context, state) {
+        final cubit = context.read<QuizGameCubit>();
+        final inGame = _inGame(state.phase);
+        final Widget body;
+        final String key;
+        switch (state.phase) {
+          case QuizPhase.idle:
+          case QuizPhase.loading:
+            key = 'lobby';
+            body = QuizLobbyView(
+              state: state,
+              onClose: () => Navigator.of(context).maybePop(),
+              onHelp: () => showQuizRulesSheet(context),
+              onPlay: cubit.startGame,
+              onNew: () => _onNew(context),
+              onResume: cubit.resumeGame,
+              onRetryLobby: cubit.loadLobby,
+              onRetryHistory: cubit.loadHistory,
+              onLoadRanking: cubit.loadRanking,
+            );
+          case QuizPhase.error:
+            key = 'error';
+            body = _ErrorView(
+              onRetry: cubit.backToLobby,
+              onClose: () => Navigator.of(context).maybePop(),
+            );
+          case QuizPhase.spinning:
+            key = 'wheel-${state.wedges.length}-${state.lives}-${state.score}';
+            body = QuizWheelView(
+              state: state,
+              onPrefetch: cubit.spin,
+              onSettled: () => _onSettled(cubit),
+              onExit: () => _confirmExit(context),
+            );
+          case QuizPhase.question:
+          case QuizPhase.revealing:
+            if (state.question == null) {
+              key = 'empty';
+              body = const SizedBox.shrink();
+            } else {
+              key = 'q-${state.question!.id}';
+              body = QuizQuestionView(
+                state: state,
+                onAnswer: cubit.answer,
+                onNext: cubit.continueAfterReveal,
+                onExit: () => _confirmExit(context),
+              );
             }
+          case QuizPhase.won:
+          case QuizPhase.lost:
+            key = 'result-${state.phase.name}';
+            body = QuizResultView(
+              state: state,
+              onConquer: cubit.conquer,
+              onHome: cubit.backToLobby,
+              onPlayAgain: cubit.restart,
+              onShare: _share,
+            );
+        }
+        return PopScope(
+          canPop: !inGame,
+          onPopInvokedWithResult: (didPop, _) {
+            if (!didPop && inGame) _confirmExit(context);
           },
-        ),
-      ),
+          child: Scaffold(
+            backgroundColor: gm.canvas,
+            body: AnimatedSwitcher(
+              duration: Duration(milliseconds: reduced ? 0 : 260),
+              switchInCurve: GmMotion.settle,
+              switchOutCurve: GmMotion.ease,
+              child: KeyedSubtree(key: ValueKey(key), child: body),
+            ),
+          ),
+        );
+      },
     );
   }
 }
 
-/// Pantalla de carga: la escena festiva canaria a pantalla completa mientras
-/// suena el pito herreño y se cargan las peticiones (~7 s).
-class _QuizIntroLoading extends StatefulWidget {
-  const _QuizIntroLoading();
-
-  @override
-  State<_QuizIntroLoading> createState() => _QuizIntroLoadingState();
-}
-
-class _QuizIntroLoadingState extends State<_QuizIntroLoading>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _c = AnimationController(
-    vsync: this,
-    duration: const Duration(seconds: 10),
-  )..forward();
-
-  @override
-  void dispose() {
-    _c.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final bottom = MediaQuery.of(context).padding.bottom;
-    return Scaffold(
-      backgroundColor: const Color(0xFF0B1E47),
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          // La escena festiva.
-          Image.asset('assets/images/quiz-loading.png', fit: BoxFit.cover),
-          // Velo inferior para legibilidad del texto y la barra.
-          const Align(
-            alignment: Alignment.bottomCenter,
-            child: FractionallySizedBox(
-              heightFactor: 0.42,
-              widthFactor: 1,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [Color(0x00000000), Color(0xCC04122E)],
-                  ),
-                ),
-              ),
-            ),
-          ),
-          // Título + barra de progreso abajo.
-          Positioned(
-            left: 28,
-            right: 28,
-            bottom: 28 + bottom,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  '¿CUÁNTO SABES DE CANARIAS?',
-                  textAlign: TextAlign.center,
-                  style: AppTextStyles.displayHero(size: 22, color: Colors.white)
-                      .copyWith(
-                    letterSpacing: 0.5,
-                    shadows: const [
-                      Shadow(color: Color(0xAA000000), blurRadius: 12),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
-                AnimatedBuilder(
-                  animation: _c,
-                  builder: (context, _) {
-                    final pct = (_c.value * 100).round();
-                    return Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // Porcentaje centrado.
-                        Text(
-                          '$pct%',
-                          textAlign: TextAlign.center,
-                          style: AppTextStyles.displayHero(
-                                  size: 26, color: Colors.white)
-                              .copyWith(
-                            shadows: const [
-                              Shadow(color: Color(0xAA000000), blurRadius: 10),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        // Barra: se llena de izquierda a derecha.
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(AppRadius.full),
-                          child: SizedBox(
-                            height: 8,
-                            child: Stack(
-                              children: [
-                                const Positioned.fill(
-                                  child: ColoredBox(color: Color(0x33FFFFFF)),
-                                ),
-                                FractionallySizedBox(
-                                  alignment: Alignment.centerLeft,
-                                  widthFactor: _c.value.clamp(0.02, 1.0),
-                                  child: const DecoratedBox(
-                                    decoration: BoxDecoration(
-                                      gradient: LinearGradient(colors: [
-                                        AppColors.atlanticoClaro,
-                                        AppColors.sol,
-                                      ]),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    );
-                  },
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  'Preparando la fiesta…',
-                  style: AppTextStyles.ui(
-                      size: 13,
-                      weight: FontWeight.w600,
-                      color: Colors.white.withValues(alpha: 0.9)),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
+/// Error de partida (crear, pedir pregunta o responder). Sin texto técnico.
 class _ErrorView extends StatelessWidget {
-  final String message;
   final VoidCallback onRetry;
   final VoidCallback onClose;
-  const _ErrorView({
-    required this.message,
-    required this.onRetry,
-    required this.onClose,
-  });
+  const _ErrorView({required this.onRetry, required this.onClose});
 
   @override
   Widget build(BuildContext context) {
-    final brand = context.brand;
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          children: [
-            Align(
-              alignment: Alignment.centerLeft,
-              child: QuizGlassCircleButton(
-                  icon: Icons.close_rounded, onTap: onClose),
-            ),
-            const Spacer(),
-            Icon(Icons.wifi_off_rounded, size: 48, color: brand.textMuted),
-            const SizedBox(height: 16),
-            Text('No se pudo cargar el juego',
-                style: AppTextStyles.displaySection(
-                    size: 16, color: brand.textPrimary)),
-            const SizedBox(height: 8),
-            Text(message,
-                textAlign: TextAlign.center,
-                style: AppTextStyles.ui(size: 13, color: brand.textMuted)),
-            const SizedBox(height: 24),
-            GestureDetector(
-              onTap: onRetry,
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
-                decoration: BoxDecoration(
-                  color: AppColors.atlantico,
-                  borderRadius: BorderRadius.circular(AppRadius.full),
-                ),
-                child: Text('Reintentar',
-                    style:
-                        AppTextStyles.ui(size: 14, color: Colors.white, weight: FontWeight.w700)),
-              ),
-            ),
-            const Spacer(),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-void _showRules(BuildContext context) {
-  final brand = context.brand;
-  showModalBottomSheet(
-    context: context,
-    backgroundColor: Colors.transparent,
-    builder: (_) => ClipRRect(
-      borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
-        child: Container(
-          decoration: BoxDecoration(
-            color: brand.elevated.withValues(alpha: 0.92),
-            borderRadius:
-                const BorderRadius.vertical(top: Radius.circular(32)),
-            border: Border(top: BorderSide(color: brand.border)),
-          ),
-          padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: brand.textMuted,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-              Text('CÓMO SE JUEGA',
-                  style: AppTextStyles.displaySection(
-                      size: 16, color: brand.textPrimary)),
-              const SizedBox(height: 16),
-              _rule(context, '🎡',
-                  'Gira la ruleta y responde una pregunta de esa categoría.'),
-              _rule(context, '🧀',
-                  'Acierta para ganar el quesito de cada isla. Reúne los 7.'),
-              _rule(context, '🍷',
-                  'Tienes 3 vidas. Fallar o quedarte sin tiempo resta una.'),
-              _rule(context, '⏱️',
-                  '20 segundos por pregunta. Cuanto antes aciertes, más puntos.'),
-              _rule(context, '🔥',
-                  'Encadena aciertos para multiplicar tu puntuación.'),
-            ],
-          ),
-        ),
-      ),
-    ),
-  );
-}
-
-Widget _rule(BuildContext context, String emoji, String text) => Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    final top = MediaQuery.paddingOf(context).top;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(16, top + 8, 16, 16),
+      child: Column(
         children: [
-          Text(emoji, style: const TextStyle(fontSize: 18)),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(text,
-                style: AppTextStyles.ui(
-                    size: 13, color: context.brand.textSecondary)),
+          QuizTopBar(
+            left: GmToolbarButton(
+              icon: GmIcons.close,
+              light: true,
+              semanticLabel: 'Cerrar el juego',
+              identifier: 'quiz-error-close-button',
+              onTap: onClose,
+            ),
           ),
+          const Spacer(),
+          QuizStateCard(
+            identifier: 'quiz-game-error',
+            title: 'No pudimos seguir con la partida',
+            text: 'Revisa tu conexión e inténtalo de nuevo.',
+            mood: QuizVolcanoMood.sad,
+            action: 'Reintentar',
+            actionIdentifier: 'quiz-game-retry-button',
+            onAction: onRetry,
+          ),
+          const Spacer(flex: 2),
         ],
-      ),
-    );
-
-/// Confirmación al salir de una partida en curso: seguir, salir (continuable)
-/// o abandonar (se pierde).
-void _confirmExit(BuildContext context, QuizGameCubit cubit) {
-  final brand = context.brand;
-  showModalBottomSheet(
-    context: context,
-    backgroundColor: Colors.transparent,
-    builder: (sheetCtx) => ClipRRect(
-      borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
-        child: Container(
-          decoration: BoxDecoration(
-            color: brand.elevated.withValues(alpha: 0.94),
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
-            border: Border(top: BorderSide(color: brand.border)),
-          ),
-          padding: EdgeInsets.fromLTRB(
-              20, 16, 20, 20 + MediaQuery.of(sheetCtx).padding.bottom),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: brand.textMuted,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 18),
-              Text('SALIR DE LA PARTIDA',
-                  style: AppTextStyles.displaySection(
-                      size: 16, color: brand.textPrimary)),
-              const SizedBox(height: 6),
-              Text(
-                'Si sales, podrás continuarla luego. Si la abandonas, la pierdes.',
-                style:
-                    AppTextStyles.ui(size: 13, color: brand.textSecondary),
-              ),
-              const SizedBox(height: 18),
-              _SheetAction(
-                label: 'SEGUIR JUGANDO',
-                filled: true,
-                onTap: () => Navigator.of(sheetCtx).pop(),
-              ),
-              const SizedBox(height: 10),
-              _SheetAction(
-                label: 'SALIR · CONTINÚO LUEGO',
-                onTap: () {
-                  Navigator.of(sheetCtx).pop();
-                  cubit.leaveToLobby();
-                },
-              ),
-              const SizedBox(height: 10),
-              _SheetAction(
-                label: 'ABANDONAR PARTIDA',
-                danger: true,
-                onTap: () {
-                  Navigator.of(sheetCtx).pop();
-                  cubit.abandonAndLeave();
-                },
-              ),
-            ],
-          ),
-        ),
-      ),
-    ),
-  );
-}
-
-class _SheetAction extends StatelessWidget {
-  final String label;
-  final VoidCallback onTap;
-  final bool filled;
-  final bool danger;
-  const _SheetAction({
-    required this.label,
-    required this.onTap,
-    this.filled = false,
-    this.danger = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final color = danger ? AppColors.mojo : AppColors.atlantico;
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        height: 52,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: filled ? AppColors.atlantico : Colors.transparent,
-          borderRadius: BorderRadius.circular(AppRadius.full),
-          border: filled ? null : Border.all(color: color.withValues(alpha: 0.6), width: 1.4),
-        ),
-        child: Text(label,
-            style: AppTextStyles.displaySection(
-                size: 13, color: filled ? Colors.white : color)),
       ),
     );
   }

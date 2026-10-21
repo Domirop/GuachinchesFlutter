@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'package:guachinches/core/analytics/analytics.dart';
 import 'package:guachinches/core/logging/app_logger.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
 import 'package:guachinches/data/local/sql_lite_local_repository.dart';
 import 'package:guachinches/data/model/Review.dart';
@@ -12,16 +11,17 @@ import 'package:guachinches/data/model/report_review.dart';
 import 'package:guachinches/data/model/restaurant.dart';
 import 'package:video_compress/video_compress.dart';
 import 'package:http/http.dart' as http;
+import 'package:guachinches/services/app_storage.dart';
 
 class DetailPresenter {
   RemoteRepository _remoteRepository;
   DetailView _view;
-  final storage = new FlutterSecureStorage();
+  final storage = AppStorage.instance;
   SqlLiteLocalRepository sqlLiteLocalRepository = SqlLiteLocalRepository();
 
   DetailPresenter(this._remoteRepository, this._view);
 
-  isUserLogged() async {
+  Future<String?> isUserLogged() async {
     String? userId = await storage.read(key: "userId");
     AppLogger.info('details-presenter', 'userId: $userId');
     if (userId != null) {
@@ -41,14 +41,27 @@ class DetailPresenter {
     _view.setRestaurantVideos(videos);
   }
 
+  /// Ids ya registrados en analítica por esta pantalla: recargar (p. ej.
+  /// tras publicar una reseña) no debe contar una segunda visita.
+  final Set<String> _loggedDetailIds = {};
+
   getRestaurantById(String id) async {
     Restaurant restaurant = await _remoteRepository.getRestaurantById(id);
-    Analytics.I.logEvent('detalles_restaurantes', {
-      'id': '${restaurant.id}',
-      'name': '${restaurant.nombre}',
-    });
+    if (_loggedDetailIds.add(id)) {
+      Analytics.I.logEvent('detalles_restaurantes', {
+        'id': '${restaurant.id}',
+        'name': '${restaurant.nombre}',
+      });
+    }
     try {
-      String userId = await isUserLogged();
+      final String? userId = await isUserLogged();
+      // Sin sesión no hay bloqueos ni reportes propios que quitar: no se
+      // piden (antes fallaba con un null y ensuciaba el log y Crashlytics).
+      if (userId == null || userId.isEmpty) {
+        _view.setRestaurant(restaurant);
+        await _loadVisit(restaurant);
+        return;
+      }
 
       List<BlockUser> userBlocked =
       await _remoteRepository.getBlockUser(userId);
@@ -81,8 +94,11 @@ class DetailPresenter {
       AppLogger.error('details-presenter', e, st);
     }
     _view.setRestaurant(restaurant);
+    await _loadVisit(restaurant);
+  }
 
-    // Fetch visit data for editorial sections (non-blocking)
+  /// La visita para las secciones editoriales (si falla, sin visita).
+  Future<void> _loadVisit(Restaurant restaurant) async {
     try {
       final visits = await _remoteRepository.getVisitsByRestaurant(restaurant.id);
       _view.setVisit(visits.isNotEmpty ? visits.first : null);

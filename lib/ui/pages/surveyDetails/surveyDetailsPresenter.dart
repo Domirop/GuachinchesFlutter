@@ -1,11 +1,11 @@
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
 import 'package:guachinches/data/local/sql_lite_local_repository.dart';
 import 'package:uuid/uuid.dart';
+import 'package:guachinches/services/app_storage.dart';
 
 class SurveyDetailsPresenter {
   RemoteRepository _remoteRepository;
-  final storage = new FlutterSecureStorage();
+  final storage = AppStorage.instance;
   SqlLiteLocalRepository sqlLiteLocalRepository = SqlLiteLocalRepository();
   SurveyDetailsView _view;
 

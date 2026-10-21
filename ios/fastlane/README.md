@@ -13,17 +13,6 @@ For _fastlane_ installation instructions, see [Installing _fastlane_](https://do
 
 # Available Actions
 
-### estado
-
-```sh
-[bundle exec] fastlane estado
-```
-
-
-
-----
-
-
 ## iOS
 
 ### ios beta

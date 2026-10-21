@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:guachinches/globalMethods.dart';
 import 'package:guachinches/ui/pages/new_home/new_home_tab_scaffold.dart';
 import 'package:guachinches/ui/pages/survey_in_app/survey_in_app_page.dart';
+import 'package:guachinches/services/app_storage.dart';
 
 const String kSurveyOnboarding2026Key = 'surveyOnboarding2026Shown';
 
@@ -20,7 +20,7 @@ class _SurveyOnboardingState extends State<SurveyOnboarding>
   late AnimationController _controller;
   late Animation<double> _fadeIn;
   late Animation<Offset> _slideUp;
-  final _storage = const FlutterSecureStorage();
+  final _storage = AppStorage.instance;
 
   static const Color _bg = Color.fromRGBO(25, 27, 32, 1);
   static const Color _card = Color.fromRGBO(35, 37, 44, 1);

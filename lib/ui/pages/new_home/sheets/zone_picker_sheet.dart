@@ -1,17 +1,37 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:guachinches/config/app_colors.dart';
-import 'package:guachinches/config/brand_colors.dart';
-import 'package:guachinches/config/app_text_styles.dart';
+import 'package:guachinches/data/cubit/new_home/new_home_filters_cubit.dart';
 import 'package:guachinches/data/cubit/new_home/zone_weather_cubit.dart';
-import 'package:guachinches/data/model/zone.dart';
+import 'package:guachinches/data/cubit/new_home/zones_cubit.dart';
 import 'package:guachinches/data/model/weather_data.dart';
+import 'package:guachinches/data/model/zone.dart';
+import 'package:guachinches/ui/pages/new_home/sheets/zone_picker_logic.dart';
+import 'package:guachinches/ui/pages/new_home/widgets/gm_state_card.dart';
+import 'package:guachinches/ui/pages/new_home/widgets/island_silhouette.dart';
+import 'package:guachinches/ui/theme/gm_icons.dart';
+import 'package:guachinches/ui/theme/gm_motion.dart';
+import 'package:guachinches/ui/theme/gm_tokens.dart';
+import 'package:guachinches/ui/theme/gm_widgets.dart';
 
+/// Hoja «¿Dónde en <isla>?» (tablero HojaZona): filas agrupadas en una
+/// tarjeta con el glifo de cada zona, el tiempo ahora (chip con glifo propio)
+/// y la marca en la elegida. Estados: lista, sin tiempo, cargando y error.
 class ZonePickerSheet extends StatelessWidget {
   final String islandLabel;
   final List<Zone> zones;
   final String? selectedZoneKey;
   final ValueChanged<Zone?> onSelect;
+
+  /// Cubit de zonas (opcional): da el estado cargando/error cuando [zones]
+  /// llega vacío y permite reintentar.
+  final ZonesCubit? zonesCubit;
+
+  /// Tiempo por zona. Si no llega se busca en el contexto; sin él, la hoja
+  /// se pinta «sin tiempo».
+  final ZoneWeatherCubit? weatherCubit;
+
+  /// Isla para «Reintentar».
+  final String? islandId;
 
   const ZonePickerSheet({
     super.key,
@@ -19,6 +39,9 @@ class ZonePickerSheet extends StatelessWidget {
     required this.zones,
     this.selectedZoneKey,
     required this.onSelect,
+    this.zonesCubit,
+    this.weatherCubit,
+    this.islandId,
   });
 
   static Future<void> show({
@@ -27,104 +50,271 @@ class ZonePickerSheet extends StatelessWidget {
     required List<Zone> zones,
     String? selectedZoneKey,
     required ValueChanged<Zone?> onSelect,
+    String? islandId,
   }) {
-    final weatherCubit = context.read<ZoneWeatherCubit>();
-    return showModalBottomSheet(
+    final weather = _maybeRead<ZoneWeatherCubit>(context);
+    final zonesCubit = _maybeRead<ZonesCubit>(context);
+    final id =
+        islandId ?? _maybeRead<NewHomeFiltersCubit>(context)?.state.islandId;
+    if (zones.isEmpty &&
+        zonesCubit != null &&
+        zonesCubit.state is ZonesInitial &&
+        id != null) {
+      zonesCubit.loadForIsland(id);
+    }
+    return showModalBottomSheet<void>(
       context: context,
-      backgroundColor: context.brand.elevated,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: const Color(0x52000000),
+      builder: (_) => ZonePickerSheet(
+        islandLabel: islandLabel,
+        zones: zones,
+        selectedZoneKey: selectedZoneKey,
+        onSelect: onSelect,
+        zonesCubit: zonesCubit,
+        weatherCubit: weather,
+        islandId: id,
       ),
-      builder: (_) => BlocProvider.value(
-        value: weatherCubit,
-        child: ZonePickerSheet(
+    );
+  }
+
+  /// Lee un cubit si está provisto (en tests o pantallas sueltas puede no
+  /// estarlo: entonces la hoja funciona sin él).
+  static T? _maybeRead<T>(BuildContext context) {
+    try {
+      return context.read<T>();
+    } on ProviderNotFoundException {
+      return null;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final gm = GmColors.of(context);
+    final weather = weatherCubit ?? _maybeRead<ZoneWeatherCubit>(context);
+    final maxH = MediaQuery.sizeOf(context).height * 0.9;
+
+    Widget list(List<Zone> zs, Map<String, WeatherData> byZoneId) => _ZoneList(
+          zones: zs,
+          weather: byZoneId,
           islandLabel: islandLabel,
-          zones: zones,
-          selectedZoneKey: selectedZoneKey,
-          onSelect: onSelect,
+          selectedKey: selectedZoneKey ?? 'all',
+          onTap: (z) => _select(context, z),
+        );
+
+    Widget body(ZonesState? zonesState) {
+      final zs = zoneSheetZones(zones, zonesState);
+      switch (zoneSheetStatus(hasZones: zs.isNotEmpty, state: zonesState)) {
+        case ZoneSheetStatus.loading:
+          return const _ZoneSkeleton();
+        case ZoneSheetStatus.error:
+          final cubit = zonesCubit;
+          final id = islandId;
+          return _ZoneError(
+            onRetry: cubit != null && id != null
+                ? () => cubit.loadForIsland(id)
+                : null,
+          );
+        case ZoneSheetStatus.list:
+          if (weather == null) return list(zs, const {});
+          return BlocBuilder<ZoneWeatherCubit, ZoneWeatherState>(
+            bloc: weather,
+            builder: (_, ws) => list(zs, ws.byZoneId),
+          );
+      }
+    }
+
+    final cubit = zonesCubit;
+    return Semantics(
+      identifier: 'zone-picker-sheet',
+      container: true,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: maxH),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: gm.canvas,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+            boxShadow: const [
+              BoxShadow(
+                  color: Color(0x2E000000),
+                  blurRadius: 30,
+                  offset: Offset(0, -10)),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _Header(islandLabel: islandLabel),
+              Flexible(
+                child: SingleChildScrollView(
+                  padding: EdgeInsets.only(
+                      bottom: 16 + MediaQuery.paddingOf(context).bottom),
+                  child: cubit == null
+                      ? body(null)
+                      : BlocBuilder<ZonesCubit, ZonesState>(
+                          bloc: cubit,
+                          builder: (_, s) => body(s),
+                        ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  String get _selectedKey => selectedZoneKey ?? 'all';
+  void _select(BuildContext context, Zone zone) {
+    Navigator.pop(context);
+    onSelect(zone.key == 'all' ? null : zone);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Cabecera: asa, cerrar, título y subtítulo
+// ─────────────────────────────────────────────────────────────────────
+
+class _Header extends StatelessWidget {
+  final String islandLabel;
+  const _Header({required this.islandLabel});
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
+    final gm = GmColors.of(context);
+    return Stack(
+      children: [
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            const SizedBox(height: 7),
             Center(
               child: Container(
                 width: 36,
-                height: 4,
-                margin: const EdgeInsets.symmetric(vertical: 12),
+                height: 5,
                 decoration: BoxDecoration(
-                  color: context.brand.borderStrong,
-                  borderRadius: BorderRadius.circular(2),
+                  color: gm.sep,
+                  borderRadius: BorderRadius.circular(GmRadius.pill),
                 ),
               ),
             ),
-            const SizedBox(height: 4),
-            Text(
-              '¿DÓNDE EN ${islandLabel.toUpperCase()}?',
-              style: AppTextStyles.displaySection(size: 18),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(70, 14, 70, 8),
+              child: Semantics(
+                header: true,
+                child: Text(
+                  zoneSheetTitle(islandLabel),
+                  textAlign: TextAlign.center,
+                  style: GmText.guideTitle(color: gm.label)
+                      .copyWith(fontWeight: FontWeight.w700),
+                ),
+              ),
             ),
-            const SizedBox(height: 6),
-            Text(
-              'Elige zona para descubrir dónde comer',
-              style: AppTextStyles.muted(size: 12),
-            ),
-            const SizedBox(height: 16),
-            BlocBuilder<ZoneWeatherCubit, ZoneWeatherState>(
-              builder: (_, weatherState) {
-                return Flexible(
-                  child: ListView.separated(
-                    shrinkWrap: true,
-                    padding: EdgeInsets.zero,
-                    itemCount: zones.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 10),
-                    itemBuilder: (_, i) {
-                      final zone = zones[i];
-                      final active = _selectedKey == zone.key;
-                      final zoneWeather = zone.id != null
-                          ? (weatherState.byZoneId[zone.id] ??
-                              const WeatherData.unknown())
-                          : const WeatherData.unknown();
-                      return _ZoneListCard(
-                        zone: zone,
-                        weather: zoneWeather,
-                        active: active,
-                        onTap: () {
-                          Navigator.pop(context);
-                          onSelect(zone.key == 'all' ? null : zone);
-                        },
-                      );
-                    },
-                  ),
-                );
-              },
+            Padding(
+              padding: const EdgeInsets.fromLTRB(30, 0, 30, 18),
+              child: Text(
+                kZoneSheetSubtitle,
+                textAlign: TextAlign.center,
+                style: GmText.body(color: gm.label2),
+              ),
             ),
           ],
         ),
-      ),
+        Positioned(
+          left: 16,
+          top: 14,
+          child: GmToolbarButton(
+            icon: GmIcons.close,
+            light: true,
+            semanticLabel: 'Cerrar',
+            identifier: 'zone-picker-close',
+            onTap: () => Navigator.of(context).maybePop(),
+          ),
+        ),
+      ],
     );
   }
 }
 
-class _ZoneListCard extends StatelessWidget {
+// ─────────────────────────────────────────────────────────────────────
+// Lista
+// ─────────────────────────────────────────────────────────────────────
+
+class _ZoneList extends StatelessWidget {
+  final List<Zone> zones;
+  final Map<String, WeatherData> weather;
+  final String islandLabel;
+  final String selectedKey;
+  final ValueChanged<Zone> onTap;
+
+  const _ZoneList({
+    required this.zones,
+    required this.weather,
+    required this.islandLabel,
+    required this.selectedKey,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final gm = GmColors.of(context);
+    final hasWeather = zoneSheetHasWeather(zones, weather);
+    final rows = <Widget>[];
+    for (var i = 0; i < zones.length; i++) {
+      if (i > 0) {
+        rows.add(Container(
+          height: 1,
+          margin: const EdgeInsets.only(left: 72),
+          color: gm.sep,
+        ));
+      }
+      final z = zones[i];
+      rows.add(_ZoneRow(
+        zone: z,
+        islandLabel: islandLabel,
+        weather: hasWeather ? zoneWeatherFor(z, weather) : null,
+        active: z.key == selectedKey,
+        onTap: () => onTap(z),
+      ));
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        GmRise(
+          trigger: GmTrigger.mount,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: GmSpace.gutter),
+            child: GmCard(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Column(children: rows),
+            ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(32, 12, 32, 0),
+          child: Text(
+            zoneSheetCaption(hasWeather: hasWeather),
+            style: GmText.meta(color: gm.label2),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ZoneRow extends StatelessWidget {
   final Zone zone;
-  final WeatherData weather;
+  final String islandLabel;
+
+  /// `null` = la hoja está «sin tiempo» (no se pinta ningún chip).
+  final WeatherData? weather;
   final bool active;
   final VoidCallback onTap;
 
-  const _ZoneListCard({
+  const _ZoneRow({
     required this.zone,
+    required this.islandLabel,
     required this.weather,
     required this.active,
     required this.onTap,
@@ -132,83 +322,53 @@ class _ZoneListCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final copy = _ZoneCopy.forKey(zone.key);
+    final gm = GmColors.of(context);
+    final label = zoneDisplayLabel(zone.label);
+    final desc = zoneDescription(zone.key, islandLabel);
+    final w = weather;
     return Semantics(
       identifier: 'zone-picker-row-${zone.key}',
       container: true,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(18),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: active
-                  ? AppColors.atlantico.withOpacity(0.12)
-                  : context.brand.surface,
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(
-                color: active
-                    ? AppColors.atlantico.withOpacity(0.55)
-                    : context.brand.border,
-                width: active ? 1.5 : 1,
-              ),
-            ),
+      button: true,
+      selected: active,
+      child: GmPressable(
+        onTap: onTap,
+        pressedScale: 0.98,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 70),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 8, 16, 8),
             child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                _IconTile(emoji: zone.emoji, gradient: copy.gradient),
-                const SizedBox(width: 12),
+                _ZoneTile(zoneKey: zone.key, islandLabel: islandLabel),
+                const SizedBox(width: 14),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Row(
-                        children: [
-                          Flexible(
-                            child: Text(
-                              zone.label.toUpperCase(),
-                              style: AppTextStyles.displaySection(size: 15),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          if (active) ...[
-                            const SizedBox(width: 6),
-                            const Icon(
-                              Icons.check_circle,
-                              size: 16,
-                              color: AppColors.atlantico,
-                            ),
-                          ],
-                        ],
-                      ),
-                      if (copy.description != null) ...[
-                        const SizedBox(height: 2),
-                        Text(
-                          copy.description!,
-                          style: AppTextStyles.muted(size: 12),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                      const SizedBox(height: 8),
-                      _TagRow(
-                        weather: weather,
-                        tagLabel: copy.tag ?? zone.label,
-                        zoneKey: zone.key,
-                      ),
+                      Text(label, style: GmText.guideTitle(color: gm.label)),
+                      if (desc != null)
+                        Text(desc, style: GmText.meta(color: gm.label2)),
                     ],
                   ),
                 ),
-                const SizedBox(width: 8),
-                Icon(
-                  Icons.chevron_right,
-                  size: 22,
-                  color: context.brand.textMuted,
+                if (w != null && w.isAvailable) ...[
+                  const SizedBox(width: 10),
+                  Semantics(
+                    identifier: 'zone-picker-weather-${zone.key}',
+                    container: true,
+                    label: zoneWeatherSemantics(w),
+                    excludeSemantics: true,
+                    child: _WeatherChip(weather: w),
+                  ),
+                ],
+                const SizedBox(width: 12),
+                SizedBox(
+                  width: 18,
+                  child: active
+                      ? GmIcon(GmIcons.check, size: 18, color: gm.accent)
+                      : null,
                 ),
               ],
             ),
@@ -219,145 +379,233 @@ class _ZoneListCard extends StatelessWidget {
   }
 }
 
-class _IconTile extends StatelessWidget {
-  final String emoji;
-  final List<Color> gradient;
-
-  const _IconTile({required this.emoji, required this.gradient});
+class _ZoneTile extends StatelessWidget {
+  final String zoneKey;
+  final String islandLabel;
+  const _ZoneTile({required this.zoneKey, required this.islandLabel});
 
   @override
   Widget build(BuildContext context) {
+    final gm = GmColors.of(context);
+    final look = zoneLookFor(zoneKey);
+    final (bg, ink) = switch (look.tone) {
+      ZoneTone.band => (gm.band, gm.bandInk),
+      ZoneTone.ok => (gm.okSoft, gm.greenText),
+      ZoneTone.warn => (gm.warnSoft, gm.warnText),
+      ZoneTone.neutral => (gm.fill, gm.label2),
+    };
+    final Widget glyph = look.glyph == ZoneGlyph.island
+        ? IslandSilhouette(
+            island: islandLabel,
+            size: 34,
+            color: ink,
+            fallback: const GmGlyph(GmGlyphKind.volcan, size: 28),
+          )
+        : GmIcon(_ZoneGlyphs.svg(look.glyph), size: 22, color: ink);
     return Container(
-      width: 56,
-      height: 56,
+      width: 44,
+      height: 44,
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: gradient,
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(14),
+        color: bg,
+        borderRadius: BorderRadius.circular(13),
       ),
       alignment: Alignment.center,
-      child: Text(emoji, style: const TextStyle(fontSize: 26)),
+      child: ExcludeSemantics(child: glyph),
     );
   }
 }
 
-class _TagRow extends StatelessWidget {
+class _WeatherChip extends StatelessWidget {
   final WeatherData weather;
-  final String tagLabel;
-  final String zoneKey;
-
-  const _TagRow({
-    required this.weather,
-    required this.tagLabel,
-    required this.zoneKey,
-  });
+  const _WeatherChip({required this.weather});
 
   @override
   Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 6,
-      runSpacing: 6,
-      children: [
-        if (weather.isAvailable)
-          Semantics(
-            identifier: 'zone-picker-weather-$zoneKey',
-            container: true,
-            child: _Chip(text: '${weather.emoji} ${weather.displayTemp}'),
+    final gm = GmColors.of(context);
+    return MediaQuery.withClampedTextScaling(
+      maxScaleFactor: 1.4,
+      child: Container(
+        constraints: const BoxConstraints(minHeight: 28),
+        padding: const EdgeInsets.fromLTRB(6, 2, 9, 2),
+        decoration: BoxDecoration(
+          color: gm.fill,
+          borderRadius: BorderRadius.circular(GmRadius.pill),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            GmIcon(
+              _ZoneGlyphs.weather(zoneWeatherGlyph(weather.condition)),
+              size: 18,
+              color: gm.label2,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              zoneWeatherText(weather) ?? '',
+              style: TextStyle(
+                fontSize: 14,
+                height: 18 / 14,
+                fontWeight: FontWeight.w600,
+                color: gm.label,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Glifos de zona y del tiempo (copiados del tablero HojaZona; el sol del
+/// tiempo es ámbar fijo, la nube usa `currentColor`).
+class _ZoneGlyphs {
+  _ZoneGlyphs._();
+
+  static String _stroke(String inner, {double width = 2.2}) =>
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" '
+      'stroke="currentColor" stroke-width="$width" stroke-linecap="round" '
+      'stroke-linejoin="round">$inner</svg>';
+
+  static final leaf = _stroke(
+      '<path d="M5 19c0-8 5-13 14-14-1 9-6 14-14 14z"/><path d="M5 19l8-8"/>');
+  static final sun = _stroke(
+      '<circle cx="12" cy="12" r="4.2"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7"/>');
+  static final city = _stroke(
+      '<path d="M3.5 20.5h17"/><path d="M5 20.5V10l5-2.5v13"/><path d="M10 20.5V5l7 3v12.5"/><path d="M17 12h2.5v8.5"/><path d="M12.5 9.5h2M12.5 13h2M12.5 16.5h2M7 13h1M7 16.5h1"/>',
+      width: 2);
+  static final mountain = _stroke(
+      '<path d="M2.5 19.5l6.6-10.2a1.6 1.6 0 012.7 0l1.4 2.1 1.3-1.6a1.6 1.6 0 012.5.1l4.5 9.6z"/><path d="M9.6 9.6l1.6 1.8 1.5-1"/>',
+      width: 2);
+
+  /// Atardecer: medio sol sobre el horizonte con rayos (propio).
+  static final sunset = _stroke(
+      '<path d="M2.8 17.5h18.4"/><path d="M6.5 21h11"/><path d="M7.5 17.5a4.5 4.5 0 019 0"/><path d="M12 7.2v2.4M4.6 10.4l1.7 1.7M19.4 10.4l-1.7 1.7M2.8 14h1.6M19.6 14h1.6"/>');
+  static final pin = _stroke(
+      '<path d="M12 21.5s-7-6.6-7-12a7 7 0 0114 0c0 5.4-7 12-7 12z"/><circle cx="12" cy="9.5" r="2.6"/>',
+      width: 2);
+
+  static String svg(ZoneGlyph g) => switch (g) {
+        ZoneGlyph.leaf => leaf,
+        ZoneGlyph.sun => sun,
+        ZoneGlyph.city => city,
+        ZoneGlyph.mountain => mountain,
+        ZoneGlyph.sunset => sunset,
+        ZoneGlyph.pin || ZoneGlyph.island => pin,
+      };
+
+  static const _amber = '#E9A100';
+
+  static const wSun =
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.4" fill="$_amber"/>'
+      '<path d="M12 2.5v2.6M12 18.9v2.6M2.5 12h2.6M18.9 12h2.6M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8" '
+      'stroke="$_amber" stroke-width="2" stroke-linecap="round"/></svg>';
+  static const wPartly =
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="9" cy="9" r="3.8" fill="$_amber"/>'
+      '<path d="M9 2.4v1.8M2.4 9h1.8M4.3 4.3l1.3 1.3M13.7 4.3l-1.3 1.3" stroke="$_amber" stroke-width="1.8" stroke-linecap="round"/>'
+      '<path d="M8.5 19.5h9.2a3.6 3.6 0 00.4-7.2 5 5 0 00-9.4 1.4 2.9 2.9 0 00-.2 5.8z" fill="currentColor"/></svg>';
+  static const wCloud =
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">'
+      '<path d="M7 19h10.5a4 4 0 00.5-8 5.6 5.6 0 00-10.6 1.6A3.2 3.2 0 007 19z" fill="currentColor"/></svg>';
+
+  static String weather(ZoneWeatherGlyph g) => switch (g) {
+        ZoneWeatherGlyph.sun => wSun,
+        ZoneWeatherGlyph.partly => wPartly,
+        ZoneWeatherGlyph.cloud => wCloud,
+      };
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Cargando y error
+// ─────────────────────────────────────────────────────────────────────
+
+class _ZoneSkeleton extends StatelessWidget {
+  const _ZoneSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    final gm = GmColors.of(context);
+    Widget block(double w, double h, double r) => Container(
+          width: w,
+          height: h,
+          decoration: BoxDecoration(
+            color: gm.fill,
+            borderRadius: BorderRadius.circular(r),
           ),
-        _Chip(text: tagLabel),
-      ],
+        );
+    final rows = <Widget>[];
+    for (var i = 0; i < 5; i++) {
+      if (i > 0) {
+        rows.add(Container(
+            height: 1, margin: const EdgeInsets.only(left: 72), color: gm.sep));
+      }
+      rows.add(SizedBox(
+        height: 70,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 0, 16, 0),
+          child: Row(
+            children: [
+              block(44, 44, 13),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    block(80.0 + (i * 41) % 60, 14, 7),
+                    const SizedBox(height: 7),
+                    block(130.0 + (i * 29) % 50, 11, 6),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              block(54, 28, GmRadius.pill),
+            ],
+          ),
+        ),
+      ));
+    }
+    return Semantics(
+      identifier: 'zone-picker-loading',
+      label: 'Cargando zonas',
+      child: ExcludeSemantics(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: GmSpace.gutter),
+          child: GmCard(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Column(children: rows),
+          ),
+        ),
+      ),
     );
   }
 }
 
-class _Chip extends StatelessWidget {
-  final String text;
-  const _Chip({required this.text});
+class _ZoneError extends StatelessWidget {
+  final VoidCallback? onRetry;
+  const _ZoneError({required this.onRetry});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: context.brand.elevated,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: context.brand.border),
-      ),
-      child: Text(
-        text,
-        style: AppTextStyles.muted(size: 11),
+    return GmRise(
+      trigger: GmTrigger.mount,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: GmSpace.gutter),
+        child: GmStateCard(
+          identifier: 'zone-picker-error',
+          liveRegion: true,
+          art: const GmSadVolcano(),
+          title: kZoneSheetErrorTitle,
+          text: kZoneSheetErrorText,
+          action: onRetry == null
+              ? null
+              : GmCapsuleButton(
+                  label: 'Reintentar',
+                  identifier: 'zone-picker-retry',
+                  onTap: onRetry,
+                ),
+        ),
       ),
     );
   }
-}
-
-class _ZoneCopy {
-  final String? description;
-  final String? tag;
-  final List<Color> gradient;
-
-  const _ZoneCopy({
-    this.description,
-    this.tag,
-    required this.gradient,
-  });
-
-  static const _fallbackGradient = [
-    AppColors.atlantico,
-    AppColors.atlanticoOscuro,
-  ];
-
-  static const _byKey = <String, _ZoneCopy>{
-    'all': _ZoneCopy(
-      description: 'Explora toda la isla sin filtros',
-      tag: 'Toda la isla',
-      gradient: [AppColors.atlanticoClaro, AppColors.atlantico],
-    ),
-    'norte': _ZoneCopy(
-      description: 'Guachinches, viñedos y laurisilva',
-      tag: 'Guachinches',
-      gradient: [AppColors.laurisilva, Color(0xFF007A5A)],
-    ),
-    'sur': _ZoneCopy(
-      description: 'Terrazas con sol y costa atlántica',
-      tag: 'Terrazas',
-      gradient: [AppColors.sol, Color(0xFFD49500)],
-    ),
-    'metro': _ZoneCopy(
-      description: 'Santa Cruz, La Laguna y alrededores',
-      tag: 'Área metro',
-      gradient: [AppColors.mojo, Color(0xFFB23A0F)],
-    ),
-    'area-metro': _ZoneCopy(
-      description: 'Santa Cruz, La Laguna y alrededores',
-      tag: 'Área metro',
-      gradient: [AppColors.mojo, Color(0xFFB23A0F)],
-    ),
-    'capital': _ZoneCopy(
-      description: 'Santa Cruz, La Laguna y alrededores',
-      tag: 'Área metro',
-      gradient: [AppColors.mojo, Color(0xFFB23A0F)],
-    ),
-    'sureste': _ZoneCopy(
-      description: 'Costa este: pueblos y playas',
-      tag: 'Sureste',
-      gradient: [AppColors.arena, Color(0xFFA37937)],
-    ),
-    'oeste': _ZoneCopy(
-      description: 'Acantilados, Teno y atardeceres',
-      tag: 'Oeste',
-      gradient: [AppColors.tierra, Color(0xFF5D2E0C)],
-    ),
-  };
-
-  static _ZoneCopy forKey(String key) =>
-      _byKey[key] ??
-      _ZoneCopy(
-        description: null,
-        tag: null,
-        gradient: _fallbackGradient,
-      );
 }

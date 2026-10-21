@@ -195,34 +195,49 @@ class ParallaxHero extends StatelessWidget {
           // Saludo
           Text(
             '${greeting.toUpperCase()} · ${islandLabel.toUpperCase()}',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: AppTextStyles.eyebrow(
               size: 11,
               color: Colors.white.withOpacity(0.9),
             ).copyWith(shadows: textShadows),
           ),
           const SizedBox(height: 10),
-          // Título — primera línea (siempre blanco — texto editorial sobre foto)
-          Text(
-            '¿DÓNDE COMEMOS',
-            style: AppTextStyles.displayHero(size: 32, color: Colors.white)
-                .copyWith(shadows: textShadows),
+          // Título (siempre blanco — texto editorial sobre foto). Con texto
+          // grande o pantallas estrechas se encoge para caber en su línea en
+          // vez de desbordar (35 px en el iPhone SE con texto grande).
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              '¿DÓNDE COMEMOS',
+              maxLines: 1,
+              style: AppTextStyles.displayHero(size: 32, color: Colors.white)
+                  .copyWith(shadows: textShadows),
+            ),
           ),
           // Título — segunda línea con chip de zona alineado
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Text('HOY ',
-                  style: AppTextStyles.displayHero(size: 32, color: Colors.white)
-                      .copyWith(shadows: textShadows)),
-              _ZoneChip(
-                label: zona,
-                onTap: zoneIsSet ? onZoneChipTap : onIslandChipTap,
-              ),
-              Text(' ?',
-                  style: AppTextStyles.displayHero(size: 32, color: Colors.white)
-                      .copyWith(shadows: textShadows)),
-            ],
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Text('HOY ',
+                    style: AppTextStyles.displayHero(
+                            size: 32, color: Colors.white)
+                        .copyWith(shadows: textShadows)),
+                _ZoneChip(
+                  label: zona,
+                  onTap: zoneIsSet ? onZoneChipTap : onIslandChipTap,
+                ),
+                Text(' ?',
+                    style: AppTextStyles.displayHero(
+                            size: 32, color: Colors.white)
+                        .copyWith(shadows: textShadows)),
+              ],
+            ),
           ),
           const SizedBox(height: 8),
           // Copy editorial (frase por isla)

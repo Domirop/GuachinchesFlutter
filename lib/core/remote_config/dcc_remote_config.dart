@@ -12,6 +12,7 @@ abstract class RemoteConfigBridge {
   Future<bool> fetchAndActivate();
   bool getBool(String key);
   int getInt(String key);
+  String getString(String key);
 }
 
 class _FirebaseRcBridge implements RemoteConfigBridge {
@@ -40,6 +41,9 @@ class _FirebaseRcBridge implements RemoteConfigBridge {
 
   @override
   int getInt(String key) => _rc.getInt(key);
+
+  @override
+  String getString(String key) => _rc.getString(key);
 }
 
 class DccRemoteConfig {
@@ -60,21 +64,43 @@ class DccRemoteConfig {
 
   final RemoteConfigBridge _bridge;
 
-  Future<void> init() async {
-    await _bridge.configure(
-      fetchTimeout: const Duration(seconds: 10),
-      minimumFetchInterval: const Duration(hours: 1),
-    );
-    await _bridge.setDefaults({
-      'show_curated_lists': true,
-      'show_weather_chip': true,
-      'min_supported_build': 1,
-      'maintenance_mode': false,
-    });
+  /// Valores por defecto locales: la app arranca con ellos y no espera a la
+  /// red.
+  static const Map<String, dynamic> defaults = {
+    'show_curated_lists': true,
+    'show_weather_chip': true,
+    'min_supported_build': 1,
+    'maintenance_mode': false,
+  };
+
+  /// Tope real para la descarga: `fetchTimeout` solo cubre la petición, no
+  /// el token de Firebase Installations del primer arranque (que llegó a
+  /// tardar más de un minuto en iOS).
+  static const fetchDeadline = Duration(seconds: 10);
+
+  /// Ajustes y valores por defecto (locales, rápidos). La descarga va aparte
+  /// ([fetchInBackground]) y nunca retiene el primer frame.
+  Future<void> init({Duration localDeadline = const Duration(seconds: 3)}) async {
     try {
-      await _bridge.fetchAndActivate();
+      await _bridge
+          .configure(
+            fetchTimeout: const Duration(seconds: 10),
+            minimumFetchInterval: const Duration(hours: 1),
+          )
+          .timeout(localDeadline);
+      await _bridge.setDefaults(defaults).timeout(localDeadline);
     } catch (e) {
-      AppLogger.warn('remote-config', 'fetchAndActivate failed: $e');
+      AppLogger.warn('remote-config', 'init: ${e.runtimeType}');
+    }
+  }
+
+  /// Descarga y activa sin bloquear: lo nuevo vale desde que llega (o en el
+  /// siguiente arranque). Si pasa de [fetchDeadline], se deja.
+  Future<void> fetchInBackground({Duration deadline = fetchDeadline}) async {
+    try {
+      await _bridge.fetchAndActivate().timeout(deadline);
+    } catch (e) {
+      AppLogger.warn('remote-config', 'fetchAndActivate: ${e.runtimeType}');
     }
   }
 

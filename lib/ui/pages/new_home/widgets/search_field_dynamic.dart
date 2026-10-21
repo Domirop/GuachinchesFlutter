@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:guachinches/config/app_shapes.dart';
-import 'package:guachinches/config/brand_colors.dart';
-import 'package:guachinches/config/app_text_styles.dart';
+import 'package:guachinches/ui/theme/gm_icons.dart';
+import 'package:guachinches/ui/theme/gm_motion.dart';
+import 'package:guachinches/ui/theme/gm_tokens.dart';
 
+/// Cápsula de búsqueda (señuelo → abre la búsqueda avanzada).
+/// Rediseño iOS 27: blanca, sombra cálida y lupa. El placeholder nombra la
+/// zona elegida o, si no hay, la isla («Buscar en Tenerife»). Sin micrófono:
+/// la app no tiene búsqueda por voz y un icono que no hace nada confunde.
 class SearchFieldDynamic extends StatelessWidget {
   final String? zone;
   final VoidCallback onTap;
@@ -15,43 +19,43 @@ class SearchFieldDynamic extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final placeholder = zone != null
-        ? 'Buscar en $zone...'
-        : 'Buscar restaurante...';
+    final gm = GmColors.of(context);
+    final placeholder =
+        zone != null ? 'Buscar en $zone' : 'Buscar restaurante';
 
     return Semantics(
       identifier: 'home-search-field',
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          margin: const EdgeInsets.fromLTRB(16, 6, 16, 10),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-          decoration: BoxDecoration(
-            color: context.brand.surface.withOpacity(0.6),
-            border: Border.all(
-              color: context.brand.border,
-              width: 1,
+      button: true,
+      label: placeholder,
+      excludeSemantics: true,
+      child: MediaQuery.withClampedTextScaling(
+        maxScaleFactor: 1.3,
+        child: GmPressable(
+          onTap: onTap,
+          pressedScale: 0.985,
+          child: Container(
+            height: 50,
+            decoration: BoxDecoration(
+              color: gm.card,
+              borderRadius: BorderRadius.circular(GmRadius.pill),
+              boxShadow: gm.shadow1,
             ),
-            borderRadius: BorderRadius.circular(AppRadius.pill),
-          ),
-          child: Row(
-            children: [
-              Icon(
-                Icons.search_rounded,
-                color: context.brand.textSecondary,
-                size: 18,
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  placeholder,
-                  style: AppTextStyles.editorial(
-                    size: 13,
-                    color: context.brand.textSecondary,
+            child: Row(
+              children: [
+                const SizedBox(width: 16),
+                GmIcon(GmIcons.search, size: 19, color: gm.label2),
+                const SizedBox(width: 9),
+                Expanded(
+                  child: Text(
+                    placeholder,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GmText.body17(color: gm.label2),
                   ),
                 ),
-              ),
-            ],
+                const SizedBox(width: 16),
+              ],
+            ),
           ),
         ),
       ),

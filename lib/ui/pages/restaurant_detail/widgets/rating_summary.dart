@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:guachinches/config/app_colors.dart';
-import 'package:guachinches/config/app_text_styles.dart';
-import 'package:guachinches/config/brand_colors.dart';
 import 'package:guachinches/data/model/Review.dart';
 import 'package:guachinches/data/model/restaurant.dart';
+import 'package:guachinches/ui/theme/gm_tokens.dart';
+import 'package:guachinches/ui/theme/gm_widgets.dart';
 
+/// Resumen de reseñas (tablero FichaCompleta): nota grande con coma, cinco
+/// estrellas, «N reseñas» y la distribución 5→1 en barras.
 class RatingSummary extends StatelessWidget {
   final Restaurant restaurant;
 
@@ -21,129 +22,101 @@ class RatingSummary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final gm = GmColors.of(context);
     final reviews = restaurant.valoraciones;
     final dist = distribution(reviews);
     final total = reviews.length;
+    final avg = restaurant.avgRating;
+    final label2 = TextStyle(
+      fontSize: 12,
+      height: 14 / 12,
+      fontWeight: FontWeight.w400,
+      color: gm.label2,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
 
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: context.brand.surface,
-        border: Border.all(color: Colors.white.withOpacity(0.04)),
-        borderRadius: BorderRadius.circular(13),
-      ),
+    return GmCard(
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                restaurant.avgRating.toStringAsFixed(1),
-                style: AppTextStyles.displayHero(
-                  size: 36,
-                  color: AppColors.sol,
+                avg > 0 ? avg.toStringAsFixed(1).replaceAll('.', ',') : '–',
+                style: TextStyle(
+                  fontSize: 44,
+                  height: 48 / 44,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -1.2,
+                  color: gm.label,
                 ),
               ),
-              const SizedBox(height: 4),
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: List.generate(5, (i) {
-                  final filled = i < restaurant.avgRating.round();
+                  final filled = i < avg.round();
                   return Icon(
                     filled ? Icons.star : Icons.star_border,
-                    color: AppColors.sol,
+                    color: filled ? GmColors.star : gm.label2,
                     size: 13,
                   );
                 }),
               ),
               const SizedBox(height: 4),
-              Text(
-                '$total reseñas',
-                style: AppTextStyles.ui(
-                  size: 9,
-                  color: AppColors.crema.withOpacity(0.25),
-                ),
-              ),
+              Text(total == 1 ? '1 reseña' : '$total reseñas',
+                  style: GmText.eyebrow(color: gm.label2, w: FontWeight.w400)),
             ],
           ),
-          const SizedBox(width: 18),
+          const SizedBox(width: 20),
           Expanded(
-            child: Column(
-              children: [
-                for (int s = 5; s >= 1; s--)
-                  _RatingBar(
-                    stars: s,
-                    percentage: total == 0 ? 0 : dist[s]! / total,
-                  ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _RatingBar extends StatelessWidget {
-  final int stars;
-  final double percentage;
-
-  const _RatingBar({required this.stars, required this.percentage});
-
-  Color get _fill {
-    switch (stars) {
-      case 5:
-        return AppColors.sol;
-      case 4:
-        return AppColors.arena;
-      case 3:
-        return AppColors.crema.withOpacity(0.15);
-      default:
-        return AppColors.mojo.withOpacity(0.25);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 12,
-            child: Text(
-              '$stars',
-              style: AppTextStyles.ui(
-                size: 9,
-                color: context.brand.textMuted,
-              ),
-            ),
-          ),
-          const SizedBox(width: 6),
-          Expanded(
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(2),
-              child: Stack(
+            child: Semantics(
+              label: 'Distribución de las $total reseñas',
+              excludeSemantics: true,
+              child: Column(
                 children: [
-                  Container(height: 4, color: context.brand.elevated),
-                  FractionallySizedBox(
-                    widthFactor: percentage.clamp(0.0, 1.0),
-                    child: Container(height: 4, color: _fill),
-                  ),
+                  for (var star = 5; star >= 1; star--)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 2.5),
+                      child: Row(
+                        children: [
+                          SizedBox(
+                              width: 10, child: Text('$star', style: label2)),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: ClipRRect(
+                              borderRadius:
+                                  BorderRadius.circular(GmRadius.pill),
+                              child: SizedBox(
+                                height: 6,
+                                child: Stack(
+                                  children: [
+                                    Positioned.fill(
+                                        child: ColoredBox(color: gm.fill)),
+                                    FractionallySizedBox(
+                                      heightFactor: 1,
+                                      widthFactor: total == 0
+                                          ? 0
+                                          : dist[star]! / total,
+                                      child: const ColoredBox(
+                                          color: GmColors.star),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          SizedBox(
+                            width: 14,
+                            child: Text('${dist[star]}',
+                                textAlign: TextAlign.right, style: label2),
+                          ),
+                        ],
+                      ),
+                    ),
                 ],
-              ),
-            ),
-          ),
-          const SizedBox(width: 6),
-          SizedBox(
-            width: 30,
-            child: Text(
-              '${(percentage * 100).round()}%',
-              textAlign: TextAlign.right,
-              style: AppTextStyles.ui(
-                size: 9,
-                color: context.brand.textMuted,
               ),
             ),
           ),

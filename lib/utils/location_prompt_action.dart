@@ -22,7 +22,7 @@ Future<void> handleLocationPromptTap(BuildContext context) async {
   if (state is LocationPermanentlyDenied ||
       state is LocationServiceDisabled) {
     await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const LocationDeniedScreen()),
+      LocationDeniedScreen.route(),
     );
     if (context.mounted) {
       await cubit.checkLocationSilently();

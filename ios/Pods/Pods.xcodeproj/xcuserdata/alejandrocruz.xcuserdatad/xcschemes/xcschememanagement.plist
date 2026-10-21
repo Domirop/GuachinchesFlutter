@@ -329,6 +329,11 @@
 			<key>isShown</key>
 			<false/>
 		</dict>
+		<key>audioplayers_darwin.xcscheme</key>
+		<dict>
+			<key>isShown</key>
+			<false/>
+		</dict>
 		<key>connectivity_plus.xcscheme</key>
 		<dict>
 			<key>isShown</key>

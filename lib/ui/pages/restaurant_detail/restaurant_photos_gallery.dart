@@ -1,13 +1,18 @@
-import 'dart:ui';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:guachinches/config/app_colors.dart';
-import 'package:guachinches/config/brand_colors.dart';
-import 'package:guachinches/config/app_text_styles.dart';
+import 'package:flutter/services.dart';
+import 'package:guachinches/ui/pages/new_home/widgets/gm_place_card.dart'
+    show gmDisplayName;
+import 'package:guachinches/ui/theme/gm_icons.dart';
+import 'package:guachinches/ui/theme/gm_tokens.dart';
+import 'package:guachinches/ui/theme/gm_widgets.dart';
 import 'package:photo_view/photo_view.dart';
 import 'package:photo_view/photo_view_gallery.dart';
+import 'package:share_plus/share_plus.dart' show SharePlus, ShareParams;
 
-/// Galería pantalla completa con pinch-zoom y swipe horizontal.
+/// Galería a pantalla completa (tablero FichaGaleria): fondo negro, foto
+/// entera (contain) con pinch-zoom y swipe, cristal Cerrar · «3 / 14» ·
+/// Compartir, pie «Nombre · foto 3 de 14» y tira de miniaturas con anillo.
 class RestaurantPhotosGallery extends StatefulWidget {
   final List<String> urls;
   final int initialIndex;
@@ -27,195 +32,215 @@ class RestaurantPhotosGallery extends StatefulWidget {
 
 class _RestaurantPhotosGalleryState extends State<RestaurantPhotosGallery> {
   late final PageController _pageCtrl;
+  final _thumbs = ScrollController();
   late int _index;
+
+  static const double _thumb = 56;
 
   @override
   void initState() {
     super.initState();
     _index = widget.initialIndex.clamp(0, widget.urls.length - 1);
     _pageCtrl = PageController(initialPage: _index);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _centerThumb());
   }
 
   @override
   void dispose() {
     _pageCtrl.dispose();
+    _thumbs.dispose();
     super.dispose();
+  }
+
+  void _centerThumb() {
+    if (!_thumbs.hasClients) return;
+    final w = MediaQuery.sizeOf(context).width;
+    final target = (16 + _index * (_thumb + 6) + _thumb / 2 - w / 2)
+        .clamp(0.0, _thumbs.position.maxScrollExtent);
+    _thumbs.animateTo(target,
+        duration: const Duration(milliseconds: 260), curve: Curves.easeOut);
+  }
+
+  void _share() {
+    SharePlus.instance.share(ShareParams(
+        text:
+            '${gmDisplayName(widget.restaurantName)} en ¿Dónde Comer Canarias?\n${widget.urls[_index]}'));
   }
 
   @override
   Widget build(BuildContext context) {
     final total = widget.urls.length;
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: Stack(
-        children: [
-          PhotoViewGallery.builder(
-            pageController: _pageCtrl,
-            itemCount: total,
-            backgroundDecoration:
-                const BoxDecoration(color: Colors.black),
-            onPageChanged: (i) => setState(() => _index = i),
-            loadingBuilder: (_, __) => const Center(
-              child: CircularProgressIndicator(
-                color: AppColors.atlantico,
-                strokeWidth: 2,
-              ),
-            ),
-            builder: (context, i) {
-              return PhotoViewGalleryPageOptions.customChild(
-                child: CachedNetworkImage(
-                  imageUrl: widget.urls[i],
-                  fit: BoxFit.contain,
-                  placeholder: (_, __) => const Center(
-                    child: CircularProgressIndicator(
-                      color: AppColors.atlantico,
-                      strokeWidth: 2,
+    final pad = MediaQuery.paddingOf(context);
+    final name = gmDisplayName(widget.restaurantName);
+
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.light,
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        body: Stack(
+          children: [
+            PhotoViewGallery.builder(
+              pageController: _pageCtrl,
+              itemCount: total,
+              backgroundDecoration: const BoxDecoration(color: Colors.black),
+              onPageChanged: (i) {
+                setState(() => _index = i);
+                _centerThumb();
+              },
+              loadingBuilder: (_, __) => const SizedBox.shrink(),
+              builder: (context, i) {
+                return PhotoViewGalleryPageOptions.customChild(
+                  child: CachedNetworkImage(
+                    imageUrl: widget.urls[i],
+                    fit: BoxFit.contain,
+                    // Decodifica a ~2× el ancho de pantalla en píxeles: nítido
+                    // con zoom y sin cargar fotos de 4000 px en memoria.
+                    memCacheWidth: (MediaQuery.sizeOf(context).width *
+                            MediaQuery.devicePixelRatioOf(context) *
+                            2)
+                        .round()
+                        .clamp(800, 2600),
+                    placeholder: (_, __) => const SizedBox.shrink(),
+                    errorWidget: (_, __, ___) => const Center(
+                      child: Icon(Icons.broken_image_outlined,
+                          color: Colors.white24, size: 48),
                     ),
                   ),
-                  errorWidget: (_, __, ___) => const Center(
-                    child: Icon(Icons.broken_image_outlined,
-                        color: Colors.white24, size: 48),
-                  ),
-                ),
-                minScale: PhotoViewComputedScale.contained,
-                maxScale: PhotoViewComputedScale.covered * 3.0,
-                heroAttributes: PhotoViewHeroAttributes(tag: widget.urls[i]),
-              );
-            },
-          ),
-
-          // Top bar: close + counter + restaurant name
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: Container(
-              padding: EdgeInsets.fromLTRB(
-                12,
-                MediaQuery.of(context).padding.top + 8,
-                12,
-                12,
-              ),
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [Color(0xCC000000), Colors.transparent],
-                ),
-              ),
+                  minScale: PhotoViewComputedScale.contained,
+                  maxScale: PhotoViewComputedScale.covered * 3.0,
+                  heroAttributes: PhotoViewHeroAttributes(tag: widget.urls[i]),
+                );
+              },
+            ),
+            // Cerrar · contador · compartir.
+            Positioned(
+              left: 16,
+              right: 16,
+              top: pad.top + 2,
               child: Row(
                 children: [
-                  _GlassCircleButton(
-                    icon: Icons.close,
+                  GmToolbarButton(
+                    icon: GmIcons.close,
+                    iconSize: 16,
+                    semanticLabel: 'Cerrar la galería',
+                    identifier: 'gallery-close-button',
                     onTap: () => Navigator.pop(context),
                   ),
-                  const SizedBox(width: 12),
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          widget.restaurantName.toUpperCase(),
-                          style: AppTextStyles.displaySection(size: 12)
-                              .copyWith(color: Colors.white),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                    child: Center(
+                      child: Container(
+                        height: 36,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: const Color(0x2EFFFFFF),
+                          borderRadius: BorderRadius.circular(GmRadius.pill),
+                          border: Border.all(
+                              color: const Color(0x40FFFFFF), width: 0.5),
                         ),
-                        const SizedBox(height: 2),
-                        Text(
+                        child: Text(
                           '${_index + 1} / $total',
-                          style: AppTextStyles.ui(
-                            size: 10,
-                            color: Colors.white.withOpacity(0.65),
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                            fontFeatures: [FontFeature.tabularFigures()],
                           ),
                         ),
-                      ],
+                      ),
                     ),
+                  ),
+                  GmToolbarButton(
+                    icon: GmIcons.share,
+                    semanticLabel: 'Compartir la foto',
+                    identifier: 'gallery-share-button',
+                    onTap: _share,
                   ),
                 ],
               ),
             ),
-          ),
-
-          // Bottom thumbnail strip
-          if (total > 1)
+            // Pie: nombre + posición y tira de miniaturas.
             Positioned(
               left: 0,
               right: 0,
-              bottom: MediaQuery.of(context).padding.bottom + 14,
-              child: SizedBox(
-                height: 56,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 14),
-                  itemCount: total,
-                  separatorBuilder: (_, __) => const SizedBox(width: 6),
-                  itemBuilder: (_, i) {
-                    final active = i == _index;
-                    return GestureDetector(
-                      onTap: () => _pageCtrl.animateToPage(
-                        i,
-                        duration: const Duration(milliseconds: 300),
-                        curve: Curves.easeInOut,
+              bottom: pad.bottom + 12,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Text(
+                      name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GmText.body17(
+                          color: Colors.white, w: FontWeight.w600),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Text(
+                      'Foto ${_index + 1} de $total',
+                      style: GmText.eyebrow(
+                          color: const Color(0x99FFFFFF), w: FontWeight.w400),
+                    ),
+                  ),
+                  if (total > 1) ...[
+                    const SizedBox(height: 18),
+                    SizedBox(
+                      height: _thumb + 6,
+                      child: ListView.separated(
+                        controller: _thumbs,
+                        scrollDirection: Axis.horizontal,
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        itemCount: total,
+                        separatorBuilder: (_, __) => const SizedBox(width: 6),
+                        itemBuilder: (_, i) {
+                          final on = i == _index;
+                          return GestureDetector(
+                            onTap: () => _pageCtrl.animateToPage(i,
+                                duration: const Duration(milliseconds: 280),
+                                curve: Curves.easeOut),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 180),
+                              width: on ? _thumb + 6 : _thumb,
+                              height: on ? _thumb + 6 : _thumb,
+                              padding: const EdgeInsets.all(2),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(
+                                  color: on
+                                      ? Colors.white
+                                      : Colors.transparent,
+                                  width: 2,
+                                ),
+                              ),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(10),
+                                child: Opacity(
+                                  opacity: on ? 1 : 0.6,
+                                  child: CachedNetworkImage(
+                                    imageUrl: widget.urls[i],
+                                    fit: BoxFit.cover,
+                                    memCacheWidth: 180,
+                                    placeholder: (_, __) => const ColoredBox(
+                                        color: Color(0xFF1C1C1C)),
+                                    errorWidget: (_, __, ___) =>
+                                        const ColoredBox(
+                                            color: Color(0xFF1C1C1C)),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          );
+                        },
                       ),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        width: 56,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: active
-                                ? AppColors.atlantico
-                                : Colors.white.withOpacity(0.15),
-                            width: active ? 2 : 1,
-                          ),
-                        ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(7),
-                          child: CachedNetworkImage(
-                            imageUrl: widget.urls[i],
-                            fit: BoxFit.cover,
-                            errorWidget: (_, __, ___) =>
-                                Container(color: context.brand.elevated),
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
+                    ),
+                  ],
+                ],
               ),
             ),
-        ],
-      ),
-    );
-  }
-}
-
-class _GlassCircleButton extends StatelessWidget {
-  final IconData icon;
-  final VoidCallback onTap;
-
-  const _GlassCircleButton({required this.icon, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipOval(
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-        child: GestureDetector(
-          onTap: onTap,
-          child: Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: AppColors.glassDark,
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.white.withOpacity(0.15)),
-            ),
-            alignment: Alignment.center,
-            child: Icon(icon, size: 18, color: Colors.white),
-          ),
+          ],
         ),
       ),
     );

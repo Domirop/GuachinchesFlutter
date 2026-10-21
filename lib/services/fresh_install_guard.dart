@@ -1,6 +1,5 @@
 import 'dart:io';
 
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:guachinches/services/app_storage.dart';
 import 'package:path_provider/path_provider.dart';
 
@@ -27,9 +26,9 @@ class FreshInstallGuard {
       if (await marker.exists()) return; // ya inicializado en esta instalación
 
       // Primer arranque de esta instalación: borra cualquier resto del Keychain
-      // que sobreviviera a una desinstalación previa. Limpiamos ambos stores
-      // (el por defecto y el de AppStorage con opciones Android) por si acaso.
-      await const FlutterSecureStorage().deleteAll();
+      // que sobreviviera a una desinstalación previa. Limpiamos el almacén de
+      // la app y el antiguo por defecto (en iOS son el mismo Keychain).
+      await AppStorage.legacy.deleteAll();
       await AppStorage.instance.deleteAll();
 
       await dir.create(recursive: true);

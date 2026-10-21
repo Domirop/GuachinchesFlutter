@@ -1,6 +1,5 @@
 import 'dart:io';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
 import 'package:flutter/material.dart';
 import 'package:guachinches/data/cubit/onboarding/onboarding_cubit.dart';
@@ -8,11 +7,9 @@ import 'package:guachinches/data/cubit/onboarding/onboarding_state.dart';
 import 'package:guachinches/data/cubit/user/user_cubit.dart';
 import 'package:guachinches/data/cubit/user/user_state.dart';
 import 'package:guachinches/data/model/version.dart';
-import 'package:guachinches/ui/pages/map/map_search.dart';
-import 'package:guachinches/ui/pages/listas/listas_screen.dart';
-import 'package:guachinches/ui/pages/new_home/new_home_screen.dart';
-import 'package:guachinches/ui/pages/discover/discover_screen.dart';
 import 'package:guachinches/ui/pages/settings/settings_screen.dart';
+import 'package:guachinches/utils/app_version.dart';
+import 'package:guachinches/services/app_storage.dart';
 
 class SplashScreenPresenter {
   final SplashScreenView _view;
@@ -21,7 +18,7 @@ class SplashScreenPresenter {
 
   final UserCubit _userCubit;
   final OnboardingCubit _onboardingCubit;
-  final storage = FlutterSecureStorage();
+  final storage = AppStorage.instance;
 
   SplashScreenPresenter(
     this._view,
@@ -38,15 +35,13 @@ class SplashScreenPresenter {
       versionApp = dotenv.env['GET_ANDROID_VERSION']!;
     }
 
-    return int.parse(versionApp.split(".")[0]) < int.parse(versionBD.split(".")[0]) ||
-        int.parse(versionApp.split(".")[1]) < int.parse(versionBD.split(".")[1]);
+    // Antes comparaba el menor aunque el mayor fuera más alto (5.0 < 4.7 daba
+    // «actualiza»). La encuesta v3 fuerza la actualización con esta pantalla.
+    return compareAppVersions(versionApp, versionBD) < 0;
   }
 
 
   Future<List<Widget>> _buildScreens() async {
-    // SettingsScreen manages its own state via UserCubit —
-    // shows logged-in view, not-logged-in view, and loading/error states.
-    const Widget profileTab = SettingsScreen();
     try {
       String? userId = await storage.read(key: "userId");
       if (userId != null && userId.isNotEmpty) {
@@ -57,16 +52,11 @@ class SplashScreenPresenter {
         }
       }
     } catch (_) {}
-    return [
-      const NewHomeScreen(),
-      const ListasScreen(),
-      MapSearch(),
-      const DiscoverScreen(),
-      profileTab,
-    ];
+    // Las 5 pestañas de siempre; Perfil = SettingsScreen (con o sin sesión).
+    return buildMainTabScreens();
   }
 
-  mainFunction() async {
+  Future<void> mainFunction() async {
     final screens = await _buildScreens();
     _view.goToMenu(screens);
   }
@@ -101,17 +91,22 @@ class SplashScreenPresenter {
     if (check) {
       _view.goToUpdateScreen();
     } else {
-      if (_onboardingCubit.state is OnboardingInitial) {
-        await _onboardingCubit.hydrate();
-      }
-      if (_onboardingCubit.isFinished) {
-        // Premios Donde Comer Canarias 2026 — pausado.
-        // Restaurar leyendo surveyShown del cubit y llamando a
-        // goToSurveyOnboarding() cuando sea false, como antes.
-        mainFunction();
-      } else {
-        _view.goToOnBoarding();
-      }
+      await continueAfterVersion();
+    }
+  }
+
+  /// Tras comprobar la versión (o sin comprobarla, si el arranque se alarga
+  /// y salta el watchdog del splash): onboarding si no está hecho; si no, la
+  /// app. El watchdog también pasa por aquí: antes iba directo al Inicio y un
+  /// usuario nuevo con mala red se quedaba sin onboarding.
+  Future<void> continueAfterVersion() async {
+    if (_onboardingCubit.state is OnboardingInitial) {
+      await _onboardingCubit.hydrate();
+    }
+    if (_onboardingCubit.isFinished) {
+      await mainFunction();
+    } else {
+      _view.goToOnBoarding();
     }
   }
 }

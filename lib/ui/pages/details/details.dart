@@ -18,7 +18,8 @@ import 'package:guachinches/ui/components/banner/banner_ad.dart';
 import 'package:guachinches/ui/components/open_status_badge.dart';
 import 'package:guachinches/ui/components/details_image_slider/detail_slider.dart';
 import 'package:guachinches/ui/pages/details/details_presenter.dart';
-import 'package:guachinches/ui/pages/login/login.dart';
+import 'package:guachinches/ui/pages/login/login_logic.dart';
+import 'package:guachinches/ui/pages/login/login_sheet.dart';
 import 'package:guachinches/ui/pages/videoDetail/VideoDetail.dart';
 import 'package:guachinches/ui/pages/videoInput/videoInput.dart';
 import 'package:http/http.dart';
@@ -970,8 +971,7 @@ class _DetailsState extends State<Details> implements DetailView {
 
   @override
   goToLogin() {
-    GlobalMethods().removePagesAndGoToNewScreen(
-        context, Login("Para guardar un restaurante debes iniciar sesión."));
+    showLoginSheet(context, reason: LoginReason.save(restaurant.nombre));
   }
 
   @override

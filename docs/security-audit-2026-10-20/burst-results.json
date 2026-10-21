@@ -1,0 +1,26 @@
+{
+  "generatedAt": "2026-10-20T11:44:52.755Z",
+  "backend": "/Users/alejandrocruz/WebstormProjects/guachinches-modernos-v3-encuesta",
+  "environment": {
+    "database": "isolated localhost:55449/gm_survey_audit",
+    "node": "v23.4.0",
+    "appCheck": "FAKE verifier; no Apple/Google attestation or quotas tested",
+    "poolMax": 5,
+    "verifierDelayMsForLoad": 25
+  },
+  "checks": [],
+  "load": [],
+  "burst": {
+    "concurrency": 600,
+    "attempts": 600,
+    "perQueryDelayMs": 20,
+    "clientTimeoutMs": 20000,
+    "statuses": {
+      "201": 15,
+      "TimeoutError": 585
+    },
+    "clientsFinishedSeconds": 20.29,
+    "persistedAfterDrain": 600,
+    "totalSeconds": 29.87
+  }
+}

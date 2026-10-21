@@ -1,377 +1,191 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show MethodChannel;
-import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:guachinches/config/app_theme.dart';
 import 'package:guachinches/data/cubit/theme/theme_cubit.dart';
-import 'package:guachinches/data/cubit/user/user_cubit.dart';
 import 'package:guachinches/data/cubit/user/user_state.dart';
-import 'package:guachinches/data/RemoteRepository.dart';
 import 'package:guachinches/data/model/user_info.dart';
-import 'package:guachinches/l10n/app_localizations.dart';
-import 'package:guachinches/ui/pages/profile/account_management_screen.dart';
 import 'package:guachinches/ui/pages/settings/settings_screen.dart';
+import 'package:guachinches/ui/theme/gm_favorites.dart';
+import 'package:guachinches/utils/app_version.dart';
 
-class _FakeRepo extends Fake implements RemoteRepository {
-  @override
-  Future<UserInfo> getUserInfo(String userId) async => UserInfo(
-        id: '123',
-        nombre: 'María',
-        apellidos: 'López',
-        email: 'maria.lopez@gmail.com',
-        valoraciones: [],
-      );
+import 'perfil_test_harness.dart';
 
-  @override
-  Future<void> deleteUser(String id) async {}
+UserInfo _carmen() => UserInfo(
+      id: 'u1',
+      nombre: 'Carmen',
+      valoraciones: [
+        Valoraciones(id: 'v1', rating: '4', valoracionesNegocioId: 'r1'),
+        Valoraciones(id: 'v2', rating: '5', valoracionesNegocioId: 'r2'),
+      ],
+    );
 
-  @override
-  Future<dynamic> loginUser(String email, String password) async {
-    throw Exception('stub');
-  }
-}
-
-/// Pre-seeded UserCubit for tests that need specific states immediately.
-class _PreSeededUserCubit extends UserCubit {
-  final UserState seedState;
-  _PreSeededUserCubit(RemoteRepository repo, this.seedState) : super(repo) {
-    emit(seedState);
-  }
-}
-
-/// Wraps SettingsScreen with Bloc providers and a large enough test surface.
-Widget _wrapWithState({
-  required UserState userState,
-  ThemeMode themeMode = ThemeMode.dark,
-}) {
-  final repo = _FakeRepo();
-  final userCubit = _PreSeededUserCubit(repo, userState);
-
-  return MultiBlocProvider(
-    providers: [
-      BlocProvider<UserCubit>.value(value: userCubit),
-      BlocProvider<ThemeCubit>(
-        create: (_) => ThemeCubit(themeMode),
-      ),
-    ],
-    child: MaterialApp(
-      theme: appLightTheme,
-      darkTheme: appDarkTheme,
-      themeMode: themeMode,
-      localizationsDelegates: AppL10n.localizationsDelegates,
-      supportedLocales: AppL10n.supportedLocales,
-      // Los asserts comprueban copy en español; sin esto el host usa 'en'.
-      locale: const Locale('es'),
-      home: const SettingsScreen(),
+Future<FakePerfilRepo> _pump(
+  WidgetTester tester, {
+  Map<String, String> storage = const {},
+  UserInfo? user,
+  bool failUser = false,
+  List<String> favs = const ['a', 'b'],
+  ThemeCubit? themeCubit,
+}) async {
+  useTallSurface(tester);
+  FlutterSecureStorage.setMockInitialValues({...storage});
+  final repo = FakePerfilRepo(user: user, failUser: failUser);
+  await tester.pumpWidget(perfilApp(
+    SettingsScreen(
+      repository: repo,
+      favorites: GmFavorites.withRepository(OrderedFavRepo(favs)),
     ),
-  );
-}
-
-/// Sets a large device surface so all items are findable by the test framework,
-/// even when rendered off-screen in a scrollable list.
-void _setLargeSurface(WidgetTester tester) {
-  tester.view.physicalSize = const Size(1080, 2400);
-  tester.view.devicePixelRatio = 1.0;
+    userCubit: SeededUserCubit(repo, const UserInitial()),
+    themeCubit: themeCubit,
+  ));
+  await tester.pumpAndSettle();
+  return repo;
 }
 
 void main() {
-  final testUser = UserInfo(
-    id: '1',
-    nombre: 'María',
-    apellidos: 'López',
-    email: 'maria@gmail.com',
-    valoraciones: [],
-  );
+  // La versión sale de la app instalada (package_info_plus).
+  setUp(() => installedAppVersionForTest = '4.6.0');
+  tearDown(() => installedAppVersionForTest = null);
 
-  // ── Not logged in state ──────────────────────────────────────────────────
-  group('SettingsScreen — not logged in (UserInitial)', () {
-    // FlutterSecureStorage no existe en el host de tests: sin este mock la
-    // pantalla se queda en checking/error (loading animado → pumpAndSettle
-    // expira) y nunca enseña el gate. `read` → null = usuario sin sesión.
-    setUp(() {
-      TestWidgetsFlutterBinding.ensureInitialized();
-      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-          .setMockMethodCallHandler(
-        const MethodChannel('plugins.it_nomads.com/flutter_secure_storage'),
-        (call) async => null,
-      );
-    });
-
-    tearDown(() {
-      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-          .setMockMethodCallHandler(
-        const MethodChannel('plugins.it_nomads.com/flutter_secure_storage'),
-        null,
-      );
-    });
-
-    testWidgets('shows easyLogin buttons and "Tu perfil en..." headline',
+  group('Perfil sin sesión', () {
+    testWidgets('entrar con Google o email, guardados, tema y legal',
         (tester) async {
-      _setLargeSurface(tester);
-      addTearDown(tester.view.resetPhysicalSize);
-      addTearDown(tester.view.resetDevicePixelRatio);
+      await _pump(tester);
 
-      await tester.pumpWidget(
-          _wrapWithState(userState: const UserInitial()));
-      await tester.pumpAndSettle();
-
-      expect(find.textContaining('Tu perfil en'), findsOneWidget);
-      // EasyLogin directo: Google siempre visible (Apple solo en iOS, y los
-      // tests corren en host macOS → Platform.isIOS == false).
-      expect(find.text('Continuar con Google'), findsOneWidget);
-      // Vía secundaria de email — abre LoginScreen en el formulario.
-      expect(
-        find.text('Prefiero entrar con email y contraseña'),
-        findsOneWidget,
-      );
-    });
-
-    testWidgets('shows theme segmented control even when not logged in',
-        (tester) async {
-      _setLargeSurface(tester);
-      addTearDown(tester.view.resetPhysicalSize);
-      addTearDown(tester.view.resetDevicePixelRatio);
-
-      await tester.pumpWidget(
-          _wrapWithState(userState: const UserInitial()));
-      await tester.pumpAndSettle();
-
-      expect(find.text('Claro'), findsOneWidget);
-      expect(find.text('Oscuro'), findsOneWidget);
-      expect(find.text('Sistema'), findsOneWidget);
-    });
-
-    testWidgets('shows version label', (tester) async {
-      _setLargeSurface(tester);
-      addTearDown(tester.view.resetPhysicalSize);
-      addTearDown(tester.view.resetDevicePixelRatio);
-
-      await tester.pumpWidget(
-          _wrapWithState(userState: const UserInitial()));
-      await tester.pumpAndSettle();
-
-      expect(find.textContaining('Dónde Comer Canarias v2.4.0'), findsOneWidget);
-    });
-  });
-
-  // ── Logged in state ──────────────────────────────────────────────────────
-  group('SettingsScreen — logged in (UserLoaded)', () {
-    testWidgets('shows user name and email in header', (tester) async {
-      _setLargeSurface(tester);
-      addTearDown(tester.view.resetPhysicalSize);
-      addTearDown(tester.view.resetDevicePixelRatio);
-
-      await tester.pumpWidget(
-          _wrapWithState(userState: UserLoaded(testUser)));
-      await tester.pumpAndSettle();
-
-      expect(find.textContaining('María'), findsAtLeast(1));
-      expect(find.textContaining('maria@gmail.com'), findsAtLeast(1));
-    });
-
-    testWidgets('shows all four section labels', (tester) async {
-      _setLargeSurface(tester);
-      addTearDown(tester.view.resetPhysicalSize);
-      addTearDown(tester.view.resetDevicePixelRatio);
-
-      await tester.pumpWidget(
-          _wrapWithState(userState: UserLoaded(testUser)));
-      await tester.pumpAndSettle();
-
-      expect(find.text('CUENTA'), findsOneWidget);
-      expect(find.text('PREFERENCIAS'), findsOneWidget);
-      expect(find.text('LEGAL'), findsOneWidget);
-      expect(find.text('SESIÓN'), findsOneWidget);
-    });
-
-    testWidgets('shows Cuenta section rows', (tester) async {
-      _setLargeSurface(tester);
-      addTearDown(tester.view.resetPhysicalSize);
-      addTearDown(tester.view.resetDevicePixelRatio);
-
-      await tester.pumpWidget(
-          _wrapWithState(userState: UserLoaded(testUser)));
-      await tester.pumpAndSettle();
-
-      expect(find.text('Editar nombre'), findsOneWidget);
-      expect(find.text('Email'), findsOneWidget);
-      expect(find.text('Mis valoraciones'), findsOneWidget);
-      expect(find.text('Favoritos guardados'), findsOneWidget);
-    });
-
-    testWidgets('shows Preferencias rows (Idioma + Tema)', (tester) async {
-      _setLargeSurface(tester);
-      addTearDown(tester.view.resetPhysicalSize);
-      addTearDown(tester.view.resetDevicePixelRatio);
-
-      await tester.pumpWidget(
-          _wrapWithState(userState: UserLoaded(testUser)));
-      await tester.pumpAndSettle();
-
-      expect(find.text('Idioma'), findsOneWidget);
-      expect(find.text('Tema de la app'), findsOneWidget);
-      expect(find.text('Claro'), findsOneWidget);
-      expect(find.text('Oscuro'), findsOneWidget);
-      expect(find.text('Sistema'), findsOneWidget);
-    });
-
-    testWidgets('shows Legal rows', (tester) async {
-      _setLargeSurface(tester);
-      addTearDown(tester.view.resetPhysicalSize);
-      addTearDown(tester.view.resetDevicePixelRatio);
-
-      await tester.pumpWidget(
-          _wrapWithState(userState: UserLoaded(testUser)));
-      await tester.pumpAndSettle();
-
+      expect(byIdentifier('perfil-guest-card'), findsOneWidget);
+      expect(find.text('Tu perfil en Dónde Comer Canarias'), findsOneWidget);
+      expect(byIdentifier('perfil-login-google'), findsOneWidget);
+      expect(byIdentifier('perfil-login-email'), findsOneWidget);
+      // Apple solo en iOS.
+      expect(byIdentifier('perfil-login-apple'), findsNothing);
+      expect(find.text('Sin cuenta también puedes'), findsOneWidget);
+      expect(find.text('2 sitios en este móvil'), findsOneWidget);
+      expect(find.text('Tema'), findsOneWidget);
       expect(find.text('Términos de uso'), findsOneWidget);
       expect(find.text('Política de privacidad'), findsOneWidget);
+      expect(find.text('Dónde Comer Canarias 4.6.0'), findsOneWidget);
+      expect(find.text('Hecho en Canarias'), findsOneWidget);
+      // Fuera del rediseño: idioma y la píldora «Muchacho/a».
+      expect(find.text('Idioma'), findsNothing);
+      expect(find.textContaining('Muchacho'), findsNothing);
     });
 
-    testWidgets('shows Sesion rows (Cerrar sesión + Eliminar cuenta)',
+    testWidgets('«Entrar con email» abre el acceso único en su paso de email',
         (tester) async {
-      _setLargeSurface(tester);
-      addTearDown(tester.view.resetPhysicalSize);
-      addTearDown(tester.view.resetDevicePixelRatio);
-
-      await tester.pumpWidget(
-          _wrapWithState(userState: UserLoaded(testUser)));
+      await _pump(tester);
+      await tester.tap(byIdentifier('perfil-login-email'));
       await tester.pumpAndSettle();
+      expect(byIdentifier('login-sheet'), findsOneWidget);
+      expect(byIdentifier('login-email-step'), findsOneWidget);
+      // Desde el Perfil no hay chip de contexto.
+      expect(byIdentifier('login-reason-chip'), findsNothing);
 
-      expect(find.text('Cerrar sesión'), findsOneWidget);
-      expect(find.text('Eliminar cuenta'), findsOneWidget);
+      // Volver al inicio del acceso y cerrar: sigue el Perfil sin sesión.
+      await tester.tap(byIdentifier('login-back-button'));
+      await tester.pumpAndSettle();
+      await tester.tap(byIdentifier('login-close-button'));
+      await tester.pumpAndSettle();
+      expect(byIdentifier('login-sheet'), findsNothing);
+      expect(byIdentifier('perfil-guest-card'), findsOneWidget);
     });
 
-    testWidgets('email row has Solo lectura badge', (tester) async {
-      _setLargeSurface(tester);
-      addTearDown(tester.view.resetPhysicalSize);
-      addTearDown(tester.view.resetDevicePixelRatio);
-
-      await tester.pumpWidget(
-          _wrapWithState(userState: UserLoaded(testUser)));
-      await tester.pumpAndSettle();
-
-      expect(find.text('Solo lectura'), findsOneWidget);
-    });
-
-    testWidgets('shows user initials in avatar', (tester) async {
-      _setLargeSurface(tester);
-      addTearDown(tester.view.resetPhysicalSize);
-      addTearDown(tester.view.resetDevicePixelRatio);
-
-      await tester.pumpWidget(
-          _wrapWithState(userState: UserLoaded(testUser)));
-      await tester.pumpAndSettle();
-
-      // Initials ML (María López)
-      expect(find.text('ML'), findsOneWidget);
-    });
-
-    testWidgets('tapping Cerrar sesión opens destructive modal',
-        (tester) async {
-      _setLargeSurface(tester);
-      addTearDown(tester.view.resetPhysicalSize);
-      addTearDown(tester.view.resetDevicePixelRatio);
-
-      await tester.pumpWidget(
-          _wrapWithState(userState: UserLoaded(testUser)));
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.text('Cerrar sesión'));
-      await tester.pumpAndSettle();
-
-      expect(find.text('¿Cerrar sesión?'), findsOneWidget);
-      expect(find.text('Sí, cerrar sesión'), findsOneWidget);
-      expect(find.text('Cancelar'), findsOneWidget);
-    });
-
-    testWidgets('tapping Cancelar in logout modal closes it', (tester) async {
-      _setLargeSurface(tester);
-      addTearDown(tester.view.resetPhysicalSize);
-      addTearDown(tester.view.resetDevicePixelRatio);
-
-      await tester.pumpWidget(
-          _wrapWithState(userState: UserLoaded(testUser)));
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.text('Cerrar sesión'));
-      await tester.pumpAndSettle();
-
-      expect(find.text('¿Cerrar sesión?'), findsOneWidget);
-
-      await tester.tap(find.text('Cancelar'));
-      await tester.pumpAndSettle();
-
-      // Modal dismissed — section label visible again
-      expect(find.text('¿Cerrar sesión?'), findsNothing);
-      expect(find.text('SESIÓN'), findsOneWidget);
-    });
-
-    testWidgets('tapping Eliminar cuenta opens delete modal with warning',
-        (tester) async {
-      _setLargeSurface(tester);
-      addTearDown(tester.view.resetPhysicalSize);
-      addTearDown(tester.view.resetDevicePixelRatio);
-
-      await tester.pumpWidget(
-          _wrapWithState(userState: UserLoaded(testUser)));
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.text('Eliminar cuenta'));
-      await tester.pumpAndSettle();
-
-      // Desde la migración a gestión de cuenta (eliminar/exportar), el tap
-      // navega a AccountManagementScreen en vez de abrir un modal in situ.
-      expect(find.byType(AccountManagementScreen), findsOneWidget);
-    });
-
-    testWidgets('theme segmented control changes mode on tap', (tester) async {
-      _setLargeSurface(tester);
-      addTearDown(tester.view.resetPhysicalSize);
-      addTearDown(tester.view.resetDevicePixelRatio);
-
-      await tester.pumpWidget(
-          _wrapWithState(userState: UserLoaded(testUser)));
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.text('Claro'));
-      await tester.pumpAndSettle();
-
-      // Still renders (no crash)
-      expect(find.text('Claro'), findsOneWidget);
-    });
-
-    testWidgets('Idioma tap shows Próximamente SnackBar', (tester) async {
-      _setLargeSurface(tester);
-      addTearDown(tester.view.resetPhysicalSize);
-      addTearDown(tester.view.resetDevicePixelRatio);
-
-      await tester.pumpWidget(
-          _wrapWithState(userState: UserLoaded(testUser)));
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.text('Idioma'));
-      await tester.pumpAndSettle();
-
-      expect(find.textContaining('Próximamente'), findsOneWidget);
-    });
-
-    testWidgets('renders correctly in light theme', (tester) async {
-      _setLargeSurface(tester);
-      addTearDown(tester.view.resetPhysicalSize);
-      addTearDown(tester.view.resetDevicePixelRatio);
-
-      await tester.pumpWidget(_wrapWithState(
-        userState: UserLoaded(testUser),
-        themeMode: ThemeMode.light,
-      ));
-      await tester.pumpAndSettle();
-
-      expect(find.text('CUENTA'), findsOneWidget);
-      expect(find.text('Cerrar sesión'), findsOneWidget);
+    testWidgets('en iOS, Apple va primero', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+      await _pump(tester);
+      final apple = tester.getTopLeft(byIdentifier('perfil-login-apple'));
+      final google = tester.getTopLeft(byIdentifier('perfil-login-google'));
+      expect(apple.dy, lessThan(google.dy));
+      debugDefaultTargetPlatformOverride = null;
     });
   });
 
-  // Note: _DestructiveModal is private — tested indirectly via
-  // logout/delete modal tests above.
+  group('Perfil con sesión', () {
+    const session = {
+      'userId': 'u1',
+      'session_email': 'carmen@ejemplo.com',
+      'session_provider': 'google',
+    };
+
+    testWidgets('identidad desde la sesión y actividad real', (tester) async {
+      await _pump(tester, storage: session, user: _carmen());
+
+      expect(byIdentifier('perfil-identity-card'), findsOneWidget);
+      expect(find.text('Carmen'), findsOneWidget);
+      expect(find.text('C'), findsOneWidget);
+      expect(find.text('carmen@ejemplo.com'), findsOneWidget);
+      expect(find.text('Has entrado con Google'), findsOneWidget);
+      expect(find.text('2 reseñas · media 4,5'), findsOneWidget);
+      expect(find.text('2 sitios en este móvil'), findsOneWidget);
+      for (final caption in [
+        'Tu actividad',
+        'Preferencias',
+        'Legal',
+        'Cuenta'
+      ]) {
+        expect(find.text(caption), findsOneWidget);
+      }
+      expect(byIdentifier('settings-newsletter-row'), findsOneWidget);
+      expect(byIdentifier('settings-account-management-row'), findsOneWidget);
+      expect(find.text('Cerrar sesión'), findsOneWidget);
+      // Sin endpoint para cambiar el nombre: no se ofrece «Editar».
+      expect(find.text('Editar'), findsNothing);
+    });
+
+    testWidgets('error parcial: solo falla la fila del perfil y se reintenta',
+        (tester) async {
+      final repo = await _pump(tester,
+          storage: {...session, 'session_name': 'Carmen'},
+          user: _carmen(),
+          failUser: true);
+
+      expect(byIdentifier('perfil-profile-error'), findsOneWidget);
+      expect(find.text('No pudimos cargar tu perfil'), findsOneWidget);
+      // La identidad sigue (nombre guardado en el móvil) y Guardados también.
+      expect(find.text('Carmen'), findsOneWidget);
+      expect(byIdentifier('settings-favorites-row'), findsOneWidget);
+      expect(byIdentifier('settings-my-ratings-row'), findsNothing);
+
+      repo.failUser = false;
+      await tester.tap(byIdentifier('perfil-retry-button'));
+      await tester.pumpAndSettle();
+      expect(byIdentifier('perfil-profile-error'), findsNothing);
+      expect(find.text('2 reseñas · media 4,5'), findsOneWidget);
+    });
+
+    testWidgets('cerrar sesión pide confirmación en una hoja', (tester) async {
+      await _pump(tester, storage: session, user: _carmen());
+
+      await tester.tap(byIdentifier('settings-logout-row'));
+      await tester.pumpAndSettle();
+      expect(find.text('¿Cerrar sesión?'), findsOneWidget);
+      expect(byIdentifier('perfil-logout-confirm-button'), findsOneWidget);
+
+      await tester.tap(byIdentifier('perfil-logout-cancel-button'));
+      await tester.pumpAndSettle();
+      expect(find.text('¿Cerrar sesión?'), findsNothing);
+    });
+
+    testWidgets('Mis datos avisa de la eliminación programada', (tester) async {
+      final at = DateTime.now().add(const Duration(days: 20));
+      await _pump(tester,
+          storage: {
+            ...session,
+            'account_deletion_at_u1': at.toUtc().toIso8601String(),
+          },
+          user: _carmen());
+      expect(find.textContaining('Tu cuenta se eliminará el'), findsOneWidget);
+    });
+  });
+
+  testWidgets('el control de tema cambia el ThemeCubit', (tester) async {
+    final theme = ThemeCubit(ThemeMode.light);
+    await _pump(tester, themeCubit: theme);
+    await tester.tap(byIdentifier('settings-theme-oscuro'));
+    await tester.pumpAndSettle();
+    expect(theme.state, ThemeMode.dark);
+    await tester.tap(byIdentifier('settings-theme-sistema'));
+    await tester.pumpAndSettle();
+    expect(theme.state, ThemeMode.system);
+  });
 }

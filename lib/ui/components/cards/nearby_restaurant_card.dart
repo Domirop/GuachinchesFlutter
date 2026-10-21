@@ -6,7 +6,7 @@ import 'package:guachinches/config/brand_colors.dart';
 import 'package:guachinches/data/model/restaurant.dart';
 import 'package:guachinches/globalMethods.dart';
 import 'package:guachinches/ui/pages/details/details.dart';
-import 'package:guachinches/utils/horarios_utils.dart';
+import 'package:guachinches/utils/open_state.dart';
 
 /// Card de "Cerca de ti". Mismo lenguaje visual que [CardHorizontal] (foto a
 /// sangre + panel flotante, tokens de marca, rating dorado, nombre Oswald) para
@@ -39,10 +39,10 @@ class _NearbyRestaurantCardState extends State<NearbyRestaurantCard> {
     final r = widget.restaurant;
 
     // Estado abierto/cerrado real (igual que OpenStatusBadge).
-    final status = r.horariosJson != null
-        ? getOpenStatus(r.horariosJson, DateTime.now())
-        : (r.open ? 'Abierto' : 'Cerrado');
-    final bool isOpen = status == 'Abierto';
+    // Misma regla que el resto de la app; sin horario fiable, neutra.
+    final openState = restaurantOpenState(r, DateTime.now());
+    final bool isOpen = openState.isOpen;
+    final bool unknown = openState.kind == OpenKind.unknown;
 
     final subtitleParts = <String>[
       if (r.municipio.isNotEmpty) r.municipio,
@@ -130,8 +130,16 @@ class _NearbyRestaurantCardState extends State<NearbyRestaurantCard> {
                       ),
                       const SizedBox(width: 4),
                       _Pill(
-                        label: isOpen ? 'ABIERTO' : 'CERRADO',
-                        color: isOpen ? AppColors.laurisilva : AppColors.mojo,
+                        label: isOpen
+                            ? 'ABIERTO'
+                            : unknown
+                                ? 'SIN CONFIRMAR'
+                                : 'CERRADO',
+                        color: isOpen
+                            ? AppColors.laurisilva
+                            : unknown
+                                ? const Color(0xFF9A8F80)
+                                : AppColors.mojo,
                         withDot: isOpen,
                       ),
                     ],

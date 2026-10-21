@@ -1,17 +1,11 @@
-import 'package:flutter/material.dart';
-import 'package:guachinches/config/app_colors.dart';
-import 'package:guachinches/config/app_text_styles.dart';
-import 'package:guachinches/config/brand_colors.dart';
+import 'package:flutter/widgets.dart';
+import 'package:guachinches/ui/pages/discover/widgets/gm_pull_down_menu.dart';
 
-enum VisitSort {
-  newest,
-  oldest,
-  ratingDesc,
-  alphaAsc,
-  byCreator,
-}
+/// Orden de «Todas las visitas» (tablero VisitasOrdenFiltros).
+enum VisitSort { newest, oldest, ratingDesc, nearest, alphaAsc }
 
 extension VisitSortMeta on VisitSort {
+  /// Texto de la fila del menú.
   String get label {
     switch (this) {
       case VisitSort.newest:
@@ -20,146 +14,74 @@ extension VisitSortMeta on VisitSort {
         return 'Más antiguas';
       case VisitSort.ratingDesc:
         return 'Mejor valoradas';
+      case VisitSort.nearest:
+        return 'Más cerca de ti';
       case VisitSort.alphaAsc:
-        return 'A-Z restaurante';
-      case VisitSort.byCreator:
-        return 'Por autor';
+        return 'Por nombre, de la A a la Z';
     }
   }
 
-  IconData get icon {
+  /// Texto del botón de orden (corto).
+  String get pillLabel => this == VisitSort.alphaAsc ? 'Por nombre' : label;
+
+  String? get subtitle {
     switch (this) {
       case VisitSort.newest:
-        return Icons.schedule_rounded;
-      case VisitSort.oldest:
-        return Icons.history_rounded;
+        return 'Por fecha del vídeo';
       case VisitSort.ratingDesc:
-        return Icons.star_rounded;
+        return 'Según lo que dicen en el vídeo';
+      case VisitSort.nearest:
+        return 'Usa tu ubicación';
+      case VisitSort.oldest:
       case VisitSort.alphaAsc:
-        return Icons.sort_by_alpha_rounded;
-      case VisitSort.byCreator:
-        return Icons.person_rounded;
+        return null;
+    }
+  }
+
+  String get identifier {
+    switch (this) {
+      case VisitSort.newest:
+        return 'discover-sort-newest';
+      case VisitSort.oldest:
+        return 'discover-sort-oldest';
+      case VisitSort.ratingDesc:
+        return 'discover-sort-rating';
+      case VisitSort.nearest:
+        return 'discover-sort-nearest';
+      case VisitSort.alphaAsc:
+        return 'discover-sort-name';
     }
   }
 }
 
-class VisitSortSheet extends StatelessWidget {
-  final VisitSort current;
+/// Órdenes que se ofrecen: «Más cerca de ti» solo con ubicación.
+List<VisitSort> visitSortOptions({required bool hasLocation}) => [
+      for (final s in VisitSort.values)
+        if (s != VisitSort.nearest || hasLocation) s
+    ];
 
-  const VisitSortSheet({super.key, required this.current});
-
-  static Future<VisitSort?> show({
-    required BuildContext context,
-    required VisitSort current,
-  }) {
-    return showModalBottomSheet<VisitSort>(
-      context: context,
-      backgroundColor: context.brand.elevated,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-      ),
-      builder: (_) => VisitSortSheet(current: current),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return SafeArea(
-      top: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(8, 6, 8, 8),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                margin: const EdgeInsets.only(top: 4, bottom: 14),
-                width: 44,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: context.brand.textMuted.withOpacity(0.4),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-              child: Text(
-                'Ordenar por',
-                style: AppTextStyles.displaySection(size: 16),
-              ),
-            ),
-            for (final s in VisitSort.values)
-              _SortRow(
-                option: s,
-                selected: s == current,
-                onTap: () => Navigator.pop(context, s),
-              ),
-            const SizedBox(height: 8),
-          ],
+/// Menú de cristal anclado al botón de orden. Devuelve el orden elegido o
+/// `null` si se cierra sin elegir.
+Future<VisitSort?> showVisitSortMenu(
+  BuildContext context, {
+  required Rect anchor,
+  required VisitSort current,
+  required bool hasLocation,
+}) {
+  return showGmPullDownMenu<VisitSort>(
+    context,
+    anchor: anchor,
+    title: 'Ordenar visitas',
+    selected: current,
+    identifier: 'discover-sort-menu',
+    items: [
+      for (final s in visitSortOptions(hasLocation: hasLocation))
+        GmMenuItem(
+          value: s,
+          label: s.label,
+          subtitle: s.subtitle,
+          identifier: s.identifier,
         ),
-      ),
-    );
-  }
-}
-
-class _SortRow extends StatelessWidget {
-  final VisitSort option;
-  final bool selected;
-  final VoidCallback onTap;
-
-  const _SortRow({
-    required this.option,
-    required this.selected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final fg = selected
-        ? AppColors.atlanticoClaro
-        : context.brand.textPrimary;
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-        child: Row(
-          children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: selected
-                    ? AppColors.atlantico.withOpacity(0.18)
-                    : context.brand.surface,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: selected
-                      ? AppColors.atlantico.withOpacity(0.45)
-                      : context.brand.border,
-                ),
-              ),
-              child: Icon(option.icon, size: 18, color: fg),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Text(
-                option.label,
-                style: AppTextStyles.ui(
-                  size: 14,
-                  weight:
-                      selected ? FontWeight.w700 : FontWeight.w500,
-                  color: fg,
-                ),
-              ),
-            ),
-            if (selected)
-              Icon(Icons.check_rounded,
-                  size: 18, color: AppColors.atlanticoClaro),
-          ],
-        ),
-      ),
-    );
-  }
+    ],
+  );
 }

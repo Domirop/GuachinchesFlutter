@@ -64,6 +64,18 @@ class QuizGameState {
 
   final String? error;
 
+  /// Fallos de carga del lobby (no se tragan: la UI pinta error + «Reintentar»).
+  /// [lobbyFailed]: categorías, stats, conquista o partida activa.
+  final bool lobbyFailed;
+  final bool historyFailed;
+  final bool rankingFailed;
+
+  /// El ranking se ha cargado al menos una vez (vacío ≠ sin cargar).
+  final bool rankingLoaded;
+
+  /// Temporizador en pausa (hoja «¿Salir de la partida?» abierta).
+  final bool paused;
+
   const QuizGameState({
     this.phase = QuizPhase.idle,
     this.categories = const [],
@@ -84,6 +96,11 @@ class QuizGameState {
     this.secondsTotal = 20,
     this.leveledUp = false,
     this.error,
+    this.lobbyFailed = false,
+    this.historyFailed = false,
+    this.rankingFailed = false,
+    this.rankingLoaded = false,
+    this.paused = false,
   });
 
   int get lives => session?.lives ?? 3;
@@ -111,6 +128,11 @@ class QuizGameState {
     int? secondsTotal,
     bool? leveledUp,
     String? error,
+    bool? lobbyFailed,
+    bool? historyFailed,
+    bool? rankingFailed,
+    bool? rankingLoaded,
+    bool? paused,
     bool clearLanded = false,
     bool clearQuestion = false,
     bool clearSelected = false,
@@ -142,6 +164,11 @@ class QuizGameState {
       secondsTotal: secondsTotal ?? this.secondsTotal,
       leveledUp: leveledUp ?? this.leveledUp,
       error: clearError ? null : (error ?? this.error),
+      lobbyFailed: lobbyFailed ?? this.lobbyFailed,
+      historyFailed: historyFailed ?? this.historyFailed,
+      rankingFailed: rankingFailed ?? this.rankingFailed,
+      rankingLoaded: rankingLoaded ?? this.rankingLoaded,
+      paused: paused ?? this.paused,
     );
   }
 }

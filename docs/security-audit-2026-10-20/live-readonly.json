@@ -1,0 +1,27 @@
+{
+  "checkedAt": "2026-10-20T11:45:11.966916+00:00",
+  "checks": [
+    {
+      "route": "/surveys/schemas/3",
+      "status": 200,
+      "summary": {
+        "id": 3,
+        "integrity_policy": "attested",
+        "vote_scope": "business",
+        "rate_limits": null,
+        "results_visibility": "live",
+        "voting_starts_at": "2026-10-15T09:38:47.696Z",
+        "voting_ends_at": "2027-03-20T23:59:59.000Z"
+      }
+    },
+    {
+      "route": "/surveys/v3/editions/3/results",
+      "status": 200,
+      "summary": {
+        "editionId": 3,
+        "hidden": false,
+        "status": "open"
+      }
+    }
+  ]
+}

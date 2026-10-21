@@ -5,6 +5,7 @@ import 'package:guachinches/config/app_spacing.dart';
 import 'package:guachinches/config/app_text_styles.dart';
 import 'package:guachinches/config/brand_colors.dart';
 import 'package:guachinches/utils/eyebrow_format.dart';
+import 'package:guachinches/ui/theme/gm_tokens.dart';
 
 /// Callout "Abiertos AHORA" — entry point a [CercaAhoraScreen].
 ///
@@ -52,7 +53,20 @@ class _OpenNowCalloutState extends State<OpenNowCallout>
     _pulse = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1400),
-    )..repeat(reverse: true);
+      animationBehavior: AnimationBehavior.preserve,
+    );
+  }
+
+  /// Con movimiento reducido no hay bucle (con las animaciones del sistema
+  /// quitadas el controlador se aceleraba sin parar); si no, gira a su ritmo.
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (GmMotion.reduced(context)) {
+      _pulse.stop();
+    } else if (!_pulse.isAnimating) {
+      _pulse.repeat(reverse: true);
+    }
   }
 
   @override

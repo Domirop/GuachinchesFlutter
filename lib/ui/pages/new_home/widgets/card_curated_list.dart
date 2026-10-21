@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:guachinches/config/app_colors.dart';
-import 'package:guachinches/config/brand_colors.dart';
-import 'package:guachinches/config/app_text_styles.dart';
 import 'package:guachinches/data/model/curated_list.dart';
 import 'package:guachinches/ui/components/curated_hero_image.dart';
+import 'package:guachinches/ui/pages/new_home/widgets/gm_place_card.dart'
+    show gmDisplayName;
+import 'package:guachinches/ui/theme/gm_icons.dart';
+import 'package:guachinches/ui/theme/gm_motion.dart';
+import 'package:guachinches/ui/theme/gm_tokens.dart';
+import 'package:guachinches/ui/theme/gm_widgets.dart';
 
-/// Card grande estilo revista para recopilatorios editoriales.
+/// Guía de Jonay y Joana (rediseño iOS 27): tarjeta r28 con la foto r22 a
+/// 6 px, píldora de tipo + «N sitios» en cristal, título 17/22, subtítulo a
+/// dos líneas y chincheta + zona en secundario.
 class CardCuratedList extends StatelessWidget {
   final CuratedList list;
   final VoidCallback onTap;
@@ -16,168 +21,144 @@ class CardCuratedList extends StatelessWidget {
     required this.onTap,
   });
 
+  static const double width = 284;
+
+  /// 6 + 160 + 11 + título 17/22 + 3 + dos líneas 15/20 + 7 + 13/18 + 8 + 6,
+  /// con el texto escalado por el tamaño de texto del sistema.
+  static double heightFor(BuildContext context) {
+    final t = MediaQuery.textScalerOf(context);
+    return 6 +
+        160 +
+        11 +
+        gmScaledLine(t, 17, 22) +
+        3 +
+        gmScaledLine(t, 15, 20) * 2 +
+        7 +
+        gmScaledLine(t, 13, 18) +
+        8 +
+        6 +
+        1;
+  }
+
+  /// «RUTA» → «Ruta» (las píldoras van en tipo frase).
+  static String _sentence(String s) {
+    final t = s.trim();
+    if (t.isEmpty || t != t.toUpperCase()) return t;
+    return t[0] + t.substring(1).toLowerCase();
+  }
+
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 280,
-        margin: const EdgeInsets.symmetric(vertical: 4),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          color: context.brand.surface,
-          border: Border.all(
-            color: context.brand.border,
-          ),
-          // Elevación estándar de card del home (igual que CardHorizontal).
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.10),
-              blurRadius: 14,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        clipBehavior: Clip.hardEdge,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Hero visual
-            Expanded(
-              flex: 5,
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  // Fondo degradado con el accent
-                  DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          list.accent.withOpacity(0.55),
-                          list.accent.withOpacity(0.15),
-                          context.brand.surface,
-                        ],
-                        stops: const [0, 0.55, 1],
-                      ),
-                    ),
-                  ),
-                  // Portada: URL remota (S3) o asset local — el helper decide.
-                  if (list.heroAsset != null)
-                    CuratedHeroImage(source: list.heroAsset!)
-                  else if (list.heroEmoji != null)
-                    Positioned(
-                      right: -14,
-                      bottom: -22,
-                      child: Text(
-                        list.heroEmoji!,
-                        style: const TextStyle(fontSize: 140),
-                      ),
-                    ),
-                  // Eyebrow flotante arriba-izquierda
-                  Positioned(
-                    left: 14,
-                    top: 14,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.45),
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: Text(
-                        list.eyebrow,
-                        style: AppTextStyles.eyebrow(
-                          size: 10,
-                          color: AppColors.crema.withOpacity(0.9),
+    final gm = GmColors.of(context);
+    return SizedBox(
+      width: width,
+      child: GmPressable(
+        onTap: onTap,
+        semanticsLabel: list.title,
+        child: GmCard(
+          radius: GmRadius.guide,
+          child: Padding(
+            padding: const EdgeInsets.all(6),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(GmRadius.guidePhoto),
+                  child: SizedBox(
+                    height: 160,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        DecoratedBox(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                list.accent.withValues(alpha: 0.55),
+                                list.accent.withValues(alpha: 0.15),
+                              ],
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
-                  ),
-                  // Contador en píldora arriba-derecha
-                  Positioned(
-                    right: 14,
-                    top: 14,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: context.brand.textPrimary,
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: Text(
-                        '${list.count} sitios',
-                        style: AppTextStyles.ui(
-                          size: 10,
-                          weight: FontWeight.w700,
-                          color: AppColors.ink,
-                          letterSpacing: 0.4,
+                        if (list.heroAsset != null)
+                          CuratedHeroImage(source: list.heroAsset!)
+                        else if (list.heroEmoji != null)
+                          Positioned(
+                            right: -10,
+                            bottom: -18,
+                            child: Text(list.heroEmoji!,
+                                style: const TextStyle(fontSize: 110)),
+                          ),
+                        if (list.eyebrow.trim().isNotEmpty)
+                          Positioned(
+                            left: 10,
+                            top: 10,
+                            child: GmPhotoChip(label: _sentence(list.eyebrow)),
+                          ),
+                        Positioned(
+                          right: 10,
+                          top: 10,
+                          child: GmPhotoChip(
+                              label: list.count == 1
+                                  ? '1 sitio'
+                                  : '${list.count} sitios'),
                         ),
-                      ),
+                      ],
                     ),
                   ),
-                ],
-              ),
-            ),
-            // Pie editorial
-            Padding(
-              padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    list.title.toUpperCase(),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    // Título de card unificado del home (displaySection 16).
-                    style: AppTextStyles.displaySection(size: 16)
-                        .copyWith(letterSpacing: 0.3, height: 1.15),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    list.subtitle,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTextStyles.editorial(size: 12),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(10, 11, 10, 8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(
-                        Icons.location_on_outlined,
-                        size: 12,
-                        color: context.brand.textMuted,
-                      ),
-                      const SizedBox(width: 4),
                       Text(
-                        list.location,
-                        style: AppTextStyles.ui(
-                          size: 10,
-                          weight: FontWeight.w500,
-                          color: context.brand.textMuted,
+                        gmDisplayName(list.title),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GmText.guideTitle(color: gm.label),
+                      ),
+                      const SizedBox(height: 3),
+                      SizedBox(
+                        height: gmScaledLine(
+                                MediaQuery.textScalerOf(context), 15, 20) *
+                            2,
+                        child: Text(
+                          list.subtitle,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: GmText.body(color: gm.label2),
                         ),
                       ),
-                      const Spacer(),
-                      Text(
-                        'VER LISTA',
-                        style: AppTextStyles.eyebrow(
-                          size: 10,
-                          color: AppColors.atlanticoClaro,
+                      if (list.location.trim().isNotEmpty) ...[
+                        const SizedBox(height: 7),
+                        Row(
+                          children: [
+                            GmIcon(GmIcons.pin, size: 12, color: gm.accent),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                list.location,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: GmText.eyebrow(color: gm.label2),
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                      const SizedBox(width: 2),
-                      const Icon(
-                        Icons.chevron_right_rounded,
-                        size: 14,
-                        color: AppColors.atlanticoClaro,
-                      ),
+                      ] else
+                        SizedBox(
+                            height:
+                                7 + MediaQuery.textScalerOf(context).scale(18)),
                     ],
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );

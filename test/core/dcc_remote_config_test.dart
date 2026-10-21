@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:guachinches/core/remote_config/dcc_remote_config.dart';
 
@@ -6,8 +8,13 @@ class _FakeRcBridge implements RemoteConfigBridge {
   final Map<String, dynamic> _remoteValues;
   final Map<String, dynamic> _store = {};
 
+  /// Descarga que no termina nunca (Firebase Installations colgado).
+  final bool fetchHangs;
+  int fetches = 0;
+
   _FakeRcBridge({
     this.fetchShouldThrow = false,
+    this.fetchHangs = false,
     Map<String, dynamic> remoteValues = const {},
   }) : _remoteValues = remoteValues;
 
@@ -24,6 +31,8 @@ class _FakeRcBridge implements RemoteConfigBridge {
 
   @override
   Future<bool> fetchAndActivate() async {
+    fetches++;
+    if (fetchHangs) return Completer<bool>().future;
     if (fetchShouldThrow) throw Exception('simulated fetch failure');
     _store.addAll(_remoteValues);
     return true;
@@ -34,6 +43,9 @@ class _FakeRcBridge implements RemoteConfigBridge {
 
   @override
   int getInt(String key) => _store[key] as int? ?? 0;
+
+  @override
+  String getString(String key) => _store[key] as String? ?? '';
 }
 
 void main() {
@@ -44,6 +56,7 @@ void main() {
       final dcc = DccRemoteConfig.test(fake);
 
       await dcc.init();
+      await dcc.fetchInBackground();
 
       expect(dcc.showCuratedLists, isTrue);
       expect(dcc.showWeatherChip, isTrue);
@@ -76,11 +89,27 @@ void main() {
       final dcc = DccRemoteConfig.test(fake);
 
       await dcc.init();
+      // init no descarga: el primer frame no depende de la red.
+      expect(fake.fetches, 0);
+      expect(dcc.showCuratedLists, isTrue);
+      await dcc.fetchInBackground();
 
       expect(dcc.showCuratedLists, isFalse);
       expect(dcc.showWeatherChip, isFalse);
       expect(dcc.minSupportedBuild, equals(5));
       expect(dcc.maintenanceMode, isTrue);
+    });
+
+    test('(c) una descarga colgada no bloquea: tope real y valores por '
+        'defecto', () async {
+      final fake = _FakeRcBridge(fetchHangs: true);
+      final dcc = DccRemoteConfig.test(fake);
+      await dcc.init();
+      final sw = Stopwatch()..start();
+      await dcc.fetchInBackground(deadline: const Duration(milliseconds: 50));
+      expect(sw.elapsed, lessThan(const Duration(seconds: 2)));
+      expect(dcc.showCuratedLists, isTrue);
+      expect(dcc.maintenanceMode, isFalse);
     });
   });
 }

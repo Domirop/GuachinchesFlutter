@@ -41,6 +41,7 @@
 
   "openStatusOpen": "Open",
   "openStatusClosed": "Closed",
+  "openStatusUnknown": "Hours not confirmed",
 
   "mapEmptyTitle": "No restaurants",
   "@mapEmptyTitle": {},

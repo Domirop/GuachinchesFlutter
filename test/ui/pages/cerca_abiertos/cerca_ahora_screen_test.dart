@@ -10,7 +10,7 @@ import 'package:guachinches/data/cubit/restaurants/basic/restaurant_state.dart';
 import 'package:guachinches/data/model/restaurant.dart';
 import 'package:guachinches/data/model/restaurant_response.dart';
 import 'package:guachinches/l10n/app_localizations.dart';
-import 'package:guachinches/ui/components/cards/nearby_restaurant_card.dart';
+import 'package:guachinches/ui/pages/advance_search/widgets/search_result_card.dart';
 import 'package:guachinches/ui/pages/cerca_abiertos/cerca_ahora_screen.dart';
 
 // ── Fake helpers ──────────────────────────────────────────────────────────────
@@ -138,7 +138,7 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(_findBySemanticsId('cerca-ahora-list'), findsOneWidget);
-        expect(find.byType(NearbyRestaurantCard), findsNWidgets(2));
+        expect(find.byType(SearchResultCard), findsNWidgets(2));
       },
     );
 

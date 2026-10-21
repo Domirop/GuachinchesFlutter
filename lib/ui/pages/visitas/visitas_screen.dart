@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:guachinches/l10n/app_localizations.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:guachinches/config/brand_colors.dart';
 import 'package:guachinches/data/cubit/menu/menu_cubit.dart';
 import 'package:guachinches/data/cubit/user/user_cubit.dart';
@@ -11,6 +10,7 @@ import 'package:guachinches/data/cubit/visits/user_visits_state.dart';
 import 'package:guachinches/data/model/user_visit.dart';
 import 'package:guachinches/ui/components/cards/visit_card.dart';
 import 'package:guachinches/ui/pages/restaurant_detail/restaurant_detail_screen.dart';
+import 'package:guachinches/services/app_storage.dart';
 
 class VisitasScreen extends StatefulWidget {
   const VisitasScreen({super.key});
@@ -38,7 +38,7 @@ class _VisitasScreenState extends State<VisitasScreen> {
       _userId = userState.user.id;
     }
     if (_userId == null || _userId!.isEmpty) {
-      _userId = await const FlutterSecureStorage().read(key: 'userId');
+      _userId = await AppStorage.instance.read(key: 'userId');
     }
     if (!mounted) return;
     if (_userId != null && _userId!.isNotEmpty) {

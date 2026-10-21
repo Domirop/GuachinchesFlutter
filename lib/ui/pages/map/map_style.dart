@@ -1,41 +1,55 @@
-/// Custom Google Maps JSON style alineado con la paleta crema/atlántico de la
-/// app (ver `AppColors`).
-///
-/// Decisiones (v2):
-/// - Agua más limpia y luminosa (#A3CFE3): la anterior (#A6CDDB) quedaba
-///   grisácea, no leía "Atlántico".
-/// - Autopistas en arena suave (#F4E3BC): el ámbar anterior dominaba la vista
-///   de isla y competía con los markers (que son el contenido del mapa).
-/// - Parques/naturaleza en verde laurisilva suave (#DCE7CB) en vez de beige.
-/// - Bordes administrativos casi imperceptibles (#E2D4B8 @ 0.5): los límites
-///   municipales dorados metían ruido por toda la isla.
-/// - Topónimos: localidades en tinta (jerarquía clara), barrios en marrón
-///   apagado — las ZONAS se leen, pero no gritan.
-/// - POIs/transit/iconos ocultos: nuestros restaurantes son los protagonistas.
-const String kMapStyleLight = '''
+import 'dart:ui' show Color;
+
+import 'package:guachinches/ui/theme/gm_tokens.dart';
+
+/// Estilo de Google Maps de la pestaña Mapa con los tokens del mapa claro
+/// (DISENO-FINAL §2.6: `mapLand`, `mapRoad`, `mapCasing`, `mapMajor`,
+/// `mapSea`, `mapPark`, `mapLabel`), día y noche. Sin puntos de interés ni
+/// transporte: los sitios de la app son las únicas chinchetas. Se dejan los
+/// nombres de los pueblos (como en el tablero) y se apagan barrios, parcelas
+/// y nombres de calles.
+String mapStyleFor(GmColors gm) {
+  final land = mapHex(gm.mapLand);
+  final road = mapHex(gm.mapRoad);
+  // Google solo acepta colores opacos: el filo translúcido se mezcla con
+  // la tierra.
+  final casing = mapHex(_over(gm.mapCasing, gm.mapLand));
+  final major = mapHex(gm.mapMajor);
+  final majorCasing = mapHex(_over(gm.mapCasing, gm.mapMajor));
+  final sea = mapHex(gm.mapSea);
+  final park = mapHex(gm.mapPark);
+  final label = mapHex(_over(gm.mapLabel, gm.mapLand));
+  return '''
 [
-  {"elementType":"geometry","stylers":[{"color":"#F7F2E7"}]},
+  {"elementType":"geometry","stylers":[{"color":"$land"}]},
   {"elementType":"labels.icon","stylers":[{"visibility":"off"}]},
-  {"elementType":"labels.text.fill","stylers":[{"color":"#4A3A2A"}]},
-  {"elementType":"labels.text.stroke","stylers":[{"color":"#F7F2E7"}]},
-  {"featureType":"administrative","elementType":"geometry.stroke","stylers":[{"color":"#E2D4B8"},{"weight":0.5}]},
+  {"elementType":"labels.text.fill","stylers":[{"color":"$label"}]},
+  {"elementType":"labels.text.stroke","stylers":[{"color":"$land"},{"weight":3}]},
+  {"featureType":"administrative","elementType":"geometry","stylers":[{"visibility":"off"}]},
   {"featureType":"administrative.land_parcel","stylers":[{"visibility":"off"}]},
-  {"featureType":"administrative.locality","elementType":"labels.text.fill","stylers":[{"color":"#241A10"}]},
-  {"featureType":"administrative.neighborhood","elementType":"labels.text.fill","stylers":[{"color":"#6E5F4D"}]},
-  {"featureType":"landscape.natural","elementType":"geometry","stylers":[{"color":"#F2EDDD"}]},
+  {"featureType":"administrative.neighborhood","stylers":[{"visibility":"off"}]},
+  {"featureType":"administrative.province","stylers":[{"visibility":"off"}]},
+  {"featureType":"landscape","elementType":"geometry","stylers":[{"color":"$land"}]},
   {"featureType":"poi","stylers":[{"visibility":"off"}]},
-  {"featureType":"poi.park","elementType":"geometry","stylers":[{"color":"#DCE7CB"}]},
+  {"featureType":"poi.park","elementType":"geometry","stylers":[{"visibility":"on"},{"color":"$park"}]},
   {"featureType":"poi.park","elementType":"labels","stylers":[{"visibility":"off"}]},
-  {"featureType":"road","elementType":"geometry","stylers":[{"color":"#FFFFFF"}]},
-  {"featureType":"road","elementType":"labels.text.fill","stylers":[{"color":"#8A7A66"}]},
-  {"featureType":"road","elementType":"labels.text.stroke","stylers":[{"color":"#FFFFFF"}]},
-  {"featureType":"road.highway","elementType":"geometry","stylers":[{"color":"#F4E3BC"}]},
-  {"featureType":"road.highway","elementType":"geometry.stroke","stylers":[{"color":"#E3CE9E"}]},
-  {"featureType":"road.highway.controlled_access","elementType":"geometry","stylers":[{"color":"#F0DCAE"}]},
-  {"featureType":"road.local","elementType":"geometry","stylers":[{"color":"#FBF7EE"}]},
+  {"featureType":"road","elementType":"geometry.fill","stylers":[{"color":"$road"}]},
+  {"featureType":"road","elementType":"geometry.stroke","stylers":[{"color":"$casing"}]},
+  {"featureType":"road","elementType":"labels","stylers":[{"visibility":"off"}]},
+  {"featureType":"road.highway","elementType":"geometry.fill","stylers":[{"color":"$major"}]},
+  {"featureType":"road.highway","elementType":"geometry.stroke","stylers":[{"color":"$majorCasing"}]},
+  {"featureType":"road.highway","elementType":"labels.text","stylers":[{"visibility":"on"}]},
   {"featureType":"transit","stylers":[{"visibility":"off"}]},
-  {"featureType":"water","elementType":"geometry","stylers":[{"color":"#A3CFE3"}]},
-  {"featureType":"water","elementType":"labels.text.fill","stylers":[{"color":"#2E6E8C"}]},
-  {"featureType":"water","elementType":"labels.text.stroke","stylers":[{"color":"#A3CFE3"}]}
-]
-''';
+  {"featureType":"water","elementType":"geometry","stylers":[{"color":"$sea"}]},
+  {"featureType":"water","elementType":"labels","stylers":[{"visibility":"off"}]}
+]''';
+}
+
+/// «#RRGGBB» (sin alfa).
+String mapHex(Color c) {
+  final v = c.toARGB32() & 0xFFFFFF;
+  return '#${v.toRadixString(16).padLeft(6, '0').toUpperCase()}';
+}
+
+/// [top] (translúcido) sobre [base] (opaco).
+Color _over(Color top, Color base) => Color.alphaBlend(top, base);

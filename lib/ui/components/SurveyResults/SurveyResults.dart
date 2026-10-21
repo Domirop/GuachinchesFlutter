@@ -20,9 +20,10 @@ class SurveyResult {
     final String id = json['option'] as String;
     final int voteCount = int.parse(json['votes'].toString());
 
-    final Restaurant? matchedRestaurant = restaurants.firstWhere(
-          (r) => r.id == id
-    );
+    // Sin `orElse` la pantalla fallaba si una opción votada ya no está en la
+    // lista de restaurantes de la encuesta: ahora queda sin restaurante.
+    final Restaurant? matchedRestaurant =
+        restaurants.where((r) => r.id == id).firstOrNull;
 
     return SurveyResult(
       restaurantId: id,

@@ -1,8 +1,10 @@
 import 'package:bloc/bloc.dart';
+import 'package:guachinches/core/logging/app_logger.dart';
 import 'package:guachinches/data/RemoteRepository.dart';
 import 'package:guachinches/data/cubit/restaurants/basic/restaurant_state.dart';
 import 'package:guachinches/data/model/restaurant.dart';
 import 'package:guachinches/data/model/restaurant_response.dart';
+import 'package:guachinches/utils/open_state.dart';
 
 class RestaurantCubit extends Cubit<RestaurantState> {
   late final RemoteRepository _remoteRepository;
@@ -81,21 +83,41 @@ class RestaurantCubit extends Cubit<RestaurantState> {
     final int seq = ++_requestSeq;
     List<Restaurant> restaurants = await _remoteRepository.getFilterRestaurants(categories!.join(";"), municipalities!.join(";"), types!.join(";"), text!,islandId!);
     if (seq != _requestSeq) return;
-    if (isOpen) {
-      restaurants = restaurants.where((element) => element.open).toList();
-    }
+    if (isOpen) restaurants = _openNow(restaurants);
 
     emit(RestaurantFilter(restaurants));
   }
+  /// Búsqueda de la lista de resultados. A diferencia de
+  /// [getFilterRestaurants], un fallo de red/servidor emite
+  /// [RestaurantFilterAdvancedError] (estado de error real con Reintentar)
+  /// en vez de una lista vacía que parecería «sin resultados».
   Future<void> getFilterRestaurantsAdvance({List<String>? categories, List<String>? municipalities, List<String>? types, String? text,String? islandId,bool isOpen=false}) async {
     final int seq = ++_requestSeq;
     emit(RestaurantLoading());
-    List<Restaurant> restaurants = await _remoteRepository.getFilterRestaurants(categories!.join(";"), municipalities!.join(";"), types!.join(";"), text!,islandId!);
-    if (seq != _requestSeq) return;
-    if (isOpen) {
-      restaurants = restaurants.where((element) => element.open).toList();
+    List<Restaurant> restaurants;
+    try {
+      restaurants = await _remoteRepository.getFilterRestaurantsChecked(
+          (categories ?? const []).join(";"),
+          (municipalities ?? const []).join(";"),
+          (types ?? const []).join(";"),
+          text ?? '',
+          islandId ?? '');
+    } catch (e) {
+      if (seq != _requestSeq) return;
+      AppLogger.warn('restaurant-cubit', 'getFilterRestaurantsAdvance: $e');
+      emit(RestaurantFilterAdvancedError('$e'));
+      return;
     }
+    if (seq != _requestSeq) return;
+    if (isOpen) restaurants = _openNow(restaurants);
 
     emit(RestaurantFilterAdvanced(restaurants));
+  }
+
+  /// «Abierto ahora» con la misma regla que las etiquetas (horarios_json;
+  /// «Cierra en N min» cuenta como abierto).
+  static List<Restaurant> _openNow(List<Restaurant> list) {
+    final now = DateTime.now();
+    return list.where((r) => restaurantOpenState(r, now).isOpen).toList();
   }
 }

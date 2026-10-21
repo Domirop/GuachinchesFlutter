@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:guachinches/config/app_colors.dart';
 import 'package:guachinches/config/app_theme.dart';
 import 'package:guachinches/ui/pages/new_home/widgets/search_field_dynamic.dart';
+import 'package:guachinches/ui/theme/gm_icons.dart';
 
 void main() {
   group('SearchFieldDynamic icon color', () {
@@ -18,11 +19,11 @@ void main() {
       await tester.pump();
 
       final iconFinder = find.byWidgetPredicate(
-        (w) => w is Icon && w.icon == Icons.search_rounded,
+        (w) => w is GmIcon && w.svg == GmIcons.search,
       );
       expect(iconFinder, findsOneWidget);
 
-      final icon = tester.widget<Icon>(iconFinder);
+      final icon = tester.widget<GmIcon>(iconFinder);
       expect(icon.color, isNot(equals(AppColors.atlanticoClaro)));
     });
 
@@ -37,11 +38,11 @@ void main() {
       await tester.pump();
 
       final iconFinder = find.byWidgetPredicate(
-        (w) => w is Icon && w.icon == Icons.search_rounded,
+        (w) => w is GmIcon && w.svg == GmIcons.search,
       );
       expect(iconFinder, findsOneWidget);
 
-      final icon = tester.widget<Icon>(iconFinder);
+      final icon = tester.widget<GmIcon>(iconFinder);
       expect(icon.color, isNot(equals(AppColors.atlanticoClaro)));
     });
   });

@@ -21,6 +21,9 @@ class _FakeLocationCubit extends Cubit<LocationState> implements LocationCubit {
 
   @override
   Future<void> checkLocationSilently() async {}
+
+  @override
+  Future<void> syncPermissionState() async {}
 }
 
 Widget _wrap(Widget child, _FakeLocationCubit cubit) {

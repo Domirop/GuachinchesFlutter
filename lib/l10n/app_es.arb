@@ -106,6 +106,9 @@
   "openStatusClosed": "Cerrado",
   "@openStatusClosed": {},
 
+  "openStatusUnknown": "Horario sin confirmar",
+  "@openStatusUnknown": {},
+
   "mapEmptyTitle": "Sin restaurantes",
   "@mapEmptyTitle": {},
 

@@ -2,8 +2,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:guachinches/config/brand_colors.dart';
+import 'package:guachinches/ui/theme/gm_tokens.dart';
 import 'package:guachinches/data/HttpRemoteRepository.dart';
+import 'package:guachinches/data/cubit/location/location_cubit.dart';
+import 'package:guachinches/data/cubit/location/location_state.dart';
 import 'package:guachinches/data/cubit/new_home/curated_lists_cubit.dart';
 import 'package:guachinches/data/cubit/new_home/new_home_filters_cubit.dart';
 import 'package:guachinches/data/cubit/new_home/new_home_filters_state.dart';
@@ -28,12 +30,13 @@ import 'package:guachinches/ui/pages/new_home/top_rated_ranking_screen.dart';
 import 'package:guachinches/core/logging/app_logger.dart';
 import 'package:guachinches/utils/distance_utils.dart';
 import 'package:guachinches/utils/island_key_utils.dart';
-import 'package:guachinches/utils/open_now_utils.dart';
 import 'package:guachinches/utils/opening_later_utils.dart';
 import 'package:guachinches/utils/time_of_day_engine.dart';
 import 'package:http/http.dart' as http;
 import 'package:guachinches/ui/pages/map/map_search.dart';
 import 'new_home_presenter.dart';
+import 'package:guachinches/utils/open_state.dart';
+import 'package:guachinches/data/filter_session_cache.dart';
 import 'new_home_body.dart';
 
 /// Pantalla principal nueva. Implementa [NewHomeView].
@@ -45,6 +48,7 @@ class NewHomeScreen extends StatefulWidget {
 }
 
 class _NewHomeScreenState extends State<NewHomeScreen>
+    with WidgetsBindingObserver
     implements NewHomeView {
   late final NewHomePresenter _presenter;
   late final HttpRemoteRepository _repo;
@@ -64,7 +68,12 @@ class _NewHomeScreenState extends State<NewHomeScreen>
   String? _filterZoneId;
   Set<String> _filterZoneMuniIds = const {};
   String? _filterMunicipalityId;
-  Position? _userPosition;
+
+  /// Posición del usuario: la única fuente es el [LocationCubit] (un solo
+  /// fix de GPS). Se actualiza en cuanto el usuario concede el permiso desde
+  /// el aviso, la tarjeta bloqueada o Ajustes.
+  double? _userLat;
+  double? _userLon;
 
   // Scroll para parallax
   final ScrollController _scrollCtrl = ScrollController();
@@ -90,7 +99,34 @@ class _NewHomeScreenState extends State<NewHomeScreen>
     _startMinuteTimer();
     _startWeatherTimer();
     _scrollCtrl.addListener(_onScroll);
+    WidgetsBinding.instance.addObserver(this);
+    _applyLocation(context.read<LocationCubit>().state);
     _requestLocation();
+  }
+
+  /// Al volver de Ajustes (o de cualquier otra app) resincroniza el permiso:
+  /// si se concedió fuera, el aviso desaparece y «Cerca de ti» vuelve.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) {
+      unawaited(context.read<LocationCubit>().syncPermissionState());
+    }
+  }
+
+  void _applyLocation(LocationState s) {
+    if (s is LocationLoaded) {
+      if (_userLat != s.latitude || _userLon != s.longitude) {
+        setState(() {
+          _userLat = s.latitude;
+          _userLon = s.longitude;
+        });
+      }
+    } else if (s is LocationDenied && _userLat != null) {
+      setState(() {
+        _userLat = null;
+        _userLon = null;
+      });
+    }
   }
 
   void _startMinuteTimer() {
@@ -108,17 +144,18 @@ class _NewHomeScreenState extends State<NewHomeScreen>
     });
   }
 
+  /// Pide el permiso (modal nativo solo si aún no se ha decidido) y deja que
+  /// el [LocationCubit] haga el único fix de GPS y refleje el estado.
   Future<void> _requestLocation() async {
     try {
       final perm = await Geolocator.checkPermission();
       if (perm == LocationPermission.denied) {
         await Geolocator.requestPermission();
       }
-      final pos = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.reduced,
-      );
-      if (mounted) setState(() => _userPosition = pos);
-    } catch (_) {}
+    } catch (e) {
+      AppLogger.warn('new-home', 'permiso de ubicación: $e');
+    }
+    if (mounted) await context.read<LocationCubit>().syncPermissionState();
   }
 
   Future<void> _loadOldMunicipalities(String islandId) async {
@@ -143,6 +180,7 @@ class _NewHomeScreenState extends State<NewHomeScreen>
   void dispose() {
     _minuteTimer?.cancel();
     _weatherTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
     _scrollCtrl.removeListener(_onScroll);
     _scrollCtrl.dispose();
     _scrollOffset.dispose();
@@ -164,15 +202,13 @@ class _NewHomeScreenState extends State<NewHomeScreen>
     // — distinto comportamiento del `/findByFilter` que sí lo trae. Ver
     // `.claude/coordination/migration-backend/022-pagination-horarios.md`.
     final now = DateTime.now();
-    final withSchedule = restaurants.where((r) => r.horariosJson != null).length;
-    final openNowCount = restaurants
-        .where((r) => r.horariosJson != null && isOpenNow(r.horariosJson, now))
-        .length;
-    final opensLaterCount = restaurants
-        .where((r) => opensLaterToday(r.horariosJson, now))
-        .length;
-    final islandLabel =
-        context.read<NewHomeFiltersCubit>().state.islandLabel;
+    final withSchedule =
+        restaurants.where((r) => r.horariosJson != null).length;
+    final openNowCount =
+        restaurants.where((r) => isRestaurantOpenNow(r, now)).length;
+    final opensLaterCount =
+        restaurants.where((r) => opensLaterToday(r.horariosJson, now)).length;
+    final islandLabel = context.read<NewHomeFiltersCubit>().state.islandLabel;
     AppLogger.info(
       'new-home-pool',
       'island=$islandLabel | total=${restaurants.length} '
@@ -212,7 +248,8 @@ class _NewHomeScreenState extends State<NewHomeScreen>
     GlobalMethods().pushPage(
       context,
       TopRatedRankingScreen(
-        restaurants: _islandTopRated,
+        // Ranking completo de la isla (también «Aún con pocas reseñas»).
+        restaurants: const [],
         islandLabel: islandLabel,
       ),
     );
@@ -286,10 +323,13 @@ class _NewHomeScreenState extends State<NewHomeScreen>
   }
 
   List<NearbyRestaurant> get _nearbyList {
-    final pos = _userPosition;
-    if (pos == null) return [];
+    final lat = _userLat;
+    final lon = _userLon;
+    if (lat == null || lon == null) return [];
     return _presenter.filterNearby(
-      _filteredPool, pos.latitude, pos.longitude,
+      _filteredPool,
+      lat,
+      lon,
       types: _types,
     );
   }
@@ -298,7 +338,9 @@ class _NewHomeScreenState extends State<NewHomeScreen>
 
   @override
   Widget build(BuildContext context) {
-    return BlocListener<RestaurantCubit, RestaurantState>(
+    return BlocListener<LocationCubit, LocationState>(
+      listener: (_, s) => _applyLocation(s),
+      child: BlocListener<RestaurantCubit, RestaurantState>(
       listener: (_, state) {
         if (state is AllRestaurantLoaded) {
           setRestaurants(state.restaurantResponse.restaurants);
@@ -333,7 +375,8 @@ class _NewHomeScreenState extends State<NewHomeScreen>
                       ? zonesState.zones
                       : const <Zone>[];
                   return Scaffold(
-                    backgroundColor: context.brand.base,
+                    // Lienzo arena del rediseño (bajo la hoja de contenido).
+                    backgroundColor: GmColors.of(context).canvas,
                     extendBody: true,
                     body: NewHomeBody(
                       scrollCtrl: _scrollCtrl,
@@ -357,8 +400,9 @@ class _NewHomeScreenState extends State<NewHomeScreen>
                         if (zone == null) {
                           context.read<NewHomeFiltersCubit>().clearZone();
                         } else {
-                          context.read<NewHomeFiltersCubit>().selectZone(
-                                key: key!, label: label!);
+                              context
+                                  .read<NewHomeFiltersCubit>()
+                                  .selectZone(key: key!, label: label!);
                         }
                         setState(() => _filterZoneId = zone?.id);
                         _presenter.onZoneChanged(
@@ -372,7 +416,8 @@ class _NewHomeScreenState extends State<NewHomeScreen>
                         // Preferimos `island.key` del backend; si viene null
                         // (modelos legacy o backend antiguo), derivamos por
                         // nombre. Última red de seguridad: TF.
-                        final key = (island.key != null && island.key!.isNotEmpty)
+                            final key =
+                                (island.key != null && island.key!.isNotEmpty)
                             ? island.key!
                             : islandKeyFromName(island.name);
                         // Solo cambiamos el estado: la recarga la dispara el
@@ -386,11 +431,16 @@ class _NewHomeScreenState extends State<NewHomeScreen>
                       },
                       onMunicipalitySelected: (muni) {
                         if (muni == null) {
-                          context.read<NewHomeFiltersCubit>().clearMunicipality();
+                              context
+                                  .read<NewHomeFiltersCubit>()
+                                  .clearMunicipality();
                           setState(() => _filterMunicipalityId = null);
-                          _presenter.onMunicipalityChanged(null, filters.islandId);
+                              _presenter.onMunicipalityChanged(
+                                  null, filters.islandId);
                         } else {
-                          context.read<NewHomeFiltersCubit>().selectMunicipality(
+                              context
+                                  .read<NewHomeFiltersCubit>()
+                                  .selectMunicipality(
                                 id: muni.id, label: muni.nombre);
                           setState(() => _filterMunicipalityId = muni.id);
                           _presenter.onMunicipalityChanged(
@@ -401,12 +451,13 @@ class _NewHomeScreenState extends State<NewHomeScreen>
                       onShowAllNearby: () => Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => const MapSearch(),
+                              builder: (_) => const MapSearch(nearby: true),
                         ),
                       ),
                       onRestaurantTap: _onRestaurantTap,
                       topRated: _islandTopRated,
-                      onShowRanking: () => _openTopRatedRanking(filters.islandLabel),
+                          onShowRanking: () =>
+                              _openTopRatedRanking(filters.islandLabel),
                       onSearchTap: () {
                         GlobalMethods().pushPage(
                           context,
@@ -415,10 +466,16 @@ class _NewHomeScreenState extends State<NewHomeScreen>
                             municipalities: _municipalitiesOld,
                             types: _types,
                             islandId: filters.islandId,
+                            islandLabel: filters.islandLabel,
+                            pool: _pool,
                           ),
                         );
                       },
-                      onSearchPreSelected: ({categories, types, openOnly = false}) {
+                      onSearchPreSelected: (
+                              {categories,
+                              types,
+                              openOnly = false,
+                              fromToday = false}) {
                         GlobalMethods().pushPage(
                           context,
                           AdvancedSearch(
@@ -426,9 +483,12 @@ class _NewHomeScreenState extends State<NewHomeScreen>
                             municipalities: _municipalitiesOld,
                             types: _types,
                             islandId: filters.islandId,
+                            islandLabel: filters.islandLabel,
+                            pool: _pool,
                             preSelectedCategories: categories ?? const [],
                             preSelectedTypes: types ?? const [],
                             preSelectedOpenOnly: openOnly,
+                            fromToday: fromToday,
                           ),
                         );
                       },
@@ -441,6 +501,7 @@ class _NewHomeScreenState extends State<NewHomeScreen>
         },
         ),
       ),
+    ),
     );
   }
 
@@ -449,6 +510,8 @@ class _NewHomeScreenState extends State<NewHomeScreen>
   /// auto-cambio por cámara) — los datos y la etiqueta nunca se desincronizan.
   void _reloadForIsland(String islandId) {
     if (!mounted) return;
+    // La isla anterior ya no sirve: fuera la caché de sesión de búsquedas.
+    FilterSessionCache.instance.clear();
     setState(() {
       _filterMunicipalityId = null;
       _filterZoneMuniIds = const {};

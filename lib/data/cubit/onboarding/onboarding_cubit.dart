@@ -1,6 +1,7 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:guachinches/data/cubit/onboarding/onboarding_state.dart';
+import 'package:guachinches/services/app_storage.dart';
 
 class OnboardingCubit extends Cubit<OnboardingState> {
   static const _kFinished = 'onBoardingFinished';
@@ -13,7 +14,7 @@ class OnboardingCubit extends Cubit<OnboardingState> {
   final FlutterSecureStorage _storage;
 
   OnboardingCubit({
-    FlutterSecureStorage storage = const FlutterSecureStorage(),
+    FlutterSecureStorage storage = AppStorage.instance,
   })  : _storage = storage,
         super(const OnboardingInitial());
 

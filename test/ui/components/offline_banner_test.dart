@@ -31,7 +31,7 @@ void main() {
     await tester.pump();
 
     expect(
-      find.text('Sin conexión — mostrando datos guardados'),
+      find.text(OfflineBanner.text),
       findsNothing,
     );
   });
@@ -43,7 +43,7 @@ void main() {
     await tester.pump();
 
     expect(
-      find.text('Sin conexión — mostrando datos guardados'),
+      find.text(OfflineBanner.text),
       findsOneWidget,
     );
     expect(find.byIcon(Icons.wifi_off), findsOneWidget);

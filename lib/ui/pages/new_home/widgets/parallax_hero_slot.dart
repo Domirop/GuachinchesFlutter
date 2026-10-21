@@ -35,7 +35,12 @@ class ParallaxHeroSlot extends StatelessWidget {
           left: 0,
           right: 0,
           height: kHeroHeight + overscroll,
-          child: heroChild!,
+          // Con el hero fuera de la vista, sus bucles (nubes, lluvia) no
+          // tienen por qué seguir pidiendo fotogramas.
+          child: TickerMode(
+            enabled: scrollUp < kHeroHeight,
+            child: heroChild!,
+          ),
         );
       },
     );

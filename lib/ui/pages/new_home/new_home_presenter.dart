@@ -12,8 +12,8 @@ import 'package:guachinches/data/model/Types.dart';
 import 'package:guachinches/data/model/restaurant.dart';
 import 'package:guachinches/utils/contextual_pool.dart';
 import 'package:guachinches/utils/distance_utils.dart';
-import 'package:guachinches/utils/open_now_utils.dart';
 import 'package:guachinches/utils/opening_later_utils.dart';
+import 'package:guachinches/utils/open_state.dart';
 import 'package:guachinches/utils/time_of_day_engine.dart';
 
 class NewHomePresenter {
@@ -223,10 +223,9 @@ class NewHomePresenter {
 
   List<Restaurant> filterOpenNow(List<Restaurant> pool) {
     final now = DateTime.now();
-    return pool.where((r) {
-      if (r.horariosJson == null) return false;
-      return isOpenNow(r.horariosJson, now);
-    }).toList();
+    // Misma regla que la lista de resultados (horarios_json; si no hay, el
+    // `open` del backend): los recuentos coinciden de la home a la lista.
+    return pool.where((r) => isRestaurantOpenNow(r, now)).toList();
   }
 
   /// Pool para la sección "HOY EN..." alineada con el copy contextual
@@ -234,17 +233,11 @@ class NewHomePresenter {
   /// según la hora. Si la intersección queda escasa (< 2) cae al pool
   /// abierto sin filtrar para no enseñar una sección casi vacía.
   List<Restaurant> filterContextual(List<Restaurant> pool, int hour) {
-    final openNow = filterOpenNow(pool);
+    final now = DateTime.now();
     final cfg = contextualFilterFor(hour);
-    if (cfg.isEmpty) return openNow;
-    final filtered = openNow.where((r) {
-      final typeOk = cfg.typeIds.isEmpty || cfg.typeIds.contains(r.type);
-      final catOk = cfg.categoryIds.isEmpty ||
-          r.categoriaRestaurantes
-              .any((c) => cfg.categoryIds.contains(c.categoriaId));
-      return typeOk && catOk;
-    }).toList();
-    return filtered.length >= 2 ? filtered : openNow;
+    if (cfg.isEmpty) return filterOpenNow(pool);
+    final filtered = contextualOpenNow(pool, cfg, now);
+    return filtered.length >= 2 ? filtered : filterOpenNow(pool);
   }
 
   /// Pool de fallback para "HOY EN …" cuando no hay nada abierto AHORA.
@@ -268,10 +261,9 @@ class NewHomePresenter {
 
   List<Restaurant> filterClosingSoon(List<Restaurant> pool) {
     final now = DateTime.now();
-    return pool.where((r) {
-      if (r.horariosJson != null) return closingSoon(r.horariosJson, now);
-      return false;
-    }).toList();
+    return pool
+        .where((r) => restaurantOpenState(r, now).kind == OpenKind.closingSoon)
+        .toList();
   }
 
   List<NearbyRestaurant> filterNearby(

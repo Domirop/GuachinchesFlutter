@@ -1,18 +1,27 @@
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:guachinches/core/analytics/analytics.dart';
-import 'package:guachinches/data/RemoteRepository.dart';
+import 'package:guachinches/core/logging/app_logger.dart';
 import 'package:guachinches/data/cubit/user/user_cubit.dart';
+import 'package:guachinches/ui/pages/settings/session_profile.dart';
+import 'package:guachinches/services/app_storage.dart';
 
-/// Presenter for the Settings / Profile screen (T-001).
+/// Presenter de la pestaña Perfil (tablero TabPerfil).
 class SettingsPresenter {
   final SettingsView _view;
-  final RemoteRepository _remoteRepository;
   final UserCubit _userCubit;
-  final _storage = const FlutterSecureStorage();
+  final FlutterSecureStorage _storage;
+  final SessionProfileStore _session;
 
-  SettingsPresenter(this._view, this._remoteRepository, this._userCubit);
+  SettingsPresenter(
+    this._view,
+    this._userCubit, {
+    FlutterSecureStorage storage = AppStorage.instance,
+    SessionProfileStore session = const SessionProfileStore(),
+  })  : _storage = storage,
+        _session = session;
 
-  /// Load user info from API. Emits UserLoaded or leaves UserInitial on failure.
+  /// Carga el perfil. Sin `userId` → invitado; con él y fallo de red →
+  /// error parcial (la sesión sigue abierta).
   Future<void> loadUser() async {
     try {
       final userId = await _storage.read(key: 'userId');
@@ -21,42 +30,20 @@ class SettingsPresenter {
         return;
       }
       final success = await _userCubit.getUserInfo(userId);
-      if (!success) {
-        _view.onLoadError();
-      }
-    } catch (_) {
+      if (!success) _view.onLoadError();
+    } catch (e) {
+      AppLogger.warn('perfil', 'no se pudo cargar el perfil: $e');
       _view.onLoadError();
     }
   }
 
-  /// Update display name on remote + refresh cubit.
-  Future<void> updateName(String newName) async {
-    // TODO(backend): Wire to _remoteRepository.updateUser() when endpoint exists.
-    // For now, optimistically update the cubit state with the new name.
-    _view.onNameUpdated(newName);
-  }
-
-  /// Log out: clear secure storage, reset user state and return to the app.
+  /// Cierra sesión: borra la sesión del móvil (los guardados se quedan) y
+  /// vuelve al Perfil sin sesión.
   Future<void> logOut() async {
     await _storage.delete(key: 'userId');
     await _storage.delete(key: 'accessToken');
     await _storage.delete(key: 'refreshToken');
-    Analytics.I.reset();
-    _userCubit.reset();
-    _view.onLoggedOut();
-  }
-
-  /// Delete account: call API then clear storage.
-  Future<void> deleteAccount() async {
-    try {
-      final userId = await _storage.read(key: 'userId');
-      if (userId != null && userId.isNotEmpty) {
-        await _remoteRepository.deleteUser(userId);
-      }
-    } catch (_) {
-      // Best-effort: proceed even if API fails
-    }
-    await _storage.deleteAll();
+    await _session.clear();
     Analytics.I.reset();
     _userCubit.reset();
     _view.onLoggedOut();
@@ -67,5 +54,4 @@ abstract class SettingsView {
   void onUserNotLoggedIn();
   void onLoadError();
   void onLoggedOut();
-  void onNameUpdated(String name);
 }

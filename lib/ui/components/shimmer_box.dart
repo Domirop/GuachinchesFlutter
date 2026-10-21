@@ -35,7 +35,21 @@ class _ShimmerBoxState extends State<ShimmerBox>
     _controller = AnimationController(
       duration: const Duration(milliseconds: 1400),
       vsync: this,
-    )..repeat();
+    );
+  }
+
+  /// Con «reducir movimiento» el bloque queda quieto (relleno plano).
+  bool _reduced = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _reduced = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+    if (_reduced) {
+      _controller.stop();
+    } else if (!_controller.isAnimating) {
+      _controller.repeat();
+    }
   }
 
   @override
@@ -49,6 +63,16 @@ class _ShimmerBoxState extends State<ShimmerBox>
     final base = context.brand.textPrimary;
     final baseColor = base.withValues(alpha: 0.06);
     final highlight = base.withValues(alpha: 0.16);
+    if (_reduced) {
+      return Container(
+        width: widget.width,
+        height: widget.height,
+        decoration: BoxDecoration(
+          color: base.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(widget.radius),
+        ),
+      );
+    }
 
     // RepaintBoundary: el barrido del shimmer corre en bucle; en una skeleton
     // con muchos bloques, aislar cada uno evita repintados en cascada.

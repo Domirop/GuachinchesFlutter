@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:guachinches/core/logging/app_logger.dart';
 import 'location_state.dart';
 
 class LocationCubit extends Cubit<LocationState> {
@@ -80,6 +81,38 @@ class LocationCubit extends Cubit<LocationState> {
     }
   }
 
+  /// Refleja en el cubit el permiso ACTUAL sin mostrar nunca el modal del
+  /// sistema: Loaded (si hay permiso), Denied / PermanentlyDenied /
+  /// ServiceDisabled. La home nueva pide el permiso con Geolocator al
+  /// arrancar; esto solo sincroniza el estado para que el aviso «Ubicación
+  /// desactivada» y las distancias de las tarjetas sepan a qué atenerse.
+  Future<void> syncPermissionState() async {
+    try {
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        if (state is! LocationServiceDisabled) emit(LocationServiceDisabled());
+        return;
+      }
+      final permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.always ||
+          permission == LocationPermission.whileInUse) {
+        if (state is! LocationLoaded && state is! LocationLoading) {
+          await _fetchAndEmitLocation();
+        }
+        return;
+      }
+      if (permission == LocationPermission.deniedForever) {
+        if (state is! LocationPermanentlyDenied) {
+          emit(LocationPermanentlyDenied());
+        }
+        return;
+      }
+      if (state.runtimeType != LocationDenied) emit(LocationDenied());
+    } catch (e) {
+      AppLogger.warn('location-cubit', 'syncPermissionState: $e');
+    }
+  }
+
   /// Llamado al resume de la app. Nunca muestra modal del sistema. Si el
   /// usuario activó el permiso en Ajustes y volvió, recogemos el cambio.
   Future<void> checkLocationSilently() async {
@@ -103,20 +136,27 @@ class LocationCubit extends Cubit<LocationState> {
             ? LocationPermanentlyDenied()
             : LocationDenied());
       }
-    } catch (_) {}
+    } catch (e) {
+      AppLogger.warn('location-cubit', 'checkLocationSilently: $e');
+    }
   }
 
   Future<void> _fetchAndEmitLocation() async {
     emit(LocationLoading());
 
+    // Los límites van en `timeLimit` (y no en `Future.timeout`): al vencer,
+    // geolocator cancela la petición nativa. Con `.timeout` el futuro fallaba
+    // pero el GPS seguía buscando (y en interiores podía no parar nunca, una
+    // petición más en cada vuelta a primer plano).
     // ── Attempt 1: getCurrentPosition ─────────────────────────────────────
     Position? position;
     try {
       position = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
           accuracy: LocationAccuracy.medium,
+          timeLimit: Duration(seconds: 15),
         ),
-      ).timeout(const Duration(seconds: 15));
+      );
     } catch (_) {
       position = null;
     }
@@ -127,8 +167,9 @@ class LocationCubit extends Cubit<LocationState> {
         position = await Geolocator.getPositionStream(
           locationSettings: const LocationSettings(
             accuracy: LocationAccuracy.medium,
+            timeLimit: Duration(seconds: 20),
           ),
-        ).first.timeout(const Duration(seconds: 20));
+        ).first;
       } catch (_) {
         emit(LocationUnavailable());
         return;

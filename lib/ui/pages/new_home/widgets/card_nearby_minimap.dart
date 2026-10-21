@@ -1,12 +1,16 @@
-import 'package:cached_network_image/cached_network_image.dart';
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
-import 'package:guachinches/config/app_colors.dart';
-import 'package:guachinches/config/brand_colors.dart';
-import 'package:guachinches/config/app_text_styles.dart';
+import 'package:guachinches/ui/pages/new_home/widgets/gm_place_card.dart';
+import 'package:guachinches/ui/theme/gm_icons.dart';
+import 'package:guachinches/ui/theme/gm_tokens.dart';
+import 'package:guachinches/ui/theme/gm_widgets.dart';
 import 'package:guachinches/utils/distance_utils.dart';
 
-/// Card "Cerca de ti" — foto del restaurante con pill de distancia.
-class CardNearbyMinimap extends StatefulWidget {
+/// Tarjeta «Cerca de ti» (rediseño iOS 27): tarjeta de sitio de 240 de ancho,
+/// foto de 150 con la distancia en cristal y el corazón, nombre 16/21 y
+/// municipio + valoración (14/19).
+class CardNearbyMinimap extends StatelessWidget {
   final NearbyRestaurant nearby;
   final VoidCallback onTap;
 
@@ -16,177 +20,59 @@ class CardNearbyMinimap extends StatefulWidget {
     required this.onTap,
   });
 
-  @override
-  State<CardNearbyMinimap> createState() => _CardNearbyMinimapState();
-}
+  static const double width = 240;
 
-class _CardNearbyMinimapState extends State<CardNearbyMinimap> {
-  bool _pressed = false;
+  /// Alto total: 6 + foto 150 + 10 + nombre 16/21 + 2 + fila meta (14/19 o
+  /// la valoración 14 · 18/13, la más alta) + 6 + 6, con el texto escalado
+  /// por el tamaño de texto del sistema (el carrusel lo limita a 1,3×).
+  static double heightFor(BuildContext context) {
+    final t = MediaQuery.textScalerOf(context);
+    final meta =
+        math.max(gmScaledLine(t, 14, 19), gmScaledLine(t, 14, 14 * 18 / 13));
+    return 6 + 150 + 10 + gmScaledLine(t, 16, 21) + 2 + meta + 6 + 6 + 1;
+  }
 
-  Widget _buildPhoto(BuildContext context, String? url) {
-    if (url != null && url.isNotEmpty) {
-      return CachedNetworkImage(
-        imageUrl: url,
-        fit: BoxFit.cover,
-        memCacheWidth: 440,
-        placeholder: (_, __) => Container(color: context.brand.surface),
-        errorWidget: (_, __, ___) => Container(color: context.brand.surface),
-      );
-    }
-    return Container(color: context.brand.surface);
+  /// «1834,2 km» no ayuda: por encima de 200 km se oculta el chip.
+  static bool _sensible(String label) {
+    final l = label.trim();
+    if (!l.endsWith('km')) return true;
+    final v = double.tryParse(
+        l.replaceAll('km', '').replaceAll('.', '').replaceAll(',', '.').trim());
+    return v == null || v * 1000 <= kGmMaxDistanceMeters;
   }
 
   @override
   Widget build(BuildContext context) {
-    final r = widget.nearby.restaurant;
-    final dist = widget.nearby.distanceLabel;
-
-    return GestureDetector(
-      onTapDown: (_) => setState(() => _pressed = true),
-      onTapUp: (_) => setState(() => _pressed = false),
-      onTapCancel: () => setState(() => _pressed = false),
-      onTap: widget.onTap,
-      child: AnimatedScale(
-        scale: _pressed ? 0.97 : 1.0,
-        duration: const Duration(milliseconds: 120),
-        child: Container(
-          // Métricas estándar de card del home (igual que CardHorizontal):
-          // la fila "Cerca de ti" no debe verse más pequeña que sus vecinas.
-          width: 220,
-          height: 200,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.10),
-                blurRadius: 14,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(16),
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                // Foto del restaurante
-                _buildPhoto(context, r.mainFoto),
-                // Vignette superior (mejora contraste de la pill)
-                Positioned(
-                  top: 0, left: 0, right: 0, height: 60,
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Colors.black.withOpacity(0.28),
-                          Colors.transparent,
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                // Degradado inferior — más largo y suave
-                Positioned(
-                  bottom: 0, left: 0, right: 0, height: 110,
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        stops: const [0.0, 0.5, 1.0],
-                        colors: [
-                          Colors.transparent,
-                          context.brand.surface.withOpacity(0.90),
-                          context.brand.surface,
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                // Pill distancia
-                Positioned(
-                  top: 10, right: 10,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.55),
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.location_on_rounded,
-                            size: 10, color: AppColors.atlanticoClaro),
-                        const SizedBox(width: 3),
-                        Text(
-                          dist,
-                          style: AppTextStyles.ui(
-                            size: 10,
-                            weight: FontWeight.w700,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                // Info inferior
-                Positioned(
-                  bottom: 0, left: 0, right: 0,
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          r.nombre.toUpperCase(),
-                          // Título de card unificado del home (displaySection 16).
-                          style: AppTextStyles.displaySection(size: 16)
-                              .copyWith(height: 1.15, letterSpacing: 0.3),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 5),
-                        Row(
-                          children: [
-                            Flexible(
-                              child: Text(
-                                r.municipio,
-                                style: AppTextStyles.muted(size: 12),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            if (r.avgRating > 0) ...[
-                              const SizedBox(width: 6),
-                              const Icon(Icons.star_rounded,
-                                  size: 12, color: AppColors.sol),
-                              const SizedBox(width: 2),
-                              Text(
-                                r.avgRating.toStringAsFixed(1),
-                                style: AppTextStyles.ui(
-                                  size: 11,
-                                  weight: FontWeight.w700,
-                                  color: AppColors.sol,
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
+    final gm = GmColors.of(context);
+    final r = nearby.restaurant;
+    final dist = nearby.distanceLabel;
+    return SizedBox(
+      width: width,
+      child: GmPlaceCard(
+        restaurant: r,
+        onTap: onTap,
+        photoHeight: 150,
+        twoLineTitle: false,
+        textPadding: const EdgeInsets.fromLTRB(8, 10, 8, 6),
+        metaGap: 2,
+        chip: _sensible(dist)
+            ? GmPhotoChip(
+                leading: GmIcon(GmIcons.navArrow,
+                    size: 10, color: GmColors.atlantico),
+                label: dist,
+              )
+            : null,
+        meta: GmMetaRow(
+          fontSize: 14,
+          rating: r.avgRating,
+          leading: Text(
+            gmPlaceName(r.municipio),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: GmText.sub(color: gm.label2),
           ),
         ),
       ),
     );
   }
 }
-
