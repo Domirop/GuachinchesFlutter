@@ -1,0 +1,63 @@
+{
+  "backend": {
+    "success": true,
+    "numTotalTests": 145,
+    "numPassedTests": 145,
+    "numFailedTests": 0,
+    "numPendingTests": 0
+  },
+  "postgres": {
+    "success": true,
+    "numTotalTests": 13,
+    "numPassedTests": 13,
+    "numFailedTests": 0,
+    "numPendingTests": 0
+  },
+  "flutter": {
+    "passed": true,
+    "testCount": 48,
+    "tail": [
+      "00:00 +40: /Users/alejandrocruz/StudioProjects/GuachinchesFlutter/test/survey_v3/device_identity_service_test.dart: DeviceIdentityService cada petici\u00f3n lleva un token de App Check nuevo; la identidad se lee una vez",
+      "00:00 +41: /Users/alejandrocruz/StudioProjects/GuachinchesFlutter/test/survey_v3/device_identity_service_test.dart: DeviceIdentityService dos votos en la misma categor\u00eda \u2192 ArgumentError (no se pide token)",
+      "00:00 +42: /Users/alejandrocruz/StudioProjects/GuachinchesFlutter/test/survey_v3/device_identity_service_test.dart: DeviceIdentityService token falso para el backend en modo fake: fake-appcheck.<appId>.<\u00fanico>~<iat>",
+      "00:00 +43: /Users/alejandrocruz/StudioProjects/GuachinchesFlutter/test/survey_v3/device_identity_service_test.dart: SurveyPinning ra\u00edces fijadas: ISRG Root X1 y X2 (huellas SHA-256 del DER)",
+      "00:00 +44: /Users/alejandrocruz/StudioProjects/GuachinchesFlutter/test/survey_v3/device_identity_service_test.dart: SurveyPinning solo se desactiva en debug contra un backend local (o fake)",
+      "00:00 +45: /Users/alejandrocruz/StudioProjects/GuachinchesFlutter/test/survey_v3/device_identity_service_test.dart: FirebaseAppCheckTokenSource.classify errores nativos de App Check \u2192 error tipado",
+      "00:00 +46: /Users/alejandrocruz/StudioProjects/GuachinchesFlutter/test/survey_v3/device_identity_service_test.dart: compareAppVersions (splash y minAppVersion) compara num\u00e9ricamente y por componentes",
+      "00:00 +47: /Users/alejandrocruz/StudioProjects/GuachinchesFlutter/test/survey_v3/device_identity_service_test.dart: compareAppVersions (splash y minAppVersion) minAppVersion usa la versi\u00f3n instalada, no GET_IOS_VERSION",
+      "00:00 +48: All tests passed!"
+    ]
+  },
+  "ios": {
+    "passed": true,
+    "testCount": 1,
+    "tail": [
+      "Running Xcode build...                                          ",
+      "Xcode build done.                                           174,3s",
+      "00:00 +0: native identity and HTTP vote survive a client recreation",
+      "[i][survey-v3] GET editions/current \u2192 200",
+      "[i][survey-v3] POST editions/:id/votes \u2192 201",
+      "[!][survey-v3] POST editions/:id/votes \u2192 409 already_voted_this_business",
+      "[i][survey-v3] POST editions/:id/my-votes \u2192 200",
+      "00:00 +1: (tearDownAll)",
+      "00:01 +1: All tests passed!"
+    ],
+    "device": "iPhone 16e, iOS 26.2 simulator"
+  },
+  "android": {
+    "passed": true,
+    "testCount": 1,
+    "tail": [
+      "\u2713 Built build/app/outputs/flutter-apk/app-debug.apk",
+      "Installing build/app/outputs/flutter-apk/app-debug.apk...        2.248ms",
+      "00:00 +0: native identity and HTTP vote survive a client recreation",
+      "[i][survey-v3] GET editions/current \u2192 200",
+      "[i][survey-v3] POST editions/:id/votes \u2192 201",
+      "[!][survey-v3] POST editions/:id/votes \u2192 409 already_voted_this_business",
+      "[i][survey-v3] POST editions/:id/my-votes \u2192 200",
+      "00:01 +1: (tearDownAll)",
+      "00:02 +1: All tests passed!"
+    ],
+    "device": "Pixel 3a API 31 arm64 emulator"
+  }
+}

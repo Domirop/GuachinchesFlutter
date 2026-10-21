@@ -346,6 +346,39 @@ void main() {
       expect(p.state.stage, SurveyVoteStage.sent);
     });
 
+    test('500 después de guardar + 409 exacto se reconcilia como éxito', () async {
+      final p = await ready();
+      repo.voteSteps
+        ..add(() => apiError(500, 'http_500'))
+        ..add(() => apiError(409, 'already_voted_this_business', details: {
+              'conflicts': [
+                {'category': kMod, 'value': 'r-m1'},
+                {'category': kTrad, 'value': 'r-t1'},
+              ]
+            }));
+      await p.submit();
+      expect(p.state.failure, isA<SurveyServerFailure>());
+      await p.retry();
+      expect(p.state.stage, SurveyVoteStage.sent);
+      expect(repo.votes.map((v) => v.token).toSet(), hasLength(2));
+    });
+
+    test('500 + conflicto parcial no anuncia éxito de toda la papeleta', () async {
+      final p = await ready();
+      repo.voteSteps
+        ..add(() => apiError(500, 'http_500'))
+        ..add(() => apiError(409, 'already_voted_this_business', details: {
+              'conflicts': [
+                {'category': kTrad, 'value': 'r-t1'},
+              ]
+            }));
+      await p.submit();
+      await p.retry();
+      expect(p.state.stage, SurveyVoteStage.ready);
+      expect(p.state.failure, isA<SurveyAlreadyVoted>());
+      expect(p.state.selection, {kMod: 'r-m1'});
+    });
+
     test('sin elegir y demasiado rápido: no se pide token', () async {
       final p = build();
       await p.load();

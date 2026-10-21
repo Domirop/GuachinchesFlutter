@@ -1,0 +1,37 @@
+{
+  "generatedAt": "2026-10-20T16:31:34.509Z",
+  "backend": "/private/tmp/gm-survey-hardening",
+  "environment": {
+    "database": "isolated localhost:55449/gm_survey_audit",
+    "node": "v23.4.0",
+    "appCheck": "FAKE verifier; no Apple/Google attestation or quotas tested",
+    "poolMax": 5,
+    "verifierDelayMsForLoad": 25
+  },
+  "checks": [],
+  "load": [
+    {
+      "n": 10000,
+      "concurrency": 20,
+      "statuses": {
+        "201": 10000
+      },
+      "seconds": 15.41,
+      "p95Ms": 33.1,
+      "maxMs": 98
+    },
+    {
+      "n": 600,
+      "concurrency": 200,
+      "statuses": {
+        "201": 600,
+        "503": 1746
+      },
+      "seconds": 40.44,
+      "p95Ms": 1205.5,
+      "maxMs": 1430.5
+    }
+  ],
+  "persisted": 10600,
+  "duplicates": 0
+}

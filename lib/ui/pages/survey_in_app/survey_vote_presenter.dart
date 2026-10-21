@@ -195,7 +195,10 @@ class SurveyVotePresenter extends ChangeNotifier {
       if (e is SurveyApiException && e.code == 'already_voted_this_business') {
         return _onConflict(edition, votes, e.conflicts);
       }
-      if (e is SurveyNetworkException && e.maybeDelivered) {
+      if ((e is SurveyNetworkException && e.maybeDelivered) ||
+          (e is SurveyApiException && e.status >= 500 && e.status <= 599)) {
+        // A proxy/server failure may occur after COMMIT. Reconcile a later
+        // exact 409 just as we do after losing the HTTP response.
         _maybeDelivered = votes;
       }
       final (stage, failure) = _map(e);
